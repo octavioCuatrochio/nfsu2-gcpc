@@ -4,9 +4,13 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 ## Port status / next
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
-- Next: FEngine::PushPackage 555860 / UnloadPackage 5362E0, FECodeListBox::ScrollSelection 52BD70 (+ 518F20 axis helper, CheckMovement/MakeMove: big),
-  FECodeListBox::Update 504DC0;
-  FEObject subclass copy ctors/Clones; more bWare math (43D400.. after the bounding boxes); SlotPool::CleanupExpandedSlotPools (PC?), bPList ops (GC bPList.c), Camera helpers 441070.. (ApplyNoise 441340, FovRelativeAngle 4412E0).
+- TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:
+  1. FEng core (~730 funcs in FE*/cFEng/FEngine classes, ~110 done): FEngine rest (PushPackage 555860,
+     UnloadPackage 5362E0, update/render), cFEng (47), FEPackageManager (19), FEPackageReader/FEPackageData
+     (.fng loading), FEListBox rest, FECodeListBox (24, incl. ScrollSelection 52BD70/518F20), widgets
+     (FEWidget family ~110), input (FEJoyPad/FEMouse), FERenderObject/FEngFont (render glue: bridge D3D).
+  2. Screens/state (zFe.cpp + game classes in zFe2: PlayerCareerState, CarCustomizeManager, RaceStarter...).
+  Query: SELECT namespace,count(*) FROM gc_functions WHERE src_file IN ('zFe2.cpp','zFe.cpp') GROUP BY 1.
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
 - bStrToFloat (43DEF0) returns unrounded x87 ST0 (port: long double); a nonzero fraction is rounded to float and
   bumped by +1 ulp before being added (PC quirk). Referee can switch precision with _controlfp(_PC_24/_PC_53).

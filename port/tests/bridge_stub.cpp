@@ -102,6 +102,11 @@ SlotPool **BPNodeSlotPool() { static SlotPool *p; return &p; }
 int32_t *BPListWantToClose() { static int32_t w; return &w; }
 void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE
+uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }
+#else
+uint16_t BaselineFovNoise() { return 0x3000; }
+#endif
+#ifdef NFSU2_REFEREE
 uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }
 #else
 uint32_t *BRandomSeed() { static uint32_t seed = 0x12345678; return &seed; }

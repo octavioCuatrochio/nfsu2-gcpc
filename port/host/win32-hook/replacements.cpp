@@ -22,6 +22,7 @@
 #include "bWare/bMath.h"
 #include "bWare/bSlotPool.h"
 #include "camera/CameraNoise.h"
+#include "camera/Camera.h"
 #include "frontend/FEString.h"
 #include <new>
 #include "frontend/FEWideString.h"
@@ -137,6 +138,7 @@ long double __cdecl bSin_Hook(uint32_t angle) { return bSin(static_cast<uint16_t
 long double __cdecl bCos_Hook(uint32_t angle) { return bCos(static_cast<uint16_t>(angle)); }
 long double __cdecl NoiseInterpolated_Hook(float x) { return NoiseInterpolated(x); }
 long double __cdecl Noise_Hook(float x) { return Noise(x); }
+uint32_t THISCALL Camera_FovRelativeAngle(const Camera *self, uint32_t a) { return self->FovRelativeAngle(static_cast<uint16_t>(a)); }
 long double __cdecl bTan_Hook(uint32_t angle) { return bTan(static_cast<uint16_t>(angle)); }
 long double __cdecl bLength_Hook(const bVector3 *v) { return bLength(v); }
 uint16_t __cdecl bFastATan_Hook(float x, float y) { return bFastATan(x, y); }
@@ -402,6 +404,7 @@ const Replacement kReplacements[] = {
     {0x43C6F0, (const void *)&bFixATan2_Hook, "bFixATan(int, int)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x57}},
     {0x440F50, (const void *)&bTan_Hook, "bTan (PC-only)", {0x51, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
     {0x440F70, (const void *)&bLength_Hook, "bLength(bVector3) (PC-only)", {0x8B, 0x44, 0x24, 0x04, 0xD9, 0x40}},
+    {0x4412E0, (const void *)&Camera_FovRelativeAngle, "Camera::FovRelativeAngle", {0x51, 0x33, 0xC0, 0x66, 0x8B, 0x81}},
     {0x4411B0, (const void *)&NoiseInterpolated_Hook, "NoiseInterpolated", {0x51, 0xD9, 0x44, 0x24, 0x08, 0xE8}},
     {0x441270, (const void *)&Noise_Hook, "Noise", {0x83, 0xEC, 0x0C, 0x56, 0xC7, 0x44}},
     {0x43C370, (const void *)&bCos_Hook, "bCos", {0x8B, 0x44, 0x24, 0x04, 0x05, 0x00}},

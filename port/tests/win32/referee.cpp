@@ -30,6 +30,7 @@
 #include "frontend/FEListBox.h"
 #include "bWare/bSlotPool.h"
 #include "camera/CameraNoise.h"
+#include "camera/Camera.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include <float.h>
@@ -994,6 +995,13 @@ static void CheckNoise(int iters)
                                 : static_cast<float>(static_cast<int32_t>(rng() % 200) - 100);
             long double a = oNI(x), b = NoiseInterpolated(x);
             EXPECT(std::memcmp(&a, &b, 10) == 0, "NoiseInterpolated(%.9g) pc=%x", double(x), pc);
+            {
+                auto oFov = ORIG<uint32_t(THISCALL *)(const Camera *, uint32_t)>(0x4412E0);
+                alignas(4) static Camera cam;
+                cam.mu16Fov = static_cast<uint16_t>(rng());
+                uint32_t ang = rng();
+                EXPECT((oFov(&cam, ang) & 0xFFFF) == cam.FovRelativeAngle(static_cast<uint16_t>(ang)), "FovRelativeAngle fov=%04X a=%04X", cam.mu16Fov, ang & 0xFFFF);
+            }
             if (i % 4 == 0) { a = oN(x); b = Noise(x); EXPECT(std::memcmp(&a, &b, 10) == 0, "Noise(%.9g) pc=%x", double(x), pc); }
         }
     }
