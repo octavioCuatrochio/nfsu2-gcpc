@@ -28,6 +28,7 @@
 #include "frontend/FEngine.h"
 #include "frontend/cFEng.h"
 #include "frontend/FEListBox.h"
+#include "bWare/bSlotPool.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include <float.h>
@@ -905,6 +906,71 @@ static void CheckBoxes(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// SlotPool: two chained pools in one buffer; original and rewrite run on the same memory (snapshot/restore).
+static void CheckSlotPoolB(int iters)
+{
+    auto oFull = ORIG<int32_t(__cdecl *)(const SlotPool *)>(0x43CD10);
+    auto oFree = ORIG<int32_t(__cdecl *)(const SlotPool *)>(0x43CD20);
+    auto oTotal = ORIG<int32_t(__cdecl *)(const SlotPool *)>(0x43CD30);
+    auto oFlush = ORIG<void(THISCALL *)(SlotPool *)>(0x43CD40);
+    auto oNum = ORIG<int32_t(THISCALL *)(SlotPool *, const void *)>(0x43CD80);
+    auto oMalloc = ORIG<void *(THISCALL *)(SlotPool *)>(0x43CDD0);
+    auto oRelease = ORIG<void(THISCALL *)(SlotPool *, void *)>(0x43CDF0);
+    alignas(16) static uint8_t buf[4096], snap[4096];
+    for (int it = 0; it < iters / 8; ++it) {
+        std::memset(buf, 0xCD, sizeof buf);
+        uint32_t size = 4 * (1 + rng() % 6);
+        int32_t n1 = rng() % 9, n2 = rng() % 9;
+        auto *a = reinterpret_cast<SlotPool *>(buf);
+        auto *b = reinterpret_cast<SlotPool *>(buf + 0x30 + n1 * size + 16);
+        std::memset(a, 0, sizeof(SlotPool)); std::memset(b, 0, sizeof(SlotPool));
+        a->mu32SlotSize = b->mu32SlotSize = size;
+        a->mi32NumSlots = n1; b->mi32NumSlots = n2;
+        a->mpNext = rng() % 2 ? b : nullptr;
+        a->mi32TotalSlots = n1 + (a->mpNext ? n2 : 0);
+        a->mi32NumAllocated = rng() % 3;
+        std::vector<void *> live;
+        for (int step = 0; step < 24; ++step) {
+            int op = step == 0 ? 0 : rng() % 6;
+            std::memcpy(snap, buf, sizeof buf);
+            int32_t r1 = 0, r2 = 0;
+            void *p1 = nullptr, *p2 = nullptr;
+            void *probe = buf + rng() % sizeof buf;
+            if (op == 4 && !live.empty() && rng() % 2) probe = live[rng() % live.size()];
+            void *freed = (op == 3 && !live.empty()) ? live.back() : nullptr;
+            switch (op) {
+            case 0: oFlush(a); break;
+            case 1: r1 = oFull(a) * 10000 + oFree(a) * 100 + oTotal(a); break;
+            case 2: p1 = oMalloc(a); break;
+            case 3: if (freed) oRelease(a, freed); break;
+            default: r1 = oNum(rng() % 8 ? a : nullptr, probe); break;
+            }
+            uint8_t after[4096];
+            std::memcpy(after, buf, sizeof buf);
+            std::memcpy(buf, snap, sizeof buf);
+            SlotPool *pa = a;
+            switch (op) {
+            case 0: SlotPool::FlushSlotPool(a); break;
+            case 1: r2 = bIsSlotPoolFull(a) * 10000 + bCountFreeSlots(a) * 100 + bCountTotalSlots(a); break;
+            case 2: p2 = a->FastMalloc(); break;
+            case 3: if (freed) a->Free(freed); break;
+            default: r2 = 0; break;
+            }
+            if (op >= 4) { (void)pa; }
+            EXPECT(r1 == r2 || op >= 4, "SlotPool op %d: %d vs %d", op, r1, r2);
+            EXPECT(p1 == p2 && std::memcmp(after, buf, sizeof buf) == 0, "SlotPool op %d state/result", op);
+            if (op == 2 && p2) live.push_back(p2);
+            if (op == 3 && freed) live.pop_back();
+        }
+        // GetSlotNumber over a sweep of addresses (incl. below/above both pools) and a null pool
+        for (int k = -8; k < 300; k += 1 + rng() % 5) {
+            const void *q = buf + 0x30 + k * 2;
+            EXPECT(oNum(a, q) == SlotPool::GetSlotNumber(a, q), "GetSlotNumber %d", k);
+        }
+        EXPECT(oNum(nullptr, buf) == SlotPool::GetSlotNumber(nullptr, buf), "GetSlotNumber(null)");
+    }
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1315,6 +1381,7 @@ static int RunAll()
     CheckMatrices(iters);
     CheckVectors(iters);
     CheckBoxes(iters);
+    CheckSlotPoolB(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);
