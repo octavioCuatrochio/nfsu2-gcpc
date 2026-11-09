@@ -5,6 +5,7 @@
 #include "FEMinList.h"
 #include "FEMessageResponse.h"
 #include "FEScript.h"
+#include "FEMath.h"
 
 // FEObject flag bits (FEObject::mu32Flags)
 enum : uint32_t {
@@ -39,6 +40,11 @@ struct FEObject {
     FEObject *ScalarDeletingDestructor(uint32_t flags);    // PC 534BB0 (vtable slot 0)
 
     void SetupMoveToTracks();                         // GC 80137EA4 / PC 517720
+    // Sets (add=false) or adds to (add=true) a track's value: in every script's matching track (base key value,
+    // flag bit 7 cleared) and in the object's data. GC 8013825C/801383B0/801384EC, PC 5178D0/5179D0/517AD0.
+    void SetTrackValue(int track, const FEVector3 &v, bool add);
+    void SetTrackValue(int track, const FEVector2 &v, bool add);
+    void SetTrackValue(int track, const FEColor &v, bool add);
     void SetName(const char *name);                   // GC 80137DE8 / PC 5176B0
     FEScript *FindScript(uint32_t id) const;          // GC 80137E70 / PC 5046B0
     FEMessageResponse *FindResponse(uint32_t msg) const;   // GC 80138228 / PC 5046D0

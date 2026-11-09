@@ -1,6 +1,7 @@
 #include "FEScript.h"
 #include "FEHash.h"
 #include "FEPool.h"
+#include "FEObject.h"
 #include "bridge/Bridge.h"
 #include <cstring>
 
@@ -233,4 +234,14 @@ void FEScript::SetTrackCount(uint32_t count)
     auto *tracks = reinterpret_cast<FEKeyTrack *>(raw + 1);
     for (uint32_t i = 0; i < count; ++i) FEKeyTrack::Construct(&tracks[i]);
     mpTracks = tracks;
+}
+
+// PC 504A00. Track index -> data index via the same table as FEObject::GetDataOffset (FETrackOffsets, PC 0x7992F4,
+// in dwords). The original reads the table without a bounds check; valid indices are 0..10.
+FEKeyTrack *FEScript::FindTrack(int track) const
+{
+    int want = static_cast<int>(FEObject::GetDataOffset(track) / 4);
+    for (uint32_t i = 0; i < mu32NumTracks; ++i)
+        if (mpTracks[i].mi8DataIndex == want) return &mpTracks[i];
+    return nullptr;
 }

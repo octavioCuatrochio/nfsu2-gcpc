@@ -5,6 +5,7 @@
 #include "FEPool.h"
 #include "FEMath.h"
 #include <cstring>
+#include <type_traits>
 
 // Exactly the fields both originals set; type (+0x18), +0x22 and the current script (+0x54) are left as they were.
 FEObject *FEObject::Construct(void *mem)
@@ -85,6 +86,36 @@ uint32_t FEObject::GetDataOffset(int track)
     static const uint32_t kOffsets[] = {0x0, 0x10, 0x1C, 0x28, 0x38, 0x44, 0x4C, 0x54, 0x64, 0x74, 0x84};
     return (track >= 0 && track <= 10) ? kOffsets[track] : 0;
 }
+
+namespace {
+// Shared body of the three SetTrackValue overloads. N = value size in dwords; ints add with wraparound.
+template <int N, typename Elem, typename T>
+void SetTrackValueImpl(FEObject &o, int track, const T &v, bool add)
+{
+    const Elem *src = reinterpret_cast<const Elem *>(&v);
+    auto apply = [&](void *dst) {
+        Elem e[N];
+        std::memcpy(e, dst, sizeof e);
+        for (int i = 0; i < N; ++i) {
+            if (!add) e[i] = src[i];
+            else if constexpr (std::is_floating_point_v<Elem>) e[i] = src[i] + e[i];
+            else e[i] = static_cast<Elem>(static_cast<uint32_t>(e[i]) + static_cast<uint32_t>(src[i]));
+        }
+        std::memcpy(dst, e, sizeof e);
+    };
+    for (FEMinNode *n = o.mScripts.head; n; n = n->next) {
+        FEKeyTrack *t = reinterpret_cast<FEScript *>(n)->FindTrack(track);
+        if (!t) continue;
+        apply(&t->mBaseKey._data[1]);
+        t->mu8Flags &= 0x7F;
+    }
+    apply(static_cast<uint8_t *>(o.mpData) + FEObject::GetDataOffset(track));
+}
+}  // namespace
+
+void FEObject::SetTrackValue(int track, const FEVector3 &v, bool add) { SetTrackValueImpl<3, float>(*this, track, v, add); }
+void FEObject::SetTrackValue(int track, const FEVector2 &v, bool add) { SetTrackValueImpl<2, float>(*this, track, v, add); }
+void FEObject::SetTrackValue(int track, const FEColor &v, bool add) { SetTrackValueImpl<4, int32_t>(*this, track, v, add); }
 
 
 namespace {

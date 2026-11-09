@@ -497,6 +497,53 @@ static void TestMoveToTracks()
     CHECK(teststub::liveAllocations == liveBefore);
 }
 
+// FindTrack + SetTrackValue: every script's matching track gets the value (base key) and loses flag bit 7, the
+// object's data at GetDataOffset gets it too; add=true accumulates (floats; colors as wrapping ints).
+static void TestSetTrackValue()
+{
+    int liveBefore = teststub::liveAllocations;
+    alignas(8) unsigned char mem[sizeof(FEObject)];
+    FEObject *o = FEObject::Construct(mem);
+    float data[40] = {};
+    o->mpData = data;
+    FEScript sc[2];
+    for (int k = 0; k < 2; ++k) {
+        FEScript::Construct(&sc[k]);
+        sc[k].SetTrackCount(2);
+        sc[k].mpTracks[0].mi8DataIndex = 7;      // track 2 (position: dword 7)
+        sc[k].mpTracks[1].mi8DataIndex = 0;      // track 0 (color: dword 0)
+        sc[k].mpTracks[0].mu8Flags = sc[k].mpTracks[1].mu8Flags = 0xFF;
+        o->mScripts.AddTail(&sc[k].node);
+    }
+    sc[1].mpTracks[0].mi8DataIndex = 25;         // script 1: no position track
+    CHECK(sc[0].FindTrack(2) == &sc[0].mpTracks[0] && sc[0].FindTrack(0) == &sc[0].mpTracks[1]);
+    CHECK(sc[1].FindTrack(2) == nullptr && sc[0].FindTrack(5) == nullptr);
+
+    o->SetTrackValue(2, FEVector3{1.f, 2.f, 3.f}, false);
+    o->SetTrackValue(2, FEVector3{0.5f, 0.5f, 0.5f}, true);
+    float b[3];
+    std::memcpy(b, &sc[0].mpTracks[0].mBaseKey._data[1], sizeof b);
+    CHECK(b[0] == 1.5f && b[1] == 2.5f && b[2] == 3.5f && sc[0].mpTracks[0].mu8Flags == 0x7F);
+    CHECK(data[7] == 1.5f && data[8] == 2.5f && data[9] == 3.5f);
+    CHECK(sc[1].mpTracks[0].mu8Flags == 0xFF);   // not matched: untouched
+
+    o->SetTrackValue(4, FEVector2{2.f, 4.f}, false);   // size: dword 14, no tracks
+    CHECK(data[14] == 2.f && data[15] == 4.f && data[16] == 0.f);
+
+    o->SetTrackValue(0, FEColor{{10, 20, 30, 40}}, false);
+    o->SetTrackValue(0, FEColor{{-20, 1, 1, 0x7FFFFFFF}}, true);
+    int32_t c[4];
+    std::memcpy(c, data, sizeof c);
+    CHECK(c[0] == -10 && c[1] == 21 && c[2] == 31 && c[3] == static_cast<int32_t>(0x80000027u));
+    CHECK(static_cast<int32_t>(sc[1].mpTracks[1].mBaseKey._data[1]) == -10 && sc[1].mpTracks[1].mu8Flags == 0x7F);
+
+    for (auto &x : sc) x.Destruct();
+    o->mScripts = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+    o->mpData = nullptr;
+    o->Destruct();
+    CHECK(teststub::liveAllocations == liveBefore);
+}
+
 int main()
 {
     TestCrc();
@@ -516,6 +563,7 @@ int main()
     TestScriptCopy();
     TestFEObjectCopy();
     TestMoveToTracks();
+    TestSetTrackValue();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

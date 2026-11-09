@@ -179,8 +179,9 @@ VALUES (0x8014297C,0x535FE0,'hooked','port/game/frontend/FEString.cpp','unit+in-
 - Also done: FEKeyNode pool (new/delete 53E650/525BF0, node ctor/scalar dtor, block ctor/dtor 5319C0/531BE0/531BC0).
 - Also done: FEObject copy ctor 554300 + Clone 5545D0 (unit tests only: not reached by any menu path we can drive).
 - Also done: FEObject::SetupMoveToTracks 517720, FERefList::GetHead 4FE890, FEMath (quat multiply 4FE6B0, FEColor sub 505580).
-- Next in the frontend: subclass copy ctors/Clones (FEImage, FEGroup, ...: callers of 554300), FEObject's remaining
-  members, or the key-track interpolation code. `packet.py --class FEObject`.
+- Also done: FEScript::FindTrack 504A00, FEObject::SetTrackValue (vec3/vec2/color: 5178D0/5179D0/517AD0; referee).
+- Next in the frontend: FEObject::SetPosition/SetRotation/SetSize/SetColor wrappers (PC 517C80/517DB0/517E20 are
+  0.7 matches: verify), FEKeyTrack::GetKeyAt/GetDeltaKeyAt, FEKeyInterp, subclass copy ctors/Clones.
 - In-game check timing: race starts ~25 s after launch with SKIP_MOVIES/NIS; screenshot right then (no need to wait).
   (`FEWidget`, `FELabelWidget`, `FEButtonWidget`, ...). `python3 -I tooling/knowledge/packet.py --class FEObject`.
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;`

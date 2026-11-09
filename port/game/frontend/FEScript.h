@@ -65,6 +65,7 @@ struct FEScript {
     void Destruct();                         // GC 8013D1E8 / PC 535170
     FEScript *ScalarDeletingDestructor(uint32_t flags);   // PC 53EE30 (vtable slot 0, pooled delete)
     void SetName(const char *name);          // PC 518730
+    FEKeyTrack *FindTrack(int track) const;  // GC 8013D920 / PC 504A00: first track whose data index matches
     void SetTrackCount(uint32_t count);      // PC 535210: old tracks destroyed, new ones default-constructed
 };
 

@@ -2,6 +2,14 @@
 #pragma once
 #include <cstdint>
 
+struct FEVector2 {
+    float x, y;
+};
+
+struct FEVector3 {
+    float x, y, z;
+};
+
 struct FEQuaternion {
     float x, y, z, w;
 };

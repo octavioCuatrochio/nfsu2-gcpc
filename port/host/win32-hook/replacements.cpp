@@ -108,6 +108,10 @@ FEColor *THISCALL FEColor_Sub(const FEColor *a, FEColor *out, const FEColor *b)
     *out = FEColorSub(*a, *b);
     return out;
 }
+FEKeyTrack *THISCALL FEScript_FindTrack(const FEScript *self, int track) { return self->FindTrack(track); }
+void THISCALL FEObject_SetTrackVec3(FEObject *self, int track, const FEVector3 *v, int add) { self->SetTrackValue(track, *v, (add & 0xFF) != 0); }
+void THISCALL FEObject_SetTrackVec2(FEObject *self, int track, const FEVector2 *v, int add) { self->SetTrackValue(track, *v, (add & 0xFF) != 0); }
+void THISCALL FEObject_SetTrackColor(FEObject *self, int track, const FEColor *v, int add) { self->SetTrackValue(track, *v, (add & 0xFF) != 0); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -208,6 +212,10 @@ const Replacement kReplacements[] = {
     {0x4FE890, (const void *)&FERefList_GetHead, "FERefList::GetHead", {0x8A, 0x41, 0x04, 0x84, 0xC0, 0x74}},
     {0x4FE6B0, (const void *)&FEQuat_Multiply, "FEQuaternion multiply", {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24}},
     {0x505580, (const void *)&FEColor_Sub, "FEColor::operator-", {0x8B, 0x51, 0x08, 0x8B, 0x44, 0x24}},
+    {0x504A00, (const void *)&FEScript_FindTrack, "FEScript::FindTrack", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x51}},
+    {0x5178D0, (const void *)&FEObject_SetTrackVec3, "FEObject::SetTrackValue(FEVector3)", {0x51, 0x53, 0x8B, 0x5C, 0x24, 0x10}},
+    {0x5179D0, (const void *)&FEObject_SetTrackVec2, "FEObject::SetTrackValue(FEVector2)", {0x51, 0x56, 0x8B, 0x74, 0x24, 0x10}},
+    {0x517AD0, (const void *)&FEObject_SetTrackColor, "FEObject::SetTrackValue(FEColor)", {0x51, 0x53, 0x8B, 0x59, 0x4C, 0x85}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

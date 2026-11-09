@@ -271,6 +271,57 @@ static void CheckFEMath(int iters)
     }
 }
 
+// FEScript::FindTrack (PC 504A00) and FEObject::SetTrackValue x3 (PC 5178D0/5179D0/517AD0) on two identical
+// synthetic objects (stack scripts/tracks, no heap): original vs rewrite, compared byte for byte.
+struct TrackWorld {
+    FEObject obj;
+    FEScript scripts[3];
+    FEKeyTrack tracks[3][4];
+    uint32_t data[48];
+};
+static void BuildTrackWorld(TrackWorld &w, uint32_t seed)
+{
+    std::mt19937 r(seed);
+    std::memset(&w, 0, sizeof w);
+    static const int8_t kIdx[] = {0, 4, 7, 10, 14, 17, 19, 21, 25, 29, 33, 5};
+    int ns = r() % 4;
+    for (int k = 0; k < ns; ++k) {
+        FEScript &s = w.scripts[k];
+        s.mu32NumTracks = r() % 5;
+        s.mpTracks = w.tracks[k];
+        for (uint32_t i = 0; i < s.mu32NumTracks; ++i) {
+            w.tracks[k][i].mi8DataIndex = kIdx[r() % 12];
+            w.tracks[k][i].mu8Flags = static_cast<uint8_t>(r());
+            for (auto &d : w.tracks[k][i].mBaseKey._data) d = r() % 1000;
+        }
+        w.obj.mScripts.AddNode(k ? &w.scripts[k - 1].node : nullptr, &s.node);
+    }
+    for (auto &d : w.data) d = r() % 1000;
+    w.obj.mpData = w.data;
+}
+static void CheckSetTrackValue(int iters)
+{
+    auto oFind = ORIG<FEKeyTrack *(THISCALL *)(const FEScript *, int)>(0x504A00);
+    auto o3 = ORIG<void(THISCALL *)(FEObject *, int, const FEVector3 *, int)>(0x5178D0);
+    auto o2 = ORIG<void(THISCALL *)(FEObject *, int, const FEVector2 *, int)>(0x5179D0);
+    auto oc = ORIG<void(THISCALL *)(FEObject *, int, const FEColor *, int)>(0x517AD0);
+    static TrackWorld a, b;
+    for (int it = 0; it < iters / 10; ++it) {
+        uint32_t seed = rng();
+        BuildTrackWorld(a, seed);
+        BuildTrackWorld(b, seed);
+        int track = rng() % 11, kind = rng() % 3, add = rng() & 1;
+        EXPECT((oFind(&a.scripts[0], track) == nullptr ? -1 : oFind(&a.scripts[0], track) - a.tracks[0]) ==
+               (b.scripts[0].FindTrack(track) == nullptr ? -1 : b.scripts[0].FindTrack(track) - b.tracks[0]),
+               "FindTrack(%d)", track);
+        if (kind == 0) { FEVector3 v{float(rng() % 100), 0.5f, -2.f}; o3(&a.obj, track, &v, add); b.obj.SetTrackValue(track, v, add); }
+        if (kind == 1) { FEVector2 v{float(rng() % 100), 0.25f}; o2(&a.obj, track, &v, add); b.obj.SetTrackValue(track, v, add); }
+        if (kind == 2) { FEColor v{{int32_t(rng()), 1, -1, int32_t(rng())}}; oc(&a.obj, track, &v, add); b.obj.SetTrackValue(track, v, add); }
+        bool same = std::memcmp(a.data, b.data, sizeof a.data) == 0 && std::memcmp(a.tracks, b.tracks, sizeof a.tracks) == 0;
+        EXPECT(same, "SetTrackValue kind %d track %d add %d", kind, track, add);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -290,6 +341,7 @@ static int RunAll()
     CheckRefList(iters);
     CheckKeyTrackCtor(iters);
     CheckFEMath(iters);
+    CheckSetTrackValue(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",
