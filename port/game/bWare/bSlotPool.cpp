@@ -160,6 +160,8 @@ SlotPool *bNewSlotPool(int32_t slotSize, int32_t numSlots, const char *name, uin
 
 void bDeleteSlotPool(SlotPool *pool) { bridge::TheSlotPoolManager()->DeleteSlotPool(pool); }
 void *bMalloc(SlotPool *pool) { return pool->Malloc(); }
+void *bOMalloc(SlotPool *pool) { return pool->FastMalloc(); }
+void bFree(SlotPool *pool, void *slot) { pool->Free(slot); }
 
 void bPListInit(int32_t numSlots)
 {

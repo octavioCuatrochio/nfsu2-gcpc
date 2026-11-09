@@ -975,6 +975,15 @@ static void CheckSlotPoolB(int iters)
             if (op == 2 && p2) live.push_back(p2);
             if (op == 3 && freed) live.pop_back();
         }
+        {   // bOMalloc / bFree wrappers on the same state
+            auto oO = ORIG<void *(__cdecl *)(SlotPool *)>(0x43F8F0);
+            auto oF = ORIG<void(__cdecl *)(SlotPool *, void *)>(0x43F920);
+            std::memcpy(snap, buf, sizeof buf);
+            void *x1 = oO(a); if (x1) oF(a, x1); void *y1 = oO(a);
+            uint8_t after[4096]; std::memcpy(after, buf, sizeof buf); std::memcpy(buf, snap, sizeof buf);
+            void *x2 = bOMalloc(a); if (x2) bFree(a, x2); void *y2 = bOMalloc(a);
+            EXPECT(x1 == x2 && y1 == y2 && std::memcmp(after, buf, sizeof buf) == 0, "bOMalloc/bFree");
+        }
         // GetSlotNumber over a sweep of addresses (incl. below/above both pools) and a null pool
         for (int k = -8; k < 300; k += 1 + rng() % 5) {
             const void *q = buf + 0x30 + k * 2;
