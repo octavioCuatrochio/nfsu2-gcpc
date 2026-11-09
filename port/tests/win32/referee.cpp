@@ -28,6 +28,8 @@
 #include "frontend/FEngine.h"
 #include "bWare/bMath.h"
 #include <cmath>
+#include <float.h>
+#include <string>
 #include "bridge_stub.h"
 #define THISCALL __attribute__((thiscall))
 
@@ -119,6 +121,39 @@ static void CheckStrFuncs(int iters)
     }
     EXPECT(ORIG<int(__cdecl *)(const char *)>(0x43DBB0)(nullptr) == bStrLen(nullptr), "bStrLen(null)");
     EXPECT(ORIG<char *(__cdecl *)(const char *, int)>(0x43DDF0)(nullptr, 0) == bStrChr(nullptr, 0), "bStrChr(null)");
+}
+
+// bStrToLong / bStrToFloat: random numeric strings; float results compared as raw 80-bit x87 values under the
+// default (53-bit) and D3D9 (24-bit) precision control.
+static std::string NumSample()
+{
+    static const char kChars[] = "0123456789abcdefABCDEFxX.+-eEg ";
+    std::string s;
+    switch (rng() % 4) {
+    case 0: s = "0x"; break;
+    case 1: s = "-"; break;
+    case 2: s = "+"; break;
+    }
+    int n = rng() % 14;
+    for (int i = 0; i < n; ++i) s.push_back(rng() % 3 ? static_cast<char>('0' + rng() % 10) : kChars[rng() % (sizeof kChars - 1)]);
+    return s;
+}
+static void CheckStrToNumber(int iters)
+{
+    auto oLong = ORIG<int32_t(__cdecl *)(const char *)>(0x43DE50);
+    auto oFloat = ORIG<long double(__cdecl *)(const char *)>(0x43DEF0);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int i = 0; i < iters; ++i) {
+            std::string t = NumSample();
+            if (rng() % 8 == 0) t += "e" + std::to_string(static_cast<int>(rng() % 90) - 45);
+            EXPECT(oLong(t.c_str()) == bStrToLong(t.c_str()), "bStrToLong(\"%s\")", t.c_str());
+            long double x = oFloat(t.c_str()), y = bStrToFloat(t.c_str());
+            EXPECT(std::memcmp(&x, &y, 10) == 0, "bStrToFloat(\"%s\") pc=%x: %.21Lg vs %.21Lg", t.c_str(), pc, x, y);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
 }
 
 static void CheckWideCopies(int iters)
@@ -922,6 +957,7 @@ static int RunAll()
     CheckCrc(iters);
     CheckStringHash(iters);
     CheckStrFuncs(iters);
+    CheckStrToNumber(iters);
     CheckWideCopies(iters);
     CheckMinList(iters);
     CheckFEObject(iters);

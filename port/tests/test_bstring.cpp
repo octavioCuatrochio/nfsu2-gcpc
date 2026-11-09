@@ -2,6 +2,8 @@
 // "hash<TAB>string<TAB>result<TAB>function"; function 43DB50 is bStringHash).
 #include "bWare/bString.h"
 #include "frontend/FEHash.h"
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -39,6 +41,15 @@ static int StrFuncFailures()
     check(bStrChr(t, static_cast<signed char>(0xE9)) == t + 1 && bStrChr(t, 0xE9) == nullptr, "bStrChr signed");
     char up[] = "aZ{\xE9z";
     check(bToUpper(up) == up + 5 && !std::strcmp(up, "AZ{\xE9Z"), "bToUpper");
+    check(bStrToLong("0x1aF") == 0x1AF && bStrToLong("0x") == 0 && bStrToLong("0xFFFFFFFF") == -1 && bStrToLong("0x12g4") == 0x12, "bStrToLong hex");
+    check(bStrToLong("0X10") == 0 && bStrToLong("-0x10") == 0 && bStrToLong("-42z") == -42 && bStrToLong("+7") == 7 && bStrToLong("") == 0, "bStrToLong dec");
+    check(bStrToLong("4294967297") == 1, "bStrToLong wraps");
+    check(bStrToFloat("12") == 12 && bStrToFloat("-3") == -3 && bStrToFloat("") == 0 && bStrToFloat("1.0") == 1, "bStrToFloat integers");
+    float h = static_cast<float>(bStrToFloat("0.5"));
+    uint32_t hb; std::memcpy(&hb, &h, 4);
+    check(hb == 0x3F000001u, "bStrToFloat fraction +1 ulp");
+    check(bStrToFloat("2e3") == 2000 && bStrToFloat("5E-0") == 5 && bStrToFloat("-1e2") == -100, "bStrToFloat exponent");
+    check(std::fabs(static_cast<double>(bStrToFloat("1.25e1")) - 12.5) < 1e-5, "bStrToFloat combined");
     return bad;
 }
 

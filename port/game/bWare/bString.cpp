@@ -1,4 +1,5 @@
 #include "bString.h"
+#include <cstring>
 
 uint32_t bStringHash(const char *str, uint32_t seed)
 {
@@ -104,4 +105,68 @@ char *bToUpper(char *s)
 {
     for (; *s; ++s) *s = static_cast<char>(Up(static_cast<signed char>(*s)));
     return s;
+}
+
+int32_t bStrToLong(const char *s)
+{
+    uint32_t v = 0;
+    if (s[0] == '0' && s[1] == 'x') {
+        for (s += 2; *s; ++s) {
+            signed char c = *S(s);
+            uint32_t d;
+            if (c >= '0' && c <= '9') d = static_cast<uint32_t>(c - '0');
+            else {
+                c = Up(c);
+                if (c < 'A' || c > 'F') break;
+                d = static_cast<uint32_t>(c - 0x37);
+            }
+            v = (v << 4) + d;
+        }
+        return static_cast<int32_t>(v);
+    }
+    bool neg = false;
+    if (*s == '-') { neg = true; ++s; }
+    else if (*s == '+') ++s;
+    for (; *s >= '0' && *s <= '9'; ++s) v = v * 10 + static_cast<uint32_t>(*s - '0');
+    return static_cast<int32_t>(neg ? 0u - v : v);
+}
+
+long double bStrToFloat(const char *s)
+{
+    const long double kTen = 10.0f, kTenth = 0.1f, kOne = 1.0f, kZero = 0.0f;
+    bool neg = false;
+    if (*s == '-') { neg = true; ++s; }
+    else if (*s == '+') ++s;
+    long double acc = kZero;
+    for (; *s >= '0' && *s <= '9'; ++s) acc = acc * kTen + static_cast<long double>(*s - '0');
+    if (*s == '.') {
+        long double frac = kZero, scale = kOne;
+        for (;;) {
+            const char c = *++s;
+            if (c < '0' || c > '9') break;
+            scale = scale * kTenth;
+            frac = frac + static_cast<long double>(c - '0') * scale;
+        }
+        long double add = frac;
+        if (frac != kZero) {
+            float f = static_cast<float>(frac);
+            uint32_t bits;
+            std::memcpy(&bits, &f, 4);
+            ++bits;
+            std::memcpy(&f, &bits, 4);
+            add = f;
+        }
+        acc = acc + add;
+    }
+    if (*s == 'e' || *s == 'E') {
+        const int32_t e = bStrToLong(s + 1);
+        long double m = kOne;
+        if (e > 0) {
+            for (uint32_t n = static_cast<uint32_t>(e); n != 0; --n) m = m * kTen;
+        } else if (e < 0) {
+            for (uint32_t n = 0u - static_cast<uint32_t>(e); n != 0; --n) m = m * kTenth;
+        }
+        acc = acc * m;
+    }
+    return neg ? -acc : acc;
 }

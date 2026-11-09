@@ -4,10 +4,12 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 ## Port status / next
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
-- Next: FEngine::PushPackage 555860 / UnloadPackage 5362E0, bStrToLong 43DE50 / bStrToFloat 43DEF0, cFEng::FindInLevelSortingList 51CCD0, FEListBox::ScrollSelection 516E90 + Update 517230,
+- Next: FEngine::PushPackage 555860 / UnloadPackage 5362E0, cFEng::FindInLevelSortingList 51CCD0, FEListBox::ScrollSelection 516E90 + Update 517230,
   FECodeListBox::Update 504DC0, rest of FEPackage (FindResponse, control masks, library refs);
   FEObject subclass copy ctors/Clones; more bWare math (bCos etc. near 43C2B0).
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
+- bStrToFloat (43DEF0) returns unrounded x87 ST0 (port: long double); a nonzero fraction is rounded to float and
+  bumped by +1 ulp before being added (PC quirk). Referee can switch precision with _controlfp(_PC_24/_PC_53).
 - bWare trig rewritten bit-exact (bSin/bSinF/bASin); bASin table is game data read from the exe (bridge).
 - FEInterpLinear (52BDC0): wrap mode = flags&0x7F (0 clamp, 1 loop over track length, 2 ping-pong: reads a null
   "from" key in the original). t rounded to float; t==0/1 -> key + base (quaternion: key*base); no keys -> base copy.

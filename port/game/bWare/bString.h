@@ -31,3 +31,12 @@ char *bStrCat(char *dst, const char *a, const char *b);       // GC 8005DF00 / P
 char *bStrChr(const char *s, int c);
 // GC 8005DF6C / PC 43DE20: in place. GC returns void; PC leaves EAX at the terminator (nothing uses it).
 char *bToUpper(char *s);
+
+// GC 8005DFA0 / PC 43DE50. "0x" prefix (lowercase x only): hex digits (any case) until a non-hex char; otherwise
+// optional '-'/'+' then decimal digits until a non-digit. 32-bit wraparound, no overflow checks.
+int32_t bStrToLong(const char *s);
+// GC 8005E0A0 / PC 43DEF0. x87 result returned unrounded in ST0 (callers store it), so the port returns long double;
+// evaluated in the original's order at the current x87 precision. PC quirk: a nonzero fraction is rounded to float
+// and bumped by one ulp (float bits + 1) before being added. Exponent 'e'/'E' via bStrToLong, applied as repeated
+// *10.0f or *0.1f.
+long double bStrToFloat(const char *s);
