@@ -34,6 +34,9 @@ struct cFEng {
     // GC 8014EAE8 / PC 51CC60 (ret 0xC; this unused): last button with that name hash; enable (== 1) clears
     // FEObject flag 0x04000000, anything else sets it.
     static void SetButtonState(const char *pkgName, uint32_t buttonHash, bool enable);
+    // GC 8014E798 / 8014E7F0, PC 51CB20 / 51CB60 (ret 0xC): parent looked up by name (null name -> no parent).
+    void QueuePushPackage(const char *name, const char *parent, uint32_t mask);
+    void QueuePushModalPackage(const char *name, const char *parent, uint32_t mask);
     cFEngLevelSorter *SortSentinel() { return reinterpret_cast<cFEngLevelSorter *>(&mpSortHead); }
 };
 

@@ -55,3 +55,15 @@ void cFEng::SetButtonState(const char *pkgName, uint32_t buttonHash, bool enable
     if (enable) found->mu32Flags &= ~0x04000000u;
     else found->mu32Flags |= 0x04000000u;
 }
+
+void cFEng::QueuePushPackage(const char *name, const char *parent, uint32_t mask)
+{
+    FEPackage *p = parent ? bridge::TheFEPackageManager()->FindPackage(parent) : nullptr;
+    mpEngine->QueuePackagePush(name, p, mask);
+}
+
+void cFEng::QueuePushModalPackage(const char *name, const char *parent, uint32_t mask)
+{
+    FEPackage *p = parent ? bridge::TheFEPackageManager()->FindPackage(parent) : nullptr;
+    mpEngine->QueuePackagePushForModal(name, p, mask);
+}

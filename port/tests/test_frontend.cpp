@@ -1297,6 +1297,12 @@ static void TestCFEngQueue()
     CHECK((b[2]->mu32Flags & 0x04000000u) && !(b[0]->mu32Flags & 0x04000000u));
     cFEng::SetButtonState("garage.fng", 5, true);
     CHECK(!(b[2]->mu32Flags & 0x04000000u));
+    fe->QueuePushPackage("Sub.fng", "garage.fng", 0x4);
+    fe->QueuePushModalPackage("Dlg.fng", nullptr, 0x8);
+    fe->QueuePushPackage("Sub2.fng", "unknown", 0x1);
+    c = CollectCommands();
+    CHECK(c.size() == 3 && c[0].type == 2 && c[0].pkg == pkg && c[0].mask == 4 && c[1].type == 0x12 && c[1].pkg == nullptr);
+    CHECK(c[2].type == 2 && c[2].pkg == nullptr && c[2].name == "Sub2.fng");
     m->mList.next = m->mList.prev = &m->mList;                   // unregister
     dl.clear();
 }

@@ -35,6 +35,9 @@ struct FEPackageManager {
     FEPackageData *FindFEPackageData(const char *name);
     // GC 8014ACB4 / PC 51BB30 (ret 4): by chunk pointer.
     FEPackageData *FindFEPackageData(const void *chunk);
+    // GC 8014AD7C / 8014AF5C (PC: inlined): the entry's package / screen, null if not registered.
+    FEPackage *FindPackage(const char *name) { FEPackageData *d = FindFEPackageData(name); return d ? d->mpPackage : nullptr; }
+    void *FindScreen(const char *name) { FEPackageData *d = FindFEPackageData(name); return d ? d->mpScreen : nullptr; }
     // GC 8014ADB0 / PC 51BC40 (ret 4)
     uint8_t *GetPackageData(const char *name);
     // GC 8014AAA0 / PC 51BAD0: sum of bStringHash(package name) over loaded packages.
