@@ -762,6 +762,22 @@ static void TestPackageCommands()
     CHECK(c[5].type == 4 && c[5].mask == 0x03);
     CHECK(c[6].type == 1 && c[6].mask == 0x03 && c[6].hash == 0 && c[6].pkg == p2);
     CHECK(teststub::liveAllocations == live);
+
+    // PackagePopQueuedPushPackage: newest matching push/modal push (type bit 1) is unlinked, masks restored
+    p1->SetControlMask(0x11); p1->SetControlMaskOnly(0x01);   // ctrl/input 0x01, saved 0x11
+    e->QueuePackagePush("A", p2, 0);
+    e->QueuePackageSwitch("a", p2);                            // type 3 also has bit 1
+    e->QueuePackagePop(p2);                                    // type 1: never matches
+    p1->SetControlMask(0x11); p1->SetControlMaskOnly(0x01);
+    auto *sw = reinterpret_cast<FEPackageCommand *>(e->mPackageCommands.tail->prev);
+    CHECK(!e->PackagePopQueuedPushPackage(nullptr) && !e->PackagePopQueuedPushPackage("B"));
+    CHECK(e->PackagePopQueuedPushPackage("A") && e->mPackageCommands.count == 2);   // switch "a" (newest) taken
+    CHECK(masks(p1, 0x11, 0x11, 0x11, 0x11));
+    CHECK(sw->mu32Type == 3 && sw->node.node.next == reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED));
+    bridge::FreeArray(sw->node.mpcName);                       // unlinked but not freed by the original
+    bridge::FreeArray(sw);
+    auto c2 = CollectCommands();
+    CHECK(c2.size() == 2 && c2[0].type == 2 && c2[0].name == "A" && c2[1].type == 1);
     e->mpPackages = nullptr;
 }
 

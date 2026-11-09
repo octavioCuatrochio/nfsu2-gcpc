@@ -158,6 +158,7 @@ void THISCALL FEngine_ProcessMessageQueue(FEngine *self) { self->ProcessMessageQ
 bool THISCALL FENode_SetName(FENode *self, const char *n) { return self->SetName(n); }
 bool THISCALL FEngine_RecordPackageMarker(FEngine *self, const char *n) { return self->RecordPackageMarker(n); }
 void THISCALL FEngine_ClearPackageMarkers(FEngine *self) { self->ClearPackageMarkers(); }
+bool THISCALL FEngine_PackagePopQueuedPushPackage(FEngine *self, const char *n) { return self->PackagePopQueuedPushPackage(n); }
 void THISCALL FEngine_RecordLastPackageButton(FEngine *self, uint32_t h, uint32_t g) { self->RecordLastPackageButton(h, g); }
 uint32_t THISCALL FEngine_RecallLastPackageButton(FEngine *self, uint32_t h) { return self->RecallLastPackageButton(h); }
 void THISCALL FEngine_QueuePackageSwitch(FEngine *self, const char *n, FEPackage *p) { self->QueuePackageSwitch(n, p); }
@@ -314,6 +315,7 @@ const Replacement kReplacements[] = {
     {0x504960, (const void *)&FEPackage_FindLibraryReference, "FEPackage::FindLibraryReference", {0x8B, 0x91, 0x84, 0x00, 0x00, 0x00}},
     {0x52B3A0, (const void *)&FEPackage_SetCurrentButton, "FEPackage::SetCurrentButton", {0x8A, 0x44, 0x24, 0x0C, 0x84, 0xC0}},
     {0x51AA20, (const void *)&FEngine_QueueMessage, "FEngine::QueueMessage", {0x56, 0x57, 0x6A, 0x20, 0x8B, 0xF9}},
+    {0x51AE80, (const void *)&FEngine_PackagePopQueuedPushPackage, "FEngine::PackagePopQueuedPushPackage", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x55}},
     {0x51B070, (const void *)&FEngine_RecordPackageMarker, "FEngine::RecordPackageMarker", {0x8B, 0x81, 0x48, 0x41, 0x00, 0x00}},
     {0x50B390, (const void *)&FEngine_ClearPackageMarkers, "FEngine::ClearPackageMarkers", {0x8D, 0x81, 0x4C, 0x41, 0x00, 0x00}},
     {0x50B300, (const void *)&FEngine_RecordLastPackageButton, "FEngine::RecordLastPackageButton", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x8D}},

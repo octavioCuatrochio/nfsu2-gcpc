@@ -1,4 +1,5 @@
 #include "FEngine.h"
+#include "FEHash.h"
 #include <cstring>
 #include "bridge/Bridge.h"
 #include "FEPackage.h"
@@ -72,6 +73,25 @@ void FEngine::QueuePackagePop(FEPackage *pkg)
     mPackageCommands.AddTail(&c->node.node);
     for (FEPackage *p = mpPackages; p; p = NextPackage(p)) p->RestoreControlMask();
     pkg->SetControlMask(0);
+}
+
+bool FEngine::PackagePopQueuedPushPackage(const char *name)
+{
+    if (!name) return false;
+    const uint32_t hash = FEHashUpper(name);
+    for (FEMinNode *n = mPackageCommands.tail; n; n = n->prev) {
+        auto *c = reinterpret_cast<FEPackageCommand *>(n);
+        if ((c->mu32Type & 2) && c->node.mu32NameHash == hash) {
+            mPackageCommands.RemNode(n);
+            for (FEPackage *p = mpPackages; p; p = NextPackage(p)) {
+                p->RestoreControlMask();
+                p->RestoreControlMaskUsedByInput();
+            }
+            return true;
+        }
+        if (n == mPackageCommands.head) break;
+    }
+    return false;
 }
 
 void FEngine::QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask)

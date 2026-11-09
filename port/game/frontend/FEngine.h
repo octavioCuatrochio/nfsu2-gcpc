@@ -62,6 +62,9 @@ struct FEngine {
     void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
     void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
     void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50
+    // GC 80147DF0 / PC 51AE80: unqueue the newest push command (type bit 1) named `name` and restore every package's
+    // masks. The node is unlinked but NOT freed (leaks, as in the original). Null name -> false.
+    bool PackagePopQueuedPushPackage(const char *name);
     // Package markers / last buttons. Only caller on PC: ProcessResponses (RecallPackageMarker inlined there).
     bool RecordPackageMarker(const char *name);                      // GC 80148D4C / PC 51B070: false when 16 are stored
     void ClearPackageMarkers();                                      // GC 80148DCC / PC 50B390

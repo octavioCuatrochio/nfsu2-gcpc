@@ -814,6 +814,56 @@ static void CheckPackageMarkers(int iters)
     EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "package marker final state differs");
 }
 
+// PackagePopQueuedPushPackage on mirrored command lists (synthetic nodes) + two packages.
+static void CheckPopQueuedPush(int iters)
+{
+    auto orig = ORIG<bool(THISCALL *)(FEngine *, const char *)>(0x51AE80);
+    static FEngine e[2];
+    static FEPackageCommand cmd[2][8];
+    static FEPackage pkg[2][2];
+    static const char *kNames[] = {"MAIN", "main", "Opts", "X", ""};
+    for (int it = 0; it < iters / 4; ++it) {
+        int n = rng() % 9;
+        uint32_t types[8], masks[2][4];
+        int names[8];
+        for (int i = 0; i < n; ++i) { types[i] = rng() % 0x14; names[i] = rng() % 5; }
+        for (auto &m : masks) for (auto &v : m) v = rng();
+        for (int k = 0; k < 2; ++k) {
+            e[k].mPackageCommands = FEMinList{nullptr, 0, nullptr, nullptr};
+            e[k].mpPackages = &pkg[k][0];
+            for (int j = 0; j < 2; ++j) {
+                auto *pn = reinterpret_cast<FEMinNode *>(&pkg[k][j]);
+                pn->next = j == 0 ? reinterpret_cast<FEMinNode *>(&pkg[k][1]) : nullptr;
+                pkg[k][j].mu32ControlMask = masks[j][0]; pkg[k][j].mu32SavedControlMask = masks[j][1];
+                pkg[k][j].mu32InputControlMask = masks[j][2]; pkg[k][j].mu32SavedInputControlMask = masks[j][3];
+            }
+            for (int i = 0; i < n; ++i) {
+                cmd[k][i] = FEPackageCommand{};
+                cmd[k][i].mu32Type = types[i];
+                cmd[k][i].node.mu32NameHash = FEHashUpper(kNames[names[i]]);
+                e[k].mPackageCommands.AddTail(&cmd[k][i].node.node);
+            }
+        }
+        int q = rng() % 6;
+        const char *name = q == 5 ? nullptr : kNames[q];
+        bool x = orig(&e[0], name), y = e[1].PackagePopQueuedPushPackage(name);
+        auto idx = [&](int k, FEMinNode *p) -> int {
+            if (!p) return -1;
+            if (p == reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED)) return -2;
+            return static_cast<int>(reinterpret_cast<FEPackageCommand *>(p) - cmd[k]);
+        };
+        bool same = x == y && e[0].mPackageCommands.count == e[1].mPackageCommands.count &&
+                    idx(0, e[0].mPackageCommands.head) == idx(1, e[1].mPackageCommands.head) &&
+                    idx(0, e[0].mPackageCommands.tail) == idx(1, e[1].mPackageCommands.tail);
+        for (int i = 0; i < n; ++i)
+            same = same && idx(0, cmd[0][i].node.node.next) == idx(1, cmd[1][i].node.node.next) &&
+                   idx(0, cmd[0][i].node.node.prev) == idx(1, cmd[1][i].node.node.prev);
+        for (int j = 0; j < 2; ++j)
+            same = same && std::memcmp(&pkg[0][j].mu32ControlMask, &pkg[1][j].mu32ControlMask, 16) == 0;
+        EXPECT(same, "PackagePopQueuedPushPackage n=%d name=%s: %d vs %d", n, name ? name : "(null)", x, y);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -845,6 +895,7 @@ static int RunAll()
     CheckPackageSmall(iters);
     CheckConditionBranch(iters);
     CheckPackageMarkers(iters);
+    CheckPopQueuedPush(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",
