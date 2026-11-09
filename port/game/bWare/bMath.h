@@ -28,6 +28,23 @@ long double bRandom(float range);                  // GC 80059184 / PC 43C1F0
 // GC 800591A8 / PC 43C240: q = a / |b|; (q - floor(q)) * |b| (floor via ftol, -1 when the truncation is above q).
 long double bFMod(float a, float b);
 
+struct bVector2 { float x, y; };
+struct bVector3 { float x, y, z; };          // PC code touches 12 bytes
+struct bVector4 { float x, y, z, w; };
+
+// GC ? / PC 43CE10: |a - b| (x87, unrounded; sum order dz^2 + dy^2 + dx^2).
+long double bDistBetween(const bVector3 *a, const bVector3 *b);
+// bNormalize (PC 43CE50 / 43CEB0 / 43CF10 / 43CF90 / 43D010): out = in / |in| (* scale for the 3-argument forms:
+// length divided by scale). Length exactly 0 -> (1,0[,0]) (scaled 3D: (scale,0,0)). PC: the 2D forms round the
+// length to float before 1/len; the 3D/4D forms keep it in x87. The bVector4 form writes x, y, z only.
+void bNormalize(bVector2 *out, const bVector2 *in);
+void bNormalize(bVector2 *out, const bVector2 *in, float scale);
+void bNormalize(bVector3 *out, const bVector3 *in);
+void bNormalize(bVector3 *out, const bVector3 *in, float scale);
+void bNormalize(bVector4 *out, const bVector4 *in);
+// GC ? / PC 43D090: out = a + b * s (2D).
+void bScaleAdd(bVector2 *out, const bVector2 *a, const bVector2 *b, float s);
+
 // 4x4 float matrix, row-major (m[row * 4 + col]); 64 bytes, layout shared with game code.
 struct bMatrix4 { float m[16]; };
 void bIdentity(bMatrix4 *m);                                   // GC ? / PC 43C780

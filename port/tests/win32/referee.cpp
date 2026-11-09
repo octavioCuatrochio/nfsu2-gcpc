@@ -815,6 +815,49 @@ static void CheckMatrices(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+static void CheckVectors(int iters)
+{
+    auto oDist = ORIG<long double(__cdecl *)(const bVector3 *, const bVector3 *)>(0x43CE10);
+    auto oN2 = ORIG<void(__cdecl *)(bVector2 *, const bVector2 *)>(0x43CE50);
+    auto oN2S = ORIG<void(__cdecl *)(bVector2 *, const bVector2 *, float)>(0x43CEB0);
+    auto oN3 = ORIG<void(__cdecl *)(bVector3 *, const bVector3 *)>(0x43CF10);
+    auto oN3S = ORIG<void(__cdecl *)(bVector3 *, const bVector3 *, float)>(0x43CF90);
+    auto oN4 = ORIG<void(__cdecl *)(bVector4 *, const bVector4 *)>(0x43D010);
+    auto oSA = ORIG<void(__cdecl *)(bVector2 *, const bVector2 *, const bVector2 *, float)>(0x43D090);
+    auto v = []() { return rng() % 5 == 0 ? 0.0f : AtanSample(); };
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            bVector4 in{v(), v(), v(), v()}, o1{v(), v(), v(), v()}, o2 = o1, i1 = in, i2 = in;
+            float s = rng() % 6 == 0 ? 0.0f : AtanSample();
+            const bool alias = rng() % 3 == 0;
+            int mode = rng() % 7;
+            auto run = [&](bool orig, bVector4 *o, bVector4 *i) {
+                bVector4 *src = alias ? o : i;
+                if (alias) *o = *i;
+                switch (mode) {
+                case 0: { long double d = orig ? oDist(reinterpret_cast<bVector3 *>(o), reinterpret_cast<bVector3 *>(i)) : bDistBetween(reinterpret_cast<bVector3 *>(o), reinterpret_cast<bVector3 *>(i));
+                          std::memcpy(&o->w, &d, 4); break; }   // fold a little of the result in
+                case 1: orig ? oN2(reinterpret_cast<bVector2 *>(o), reinterpret_cast<bVector2 *>(src)) : bNormalize(reinterpret_cast<bVector2 *>(o), reinterpret_cast<bVector2 *>(src)); break;
+                case 2: orig ? oN2S(reinterpret_cast<bVector2 *>(o), reinterpret_cast<bVector2 *>(src), s) : bNormalize(reinterpret_cast<bVector2 *>(o), reinterpret_cast<bVector2 *>(src), s); break;
+                case 3: orig ? oN3(reinterpret_cast<bVector3 *>(o), reinterpret_cast<bVector3 *>(src)) : bNormalize(reinterpret_cast<bVector3 *>(o), reinterpret_cast<bVector3 *>(src)); break;
+                case 4: orig ? oN3S(reinterpret_cast<bVector3 *>(o), reinterpret_cast<bVector3 *>(src), s) : bNormalize(reinterpret_cast<bVector3 *>(o), reinterpret_cast<bVector3 *>(src), s); break;
+                case 5: orig ? oN4(o, src) : bNormalize(o, src); break;
+                default: orig ? oSA(reinterpret_cast<bVector2 *>(o), reinterpret_cast<bVector2 *>(src), reinterpret_cast<bVector2 *>(&i->z), s)
+                              : bScaleAdd(reinterpret_cast<bVector2 *>(o), reinterpret_cast<bVector2 *>(src), reinterpret_cast<bVector2 *>(&i->z), s);
+                }
+            };
+            run(true, &o1, &i1);
+            run(false, &o2, &i2);
+            EXPECT(std::memcmp(&o1, &o2, sizeof o1) == 0, "vector op %d alias=%d pc=%x: %08X %08X %08X %08X", mode, alias, pc,
+                   *reinterpret_cast<uint32_t *>(&o1.x) ^ *reinterpret_cast<uint32_t *>(&o2.x), *reinterpret_cast<uint32_t *>(&o1.y) ^ *reinterpret_cast<uint32_t *>(&o2.y),
+                   *reinterpret_cast<uint32_t *>(&o1.z) ^ *reinterpret_cast<uint32_t *>(&o2.z), *reinterpret_cast<uint32_t *>(&o1.w) ^ *reinterpret_cast<uint32_t *>(&o2.w));
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1223,6 +1266,7 @@ static int RunAll()
     CheckATan(iters);
     CheckRandomMod(iters);
     CheckMatrices(iters);
+    CheckVectors(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);

@@ -134,6 +134,12 @@ void __cdecl FEInterpLinear_Hook(FEKeyTrack *t, int32_t time, void *out) { FEInt
 long double __cdecl bSin_Hook(uint32_t angle) { return bSin(static_cast<uint16_t>(angle)); }
 long double __cdecl bCos_Hook(uint32_t angle) { return bCos(static_cast<uint16_t>(angle)); }
 uint16_t __cdecl bFastATan_Hook(float x, float y) { return bFastATan(x, y); }
+long double __cdecl bDistBetween_Hook(const bVector3 *a, const bVector3 *b) { return bDistBetween(a, b); }
+void __cdecl bNormalize2_Hook(bVector2 *o, const bVector2 *i) { bNormalize(o, i); }
+void __cdecl bNormalize2S_Hook(bVector2 *o, const bVector2 *i, float s) { bNormalize(o, i, s); }
+void __cdecl bNormalize3_Hook(bVector3 *o, const bVector3 *i) { bNormalize(o, i); }
+void __cdecl bNormalize3S_Hook(bVector3 *o, const bVector3 *i, float s) { bNormalize(o, i, s); }
+void __cdecl bNormalize4_Hook(bVector4 *o, const bVector4 *i) { bNormalize(o, i); }
 uint32_t __cdecl bRandomIS_Hook(int32_t r, uint32_t *s) { return bRandom(r, s); }
 long double __cdecl bRandomFS_Hook(float r, uint32_t *s) { return bRandom(r, s); }
 uint32_t __cdecl bRandomI_Hook(int32_t r) { return bRandom(r); }
@@ -335,6 +341,13 @@ const Replacement kReplacements[] = {
     {0x4013F0, (const void *)&eMulMatrix, "eMulMatrix", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
     {0x43C990, (const void *)&bMulMatrix, "bMulMatrix", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}},
     {0x43C9D0, (const void *)&bTransposeMatrix, "bTransposeMatrix", {0x83, 0xEC, 0x30, 0x8B, 0x44, 0x24}},
+    {0x43CE10, (const void *)&bDistBetween_Hook, "bDistBetween", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x4C}},
+    {0x43CE50, (const void *)&bNormalize2_Hook, "bNormalize(bVector2)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x01}},
+    {0x43CEB0, (const void *)&bNormalize2S_Hook, "bNormalize(bVector2, scale)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x01}},
+    {0x43CF10, (const void *)&bNormalize3_Hook, "bNormalize(bVector3)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x41}},
+    {0x43CF90, (const void *)&bNormalize3S_Hook, "bNormalize(bVector3, scale)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x41}},
+    {0x43D010, (const void *)&bNormalize4_Hook, "bNormalize(bVector4)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x41}},
+    {0x43D090, (const void *)&bScaleAdd, "bScaleAdd(bVector2)", {0x8B, 0x44, 0x24, 0x0C, 0xD9, 0x44}},
     {0x43C570, (const void *)&bFastATan_Hook, "bFastATan", {0xD9, 0x44, 0x24, 0x04, 0x56, 0xD8}},
     {0x43C650, (const void *)&bFixATan1_Hook, "bFixATan(int)", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x57}},
     {0x43C6F0, (const void *)&bFixATan2_Hook, "bFixATan(int, int)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x57}},

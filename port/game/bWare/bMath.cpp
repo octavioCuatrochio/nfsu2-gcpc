@@ -109,6 +109,79 @@ int32_t bSignedMod(int32_t a, int32_t b)
     return static_cast<int32_t>(static_cast<uint32_t>(a) - c);
 }
 
+long double bDistBetween(const bVector3 *a, const bVector3 *b)
+{
+    const L dx = L(a->x) - b->x, dy = L(a->y) - b->y, dz = L(a->z) - b->z;
+    return __builtin_sqrtl(dz * dz + dy * dy + dx * dx);
+}
+
+namespace {
+// 2D: the length is stored to a float stack slot, compared unrounded, divided as float.
+void Normalize2(bVector2 *out, const bVector2 *in, L len)
+{
+    const float lenF = static_cast<float>(len);
+    if (len == 0.0f) { out->x = 1.0f; out->y = 0.0f; return; }
+    const L y = in->y;
+    const L inv = L(1.0f) / lenF;
+    out->x = static_cast<float>(inv * in->x);
+    out->y = static_cast<float>(y * inv);
+}
+// 3D / 4D: x, y, z scaled by the unrounded 1/len; z read before any write.
+void Normalize3(float *out, const float *in, L len)
+{
+    const L inv = L(1.0f) / len;
+    const float z = in[2];
+    const L y = in[1];
+    out[0] = static_cast<float>(inv * in[0]);
+    out[1] = static_cast<float>(y * inv);
+    out[2] = static_cast<float>(L(z) * inv);
+}
+}
+
+void bNormalize(bVector2 *out, const bVector2 *in)
+{
+    const L x = in->x, y = in->y;
+    Normalize2(out, in, __builtin_sqrtl(y * y + x * x));
+}
+
+void bNormalize(bVector2 *out, const bVector2 *in, float scale)
+{
+    const L x = in->x, y = in->y;
+    Normalize2(out, in, __builtin_sqrtl(y * y + x * x) / scale);
+}
+
+void bNormalize(bVector3 *out, const bVector3 *in)
+{
+    const L x = in->x, y = in->y, z = in->z;
+    const L len = __builtin_sqrtl(x * x + y * y + z * z);
+    if (len == 0.0f) { out->x = 1.0f; out->y = 0.0f; out->z = 0.0f; return; }
+    Normalize3(&out->x, &in->x, len);
+}
+
+void bNormalize(bVector3 *out, const bVector3 *in, float scale)
+{
+    const L x = in->x, y = in->y, z = in->z;
+    const L len = __builtin_sqrtl(x * x + y * y + z * z) / scale;
+    if (len == 0.0f) { out->x = scale; out->y = 0.0f; out->z = 0.0f; return; }
+    Normalize3(&out->x, &in->x, len);
+}
+
+void bNormalize(bVector4 *out, const bVector4 *in)
+{
+    const L x = in->x, y = in->y, z = in->z, w = in->w;
+    const L len = __builtin_sqrtl(x * x + y * y + z * z + w * w);
+    if (len == 0.0f) { out->x = 1.0f; out->y = 0.0f; out->z = 0.0f; return; }
+    Normalize3(&out->x, &in->x, len);
+}
+
+void bScaleAdd(bVector2 *out, const bVector2 *a, const bVector2 *b, float s)
+{
+    const L y = L(s) * b->y + a->y;
+    const L x = L(s) * b->x + a->x;
+    out->x = static_cast<float>(x);
+    out->y = static_cast<float>(y);
+}
+
 void bIdentity(bMatrix4 *m)
 {
     for (int i = 0; i < 16; ++i) m->m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
