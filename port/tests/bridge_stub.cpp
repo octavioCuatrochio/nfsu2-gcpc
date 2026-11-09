@@ -1,5 +1,5 @@
+#include "frontend/cFEng.h"
 #include "frontend/FENode.h"
-#include <strings.h>
 // Bridge stand-ins for native unit tests: plain heap, no character histogram, settable dirty flag.
 #include "bridge/Bridge.h"
 #include "bridge_stub.h"
@@ -114,11 +114,23 @@ FEPackage *FEngine_PushPackage(void *, const char *n, uint8_t pri, uint32_t m)
     teststub::delivered.push_back({"pushpkg", const_cast<char *>(n), teststub::pushResult, pri, m});
     return teststub::pushResult;
 }
-void *cFEng_FindInLevelSortingList(const char *n)
+// test cFEng whose level sorting list mirrors teststub::levelSortingList (rebuilt on every call)
+cFEng *cFEngInstance()
 {
-    for (auto &s : teststub::levelSortingList)
-        if (strcasecmp(s.c_str(), n) == 0) return &s;
-    return nullptr;
+    static cFEng fe;
+    static std::vector<cFEngLevelSorter> nodes;
+    nodes.assign(teststub::levelSortingList.size(), cFEngLevelSorter{});
+    cFEngLevelSorter *prev = fe.SortSentinel();
+    fe.mpSortHead = prev;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        nodes[i].mpcPackageName = teststub::levelSortingList[i].c_str();
+        nodes[i].prev = prev;
+        prev->next = &nodes[i];
+        prev = &nodes[i];
+    }
+    prev->next = fe.SortSentinel();
+    fe.mpSortTail = prev;
+    return &fe;
 }
 void *FEPackageCommandVTable() { return &teststub::fePackageCommandVTable; }
 void *FEMessageNodeVTable() { return &teststub::feMessageNodeVTable; }

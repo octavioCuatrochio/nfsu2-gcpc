@@ -26,6 +26,7 @@
 #include "frontend/FEMath.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
+#include "frontend/cFEng.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include <float.h>
@@ -154,6 +155,30 @@ static void CheckStrToNumber(int iters)
         }
     }
     _controlfp(saved, _MCW_PC);
+}
+
+static void CheckLevelSortingList(int iters)
+{
+    auto orig = ORIG<cFEngLevelSorter *(THISCALL *)(cFEng *, const char *)>(0x51CCD0);
+    static cFEng fe;
+    cFEngLevelSorter nodes[6];
+    std::string names[6];
+    for (int it = 0; it < iters / 4; ++it) {
+        int n = rng() % 7;
+        cFEngLevelSorter *prev = fe.SortSentinel();
+        fe.mpSortHead = prev;
+        for (int i = 0; i < n; ++i) {
+            names[i] = StrSample();
+            nodes[i] = cFEngLevelSorter{nullptr, prev, names[i].c_str()};
+            prev->next = &nodes[i];
+            prev = &nodes[i];
+        }
+        prev->next = fe.SortSentinel();
+        fe.mpSortTail = prev;
+        std::string q = (n && rng() % 2) ? names[rng() % n] : StrSample();
+        if (rng() % 2) for (auto &ch : q) ch = static_cast<char>(ch ^ ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ? 0x20 : 0));
+        EXPECT(orig(&fe, q.c_str()) == fe.FindInLevelSortingList(q.c_str()), "FindInLevelSortingList(%s) n=%d", q.c_str(), n);
+    }
 }
 
 static void CheckWideCopies(int iters)
@@ -958,6 +983,7 @@ static int RunAll()
     CheckStringHash(iters);
     CheckStrFuncs(iters);
     CheckStrToNumber(iters);
+    CheckLevelSortingList(iters);
     CheckWideCopies(iters);
     CheckMinList(iters);
     CheckFEObject(iters);

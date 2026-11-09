@@ -1,4 +1,5 @@
 #include "FEngine.h"
+#include "cFEng.h"
 #include "FEHash.h"
 #include <cstring>
 #include "bridge/Bridge.h"
@@ -129,7 +130,7 @@ void FEngine::ProcessPackageCommands()
             bridge::FEngine_UnloadPackage(this, c->mpPackage);
             --priority;
         }
-        if ((c->mu32Type & 2) && bridge::cFEng_FindInLevelSortingList(c->node.mpcName)) {
+        if ((c->mu32Type & 2) && bridge::cFEngInstance()->FindInLevelSortingList(c->node.mpcName)) {
             FEPackage *np = bridge::FEngine_PushPackage(this, c->node.mpcName, static_cast<uint8_t>(priority + 1), c->mu32Mask);
             if (np) {
                 if (!(c->mu32Type & 1) && priority >= 0) {

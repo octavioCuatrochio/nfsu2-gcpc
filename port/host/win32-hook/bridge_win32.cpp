@@ -104,11 +104,7 @@ FEPackage *FEngine_PushPackage(void *e, const char *n, uint8_t pri, uint32_t m)
 {
     return reinterpret_cast<FEPackage *(THISCALL *)(void *, const char *, uint32_t, uint32_t)>(0x555860)(e, n, pri, m);
 }
-void *cFEng_FindInLevelSortingList(const char *n)
-{
-    void *fe = *reinterpret_cast<void **>(0x8384C4);
-    return reinterpret_cast<void *(THISCALL *)(void *, const char *)>(0x51CCD0)(fe, n);
-}
+cFEng *cFEngInstance() { return *reinterpret_cast<cFEng **>(0x8384C4); }
 void *FEPackageCommandVTable() { return reinterpret_cast<void *>(0x79AB64); }
 void *FEMessageNodeVTable() { return reinterpret_cast<void *>(0x79AB60); }
 void FEUIData_OnQueueMessage(void *ui, uint32_t msg, void *obj, void *pkg, void *target, uint32_t arg)

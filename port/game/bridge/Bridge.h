@@ -12,6 +12,7 @@
 struct FEMultiPool;   // frontend/FEMultiPool.h
 struct FEMinList;     // frontend/FEMinList.h
 struct FEPackage;     // frontend/FEPackage.h
+struct cFEng;         // frontend/cFEng.h
 
 struct bASinTableEntry;
 namespace bridge {
@@ -62,7 +63,7 @@ const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628
 // FEngine package loading (not rewritten; __thiscall)
 void FEngine_UnloadPackage(void *engine, FEPackage *pkg);                                    // 5362E0 (GC 80145A94)
 FEPackage *FEngine_PushPackage(void *engine, const char *name, uint8_t priority, uint32_t mask);   // 555860 (GC 80145CF8)
-void *cFEng_FindInLevelSortingList(const char *name);   // 51CCD0 on cFEng::pInstance (0x8384C4); null: not listed
+cFEng *cFEngInstance();                                 // cFEng::pInstance (PC 0x8384C4)
 void *FEPackageCommandVTable();                                                   // PC 0x79AB64
 void *FEMessageNodeVTable();                                                      // PC 0x79AB60
 void FEListBox_ScrollSelection(void *listBox, int32_t dx, int32_t dy);             // 516E90
