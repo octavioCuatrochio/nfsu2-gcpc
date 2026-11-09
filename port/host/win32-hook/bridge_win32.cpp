@@ -89,10 +89,6 @@ void *FEKeyNodeVTable() { return reinterpret_cast<void *>(0x79AA34); }
 ::FEMinList *FEKeyNodePool() { return reinterpret_cast<::FEMinList *>(0x839BD0); }
 void *FEKeyNodeBlockVTable() { return reinterpret_cast<void *>(0x79B9EC); }
 const bASinTableEntry *BASinTable() { return reinterpret_cast<const bASinTableEntry *>(0x7EA628); }
-void FEngine_RecordPackageMarker(void *e, const char *n) { reinterpret_cast<void(THISCALL *)(void *, const char *)>(0x51B070)(e, n); }
-void FEngine_RecordLastPackageButton(void *e, uint32_t h, uint32_t g) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, uint32_t)>(0x50B300)(e, h, g); }
-uint32_t FEngine_RecallLastPackageButton(void *e, uint32_t h) { return reinterpret_cast<uint32_t(THISCALL *)(void *, uint32_t)>(0x50B360)(e, h); }
-void FEngine_ClearPackageMarkers(void *e) { reinterpret_cast<void(THISCALL *)(void *)>(0x50B390)(e); }
 void FEListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x516E90)(lb, dx, dy); }
 void FECodeListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x52BD70)(lb, dx, dy); }
 void FEUIData_Call4(void *ui, uint32_t slot, uint32_t a, const void *b, uint32_t c, const void *d)

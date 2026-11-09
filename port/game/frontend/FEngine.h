@@ -39,8 +39,10 @@ struct FEngine {
     FEMinList mPackageCommands;      // +0x4124 queued package stack operations (FEPackageCommand)
     uint8_t _unknown4134[0x4148 - 0x4134];
     uint32_t mu32NumPackageMarkers;  // +0x4148
-    char macPackageMarkers[1][0x100];   // +0x414C stack of package names (RecordPackageMarker); size unknown
-    uint8_t _unknown424C[0x5251 - 0x424C];
+    char macPackageMarkers[16][0x100];  // +0x414C stack of package names (RecordPackageMarker)
+    int32_t mi32LastButtonIndex;     // +0x514C next slot of mLastButtons (ring, 0..31)
+    struct LastButton { uint32_t mu32PackageHash, mu32ButtonGUID; } mLastButtons[32];   // +0x5150
+    uint8_t _unknown5250;
     uint8_t mbForwardQueuedMessages; // +0x5251 also hand every queued message to mpUIData (vtable +0x54)
 
     // GC 80147A54 / PC 51AA20. Like the original, allocation failure crashes (writes through null).
@@ -60,12 +62,18 @@ struct FEngine {
     void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
     void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
     void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50
+    // Package markers / last buttons. Only caller on PC: ProcessResponses (RecallPackageMarker inlined there).
+    bool RecordPackageMarker(const char *name);                      // GC 80148D4C / PC 51B070: false when 16 are stored
+    void ClearPackageMarkers();                                      // GC 80148DCC / PC 50B390
+    void RecordLastPackageButton(uint32_t pkgHash, uint32_t guid);   // GC 80148CAC / PC 50B300: replaces older entries
+    uint32_t RecallLastPackageButton(uint32_t pkgHash) const;        // GC 80148D1C / PC 50B360: 0 if none
     bool ProcessCodeListBoxResponses(FEObject *listBox, FEPackage *pkg, uint32_t msg);   // GC 80148360 / PC 52C750
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FEMessageNode) == 0x20 && sizeof(FEPackageCommand) == 0x20 && offsetof(FEPackageCommand, mpPackage) == 0x1C);
-static_assert(offsetof(FEngine, mPackageCommands) == 0x4124);
+static_assert(offsetof(FEngine, mPackageCommands) == 0x4124 && offsetof(FEngine, mi32LastButtonIndex) == 0x514C);
+static_assert(offsetof(FEngine, mLastButtons) == 0x5150);
 static_assert(offsetof(FEngine, mpPackages) == 0xE4 && offsetof(FEngine, mpUIData) == 0x10C && offsetof(FEngine, mMessages) == 0x4114);
 static_assert(offsetof(FEngine, mbForwardQueuedMessages) == 0x5251 && offsetof(FEngine, mu32NumPackageMarkers) == 0x4148);
 #endif

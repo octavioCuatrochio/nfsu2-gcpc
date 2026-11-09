@@ -60,11 +60,6 @@ const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628
 // FEPackage callees not rewritten yet (PC __thiscall)
 void *FEPackageCommandVTable();                                                   // PC 0x79AB64
 void *FEMessageNodeVTable();                                                      // PC 0x79AB60
-// FEngine package markers (not rewritten; __thiscall)
-void FEngine_RecordPackageMarker(void *engine, const char *name);                           // 51B070
-void FEngine_RecordLastPackageButton(void *engine, uint32_t pkgHash, uint32_t guid);        // 50B300
-uint32_t FEngine_RecallLastPackageButton(void *engine, uint32_t pkgHash);                   // 50B360
-void FEngine_ClearPackageMarkers(void *engine);                                             // 50B390
 void FEListBox_ScrollSelection(void *listBox, int32_t dx, int32_t dy);             // 516E90
 void FECodeListBox_ScrollSelection(void *listBox, int32_t dx, int32_t dy);         // 52BD70
 // game UI handler virtual calls (__thiscall), slot given as a byte offset

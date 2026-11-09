@@ -26,7 +26,6 @@ extern std::vector<QueuedMessage> queued, forwarded;   // queued: SendMessageToG
 extern int feMessageNodeVTable, fePackageCommandVTable;
 struct Delivered { const char *kind; void *a, *pkg; uint32_t msg, arg; };
 extern std::vector<Delivered> delivered;
-extern uint32_t recallGuid;
 extern void *currentButton;
 struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback
 extern void *lastTypeUpdate;

@@ -1,4 +1,5 @@
 #include "FEngine.h"
+#include <cstring>
 #include "bridge/Bridge.h"
 #include "FEPackage.h"
 #include "FEMessageResponse.h"
@@ -77,6 +78,34 @@ void FEngine::QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask)
 {
     FEPackageCommand *c = NewPackageCommand(flag ? 8 : 4, pkg->mu32ControlMask & mask, pkg);
     mPackageCommands.AddTail(&c->node.node);
+}
+
+bool FEngine::RecordPackageMarker(const char *name)
+{
+    if (mu32NumPackageMarkers == 16) return false;
+    std::strcpy(macPackageMarkers[mu32NumPackageMarkers++], name);
+    return true;
+}
+
+void FEngine::ClearPackageMarkers()
+{
+    for (auto &m : macPackageMarkers) m[0] = 0;
+    mu32NumPackageMarkers = 0;
+}
+
+void FEngine::RecordLastPackageButton(uint32_t pkgHash, uint32_t guid)
+{
+    for (auto &b : mLastButtons)
+        if (b.mu32PackageHash == pkgHash) b.mu32PackageHash = 0;
+    mLastButtons[mi32LastButtonIndex] = {pkgHash, guid};
+    mi32LastButtonIndex = (mi32LastButtonIndex + 1) % 32;   // signed modulo like the original
+}
+
+uint32_t FEngine::RecallLastPackageButton(uint32_t pkgHash) const
+{
+    for (const auto &b : mLastButtons)
+        if (b.mu32PackageHash == pkgHash) return b.mu32ButtonGUID;
+    return 0;
 }
 
 // GC 801484AC: the package's own response to the message, if any.
@@ -207,11 +236,11 @@ void FEngine::ProcessResponses(FEMessageResponse *resp, FEObject *obj, FEPackage
         }
         case 0x101: mbFlag01 = param == 1; break;
         case 0x102:
-            bridge::FEngine_RecordLastPackageButton(this, pkg->mu32NameHash, pkg->mpCurrentButton ? pkg->mpCurrentButton->mu32GUID : 0);
+            RecordLastPackageButton(pkg->mu32NameHash, pkg->mpCurrentButton ? pkg->mpCurrentButton->mu32GUID : 0);
             break;
         case 0x103: {
             FEObject *b = nullptr;
-            if (uint32_t guid = bridge::FEngine_RecallLastPackageButton(this, pkg->mu32NameHash)) b = pkg->FindObjectByGUID(guid);
+            if (uint32_t guid = RecallLastPackageButton(pkg->mu32NameHash)) b = pkg->FindObjectByGUID(guid);
             if (!b && param) b = pkg->FindObjectByGUID(param);
             if (b || !param) pkg->SetCurrentButton(this, b, b != nullptr);
             break;
@@ -228,14 +257,14 @@ void FEngine::ProcessResponses(FEMessageResponse *resp, FEObject *obj, FEPackage
             break;
         case 0x203: QueuePackagePop(pkg); break;
         case 0x204: QueuePackagePush(reinterpret_cast<const char *>(r.mParam), pkg, 0); break;
-        case 0x2C0: bridge::FEngine_RecordPackageMarker(this, pkg->mpcName); break;
+        case 0x2C0: RecordPackageMarker(pkg->mpcName); break;
         case 0x2C1:                                       // RecallPackageMarker (inlined): pop the last name
             if (mu32NumPackageMarkers) {
                 --mu32NumPackageMarkers;
                 QueuePackageSwitch(macPackageMarkers[0] + mu32NumPackageMarkers * 0x100, pkg);
             }
             break;
-        case 0x2C2: bridge::FEngine_ClearPackageMarkers(this); break;
+        case 0x2C2: ClearPackageMarkers(); break;
         case 0x300:
             if (obj->mpCurrentScript->mu32Id != param) i = resp->FindConditionBranchTarget(i);
             break;

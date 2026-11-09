@@ -698,6 +698,27 @@ static std::vector<Command> CollectCommands()
 }
 
 // FENode::SetName + FEngine::QueuePackage*: command fields and control mask side effects.
+static void TestPackageMarkers()
+{
+    FEngine *e = TestEngine();
+    e->ClearPackageMarkers();
+    char name[4] = "A";
+    for (int i = 0; i < 16; ++i) { name[0] = char('A' + i); CHECK(e->RecordPackageMarker(name)); }
+    CHECK(!e->RecordPackageMarker("Z") && e->mu32NumPackageMarkers == 16 && std::string(e->macPackageMarkers[15]) == "P");
+    e->macPackageMarkers[3][1] = 'x';
+    e->ClearPackageMarkers();
+    CHECK(e->mu32NumPackageMarkers == 0 && e->macPackageMarkers[15][0] == 0 && e->macPackageMarkers[3][1] == 'x');
+    // last buttons: 32-entry ring; recording a hash zeroes its older entries (first match wins on recall)
+    for (uint32_t i = 0; i < 40; ++i) e->RecordLastPackageButton(100 + i, i);
+    CHECK(e->mi32LastButtonIndex == 8 && e->RecallLastPackageButton(100) == 0 && e->RecallLastPackageButton(139) == 39);
+    CHECK(e->RecallLastPackageButton(108) == 8 && e->mLastButtons[0].mu32PackageHash == 132);
+    e->RecordLastPackageButton(139, 77);                       // old slot 7 -> hash 0, new slot 8
+    CHECK(e->mLastButtons[7].mu32PackageHash == 0 && e->mLastButtons[7].mu32ButtonGUID == 39 && e->RecallLastPackageButton(139) == 77);
+    CHECK(e->RecallLastPackageButton(0) == 39);                // a zeroed slot matches hash 0 (as in the original)
+    std::memset(e->mLastButtons, 0, sizeof e->mLastButtons);
+    e->mi32LastButtonIndex = 0;
+}
+
 static void TestPackageCommands()
 {
     FEngine *e = TestEngine();
@@ -964,25 +985,25 @@ static void TestProcessResponses()
     auto &d = teststub::delivered;
     d.clear();
     e->ProcessResponses(&resp, obj, pkg, 0x5);                // arg bits 0 and 2
-    auto kind = [&](size_t k) { return k < d.size() ? std::string(d[k].kind) : std::string(); };
     auto c = CollectCommands();
-    CHECK(d.size() == 2 && c.size() == 5);                      // the button change goes to the engine queue
+    CHECK(d.empty() && c.size() == 5);                          // the button change goes to the engine queue
     CHECK(c[0].type == 3 && c[0].name == "T" && c[0].mask == 0x30);   // switch clears the package's masks
     CHECK(pkg->mpCurrentButton == btn);
-    CHECK(kind(0) == "record" && d[0].msg == 0xAB && d[0].arg == 42);
+    CHECK(e->RecallLastPackageButton(0xAB) == 42 && e->mi32LastButtonIndex == 1);
     CHECK(c[1].type == 2 && c[1].mask == 1 && c[2].type == 2 && c[2].mask == 4 && c[2].name == "T");
-    CHECK(kind(1) == "marker" && d[1].a == kName);
+    CHECK(e->mu32NumPackageMarkers == 1 && std::string(e->macPackageMarkers[0]) == kName);
     CHECK(c[3].type == 8 && c[3].mask == 0 && c[4].type == 4 && c[4].mask == 0);   // ctrl & arg; ctrl is 0 by now
     CHECK(obj->mpCurrentScript == &s2 && s2.mi32Time == 0);
     auto q = Collect();                                         // highlight messages from the button change
     CHECK(q.size() == 2);
     // recall: last button unknown -> fallback GUID param; marker recall pops a name
-    teststub::recallGuid = 0;
+    e->ClearPackageMarkers();
+    e->RecordLastPackageButton(0xAB, 0);                       // replaces the 42 entry
+    CHECK(e->RecallLastPackageButton(0xAB) == 0);
     pkg->mpCurrentButton = nullptr;
     FEResponse code2[] = {{0x103, 42, 0}, {0x2C1, 0, 0}, {0x101, 1, 0}};
     resp.mu32Count = 3; resp.mpResponses = code2;
-    e->mu32NumPackageMarkers = 1;
-    std::strcpy(e->macPackageMarkers[0], "MARK");
+    CHECK(e->RecordPackageMarker("MARK"));
     d.clear();
     e->ProcessResponses(&resp, obj, pkg, 0);
     CHECK(pkg->mpCurrentButton == btn && e->mu32NumPackageMarkers == 0 && e->mbFlag01 == 1);
@@ -995,6 +1016,7 @@ static void TestProcessResponses()
 int main()
 {
     TestPackageCommands();
+    TestPackageMarkers();
     TestCrc();
     TestWideHelpers();
     TestWideString();

@@ -25,6 +25,7 @@
 #include "frontend/FEScript.h"
 #include "frontend/FEMath.h"
 #include "frontend/FEPackage.h"
+#include "frontend/FEngine.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include "bridge_stub.h"
@@ -781,6 +782,38 @@ static void CheckConditionBranch(int iters)
     }
 }
 
+// FEngine package markers + last-button ring: same random operation sequence on two engine images.
+static void CheckPackageMarkers(int iters)
+{
+    auto oRecord = ORIG<bool(THISCALL *)(FEngine *, const char *)>(0x51B070);
+    auto oClear = ORIG<void(THISCALL *)(FEngine *)>(0x50B390);
+    auto oRecBtn = ORIG<void(THISCALL *)(FEngine *, uint32_t, uint32_t)>(0x50B300);
+    auto oRecall = ORIG<uint32_t(THISCALL *)(FEngine *, uint32_t)>(0x50B360);
+    static FEngine a, b;
+    std::memset(&a, 0, sizeof a);
+    for (auto &m : a.macPackageMarkers) std::memset(m, 'q', sizeof m);
+    std::memcpy(&b, &a, sizeof a);
+    for (int i = 0; i < iters; ++i) {
+        uint32_t h = rng() % 40, g = rng();
+        switch (rng() % 8) {
+        case 0: case 1: {
+            std::string n = RandomText(200, true);
+            bool x = oRecord(&a, n.c_str()), y = b.RecordPackageMarker(n.c_str());
+            EXPECT(x == y, "RecordPackageMarker ret %d vs %d", x, y);
+            break;
+        }
+        case 2: if (rng() % 8 == 0) { oClear(&a); b.ClearPackageMarkers(); } break;
+        case 3: case 4: case 5: oRecBtn(&a, h, g); b.RecordLastPackageButton(h, g); break;
+        default: {
+            uint32_t x = oRecall(&a, h), y = b.RecallLastPackageButton(h);
+            EXPECT(x == y, "RecallLastPackageButton(%u) %08X vs %08X", h, x, y);
+        }
+        }
+        if (i % 64 == 0) EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "package marker state differs after op %d", i);
+    }
+    EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "package marker final state differs");
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -811,6 +844,7 @@ static int RunAll()
     CheckFindObject(iters);
     CheckPackageSmall(iters);
     CheckConditionBranch(iters);
+    CheckPackageMarkers(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",
