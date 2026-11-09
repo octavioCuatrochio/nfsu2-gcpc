@@ -27,6 +27,15 @@ uint32_t bRandom(int32_t range);                   // GC 80059160 / PC 43C1C0
 long double bRandom(float range);                  // GC 80059184 / PC 43C1F0
 // GC 800591A8 / PC 43C240: q = a / |b|; (q - floor(q)) * |b| (floor via ftol, -1 when the truncation is above q).
 long double bFMod(float a, float b);
+
+// 4x4 float matrix, row-major (m[row * 4 + col]); 64 bytes, layout shared with game code.
+struct bMatrix4 { float m[16]; };
+void bIdentity(bMatrix4 *m);                                   // GC ? / PC 43C780
+// PC 4013F0 (GC eMulMatrix, "e" = engine/platform layer): out = a x b, each element summed in the original's
+// (unrolled) order in x87 and rounded once; result written through a temporary (out may alias a or b).
+void eMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b);
+void bMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b);   // GC 80059A8C / PC 43C990: eMulMatrix(out, b, a)
+void bTransposeMatrix(bMatrix4 *out, const bMatrix4 *in);      // PC 43C9D0 (via a copy: in may alias out)
 // GC 80059210 / PC 43C280: a - (a / |b| * |b| - (a < 0 ? |b| : 0)); note a < 0 and divisible -> |b|, not 0.
 int32_t bSignedMod(int32_t a, int32_t b);
 // GC 800598A0 / PC 43C650: atan of a 16.16 ratio, piecewise linear over two uint16 tables (PC 0x7EB1C0 below 4.0,

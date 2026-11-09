@@ -772,6 +772,31 @@ static void CheckRandomMod(int iters)
     *g = savedSeed;
 }
 
+static void CheckMatrices(int iters)
+{
+    auto oId = ORIG<void(__cdecl *)(bMatrix4 *)>(0x43C780);
+    auto oEMul = ORIG<void(__cdecl *)(bMatrix4 *, const bMatrix4 *, const bMatrix4 *)>(0x4013F0);
+    auto oMul = ORIG<void(__cdecl *)(bMatrix4 *, const bMatrix4 *, const bMatrix4 *)>(0x43C990);
+    auto oTr = ORIG<void(__cdecl *)(bMatrix4 *, const bMatrix4 *)>(0x43C9D0);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters / 2; ++it) {
+            bMatrix4 a, b, o1, o2;
+            for (int i = 0; i < 16; ++i) { a.m[i] = AtanSample(); b.m[i] = AtanSample(); o1.m[i] = o2.m[i] = AtanSample(); }
+            int mode = rng() % 4;   // 0: separate, 1: out == a, 2: out == b, 3: transpose / identity
+            if (mode == 0) { oEMul(&o1, &a, &b); eMulMatrix(&o2, &a, &b); }
+            else if (mode == 1) { o1 = a; o2 = a; oMul(&o1, &o1, &b); bMulMatrix(&o2, &o2, &b); }
+            else if (mode == 2) { o1 = b; o2 = b; oMul(&o1, &a, &o1); bMulMatrix(&o2, &a, &o2); }
+            else if (it % 2) { oTr(&o1, &a); bTransposeMatrix(&o2, &a); }
+            else { oId(&o1); bIdentity(&o2); }
+            EXPECT(std::memcmp(&o1, &o2, sizeof o1) == 0, "matrix op mode %d pc=%x", mode, pc);
+            if (mode == 3) { o1 = a; o2 = a; oTr(&o1, &o1); bTransposeMatrix(&o2, &o2); EXPECT(std::memcmp(&o1, &o2, sizeof o1) == 0, "transpose in place"); }
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1179,6 +1204,7 @@ static int RunAll()
     CheckSinCos();
     CheckATan(iters);
     CheckRandomMod(iters);
+    CheckMatrices(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);

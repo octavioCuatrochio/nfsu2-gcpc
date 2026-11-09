@@ -6,12 +6,14 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
 - Next: FEngine::PushPackage 555860 / UnloadPackage 5362E0, FECodeListBox::ScrollSelection 52BD70 (+ 518F20 axis helper, CheckMovement/MakeMove: big),
   FECodeListBox::Update 504DC0;
-  FEObject subclass copy ctors/Clones; more bWare math (matrices 43C780.., bNormalize 43CE50.., bDistBetween 43CE10, bScaleAdd 43D090).
+  FEObject subclass copy ctors/Clones; more bWare math (bInvertMatrix 43C7C0 (use tooling/x87sym.py), bNormalize 43CE50.., bDistBetween 43CE10, bScaleAdd 43D090).
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
 - bStrToFloat (43DEF0) returns unrounded x87 ST0 (port: long double); a nonzero fraction is rounded to float and
   bumped by +1 ulp before being added (PC quirk). Referee can switch precision with _controlfp(_PC_24/_PC_53).
 - FEListBox (PC 0xAC, layout in port/game/frontend/FEListBox.h; GC offsets identical from +0x5C). ScrollSelection flags:
   2 scrolling, 4 clamp, 8/0x10 X/Y wrapped-or-short (Y wrap also sets 8), 0x20/0x40 axis pending.
+- tooling/x87sym.py <exe> <start> <stop> arg0=.. : symbolic x87 executor for branch-free code; prints C++ in the
+  original evaluation order with float roundings at DWORD stores (used for eMulMatrix 4013F0).
 - bWare trig rewritten bit-exact (bSin/bSinF/bASin); bASin table is game data read from the exe (bridge).
 - FEInterpLinear (52BDC0): wrap mode = flags&0x7F (0 clamp, 1 loop over track length, 2 ping-pong: reads a null
   "from" key in the original). t rounded to float; t==0/1 -> key + base (quaternion: key*base); no keys -> base copy.

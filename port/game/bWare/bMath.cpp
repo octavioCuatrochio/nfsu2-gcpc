@@ -1,4 +1,5 @@
 #include "bMath.h"
+#include <cstring>
 #include "bridge/Bridge.h"
 #include "frontend/FEMath.h"   // FEFtol (MSVC __ftol2)
 
@@ -99,6 +100,44 @@ int32_t bSignedMod(int32_t a, int32_t b)
     uint32_t c = static_cast<uint32_t>(a / b) * static_cast<uint32_t>(b);
     if (a < 0) c -= static_cast<uint32_t>(b);
     return static_cast<int32_t>(static_cast<uint32_t>(a) - c);
+}
+
+void bIdentity(bMatrix4 *m)
+{
+    for (int i = 0; i < 16; ++i) m->m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
+}
+
+// Generated from the PC asm by tooling/x87sym.py (summation order per element is the original's).
+void eMulMatrix(bMatrix4 *out, const bMatrix4 *pa, const bMatrix4 *pb)
+{
+    const bMatrix4 &a = *pa, &b = *pb;
+    float r[16];
+    r[0] = float(((((L(a.m[0]) * L(b.m[0])) + (L(a.m[3]) * L(b.m[12]))) + (L(a.m[2]) * L(b.m[8]))) + (L(b.m[4]) * L(a.m[1]))));
+    r[1] = float(((((L(b.m[13]) * L(a.m[3])) + (L(a.m[1]) * L(b.m[5]))) + (L(b.m[9]) * L(a.m[2]))) + (L(b.m[1]) * L(a.m[0]))));
+    r[2] = float(((((L(b.m[10]) * L(a.m[2])) + (L(b.m[2]) * L(a.m[0]))) + (L(a.m[3]) * L(b.m[14]))) + (L(b.m[6]) * L(a.m[1]))));
+    r[3] = float(((((L(b.m[15]) * L(a.m[3])) + (L(a.m[2]) * L(b.m[11]))) + (L(a.m[0]) * L(b.m[3]))) + (L(b.m[7]) * L(a.m[1]))));
+    r[4] = float(((((L(a.m[6]) * L(b.m[8])) + (L(a.m[7]) * L(b.m[12]))) + (L(b.m[4]) * L(a.m[5]))) + (L(a.m[4]) * L(b.m[0]))));
+    r[5] = float(((((L(a.m[6]) * L(b.m[9])) + (L(a.m[4]) * L(b.m[1]))) + (L(a.m[5]) * L(b.m[5]))) + (L(a.m[7]) * L(b.m[13]))));
+    r[6] = float(((((L(a.m[7]) * L(b.m[14])) + (L(a.m[6]) * L(b.m[10]))) + (L(b.m[6]) * L(a.m[5]))) + (L(a.m[4]) * L(b.m[2]))));
+    r[7] = float(((((L(b.m[15]) * L(a.m[7])) + (L(a.m[6]) * L(b.m[11]))) + (L(a.m[4]) * L(b.m[3]))) + (L(b.m[7]) * L(a.m[5]))));
+    r[8] = float(((((L(a.m[10]) * L(b.m[8])) + (L(a.m[11]) * L(b.m[12]))) + (L(b.m[4]) * L(a.m[9]))) + (L(a.m[8]) * L(b.m[0]))));
+    r[9] = float(((((L(a.m[10]) * L(b.m[9])) + (L(a.m[8]) * L(b.m[1]))) + (L(a.m[9]) * L(b.m[5]))) + (L(a.m[11]) * L(b.m[13]))));
+    r[10] = float(((((L(a.m[11]) * L(b.m[14])) + (L(a.m[10]) * L(b.m[10]))) + (L(b.m[6]) * L(a.m[9]))) + (L(a.m[8]) * L(b.m[2]))));
+    r[11] = float(((((L(b.m[15]) * L(a.m[11])) + (L(a.m[10]) * L(b.m[11]))) + (L(a.m[8]) * L(b.m[3]))) + (L(b.m[7]) * L(a.m[9]))));
+    r[12] = float(((((L(a.m[14]) * L(b.m[8])) + (L(a.m[15]) * L(b.m[12]))) + (L(b.m[4]) * L(a.m[13]))) + (L(a.m[12]) * L(b.m[0]))));
+    r[13] = float(((((L(a.m[14]) * L(b.m[9])) + (L(a.m[12]) * L(b.m[1]))) + (L(a.m[13]) * L(b.m[5]))) + (L(a.m[15]) * L(b.m[13]))));
+    r[14] = float(((((L(a.m[15]) * L(b.m[14])) + (L(a.m[14]) * L(b.m[10]))) + (L(b.m[6]) * L(a.m[13]))) + (L(a.m[12]) * L(b.m[2]))));
+    r[15] = float(((((L(b.m[15]) * L(a.m[15])) + (L(a.m[14]) * L(b.m[11]))) + (L(a.m[12]) * L(b.m[3]))) + (L(b.m[7]) * L(a.m[13]))));
+    std::memcpy(out->m, r, sizeof r);   // PC 4012B0 copy
+}
+
+void bMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b) { eMulMatrix(out, b, a); }
+
+void bTransposeMatrix(bMatrix4 *out, const bMatrix4 *in)
+{
+    bMatrix4 t = *in;
+    for (int r = 0; r < 4; ++r)
+        for (int c = 0; c < 4; ++c) out->m[c * 4 + r] = t.m[r * 4 + c];
 }
 
 uint16_t bFastATan(float x, float y)
