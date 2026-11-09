@@ -32,6 +32,7 @@
 #include "camera/CameraNoise.h"
 #include "camera/Camera.h"
 #include "frontend/FEPackageManager.h"
+#include "frontend/FENode.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include <float.h>
@@ -1080,6 +1081,29 @@ static void CheckPackageManager(int iters)
     }
 }
 
+static void CheckFENodeFind(int iters)
+{
+    auto oCmp = ORIG<int32_t(__cdecl *)(const char *, const char *)>(0x505310);
+    auto oFind = ORIG<FENode *(THISCALL *)(void *, const char *, FENode *)>(0x519E50);
+    static const char *kNames[] = {"Main.fng", "MAIN.FNG", "shop", "Shop", "x", ""};
+    FENode nodes[6];
+    for (int it = 0; it < iters / 4; ++it) {
+        std::memset(nodes, 0, sizeof nodes);
+        int n = 1 + rng() % 6;
+        for (int i = 0; i < n; ++i) {
+            if (rng() % 5) { nodes[i].mpcName = const_cast<char *>(kNames[rng() % 6]); nodes[i].mu32NameHash = FEHashUpper(nodes[i].mpcName); }
+            if (rng() % 7 == 0) nodes[i].mu32NameHash ^= 1;   // stale hash
+            nodes[i].node.next = i + 1 < n ? &nodes[i + 1].node : nullptr;
+        }
+        const char *q = rng() % 8 ? kNames[rng() % 6] : nullptr;
+        if (!q)   // null query vs a node named "" (both hash 0xFFFFFFFF) compares against null: crashes in the original too
+            for (int i = 0; i < n; ++i) if (nodes[i].mpcName && nodes[i].mu32NameHash == 0xFFFFFFFFu) { nodes[i].mpcName = const_cast<char *>("x"); nodes[i].mu32NameHash = FEHashUpper("x"); }
+        EXPECT(oFind(nullptr, q, &nodes[0]) == FEListFindNode(q, &nodes[0]), "FEList::FindNode");
+        std::string a = StrSample(), b2 = rng() % 2 ? a : StrSample();
+        EXPECT(oCmp(a.c_str(), b2.c_str()) == FEStricmp(a.c_str(), b2.c_str()), "FEStricmp(%s,%s)", a.c_str(), b2.c_str());
+    }
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1493,6 +1517,7 @@ static int RunAll()
     CheckSlotPoolB(iters);
     CheckNoise(iters);
     CheckPackageManager(iters);
+    CheckFENodeFind(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);

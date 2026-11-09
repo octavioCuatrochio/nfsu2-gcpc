@@ -3,6 +3,9 @@
 #include "FEPackage.h"
 #include "bWare/bString.h"
 #include "bridge/Bridge.h"
+#include "FENode.h"
+#include "FEngine.h"
+#include "cFEng.h"
 
 uint32_t FEPackageData::GetNameHash() const
 {
@@ -96,6 +99,19 @@ void FEPackageManager::NotificationMessage(uint32_t msg, void *obj, uint32_t arg
 {
     for (FEPackageData *d = FEPackageData::FromNode(mList.next); d != Sentinel(); d = FEPackageData::FromNode(d->node.next))
         if (d->mpPackage && d->mpPackage == pkg && d->mpScreen) bridge::MenuScreen_BaseNotify(d->mpScreen, msg, obj, arg, pkg);
+}
+
+FEPackage *FEngFindPackage(const char *name)
+{
+    cFEng *fe = bridge::cFEngInstance();
+    if (bridge::FEngLoadCounter() == 0 && fe) {
+        FEngine *e = fe->mpEngine;
+        if (!e) return nullptr;
+        if (FENode *n = FEListFindNode(name, reinterpret_cast<FENode *>(e->mpPackages))) return reinterpret_cast<FEPackage *>(n);
+        return reinterpret_cast<FEPackage *>(FEListFindNode(name, reinterpret_cast<FENode *>(e->mIdlePackages.head)));
+    }
+    FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(name);
+    return d ? d->mpPackage : nullptr;
 }
 
 uint32_t FEPkgMgr_GetActiveScreensChecksum() { return bridge::TheFEPackageManager()->GetActiveScreensChecksum(); }

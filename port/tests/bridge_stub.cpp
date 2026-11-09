@@ -40,6 +40,8 @@ void *lastDestructorCallback = nullptr;
 std::vector<std::string> levelSortingList;
 FEPackage *pushResult = nullptr;
 std::string lastPushName;
+int32_t fengLoadCounter = 0;
+::SlotPool *levelSorterSlots = nullptr;
 }  // namespace teststub
 
 namespace bridge {
@@ -109,6 +111,9 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
     teststub::delivered.push_back({"notify", screen, pkg, msg, arg});
     (void)obj;
 }
+int32_t FEngLoadCounter() { return teststub::fengLoadCounter; }
+SlotPool *LevelSorterSlots() { return teststub::levelSorterSlots; }
+void cFEng_PopPackage(cFEng *, const char *name) { teststub::lastPushName = std::string("pop:") + name; }
 void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE
 uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }
@@ -170,6 +175,11 @@ cFEng *cFEngInstance()
 {
     static cFEng fe;
     static std::vector<cFEngLevelSorter> nodes;
+    static std::vector<std::string> built;
+    static bool first = true;
+    if (!first && built == teststub::levelSortingList) return &fe;   // rebuild only when the configured list changes
+    first = false;
+    built = teststub::levelSortingList;
     nodes.assign(teststub::levelSortingList.size(), cFEngLevelSorter{});
     cFEngLevelSorter *prev = fe.SortSentinel();
     fe.mpSortHead = prev;

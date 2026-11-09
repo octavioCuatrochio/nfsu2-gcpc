@@ -8,7 +8,10 @@ struct cFEngLevelSorter {
     cFEngLevelSorter *next;          // +0x00
     cFEngLevelSorter *prev;          // +0x04
     const char *mpcPackageName;      // +0x08
-    // +0x0C.. more fields (GC: +0x10 state, +0x18 flags) not needed yet
+    int32_t mi32Level;               // +0x0C position in the list (ResyncSortingLevels)
+    int32_t mi32State;               // +0x10 0/1: pop directly (Popper), else queue the pop
+    int32_t mi32Arg;                 // +0x14 (Switcher's third argument)
+    uint32_t mu32Flags;              // +0x18 (GC: 8 checked by Pusher)
 };
 
 struct FEngine;
@@ -33,6 +36,13 @@ struct cFEng {
     void QueuePopPackage(const char *name);
     // GC 8014EAE8 / PC 51CC60 (ret 0xC; this unused): last button with that name hash; enable (== 1) clears
     // FEObject flag 0x04000000, anything else sets it.
+    // GC 8014ECD8 / PC 5376B0: number the entries in order and copy the number to each loaded package's priority.
+    void ResyncSortingLevels();
+    // GC 8014EF3C / PC 5376F0 (ret 4): remove the entry (pop now when state is 0/1, else queue) and renumber.
+    void Popper(const char *name);
+    // GC 8014F044 / PC 5377A0 (ret 0xC): switch packages and replace the entry for `from` with a new one for `to`
+    // (no null checks, like the original).
+    void Switcher(const char *from, const char *to, int32_t arg);
     static void SetButtonState(const char *pkgName, uint32_t buttonHash, bool enable);
     // GC 8014E798 / 8014E7F0, PC 51CB20 / 51CB60 (ret 0xC): parent looked up by name (null name -> no parent).
     void QueuePushPackage(const char *name, const char *parent, uint32_t mask);

@@ -9,6 +9,7 @@
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
+#include "frontend/FENode.h"
 #include "frontend/cFEng.h"
 #include "bWare/bString.h"
 #include "frontend/FEPackageManager.h"
@@ -1307,8 +1308,61 @@ static void TestCFEngQueue()
     dl.clear();
 }
 
+// FEListFindNode / FEngFindPackage / level sorter (ResyncSortingLevels, Popper, Switcher).
+static void TestLevelSorter()
+{
+    CHECK(FEStricmp("abc", "ABC") == 0 && FEStricmp("ab", "abc") == -'C' && FEStricmp("b", "a") == 1);
+    alignas(8) unsigned char pm[3][sizeof(FEPackage)] = {};
+    FEPackage *P[3];
+    for (int i = 0; i < 3; ++i) P[i] = reinterpret_cast<FEPackage *>(pm[i]);
+    FENode *N[3];
+    const char *names[3] = {"Main.fng", "Shop.fng", "Idle.fng"};
+    for (int i = 0; i < 3; ++i) {
+        N[i] = reinterpret_cast<FENode *>(P[i]);
+        N[i]->mpcName = const_cast<char *>(names[i]);
+        N[i]->mu32NameHash = FEHashUpper(names[i]);
+        P[i]->mi32Priority = -1;
+    }
+    N[0]->node.next = &N[1]->node; N[1]->node.next = nullptr; N[2]->node.next = nullptr;
+    CHECK(FEListFindNode("SHOP.FNG", N[0]) == N[1] && FEListFindNode("x", N[0]) == nullptr && FEListFindNode(nullptr, N[0]) == nullptr);
+    FEngine *e = TestEngine();
+    cFEng *fe = bridge::cFEngInstance();
+    fe->mpEngine = e;
+    e->mpPackages = P[0];
+    e->mIdlePackages.head = reinterpret_cast<FEMinNode *>(P[2]);
+    CHECK(FEngFindPackage("idle.fng") == P[2] && FEngFindPackage("shop.fng") == P[1] && FEngFindPackage("none") == nullptr);
+    teststub::fengLoadCounter = 1;                                  // loading: package manager path (empty)
+    CHECK(FEngFindPackage("shop.fng") == nullptr);
+    teststub::fengLoadCounter = 0;
+    // level sorter list: Main, Shop (pool of 4 entries)
+    teststub::levelSortingList = {"Main.fng", "Shop.fng"};
+    fe = bridge::cFEngInstance();                                   // rebuilds the list from levelSortingList
+    fe->mpEngine = e;
+    SlotPool *pool = SlotPool::NewSlotPool(sizeof(cFEngLevelSorter), 4, "ls", 0);
+    teststub::levelSorterSlots = pool;
+    fe->ResyncSortingLevels();
+    CHECK(fe->mpSortHead->mi32Level == 0 && fe->mpSortHead->next->mi32Level == 1 && P[0]->mi32Priority == 0 && P[1]->mi32Priority == 1);
+    // Switcher(Main -> Idle): the new entry takes Main's place
+    CollectCommands();
+    fe->Switcher("Main.fng", "Idle.fng", 7);
+    CHECK(std::string(fe->mpSortHead->mpcPackageName) == "Idle.fng" && fe->mpSortHead->mi32Arg == 7 && fe->mpSortHead->next->mpcPackageName == std::string("Shop.fng"));
+    CHECK(P[2]->mi32Priority == 0 && P[1]->mi32Priority == 1);
+    // Popper(Shop): state 0 -> direct pop (cFEng::PopPackage bridge), entry removed
+    fe->mpSortHead->next->mi32State = 0;
+    fe->Popper("Shop.fng");
+    CHECK(teststub::lastPushName == "pop:Shop.fng" && fe->mpSortHead->next == fe->SortSentinel());
+    CollectCommands();
+    std::free(pool); --teststub::liveAllocations;
+    teststub::levelSorterSlots = nullptr;
+    teststub::levelSortingList.clear();
+    fe->mpEngine = nullptr;
+    e->mpPackages = nullptr;
+    e->mIdlePackages.head = nullptr;
+}
+
 int main()
 {
+    TestLevelSorter();
     TestCFEngQueue();
     TestPackageManager();
     TestSlotPool();

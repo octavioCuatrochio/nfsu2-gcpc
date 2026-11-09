@@ -16,6 +16,7 @@ extern FEMultiPool objDataPool;
 }
 struct FEMinList;
 struct FEPackage;
+struct SlotPool;
 namespace teststub {
 extern FEMinList msgRespPool, scriptPool;
 extern int feMsgRespVTable, feMsgRespBlockVTable, virtualDtorCalls;
@@ -30,7 +31,9 @@ struct Delivered { const char *kind; void *a, *pkg; uint32_t msg, arg; };
 extern std::vector<Delivered> delivered;
 extern std::vector<std::string> levelSortingList;          // cFEng_FindInLevelSortingList (case-insensitive)
 extern std::string lastPushName;                            // copy: the command (and its name) is freed
-extern FEPackage *pushResult;                               // FEngine_PushPackage return value
+extern FEPackage *pushResult;
+extern int32_t fengLoadCounter;
+extern ::SlotPool *levelSorterSlots;                               // FEngine_PushPackage return value
 extern void *currentButton;
 struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback
 extern void *lastTypeUpdate;

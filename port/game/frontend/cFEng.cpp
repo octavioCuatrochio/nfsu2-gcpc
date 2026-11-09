@@ -5,6 +5,7 @@
 #include "FEObject.h"
 #include "FEPackageManager.h"
 #include "bridge/Bridge.h"
+#include "bWare/bSlotPool.h"
 
 cFEngLevelSorter *cFEng::FindInLevelSortingList(const char *name)
 {
@@ -66,4 +67,51 @@ void cFEng::QueuePushModalPackage(const char *name, const char *parent, uint32_t
 {
     FEPackage *p = parent ? bridge::TheFEPackageManager()->FindPackage(parent) : nullptr;
     mpEngine->QueuePackagePushForModal(name, p, mask);
+}
+
+void cFEng::ResyncSortingLevels()
+{
+    int32_t level = 0;
+    for (cFEngLevelSorter *n = mpSortHead; n != SortSentinel(); n = n->next, ++level) {
+        FEPackage *p = FEngFindPackage(n->mpcPackageName);
+        n->mi32Level = level;
+        if (p) p->mi32Priority = level;
+    }
+}
+
+void cFEng::Popper(const char *name)
+{
+    cFEngLevelSorter *n = FindInLevelSortingList(name);
+    if (!n) return;
+    if (n->mi32State == 1 || n->mi32State == 0) bridge::cFEng_PopPackage(this, name);
+    else QueuePopPackage(name);
+    n->prev->next = n->next;
+    n->next->prev = n->prev;
+    bFree(bridge::LevelSorterSlots(), n);
+    ResyncSortingLevels();
+}
+
+void cFEng::Switcher(const char *from, const char *to, int32_t arg)
+{
+    SwitchFEngPackages(from, to);
+    cFEngLevelSorter *old = FindInLevelSortingList(from);
+    old->mi32Level = 0;
+    auto *n = static_cast<cFEngLevelSorter *>(bOMalloc(bridge::LevelSorterSlots()));
+    if (n) {
+        n->mpcPackageName = to;
+        n->mi32Level = 0;
+        n->mi32State = 0;
+        n->mi32Arg = 0;
+        n->mu32Flags = 0;
+    }
+    n->mi32Arg = arg;
+    cFEngLevelSorter *next = old->next;   // insert after the old entry, then unlink the old one
+    old->next = n;
+    next->prev = n;
+    n->prev = old;
+    n->next = next;
+    old->prev->next = old->next;
+    old->next->prev = old->prev;
+    bFree(bridge::LevelSorterSlots(), old);
+    ResyncSortingLevels();
 }

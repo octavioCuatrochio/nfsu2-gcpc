@@ -30,9 +30,14 @@ struct FEPackageCommand {
 struct FEngine {
     uint8_t _unknown000;
     uint8_t mbFlag01;                // +0x01 input enabled ("Enabling/Disabling inputs"); set by 0x59BED120 / 0x7E4D1288
-    uint8_t _unknown002[0xE2];
+    uint8_t _unknown002[0xDA];
+    // Active packages: FEMinList at +0xDC (vtable, count, head, tail); kept as fields because code uses the head.
+    void *mpActiveListVTable;        // +0xDC
+    uint32_t mu32NumPackages;        // +0xE0
     FEPackage *mpPackages;           // +0xE4 first active package (packages are linked through their FEMinNode)
-    uint8_t _unknown0E8[0x24];
+    FEPackage *mpPackagesTail;       // +0xE8
+    FEMinList mIdlePackages;         // +0xEC loaded but inactive packages (cFEng::SetUseIdleList)
+    uint8_t _unknown0FC[0x10];
     void *mpUIData;                  // +0x10C game-side handler (vtable: +0x18 SendMessageToGame, +0x54 message hook)
     uint8_t _unknown110[0x4114 - 0x110];
     FEMinList mMessages;             // +0x4114 queued messages
@@ -80,5 +85,6 @@ static_assert(sizeof(FEMessageNode) == 0x20 && sizeof(FEPackageCommand) == 0x20 
 static_assert(offsetof(FEngine, mPackageCommands) == 0x4124 && offsetof(FEngine, mi32LastButtonIndex) == 0x514C);
 static_assert(offsetof(FEngine, mLastButtons) == 0x5150);
 static_assert(offsetof(FEngine, mpPackages) == 0xE4 && offsetof(FEngine, mpUIData) == 0x10C && offsetof(FEngine, mMessages) == 0x4114);
+static_assert(offsetof(FEngine, mIdlePackages) == 0xEC && offsetof(FEngine, mpActiveListVTable) == 0xDC);
 static_assert(offsetof(FEngine, mbForwardQueuedMessages) == 0x5251 && offsetof(FEngine, mu32NumPackageMarkers) == 0x4148);
 #endif

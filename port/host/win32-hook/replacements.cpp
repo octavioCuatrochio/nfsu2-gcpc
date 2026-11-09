@@ -214,6 +214,10 @@ void THISCALL FEPkgMgr_NotificationMessage(FEPackageManager *self, uint32_t m, v
 void THISCALL cFEng_NotificationMessage(cFEng *self, uint32_t m, FEObject *o, uint32_t a, FEPackage *p) { self->NotificationMessage(m, o, a, p); }
 void THISCALL cFEng_SwitchFEngPackages(cFEng *self, const char *f, const char *t) { self->SwitchFEngPackages(f, t); }
 void THISCALL cFEng_QueuePopPackage(cFEng *self, const char *n) { self->QueuePopPackage(n); }
+FENode *THISCALL FEList_FindNode(void *, const char *n, FENode *start) { return FEListFindNode(n, start); }
+void THISCALL cFEng_ResyncSortingLevels(cFEng *self) { self->ResyncSortingLevels(); }
+void THISCALL cFEng_Popper(cFEng *self, const char *n) { self->Popper(n); }
+void THISCALL cFEng_Switcher(cFEng *self, const char *f, const char *t, int32_t a) { self->Switcher(f, t, a); }
 void THISCALL cFEng_QueuePushPackage(cFEng *self, const char *n, const char *p, uint32_t m) { self->QueuePushPackage(n, p, m); }
 void THISCALL cFEng_QueuePushModalPackage(cFEng *self, const char *n, const char *p, uint32_t m) { self->QueuePushModalPackage(n, p, m); }
 void __stdcall cFEng_SetButtonState(const char *p, uint32_t h, uint32_t en) { cFEng::SetButtonState(p, h, (en & 0xFF) == 1); }   // ecx unused
@@ -478,6 +482,12 @@ const Replacement kReplacements[] = {
     {0x51CBA0, (const void *)&cFEng_SwitchFEngPackages, "cFEng::SwitchFEngPackages", {0x53, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
     {0x51CC00, (const void *)&cFEng_QueuePopPackage, "cFEng::QueuePopPackage", {0x53, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
     {0x51CC60, (const void *)&cFEng_SetButtonState, "cFEng::SetButtonState", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xB9}},
+    {0x505310, (const void *)&FEStricmp, "FEStricmp", {0x8B, 0x54, 0x24, 0x08, 0x56, 0x8B}},
+    {0x519E50, (const void *)&FEList_FindNode, "FEList::FindNode", {0x53, 0x55, 0x56, 0x57, 0x8B, 0x7C}},
+    {0x52CEF0, (const void *)&FEngFindPackage, "FEngFindPackage", {0xA1, 0xD0, 0x84, 0x83, 0x00, 0x85}},
+    {0x5376B0, (const void *)&cFEng_ResyncSortingLevels, "cFEng::ResyncSortingLevels", {0x53, 0x56, 0x8B, 0x71, 0x10, 0x8D}},
+    {0x5376F0, (const void *)&cFEng_Popper, "cFEng::Popper", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x56}},
+    {0x5377A0, (const void *)&cFEng_Switcher, "cFEng::Switcher", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x10}},
     {0x541FC0, (const void *)&FEngine_ProcessMessageQueue, "FEngine::ProcessMessageQueue", {0x83, 0xEC, 0x0C, 0x53, 0x8B, 0xD9}},
     {0x5367E0, (const void *)&FEngine_ProcessObjectMessage, "FEngine::ProcessObjectMessage", {0x53, 0x8B, 0x5C, 0x24, 0x10, 0x55}},
     {0x51B000, (const void *)&FEngine_ProcessListBoxResponses, "FEngine::ProcessListBoxResponses", {0x8B, 0x44, 0x24, 0x0C, 0x3D, 0xF9}},

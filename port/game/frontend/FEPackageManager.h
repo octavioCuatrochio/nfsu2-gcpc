@@ -56,6 +56,10 @@ inline FEPackageData *FEPackageData::FromNode(FEPkgNode *n)
     return n ? reinterpret_cast<FEPackageData *>(reinterpret_cast<uint8_t *>(n) - offsetof(FEPackageData, node)) : nullptr;
 }
 
+// GC 8014F950 / PC 52CEF0: while the global FEng load counter (PC 0x8384D0) is 0 and cFEng exists, search the
+// engine's active then idle package lists; otherwise ask the package manager.
+FEPackage *FEngFindPackage(const char *name);
+
 // PC 51BB20 (port name; no GC symbol): GetActiveScreensChecksum on the global manager.
 uint32_t FEPkgMgr_GetActiveScreensChecksum();
 

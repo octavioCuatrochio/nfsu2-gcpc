@@ -104,6 +104,9 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
 {
     reinterpret_cast<void(THISCALL *)(void *, uint32_t, void *, uint32_t, FEPackage *)>(0x55B5C0)(screen, msg, obj, arg, pkg);
 }
+int32_t FEngLoadCounter() { return *reinterpret_cast<const int32_t *>(0x8384D0); }
+SlotPool *LevelSorterSlots() { return *reinterpret_cast<SlotPool **>(0x8384B0); }
+void cFEng_PopPackage(cFEng *fe, const char *name) { reinterpret_cast<void(THISCALL *)(cFEng *, const char *)>(0x537580)(fe, name); }
 void bWareFree(void *p) { reinterpret_cast<void(__cdecl *)(void *)>(0x440540)(p); }
 uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }
 uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }
