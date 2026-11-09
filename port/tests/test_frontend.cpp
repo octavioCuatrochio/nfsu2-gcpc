@@ -277,19 +277,54 @@ static void TestPoolBlocks()
     CHECK(b->freeList.head == &first->node && first->node.prev == nullptr);
     CHECK(first->node.vtable == &teststub::feScriptVTable && first->mu32Id == 0 && first->mpTracks == nullptr);
     CHECK(b->freeList.tail == reinterpret_cast<FEMinNode *>(b->entries + 31 * sizeof(FEScript)));
-    teststub::scriptDtorCalls = 0;
     CHECK(FEScriptBlock_ScalarDtor(b, 0) == b);
-    CHECK(teststub::scriptDtorCalls == 32 && b->freeList.count == 0 && b->freeList.head == nullptr);
+    CHECK(b->freeList.count == 0 && b->freeList.head == nullptr);
+    for (int i = 0; i < 32; ++i)
+        CHECK(reinterpret_cast<FEScript *>(b->entries + i * sizeof(FEScript))->node.vtable == &teststub::feMinNodeVTable);
     CHECK(first->node.next == reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED));
     CHECK(b->node.vtable == &teststub::feMinNodeVTable);
     bridge::FreeArray(b);
 
-    teststub::scriptDtorCalls = 0;
+    int liveBefore = teststub::liveAllocations;
     std::vector<void *> s;
     for (int i = 0; i < 40; ++i) s.push_back(FEPoolNew<FEScript, 32>(teststub::scriptPool, FEScriptBlock_Construct));
     CHECK(teststub::scriptPool.count == 2);
     for (void *p : s) FEPoolDelete<FEScript, 32>(teststub::scriptPool, p);
-    CHECK(teststub::scriptPool.count == 0 && teststub::scriptDtorCalls == 64);
+    CHECK(teststub::scriptPool.count == 0 && teststub::liveAllocations == liveBefore);
+}
+
+// ~FEScript: tracks (new[] with count cookie) destroyed, owning key lists purged, borrowed ones left alone.
+static void TestScriptDestruct()
+{
+    int liveBefore = teststub::liveAllocations;
+    FEMinNode *keys[3];
+    for (auto &k : keys) {
+        k = static_cast<FEMinNode *>(bridge::Alloc(sizeof(FEMinNode)));
+        *k = FEMinNode{&teststub::feMinNodeVTable, nullptr, nullptr};
+    }
+    auto *raw = static_cast<uint32_t *>(bridge::Alloc(4 + 2 * sizeof(FEKeyTrack)));
+    raw[0] = 2;
+    auto *tracks = reinterpret_cast<FEKeyTrack *>(raw + 1);
+    std::memset(tracks, 0, 2 * sizeof(FEKeyTrack));
+    // track 0 owns keys[0..1]; track 1 borrows (head points at keys[2], must survive)
+    tracks[0].mKeys.head = keys[0]; tracks[0].mKeys.tail = keys[1];
+    keys[0]->next = keys[1]; keys[1]->prev = keys[0];
+    tracks[1].mKeys.mbIsReference = 1; tracks[1].mKeys.head = keys[2];
+    FEScript sc;
+    FEScript::Construct(&sc);
+    sc.mpTracks = tracks;
+    sc._owned28 = bridge::Alloc(8);
+    sc._owned2C = static_cast<char *>(bridge::Alloc(8));
+    int deletesBefore = teststub::virtualDeletes;
+    sc.Destruct();
+    CHECK(teststub::virtualDeletes - deletesBefore == 2);
+    CHECK(sc.mpTracks == nullptr && sc._owned28 == nullptr && sc._owned2C == nullptr);
+    CHECK(sc.node.vtable == &teststub::feMinNodeVTable);
+    CHECK(teststub::liveAllocations == liveBefore + 1);         // only the borrowed key is left
+    bridge::FreeArray(keys[2]);
+    // RemNode on an unlinked/null node
+    FERefList l{&teststub::feRefListVTable, 0, {}, nullptr, nullptr};
+    CHECK(l.RemNode(nullptr) == nullptr && l.RemHead() == nullptr);
 }
 
 int main()
@@ -307,6 +342,7 @@ int main()
     TestResponses();
     TestMessageResponsePool();
     TestPoolBlocks();
+    TestScriptDestruct();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

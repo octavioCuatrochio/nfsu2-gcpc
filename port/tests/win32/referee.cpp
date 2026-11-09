@@ -176,6 +176,35 @@ static void CheckSlotPool(int iters)
     }
 }
 
+// FERefList::RemNode (PC 5055C0) on random lists, removing a random node (or null): original vs rewrite.
+static void CheckRefList(int iters)
+{
+    auto orig = ORIG<FEMinNode *(THISCALL *)(FERefList *, FEMinNode *)>(0x5055C0);
+    for (int it = 0; it < iters / 10; ++it) {
+        FEMinNode na[6]{}, nb[6]{};
+        FERefList la{}, lb{};
+        int n = rng() % 7;
+        for (FERefList *l : {&la, &lb}) {
+            FEMinNode *nodes = l == &la ? na : nb;
+            for (int i = 0; i < n; ++i) {
+                nodes[i].prev = i ? &nodes[i - 1] : nullptr;
+                nodes[i].next = i + 1 < n ? &nodes[i + 1] : nullptr;
+            }
+            l->head = n ? &nodes[0] : nullptr;
+            l->tail = n ? &nodes[n - 1] : nullptr;
+        }
+        int k = n ? static_cast<int>(rng() % (n + 1)) - 1 : -1;   // -1 = null
+        FEMinNode *ra = orig(&la, k < 0 ? nullptr : &na[k]);
+        FEMinNode *rb = lb.RemNode(k < 0 ? nullptr : &nb[k]);
+        bool same = (ra ? ra - na : -1) == (rb ? rb - nb : -1);
+        auto idxA = [&](FEMinNode *p) { return p == reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED) ? 99 : p ? p - na : -1; };
+        auto idxB = [&](FEMinNode *p) { return p == reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED) ? 99 : p ? p - nb : -1; };
+        same = same && idxA(la.head) == idxB(lb.head) && idxA(la.tail) == idxB(lb.tail);
+        for (int i = 0; i < n; ++i) same = same && idxA(na[i].next) == idxB(nb[i].next) && idxA(na[i].prev) == idxB(nb[i].prev);
+        EXPECT(same, "FERefList::RemNode n=%d k=%d", n, k);
+    }
+}
+
 // Pool block constructors (PC 53E710/53E910): original and rewrite built in turn in the same buffer, compared
 // word by word (the rewrite links the stub bridge, so its vtable words are mapped to the real vtables).
 template <class Block>
@@ -214,6 +243,7 @@ static int RunAll()
     CheckMinList(iters);
     CheckFEObject(iters);
     CheckSlotPool(iters);
+    CheckRefList(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEScriptBlock>(0x53E910, FEScriptBlock_Construct, "FEScript block",

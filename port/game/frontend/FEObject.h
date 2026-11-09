@@ -26,6 +26,19 @@ struct FEScript {
     uint32_t mu32Id;                 // +0x30 script name hash
 
     static FEScript *Construct(void *mem);   // PC 511D70 (GC FEScript::FEScript() inlined; body = GC Init 8013D1C4)
+    void Destruct();                         // GC 8013D1E8 / PC 535170
+    FEScript *ScalarDeletingDestructor(uint32_t flags);   // PC 53EE30 (vtable slot 0, pooled delete)
+};
+
+// One animated property of a script (element of FEScript::mpTracks, MSVC new[] with count cookie). PC 0x38 bytes
+// (GC 0x34). Only what the destructor touches is named.
+struct FEKeyTrack {
+    uint8_t _unknown00[8];
+    FEMinNode mBaseKey;              // +0x08 FEKeyNode (base key; FEMinNode-derived)
+    uint8_t _unknown14[0x14];
+    FERefList mKeys;                 // +0x28 key nodes (owned unless mbIsReference)
+
+    void Destruct();                 // PC 52B960 (GC: inlined in ~FEScript)
 };
 
 struct FEObject {
@@ -61,5 +74,6 @@ static_assert(offsetof(FEObject, mu32Type) == 0x18 && offsetof(FEObject, mu32Fla
 static_assert(offsetof(FEObject, mpData) == 0x2C && offsetof(FEObject, mResponses) == 0x34);
 static_assert(offsetof(FEObject, mScripts) == 0x44 && offsetof(FEObject, mpCurrentScript) == 0x54);
 static_assert(sizeof(FEObject) == 0x5C);
+static_assert(sizeof(FEKeyTrack) == 0x38 && offsetof(FEKeyTrack, mKeys) == 0x28);
 static_assert(offsetof(FEScript, mu32Id) == 0x30 && offsetof(FEScript, mpTracks) == 0x20 && sizeof(FEScript) == 0x34);
 #endif

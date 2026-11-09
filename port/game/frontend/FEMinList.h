@@ -29,7 +29,22 @@ struct FEMinList {
     FEMinList *VectorDeletingDestructor(uint32_t flags);   // PC 52C290 (vtable slot 0): bit1 array, bit0 free
 };
 
+// List that either owns its nodes or borrows another list's (FERefList::ReferenceList, GC 80142694: then head
+// points at the other list). No node count. GC: flag at +0, head +4, tail +8, vptr +0xC; PC: vtable first.
+struct FERefList {
+    void *vtable;                // +0x0  PC FERefList vtable 0x79AA30
+    uint8_t mbIsReference;       // +0x4  1: borrowed (not purged on destruction)
+    uint8_t _pad05[3];
+    FEMinNode *head;             // +0x8
+    FEMinNode *tail;             // +0xC
+
+    FEMinNode *RemNode(FEMinNode *node);   // PC 5055C0 (GC: inlined in RemHead 801427EC): unlinks, guards; null -> null
+    FEMinNode *RemHead() { return head ? RemNode(head) : nullptr; }
+    void Purge();                          // GC 8030D0CC / PC 511D00: deletes every node (virtual)
+};
+
 #if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(FERefList) == 0x10 && offsetof(FERefList, head) == 8);
 static_assert(sizeof(FEMinNode) == 0xC && offsetof(FEMinNode, next) == 4 && offsetof(FEMinNode, prev) == 8);
 static_assert(sizeof(FEMinList) == 0x10 && offsetof(FEMinList, head) == 8 && offsetof(FEMinList, tail) == 0xC);
 #endif

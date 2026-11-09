@@ -6,7 +6,7 @@ namespace {
 void MsgRespCtor(void *p) { FEMessageResponse::Construct(p); }
 void MsgRespDtor(void *p) { static_cast<FEMessageResponse *>(p)->Destruct(); }
 void ScriptCtor(void *p) { FEScript::Construct(p); }
-void ScriptDtor(void *p) { bridge::FEScript_Destruct(p); }   // ~FEScript PC 535170 (not rewritten yet)
+void ScriptDtor(void *p) { static_cast<FEScript *>(p)->Destruct(); }
 }  // namespace
 
 void FEMessageResponseBlock_Construct(void *mem)

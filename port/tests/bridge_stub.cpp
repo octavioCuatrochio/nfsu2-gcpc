@@ -18,7 +18,7 @@ int feMinNodeVTable = 0, feMinListVTable = 0, virtualDeletes = 0;
 int feObjectVTable = 0, feSlotNodeVTable = 0, feSlotPoolVTable = 0;
 FEMultiPool objDataPool{{&feMinListVTable, 0, nullptr, nullptr}};
 int feMsgRespVTable = 0, feMsgRespBlockVTable = 0, virtualDtorCalls = 0;
-int feScriptBlockVTable = 0, feScriptVTable = 0, scriptDtorCalls = 0;
+int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0;
 FEMinList msgRespPool{&feMinListVTable, 0, nullptr, nullptr}, scriptPool{&feMinListVTable, 0, nullptr, nullptr};
 uint32_t nextGUID = 100;
 void *lastDestructorCallback = nullptr;
@@ -69,7 +69,7 @@ void VirtualScalarDtor(void *o, uint32_t flags)
 void *FEMessageResponseBlockVTable() { return &teststub::feMsgRespBlockVTable; }
 void *FEScriptBlockVTable() { return &teststub::feScriptBlockVTable; }
 void *FEScriptVTable() { return &teststub::feScriptVTable; }
-void FEScript_Destruct(void *s) { ++teststub::scriptDtorCalls; static_cast<FEScript *>(s)->node.vtable = &teststub::feMinNodeVTable; }
+void *FERefListVTable() { return &teststub::feRefListVTable; }
 void *FEMessageResponseVTable() { return &teststub::feMsgRespVTable; }
 void *FEObjectVTable() { return &teststub::feObjectVTable; }
 uint32_t NextFEObjectGUID() { return teststub::nextGUID++; }

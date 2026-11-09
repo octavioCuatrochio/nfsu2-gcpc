@@ -88,7 +88,7 @@ void CallDestructorCallback(void *object)
 void *FEMessageResponseBlockVTable() { return reinterpret_cast<void *>(0x79BF50); }
 void *FEScriptBlockVTable() { return reinterpret_cast<void *>(0x79BF54); }
 void *FEScriptVTable() { return reinterpret_cast<void *>(0x79AD28); }
-void FEScript_Destruct(void *script) { reinterpret_cast<void(THISCALL *)(void *)>(0x535170)(script); }
+void *FERefListVTable() { return reinterpret_cast<void *>(0x79AA30); }
 void *FEMessageResponseVTable() { return reinterpret_cast<void *>(0x79AA38); }
 
 }  // namespace bridge

@@ -173,7 +173,8 @@ VALUES (0x8014297C,0x535FE0,'hooked','port/game/frontend/FEString.cpp','unit+in-
 - Also done: FEPool<T,N> (pooled new/delete for FEMessageResponse and FEScript), FEMessageResponse lifecycle, AddTail.
 - Also done: pool blocks (ctor/dtor/scalar dtor 53E710/53EB40/53EB20, 53E910/53EC40/53EC20; referee byte-compare
   of both ctors), FEScript default ctor 511D70. In-game: race starts, no crash.
-- Next in the frontend: FEScript dtor 535170 (needs key-track dtor 52B960 + FERefList purge 511D00), scalar dtor
-  53EE30, copy ctor 551BE0; then FEObject copy ctor 554300 + Clone 5545D0.
+- Also done: FERefList (RemNode 5055C0, Purge 511D00), FEKeyTrack dtor 52B960, ~FEScript 535170 + scalar dtor 53EE30.
+- Next in the frontend: FEScript copy ctor 551BE0 (needs FEKeyTrack copy / FEKeyNode pool), then FEObject copy
+  ctor 554300 + Clone 5545D0.
   (`FEWidget`, `FELabelWidget`, `FEButtonWidget`, ...). `python3 -I tooling/knowledge/packet.py --class FEObject`.
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;`

@@ -68,6 +68,11 @@ void *THISCALL MsgRespBlock_ScalarDtor(FEMessageResponseBlock *self, uint32_t f)
 void *THISCALL ScriptBlock_Ctor(void *self) { FEScriptBlock_Construct(self); return self; }
 void THISCALL ScriptBlock_Dtor(FEScriptBlock *self) { FEScriptBlock_Destruct(self); }
 void *THISCALL ScriptBlock_ScalarDtor(FEScriptBlock *self, uint32_t f) { return FEScriptBlock_ScalarDtor(self, f); }
+FEMinNode *THISCALL FERefList_RemNode(FERefList *self, FEMinNode *n) { return self->RemNode(n); }
+void THISCALL FERefList_Purge(FERefList *self) { self->Purge(); }
+void THISCALL FEKeyTrack_Dtor(FEKeyTrack *self) { self->Destruct(); }
+void THISCALL FEScript_Dtor(FEScript *self) { self->Destruct(); }
+FEScript *THISCALL FEScript_ScalarDtor(FEScript *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -144,6 +149,11 @@ const Replacement kReplacements[] = {
     {0x53EC40, (const void *)&ScriptBlock_Dtor, "FEPoolNode<FEScript,32> dtor", {0x6A, 0xFF, 0x68, 0xFE, 0x78, 0x77}},
     {0x53EC20, (const void *)&ScriptBlock_ScalarDtor, "FEPoolNode<FEScript,32> scalar deleting dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
     {0x511D70, (const void *)&FEScript_Ctor, "FEScript::FEScript()", {0x8B, 0xC1, 0xB9, 0xFE, 0xCA, 0xAD}},
+    {0x5055C0, (const void *)&FERefList_RemNode, "FERefList::RemNode", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x511D00, (const void *)&FERefList_Purge, "FERefList::Purge", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x77}},
+    {0x52B960, (const void *)&FEKeyTrack_Dtor, "FEKeyTrack::~FEKeyTrack", {0x6A, 0xFF, 0x68, 0xBB, 0x74, 0x77}},
+    {0x535170, (const void *)&FEScript_Dtor, "FEScript::~FEScript", {0x6A, 0xFF, 0x68, 0xD3, 0x7B, 0x77}},
+    {0x53EE30, (const void *)&FEScript_ScalarDtor, "FEScript scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x38, 0x63}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

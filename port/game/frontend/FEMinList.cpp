@@ -84,3 +84,21 @@ FEMinList *FEMinList::VectorDeletingDestructor(uint32_t flags)
     if (flags & 1) bridge::FreeArray(this);
     return this;
 }
+
+// PC 5055C0. Unlike FEMinList::RemNode there is no count; head/tail fixed only if they are this node.
+FEMinNode *FERefList::RemNode(FEMinNode *node)
+{
+    if (!node) return nullptr;
+    if (node == head) head = node->next;
+    if (node == tail) tail = node->prev;
+    if (node->prev) node->prev->next = node->next;
+    if (node->next) node->next->prev = node->prev;
+    node->next = node->prev = reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED);
+    return node;
+}
+
+// PC 511D00 (GC deletes via the GCC deleting-dtor slot with flag 3; PC slot 0 with flag 1).
+void FERefList::Purge()
+{
+    while (FEMinNode *n = RemHead()) bridge::VirtualScalarDelete(n);
+}

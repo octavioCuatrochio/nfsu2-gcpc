@@ -2,6 +2,7 @@
 #include "FEHash.h"
 #include "FEMultiPool.h"
 #include "bridge/Bridge.h"
+#include "FEPool.h"
 #include <cstring>
 
 // Exactly the fields both originals set; type (+0x18), +0x22 and the current script (+0x54) are left as they were.
@@ -99,4 +100,42 @@ FEScript *FEScript::Construct(void *mem)
     s->_unknown0C = 0;
     s->_unknown14[0] = s->_unknown14[1] = s->_unknown14[2] = 0;
     return s;
+}
+
+// PC 52B960: FERefList dtor (vtable, purge if owning), then the base key's FEMinNode dtor (vtable only).
+void FEKeyTrack::Destruct()
+{
+    mKeys.vtable = bridge::FERefListVTable();
+    if (!mKeys.mbIsReference) mKeys.Purge();
+    mBaseKey.vtable = bridge::FEMinNodeVTable();
+}
+
+// PC 535170. Tracks: count cookie before the array, destroyed last to first, freed from the cookie; +0x2C freed
+// if set, +0x28 always (delete of null is a no-op).
+void FEScript::Destruct()
+{
+    node.vtable = bridge::FEScriptVTable();
+    if (mpTracks) {
+        auto *tracks = static_cast<FEKeyTrack *>(mpTracks);
+        uint32_t *cookie = reinterpret_cast<uint32_t *>(mpTracks) - 1;
+        for (uint32_t i = *cookie; i-- > 0;) tracks[i].Destruct();
+        bridge::FreeArray(cookie);
+    }
+    mpTracks = nullptr;
+    if (_owned2C) bridge::FreeArray(_owned2C);
+    _owned2C = nullptr;
+    bridge::FreeArray(_owned28);
+    _owned28 = nullptr;
+    node.vtable = bridge::FEMinNodeVTable();
+}
+
+// PC 53EE30. Like FEMessageResponse: bit 0 -> second (trivial) destruction through the vtable, back to the pool.
+FEScript *FEScript::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) {
+        bridge::VirtualScalarDtor(this, 0);
+        FEPoolDelete<FEScript, 32>(*bridge::FEScriptPool(), this);
+    }
+    return this;
 }

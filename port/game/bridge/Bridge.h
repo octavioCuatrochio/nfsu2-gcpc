@@ -53,7 +53,7 @@ void CallDestructorCallback(void *object);
 void *FEMessageResponseBlockVTable();                                  // PC 0x79BF50 (slot 0 = 53EB20)
 void *FEScriptBlockVTable();                                           // PC 0x79BF54 (slot 0 = 53EC20)
 void *FEScriptVTable();                                                // PC 0x79AD28 (slot 0 = 53EE30)
-void FEScript_Destruct(void *script);                                  // PC 535170 (~FEScript, not rewritten)
+void *FERefListVTable();                                               // PC 0x79AA30
 void *FEMessageResponseVTable();                                       // PC 0x79AA38
 
 }  // namespace bridge

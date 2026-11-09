@@ -107,6 +107,9 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FEScript PC: vtable 0x79AD28, same 0x34 layout as GC from +0xC; +0x20 new[] of 0x38-byte tracks (dtor 52B960),
   +0x28/+0x2C new[]-owned, +0x30 id. Default ctor 511D70 leaves +0x10 uninitialized.
 
+- FERefList PC: vtable 0x79AA30, byte mbIsReference @+4 (borrowed list: head points at another list; never
+  purged), head +8, tail +C, no count (RemNode 5055C0 doesn't count). FEKeyTrack PC 0x38: FEKeyNode @+8, FERefList @+0x28.
+
 ## Tooling facts
 - Ghidra can't read DWARF v1 natively; patched dw1-emoose extension does. GC loader extension needed for Gekko (paired singles).
 - Ghidra's PC param counts are undercounted; trust `ret N` / caller cleanup.
