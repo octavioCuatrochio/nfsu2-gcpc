@@ -98,6 +98,8 @@ SlotPoolManager *TheSlotPoolManager()
     if (!m.mpHead) m.mpHead = m.mpTail = m.Sentinel();
     return &m;
 }
+SlotPool **BPNodeSlotPool() { static SlotPool *p; return &p; }
+int32_t *BPListWantToClose() { static int32_t w; return &w; }
 void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE
 uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }

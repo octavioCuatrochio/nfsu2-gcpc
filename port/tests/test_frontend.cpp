@@ -1170,6 +1170,18 @@ static void TestSlotPool()
     bDeleteSlotPool(b);
     bDeleteSlotPool(nullptr);
     CHECK(m->mpHead == m->Sentinel() && teststub::liveAllocations == live);
+    // bPList node pool: lazy init, deferred close when nodes are still allocated
+    void *n1 = bPNode_Malloc(), *n2 = bPNode_Malloc();
+    SlotPool *np = *bridge::BPNodeSlotPool();
+    CHECK(n1 && n2 && np && np->mu32SlotSize == 0xC && np->mi32NumSlots == 0x100 && np->mi32NumAllocated == 2);
+    bPListInit(5);                                               // already there: no-op
+    CHECK(*bridge::BPNodeSlotPool() == np);
+    bPListClose();                                               // still in use: deferred
+    CHECK(*bridge::BPListWantToClose() == 1 && *bridge::BPNodeSlotPool() == np);
+    bPNode_Free(n1);
+    CHECK(*bridge::BPNodeSlotPool() == np);
+    bPNode_Free(n2);                                             // last one: pool deleted
+    CHECK(*bridge::BPNodeSlotPool() == nullptr && teststub::liveAllocations == live);
 }
 
 int main()

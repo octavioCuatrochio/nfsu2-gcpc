@@ -160,3 +160,35 @@ SlotPool *bNewSlotPool(int32_t slotSize, int32_t numSlots, const char *name, uin
 
 void bDeleteSlotPool(SlotPool *pool) { bridge::TheSlotPoolManager()->DeleteSlotPool(pool); }
 void *bMalloc(SlotPool *pool) { return pool->Malloc(); }
+
+void bPListInit(int32_t numSlots)
+{
+    SlotPool **pool = bridge::BPNodeSlotPool();
+    if (*pool) return;
+    *pool = bNewSlotPool(0xC, numSlots, "bPNode SlotPool", 0);
+    *bridge::BPListWantToClose() = 0;
+}
+
+void bPListClose()
+{
+    SlotPool **pool = bridge::BPNodeSlotPool();
+    if (!*pool) return;
+    if ((*pool)->mi32NumAllocated == 0) {
+        bridge::TheSlotPoolManager()->DeleteSlotPool(*pool);
+        *pool = nullptr;
+    } else {
+        *bridge::BPListWantToClose() = 1;
+    }
+}
+
+void *bPNode_Malloc()
+{
+    if (!*bridge::BPNodeSlotPool()) bPListInit(0x100);
+    return (*bridge::BPNodeSlotPool())->Malloc();
+}
+
+void bPNode_Free(void *node)
+{
+    (*bridge::BPNodeSlotPool())->Free(node);
+    if (*bridge::BPListWantToClose()) bPListClose();
+}

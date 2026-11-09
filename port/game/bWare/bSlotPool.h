@@ -59,6 +59,11 @@ struct SlotPoolManager {
 SlotPool *bNewSlotPool(int32_t slotSize, int32_t numSlots, const char *name, uint32_t memFlags);
 void bDeleteSlotPool(SlotPool *pool);           // GC 8005C87C / PC 440E40
 void *bMalloc(SlotPool *pool);                  // GC 8005C8A8 (and bOMalloc 8005C8C8, folded) / PC 440E50
+// bPList node pool (12-byte nodes; globals bPNodeSlotPool / bPListWantToClose are game data via bridge).
+void bPListInit(int32_t numSlots);              // GC 80058CE8 / PC 440E60: create the pool once ("bPNode SlotPool")
+void bPListClose();                             // GC 80058D38 (PC: inlined into bPNode_Free): delete when empty, else defer
+void *bPNode_Malloc();                          // GC 80058D88 bPNode::Malloc / PC 440EC0: lazily bPListInit(0x100)
+void bPNode_Free(void *node);                   // GC 80058DC0 bPNode::Free / PC 440EF0: free, then close if wanted
 int32_t bIsSlotPoolFull(const SlotPool *p);     // GC 8005C908 / PC 43CD10: allocated == total
 int32_t bCountFreeSlots(const SlotPool *p);     // GC 8005C920 / PC 43CD20: total - allocated
 int32_t bCountTotalSlots(const SlotPool *p);    // GC 8005C930 / PC 43CD30
