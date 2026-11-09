@@ -7,18 +7,19 @@
 struct SlotPool {
     uint8_t _unknown00[8];
     SlotPool *mpNext;                // +0x08 expansion pool (same slot size)
-    uint8_t _unknown0C[4];
+    const char *mpcName;             // +0x0C debug name
     void *mpFreeList;                // +0x10 singly linked through the first word of each free slot
-    uint8_t _unknown14[4];
+    uint32_t mu32Flags;              // +0x14 1: expand when empty (Malloc), 2: zero slots on Malloc; NewSlotPool sets 0xB
     int32_t mi32NumAllocated;        // +0x18
     int32_t mi32MostAllocated;       // +0x1C high-water mark
-    uint8_t _unknown20[4];
+    uint32_t mu32MemFlags;           // +0x20 bWareMalloc allocation flags
     int32_t mi32NumSlots;            // +0x24 slots in this pool
     uint32_t mu32SlotSize;           // +0x28
     int32_t mi32TotalSlots;          // +0x2C over the chain (bCountTotalSlots)
     // +0x30 slot data
 
-    uint8_t *SlotData() { return reinterpret_cast<uint8_t *>(this) + 0x30; }
+    // slots follow the header (+0x30 on PC; larger header on 64-bit builds)
+    uint8_t *SlotData() { return reinterpret_cast<uint8_t *>(this) + sizeof(SlotPool); }
     // GC 8005C9E8 / PC 43CD40 (__thiscall; null pool is fine): rebuild every chained pool's free list in order.
     // Static with an explicit pool because the original accepts this == null.
     static void FlushSlotPool(SlotPool *pool);
@@ -27,6 +28,14 @@ struct SlotPool {
     static int32_t GetSlotNumber(SlotPool *pool, const void *slot);   // null pool -> -1
     void *FastMalloc();              // GC 8005CE20 / PC 43CDD0: pop the free list (null if empty), update counts
     void Free(void *slot);           // GC 8005CE58 / PC 43CDF0 (ret 4): push onto the free list
+    // GC 8005CD80 / PC 440D40: FastMalloc, expanding by numSlots/4 + 1 first when empty and flag 1; flag 2 zeroes
+    // (slotSize >> 2) words of the slot.
+    void *Malloc();
+    // GC 8005CA44 / PC 440BB0 (ret 4): append a pool of n slots (same size/name/flags) to the chain and splice its
+    // free list in front of ours (the new pool's last slot points at our old head). No allocation-failure check.
+    void ExpandSlotPool(int32_t n);
+    // GC 8005C938 / PC 440B40 (__cdecl): one block (0x30 + size * n) from bWareMalloc; null if that fails.
+    static SlotPool *NewSlotPool(uint32_t slotSize, int32_t numSlots, const char *name, uint32_t memFlags);
 };
 
 int32_t bIsSlotPoolFull(const SlotPool *p);     // GC 8005C908 / PC 43CD10: allocated == total

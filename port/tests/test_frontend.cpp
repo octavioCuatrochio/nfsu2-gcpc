@@ -9,6 +9,7 @@
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
+#include "bWare/bSlotPool.h"
 #include "frontend/FEListBox.h"
 #include "bWare/bMath.h"
 #include <algorithm>
@@ -1130,8 +1131,35 @@ static void TestATan()
     CHECK(std::abs(bFixATan(3, 3) - 0x2000) <= 2 && bFixATan(-3, -3) == bFixATan(3, 3) - 0x8000);
 }
 
+// SlotPool: NewSlotPool free-list order, Malloc zero fill + expansion (flag 1), chain-wide slot numbers.
+static void TestSlotPool()
+{
+    int live = teststub::liveAllocations;
+    SlotPool *p = SlotPool::NewSlotPool(8, 4, "test", 7);
+    CHECK(p && p->mu32Flags == 0xB && p->mi32TotalSlots == 4 && p->mpFreeList == p->SlotData() && p->mu32MemFlags == 7);
+    void *s[6];
+    for (int i = 0; i < 4; ++i) {
+        s[i] = p->Malloc();
+        CHECK(s[i] == p->SlotData() + 8 * i && static_cast<uint32_t *>(s[i])[1] == 0);   // zeroed (flag 2)
+    }
+    CHECK(p->mpFreeList == nullptr && p->mi32NumAllocated == 4 && p->mi32MostAllocated == 4);
+    s[4] = p->Malloc();                                          // expands by 4/4 + 1 = 2 slots
+    SlotPool *q = p->mpNext;
+    CHECK(q && q->mi32NumSlots == 2 && p->mi32TotalSlots == 6 && q->mpFreeList == nullptr && q->mu32Flags == 0xB);
+    CHECK(s[4] == q->SlotData() && SlotPool::GetSlotNumber(p, s[4]) == 4 && SlotPool::GetSlotNumber(p, s[2]) == 2);
+    s[5] = p->Malloc();
+    CHECK(s[5] == q->SlotData() + 8 && SlotPool::GetSlotNumber(p, s[5]) == 5 && p->Malloc() != nullptr);   // expands again
+    p->Free(s[1]);
+    CHECK(p->mpFreeList == s[1] && p->FastMalloc() == s[1]);
+    CHECK(SlotPool::GetSlotNumber(p, reinterpret_cast<uint8_t *>(p) - 8) == -1 && SlotPool::GetSlotNumber(nullptr, s[0]) == -1);
+    CHECK(bCountTotalSlots(p) == 8 && p->mi32NumAllocated == 7 && bCountFreeSlots(p) == 1 && !bIsSlotPoolFull(p));
+    while (p) { SlotPool *n = p->mpNext; std::free(p); --teststub::liveAllocations; p = n; }
+    CHECK(teststub::liveAllocations == live);
+}
+
 int main()
 {
+    TestSlotPool();
     TestATan();
     TestPackageCommands();
     TestPackageMarkers();
