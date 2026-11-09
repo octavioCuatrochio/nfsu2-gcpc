@@ -34,6 +34,9 @@ struct bVector4 { float x, y, z, w; };
 
 // GC ? / PC 43CE10: |a - b| (x87, unrounded; sum order dz^2 + dy^2 + dx^2).
 long double bDistBetween(const bVector3 *a, const bVector3 *b);
+// PC-only out-of-line copies of header inlines (no GC symbol; port names):
+long double bTan(uint16_t angle);              // PC 440F50: float(bSin(a)) / bCos(a)
+long double bLength(const bVector3 *v);        // PC 440F70: sqrt((x^2 + y^2) + z^2), unrounded
 // bNormalize (PC 43CE50 / 43CEB0 / 43CF10 / 43CF90 / 43D010): out = in / |in| (* scale for the 3-argument forms:
 // length divided by scale). Length exactly 0 -> (1,0[,0]) (scaled 3D: (scale,0,0)). PC: the 2D forms round the
 // length to float before 1/len; the 3D/4D forms keep it in x87. The bVector4 form writes x, y, z only.

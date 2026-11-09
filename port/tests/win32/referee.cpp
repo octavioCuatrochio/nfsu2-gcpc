@@ -672,6 +672,7 @@ static void CheckInterpLinear(int iters)
 // bWare trig (bSin exhaustive over all angles; bSinF/bASin random + boundaries, compared at 80-bit precision) and
 // the quaternion helpers + slerp (PC 4FE770/4FE7D0/4FE830/511C80/519B00).
 // bCos / bSinCos: every angle, under 53- and 24-bit precision.
+static float AtanSample();
 static void CheckSinCos()
 {
     auto oCos = ORIG<long double(__cdecl *)(uint32_t)>(0x43C370);
@@ -682,6 +683,15 @@ static void CheckSinCos()
         for (uint32_t a = 0; a < 0x10000; ++a) {
             long double o = oCos(a), r = bCos(uint16_t(a));
             EXPECT(std::memcmp(&o, &r, 10) == 0, "bCos %04X pc=%x", a, pc);
+            {
+                auto oTan = ORIG<long double(__cdecl *)(uint32_t)>(0x440F50);
+                long double t1 = oTan(a), t2 = bTan(uint16_t(a));
+                EXPECT(std::memcmp(&t1, &t2, 10) == 0 || (t1 != t1 && t2 != t2), "bTan %04X pc=%x", a, pc);
+                auto oLen = ORIG<long double(__cdecl *)(const bVector3 *)>(0x440F70);
+                bVector3 v{AtanSample(), AtanSample(), AtanSample()};
+                long double l1 = oLen(&v), l2 = bLength(&v);
+                EXPECT(std::memcmp(&l1, &l2, 10) == 0, "bLength pc=%x", pc);
+            }
             float os = 7, oc = 7, rs = 7, rc = 7;
             oSinCos(&os, &oc, a | (rng() & 0xFFFF0000u));   // only the low 16 bits are read (movzx)
             bSinCos(&rs, &rc, uint16_t(a));

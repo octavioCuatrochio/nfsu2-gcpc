@@ -109,6 +109,18 @@ int32_t bSignedMod(int32_t a, int32_t b)
     return static_cast<int32_t>(static_cast<uint32_t>(a) - c);
 }
 
+long double bTan(uint16_t angle)
+{
+    const float s = static_cast<float>(bSin(angle));
+    return L(s) / bCos(angle);
+}
+
+long double bLength(const bVector3 *v)
+{
+    const L x = v->x, y = v->y, z = v->z;
+    return __builtin_sqrtl(x * x + y * y + z * z);
+}
+
 long double bDistBetween(const bVector3 *a, const bVector3 *b)
 {
     const L dx = L(a->x) - b->x, dy = L(a->y) - b->y, dz = L(a->z) - b->z;
