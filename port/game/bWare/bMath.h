@@ -70,7 +70,11 @@ void bTransposeMatrix(bMatrix4 *out, const bMatrix4 *in);
 // GC 80059A6C / PC 43C7C0: inverse of an affine matrix (3x3 cofactors / determinant, translation row = -t * R^-1,
 // column 3 = 0,0,0,1). Original's x87 order and float temporaries; reads all of `in` first (in may alias out).
 // Known difference: singular input (det 0) gives NaNs whose SIGN may differ (NaN-vs-NaN operand choice).
-void bInvertMatrix(bMatrix4 *out, const bMatrix4 *in);      // PC 43C9D0 (via a copy: in may alias out)
+void bInvertMatrix(bMatrix4 *out, const bMatrix4 *in);
+// PC 43CBD0: rotation part of m -> quaternion (x, y, z, w). trace (m5 + m0 + m10, unrounded) > 0: w = s/2 with
+// s = sqrt(trace + 1); else the largest diagonal element i (strictly greater wins, NaN keeps the earlier one),
+// j = i+1, k = j+1 (mod 3); s == 0 skips the 0.5/s division. Written through a temporary.
+void bMatrixToQuaternion(bVector4 *q, const bMatrix4 *m);      // PC 43C9D0 (via a copy: in may alias out)
 // GC 80059210 / PC 43C280: a - (a / |b| * |b| - (a < 0 ? |b| : 0)); note a < 0 and divisible -> |b|, not 0.
 int32_t bSignedMod(int32_t a, int32_t b);
 // GC 800598A0 / PC 43C650: atan of a 16.16 ratio, piecewise linear over two uint16 tables (PC 0x7EB1C0 below 4.0,

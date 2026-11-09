@@ -809,6 +809,15 @@ static void CheckMatrices(int iters)
                 while (k < 16 && same(i1.m[k], i2.m[k])) ++k;
                 EXPECT(k == 16, "bInvertMatrix in place pc=%x", pc);
             }
+            {
+                auto oMQ = ORIG<void(__cdecl *)(bVector4 *, const bMatrix4 *)>(0x43CBD0);
+                bMatrix4 r = a;
+                if (it % 3 == 0) for (int d : {0, 5, 10}) r.m[d] = -__builtin_fabsf(r.m[d]);   // force the non-trace path
+                if (it % 7 == 0) r.m[5] = r.m[0];                                              // ties
+                bVector4 q1{1, 2, 3, 4}, q2 = q1;
+                oMQ(&q1, &r); bMatrixToQuaternion(&q2, &r);
+                EXPECT(std::memcmp(&q1, &q2, sizeof q1) == 0 || (q1.x != q1.x && q2.x != q2.x), "bMatrixToQuaternion pc=%x", pc);
+            }
             if (mode == 3) { o1 = a; o2 = a; oTr(&o1, &o1); bTransposeMatrix(&o2, &o2); EXPECT(std::memcmp(&o1, &o2, sizeof o1) == 0, "transpose in place"); }
         }
     }

@@ -309,6 +309,33 @@ void bInvertMatrix(bMatrix4 *out, const bMatrix4 *in)
     out->m[14] = float(Fchs(((((((L(s.m[0]) * L(s.m[5])) - (L(s.m[4]) * L(s.m[1]))) * L(t3)) * L(s.m[14])) + (L(t9) * L(s.m[13]))) + (L(t6) * L(s.m[12])))));
 }
 
+void bMatrixToQuaternion(bVector4 *q, const bMatrix4 *pm)
+{
+    const float *m = pm->m;
+    const L trace = L(m[5]) + m[0] + m[10];
+    if (trace > 0.0f) {
+        const L s = __builtin_sqrtl(trace + 1.0f);
+        q->w = static_cast<float>(L(0.5f) * s);
+        const L r = L(0.5f) / s;
+        q->x = static_cast<float>((L(m[6]) - m[9]) * r);
+        q->y = static_cast<float>((L(m[8]) - m[2]) * r);
+        q->z = static_cast<float>((L(m[1]) - m[4]) * r);
+        return;
+    }
+    int i = 0;
+    if (m[5] > m[0]) i = 1;
+    if (m[10] > m[i * 5]) i = 2;
+    const int j = (i + 1) % 3, k = (j + 1) % 3;
+    float t[4];
+    L s = __builtin_sqrtl(((L(m[i * 5]) - m[j * 5]) - m[k * 5]) + 1.0f);
+    t[i] = static_cast<float>(L(0.5f) * s);
+    if (s != 0.0f) s = L(0.5f) / s;
+    t[3] = static_cast<float>((L(m[j * 4 + k]) - m[k * 4 + j]) * s);
+    t[j] = static_cast<float>((L(m[j * 4 + i]) + m[i * 4 + j]) * s);
+    t[k] = static_cast<float>((L(m[k * 4 + i]) + m[i * 4 + k]) * s);
+    std::memcpy(q, t, sizeof t);
+}
+
 void bMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b) { eMulMatrix(out, b, a); }
 
 void bTransposeMatrix(bMatrix4 *out, const bMatrix4 *in)
