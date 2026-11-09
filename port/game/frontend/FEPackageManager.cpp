@@ -76,4 +76,26 @@ uint32_t FEPackageManager::GetActiveScreensChecksum()
     return sum;
 }
 
+void FEPackageManager::SendMessageToPackage(const char *name, uint32_t msg)
+{
+    FEPackageData *d = FindFEPackageData(name);
+    if (d && d->mpPackage && d->mpScreen) bridge::MenuScreen_BaseNotify(d->mpScreen, msg, nullptr, 0, d->mpPackage);
+}
+
+void FEPackageManager::BroadcastMessage(uint32_t msg, uint32_t arg)
+{
+    FEPackageData *list[32];
+    int n = 0;
+    for (FEPackageData *d = FEPackageData::FromNode(mList.next); d != Sentinel(); d = FEPackageData::FromNode(d->node.next))
+        if (d->mpPackage && n < 32) list[n++] = d;
+    for (int i = 0; i < n; ++i)
+        if (list[i]->mpPackage && list[i]->mpScreen) bridge::MenuScreen_BaseNotify(list[i]->mpScreen, msg, nullptr, arg, list[i]->mpPackage);
+}
+
+void FEPackageManager::NotificationMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg)
+{
+    for (FEPackageData *d = FEPackageData::FromNode(mList.next); d != Sentinel(); d = FEPackageData::FromNode(d->node.next))
+        if (d->mpPackage && d->mpPackage == pkg && d->mpScreen) bridge::MenuScreen_BaseNotify(d->mpScreen, msg, obj, arg, pkg);
+}
+
 uint32_t FEPkgMgr_GetActiveScreensChecksum() { return bridge::TheFEPackageManager()->GetActiveScreensChecksum(); }

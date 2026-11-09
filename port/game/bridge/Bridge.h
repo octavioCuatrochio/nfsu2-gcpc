@@ -66,6 +66,8 @@ void *bWareMalloc(uint32_t size, const char *name, int32_t line, uint32_t flags)
 ::SlotPool **BPNodeSlotPool();          // PC 0x8284F0 (game global)
 int32_t *BPListWantToClose();          // PC 0x8284F4 (game global)
 void bWareFree(void *p);
+// MenuScreen::BaseNotify(msg, obj, arg, pkg): game-side screen notification            PC 0x55B5C0 (__thiscall)
+void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, ::FEPackage *pkg);
 void *bMalloc(uint32_t size, uint32_t flags);                                      // PC 0x440820 (__cdecl; GC bMalloc(int,int))
 void LZDecompress(const uint8_t *src, uint8_t *dst);                               // PC 0x574670 (__cdecl)
 ::FEPackageManager *TheFEPackageManager();                                         // PC 0x8637B0 (game global)                                                       // PC 0x440540 (__cdecl)

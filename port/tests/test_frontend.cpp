@@ -9,6 +9,7 @@
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
+#include "frontend/cFEng.h"
 #include "bWare/bString.h"
 #include "frontend/FEPackageManager.h"
 #include "bWare/bSlotPool.h"
@@ -1216,6 +1217,36 @@ static void TestPackageManager()
     CHECK(m.GetActiveScreensChecksum() == 0);
     d[2].mpPackage = &pk; d[0].mpPackage = &pk;
     CHECK(m.GetActiveScreensChecksum() == 2 * bStringHash("PKG"));
+    // notifications: need package + screen; NotificationMessage matches the package pointer
+    int scr[2];
+    d[0].mpScreen = &scr[0]; d[1].mpScreen = &scr[1];          // d[1] has no package, d[2] no screen
+    auto &dl = teststub::delivered;
+    dl.clear();
+    m.SendMessageToPackage("main.fng", 0x11);
+    m.SendMessageToPackage("lzpkg", 0x12);
+    m.SendMessageToPackage("Opts.fng", 0x13);
+    CHECK(dl.size() == 1 && dl[0].a == &scr[0] && dl[0].msg == 0x11 && dl[0].arg == 0 && dl[0].pkg == &pk);
+    dl.clear();
+    m.BroadcastMessage(0x21, 7);
+    CHECK(dl.size() == 1 && dl[0].msg == 0x21 && dl[0].arg == 7);
+    dl.clear();
+    FEPackage other{};
+    m.NotificationMessage(0x31, nullptr, 3, &other);
+    m.NotificationMessage(0x32, nullptr, 4, &pk);
+    CHECK(dl.size() == 1 && dl[0].msg == 0x32 && dl[0].arg == 4 && dl[0].a == &scr[0]);
+    // cFEng::NotificationMessage: input toggles go to the engine, the rest to the global manager
+    alignas(8) static unsigned char feb[sizeof(cFEng)] = {};
+    auto *fe = reinterpret_cast<cFEng *>(feb);
+    alignas(8) static unsigned char eb[sizeof(FEngine)] = {};
+    fe->mpEngine = reinterpret_cast<FEngine *>(eb);
+    fe->NotificationMessage(0x7E4D1288u, nullptr, 0, nullptr);
+    CHECK(fe->mpEngine->mbFlag01 == 1);
+    fe->NotificationMessage(0x05922615u, nullptr, 0, nullptr);
+    CHECK(fe->mpEngine->mbFlag01 == 0);
+    dl.clear();
+    fe->NotificationMessage(0x99, nullptr, 0, &pk);              // global manager is empty: nothing
+    CHECK(dl.empty());
+    dl.clear();
 }
 
 int main()

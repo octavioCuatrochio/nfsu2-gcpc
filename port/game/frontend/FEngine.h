@@ -29,7 +29,7 @@ struct FEPackageCommand {
 
 struct FEngine {
     uint8_t _unknown000;
-    uint8_t mbFlag01;                // +0x01 set by message 0x59BED120, cleared by 0x5D4CE32D (target -6)
+    uint8_t mbFlag01;                // +0x01 input enabled ("Enabling/Disabling inputs"); set by 0x59BED120 / 0x7E4D1288
     uint8_t _unknown002[0xE2];
     FEPackage *mpPackages;           // +0xE4 first active package (packages are linked through their FEMinNode)
     uint8_t _unknown0E8[0x24];

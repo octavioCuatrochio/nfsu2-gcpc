@@ -39,6 +39,13 @@ struct FEPackageManager {
     uint8_t *GetPackageData(const char *name);
     // GC 8014AAA0 / PC 51BAD0: sum of bStringHash(package name) over loaded packages.
     uint32_t GetActiveScreensChecksum();
+    // Notifications go to the package's game-side screen (MenuScreen::BaseNotify, bridge) and need both a loaded
+    // package and a screen (PC adds the screen check to the inlined FEPackageData::NotificationMessage).
+    void SendMessageToPackage(const char *name, uint32_t msg);   // GC 8014A978 / PC 55DC20 (ret 8): obj 0, arg 0
+    // GC 8014A9D8 / PC 55DC50 (ret 8): snapshot of at most 32 loaded packages, then BaseNotify(msg, 0, arg, pkg).
+    void BroadcastMessage(uint32_t msg, uint32_t arg);
+    // GC 8014ABC4 / PC 55DCE0 (ret 0x10): every entry whose package is `pkg`.
+    void NotificationMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg);
 };
 
 inline FEPackageData *FEPackageData::FromNode(FEPkgNode *n)
