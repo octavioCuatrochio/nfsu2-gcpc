@@ -60,7 +60,8 @@ const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628
 // FEPackage callees not rewritten yet (PC __thiscall)
 void *FEMessageNodeVTable();                                                      // PC 0x79AB60
 void FEngine_ProcessResponses(void *engine, void *response, void *obj, void *pkg, uint32_t arg);   // 52C7C0
-void FEngine_ProcessObjectMessage(void *engine, void *obj, void *pkg, uint32_t msg, uint32_t arg);   // 5367E0
+void FEListBox_ScrollSelection(void *listBox, int32_t dx, int32_t dy);             // 516E90
+void FECodeListBox_ScrollSelection(void *listBox, int32_t dx, int32_t dy);         // 52BD70
 // game UI handler virtual calls (__thiscall), slot given as a byte offset
 void FEUIData_Call4(void *ui, uint32_t slotOffset, uint32_t a, const void *b, uint32_t c, const void *d);
 void FEUIData_Call5(void *ui, uint32_t slotOffset, uint32_t a, const void *b, const void *c, const void *d, uint32_t e);

@@ -2,6 +2,7 @@
 #include "bridge/Bridge.h"
 #include "FEPackage.h"
 #include "FEMessageResponse.h"
+#include "FEObject.h"
 
 void FEngine::QueueMessage(uint32_t msg, FEObject *obj, FEPackage *pkg, FEObject *target, uint32_t arg)
 {
@@ -44,7 +45,7 @@ void FEngine::ProcessMessageQueue()
             ProcessGlobalMessage(p, msg, n->mu32Arg);
             if (FEMessageTargets *t = p->GetMessageTargets(msg))
                 for (uint32_t i = 0; i < t->mu32Count; ++i)
-                    bridge::FEngine_ProcessObjectMessage(this, t->mpObjects[i], p, msg, n->mu32Arg);
+                    ProcessObjectMessage(t->mpObjects[i], p, msg, n->mu32Arg);
         };
         switch (target) {
         case 0:
@@ -71,9 +72,46 @@ void FEngine::ProcessMessageQueue()
             ProcessGlobalMessage(n->mpPackage, msg, n->mu32Arg);   // no null check, like the original
             break;
         default:
-            bridge::FEngine_ProcessObjectMessage(this, n->mpTarget, n->mpPackage, msg, n->mu32Arg);
+            ProcessObjectMessage(n->mpTarget, n->mpPackage, msg, n->mu32Arg);
             break;
         }
         bridge::VirtualScalarDelete(n);
     }
+}
+
+namespace {
+// Scroll messages (up/down/left/right as sent by the pad code) -> selection delta.
+bool ScrollDelta(uint32_t msg, int32_t &dx, int32_t &dy)
+{
+    switch (msg) {
+    case 0xE10814A6u: dx = 0; dy = 1; return true;
+    case 0x030471ACu: dx = 1; dy = 0; return true;
+    case 0xE10C4AF9u: dx = -1; dy = 0; return true;
+    case 0xFB814F13u: dx = 0; dy = -1; return true;
+    default: return false;
+    }
+}
+}  // namespace
+
+bool FEngine::ProcessListBoxResponses(FEObject *listBox, FEPackage *, uint32_t msg)
+{
+    int32_t dx, dy;
+    if (!ScrollDelta(msg, dx, dy)) return false;
+    bridge::FEListBox_ScrollSelection(listBox, dx, dy);
+    return true;
+}
+
+bool FEngine::ProcessCodeListBoxResponses(FEObject *listBox, FEPackage *, uint32_t msg)
+{
+    int32_t dx, dy;
+    if (!ScrollDelta(msg, dx, dy)) return false;
+    bridge::FECodeListBox_ScrollSelection(listBox, dx, dy);
+    return true;
+}
+
+void FEngine::ProcessObjectMessage(FEObject *obj, FEPackage *pkg, uint32_t msg, uint32_t arg)
+{
+    if (obj->mu32Type == 4 && ProcessListBoxResponses(obj, pkg, msg)) return;
+    if (obj->mu32Type == 6 && ProcessCodeListBoxResponses(obj, pkg, msg)) return;
+    if (FEMessageResponse *r = obj->FindResponse(msg)) bridge::FEngine_ProcessResponses(this, r, obj, pkg, arg);
 }

@@ -813,29 +813,39 @@ static void TestProcessMessageQueue()
     r.mu32MsgId = 0x77;
     for (auto *p : {p1, p2}) p->mResponses = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
     p2->mResponses.AddTail(&r.node);
-    int objA = 0, objB = 0;
-    FEObject *list[2] = {reinterpret_cast<FEObject *>(&objA), reinterpret_cast<FEObject *>(&objB)};
+    alignas(8) unsigned char om[3][sizeof(FEObject)] = {};
+    FEObject *list[2] = {FEObject::Construct(om[0]), FEObject::Construct(om[1])};
+    FEObject *lb = FEObject::Construct(om[2]);
+    lb->mu32Type = 4;                                            // list box
+    FEMessageResponse ra{}, rb{};
+    ra.mu32MsgId = 0x77; rb.mu32MsgId = 0x13;
+    list[0]->mResponses.AddTail(&ra.node);
+    list[0]->mResponses.AddTail(&rb.node);
     FEMessageTargets tg{0x77, 0, 2, list};
     p1->mu32NumMessageTargets = 1; p1->mpMessageTargets = &tg;
     auto special = [](uint32_t v) { return reinterpret_cast<FEObject *>(uintptr_t(v)); };
     auto &d = teststub::delivered;
     int live = teststub::liveAllocations;
     d.clear();
-    e->QueueMessage(0x77, nullptr, p1, nullptr, 5);            // 0: p1 targets (2 objects), p2 global response
+    e->QueueMessage(0x77, nullptr, p1, nullptr, 5);            // 0: p1 targets (A has a response, B none), p2 global
     e->QueueMessage(0x77, nullptr, p2, special(0xFFFFFFFC), 6);   // -4: only p2 -> its response
     e->QueueMessage(0x77, nullptr, p1, special(0xFFFFFFFE), 7);   // -2: every package's response -> p2's
     e->QueueMessage(0x59BED120, nullptr, p1, special(0xFFFFFFFA), 0);   // -6: engine flag on
     e->QueueMessage(0x12, nullptr, p1, special(0xFFFFFFFF), 8);   // -1: UI +0x18
-    e->QueueMessage(0x13, nullptr, p1, list[0], 9);               // object
+    e->QueueMessage(0x13, nullptr, p1, list[0], 9);               // object with a response
+    e->QueueMessage(0xFB814F13, nullptr, p1, lb, 0);              // list box: scroll up, no response lookup
+    e->QueueMessage(0x13, nullptr, p1, lb, 0);                    // list box, other message: own responses (none)
     e->ProcessMessageQueue();
     CHECK(e->mMessages.count == 0 && teststub::liveAllocations == live);   // every node deleted
     CHECK(d.size() == 7);
-    CHECK(std::string(d[0].kind) == "obj" && d[0].a == list[0] && d[1].a == list[1] && d[1].arg == 5);
-    CHECK(std::string(d[2].kind) == "resp" && d[2].pkg == p2 && d[2].arg == 5);
-    CHECK(std::string(d[3].kind) == "resp" && d[3].arg == 6 && std::string(d[4].kind) == "resp" && d[4].arg == 7);
+    CHECK(std::string(d[0].kind) == "objresp" && d[0].a == list[0] && d[0].arg == 5);
+    CHECK(std::string(d[1].kind) == "resp" && d[1].pkg == p2 && d[1].arg == 5);
+    CHECK(std::string(d[2].kind) == "resp" && d[2].arg == 6 && std::string(d[3].kind) == "resp" && d[3].arg == 7);
     CHECK(e->mbFlag01 == 1);
-    CHECK(std::string(d[5].kind) == "ui" && d[5].msg == 0x12 + 0x18 * 0x10000 && d[5].arg == 8);
-    CHECK(std::string(d[6].kind) == "obj" && d[6].a == list[0] && d[6].msg == 0x13);
+    CHECK(std::string(d[4].kind) == "ui" && d[4].msg == 0x12 + 0x18 * 0x10000 && d[4].arg == 8);
+    CHECK(std::string(d[5].kind) == "objresp" && d[5].a == list[0] && d[5].arg == 9);
+    CHECK(std::string(d[6].kind) == "scroll" && d[6].a == lb && d[6].msg == 0 && d[6].arg == uint32_t(-1));
+    for (auto *o : {list[0], list[1], lb}) o->mResponses = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
     e->mpPackages = nullptr;
 }
 

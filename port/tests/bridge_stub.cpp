@@ -93,8 +93,9 @@ const bASinTableEntry *BASinTable()
     return t;
 #endif
 }
-void FEngine_ProcessResponses(void *, void *r, void *, void *p, uint32_t arg) { teststub::delivered.push_back({"resp", r, p, 0, arg}); }
-void FEngine_ProcessObjectMessage(void *, void *o, void *p, uint32_t msg, uint32_t arg) { teststub::delivered.push_back({"obj", o, p, msg, arg}); }
+void FEngine_ProcessResponses(void *, void *r, void *o, void *p, uint32_t arg) { teststub::delivered.push_back({o ? "objresp" : "resp", o ? o : r, p, 0, arg}); }
+void FEListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { teststub::delivered.push_back({"scroll", lb, nullptr, uint32_t(dx), uint32_t(dy)}); }
+void FECodeListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { teststub::delivered.push_back({"cscroll", lb, nullptr, uint32_t(dx), uint32_t(dy)}); }
 void FEUIData_Call4(void *, uint32_t slot, uint32_t a, const void *, uint32_t c, const void *) { teststub::delivered.push_back({"ui", nullptr, nullptr, a + slot * 0x10000, c}); }
 void FEUIData_Call5(void *, uint32_t slot, uint32_t a, const void *, const void *, const void *, uint32_t e) { teststub::delivered.push_back({"fwd", nullptr, nullptr, a + slot * 0x10000, e}); }
 void *FEMessageNodeVTable() { return &teststub::feMessageNodeVTable; }

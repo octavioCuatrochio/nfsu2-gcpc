@@ -33,6 +33,10 @@ struct FEngine {
     // GC 80147F50 / PC 541FC0: deliver and delete every queued message (see the target switch in the .cpp).
     void ProcessMessageQueue();
     void ProcessGlobalMessage(FEPackage *pkg, uint32_t msg, uint32_t arg);   // GC 801484AC (PC: inlined)
+    // GC 8014840C / PC 5367E0: list boxes first try the scroll messages, then the object's own response.
+    void ProcessObjectMessage(FEObject *obj, FEPackage *pkg, uint32_t msg, uint32_t arg);
+    bool ProcessListBoxResponses(FEObject *listBox, FEPackage *pkg, uint32_t msg);       // GC 801482B4 / PC 51B000
+    bool ProcessCodeListBoxResponses(FEObject *listBox, FEPackage *pkg, uint32_t msg);   // GC 80148360 / PC 52C750
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

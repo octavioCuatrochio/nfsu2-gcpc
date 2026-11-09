@@ -93,10 +93,8 @@ void FEngine_ProcessResponses(void *e, void *r, void *o, void *p, uint32_t arg)
 {
     reinterpret_cast<void(THISCALL *)(void *, void *, void *, void *, uint32_t)>(0x52C7C0)(e, r, o, p, arg);
 }
-void FEngine_ProcessObjectMessage(void *e, void *o, void *p, uint32_t msg, uint32_t arg)
-{
-    reinterpret_cast<void(THISCALL *)(void *, void *, void *, uint32_t, uint32_t)>(0x5367E0)(e, o, p, msg, arg);
-}
+void FEListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x516E90)(lb, dx, dy); }
+void FECodeListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x52BD70)(lb, dx, dy); }
 void FEUIData_Call4(void *ui, uint32_t slot, uint32_t a, const void *b, uint32_t c, const void *d)
 {
     (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t, const void *, uint32_t, const void *)>(ui))[slot / 4](ui, a, b, c, d);
