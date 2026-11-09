@@ -27,6 +27,13 @@ struct cFEng {
     // GC 8014D75C / PC 55DD50 (ret 0x10): 0x05922615 disables / 0x7E4D1288 enables FEng input (FEngine +1),
     // anything else goes to FEPackageManager::NotificationMessage on the global manager.
     void NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg, FEPackage *pkg);
+    // GC 8014E848 / PC 51CBA0 (ret 8): loaded `from` gets message 0x5ECA113D, then a queued switch to `to`.
+    void SwitchFEngPackages(const char *from, const char *to);
+    // GC 8014E9A4 / PC 51CC00 (ret 4): loaded -> message 0x90CA113D + queued pop; else unqueue a pending push.
+    void QueuePopPackage(const char *name);
+    // GC 8014EAE8 / PC 51CC60 (ret 0xC; this unused): last button with that name hash; enable (== 1) clears
+    // FEObject flag 0x04000000, anything else sets it.
+    static void SetButtonState(const char *pkgName, uint32_t buttonHash, bool enable);
     cFEngLevelSorter *SortSentinel() { return reinterpret_cast<cFEngLevelSorter *>(&mpSortHead); }
 };
 

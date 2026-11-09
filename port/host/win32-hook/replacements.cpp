@@ -212,6 +212,9 @@ void THISCALL FEPkgMgr_SendMessageToPackage(FEPackageManager *self, const char *
 void THISCALL FEPkgMgr_BroadcastMessage(FEPackageManager *self, uint32_t m, uint32_t a) { self->BroadcastMessage(m, a); }
 void THISCALL FEPkgMgr_NotificationMessage(FEPackageManager *self, uint32_t m, void *o, uint32_t a, FEPackage *p) { self->NotificationMessage(m, o, a, p); }
 void THISCALL cFEng_NotificationMessage(cFEng *self, uint32_t m, FEObject *o, uint32_t a, FEPackage *p) { self->NotificationMessage(m, o, a, p); }
+void THISCALL cFEng_SwitchFEngPackages(cFEng *self, const char *f, const char *t) { self->SwitchFEngPackages(f, t); }
+void THISCALL cFEng_QueuePopPackage(cFEng *self, const char *n) { self->QueuePopPackage(n); }
+void __stdcall cFEng_SetButtonState(const char *p, uint32_t h, uint32_t en) { cFEng::SetButtonState(p, h, (en & 0xFF) == 1); }   // ecx unused
 void THISCALL FEListBox_ScrollSelection(FEListBox *self, int32_t dx, int32_t dy) { self->ScrollSelection(dx, dy); }
 void THISCALL FEListBox_Update(FEListBox *self, float dt) { self->Update(dt); }
 void THISCALL FEListBox_CompleteScroll(FEListBox *self) { self->CompleteScroll(); }
@@ -466,6 +469,9 @@ const Replacement kReplacements[] = {
     {0x55DC50, (const void *)&FEPkgMgr_BroadcastMessage, "FEPackageManager::BroadcastMessage", {0x8B, 0x41, 0x04, 0x81, 0xEC, 0x80}},
     {0x55DCE0, (const void *)&FEPkgMgr_NotificationMessage, "FEPackageManager::NotificationMessage", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x53}},
     {0x55DD50, (const void *)&cFEng_NotificationMessage, "cFEng::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x15}},
+    {0x51CBA0, (const void *)&cFEng_SwitchFEngPackages, "cFEng::SwitchFEngPackages", {0x53, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
+    {0x51CC00, (const void *)&cFEng_QueuePopPackage, "cFEng::QueuePopPackage", {0x53, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
+    {0x51CC60, (const void *)&cFEng_SetButtonState, "cFEng::SetButtonState", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xB9}},
     {0x541FC0, (const void *)&FEngine_ProcessMessageQueue, "FEngine::ProcessMessageQueue", {0x83, 0xEC, 0x0C, 0x53, 0x8B, 0xD9}},
     {0x5367E0, (const void *)&FEngine_ProcessObjectMessage, "FEngine::ProcessObjectMessage", {0x53, 0x8B, 0x5C, 0x24, 0x10, 0x55}},
     {0x51B000, (const void *)&FEngine_ProcessListBoxResponses, "FEngine::ProcessListBoxResponses", {0x8B, 0x44, 0x24, 0x0C, 0x3D, 0xF9}},

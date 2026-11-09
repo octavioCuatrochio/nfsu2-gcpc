@@ -51,6 +51,8 @@ struct FEPackage {
     uint32_t mu32NumLibraryRefs;     // +0x84
     struct FELibraryRef *mpLibraryRefs;   // +0x88 array, 0xC bytes each, hash first
     FEObject *mpCurrentButton;       // +0x8C
+    FEObject **mppButtons;           // +0x90 (GC +0x9C) selectable objects
+    uint32_t mu32NumButtons;         // +0x94 (GC +0xA0)
 
     // GC 801399F8 / PC 541DB0: evaluate the script's tracks at its current time into the object's data.
     void UpdateObjectTracks(FEObject *obj, FEScript *script) const;
@@ -83,6 +85,7 @@ struct FEPackage {
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(offsetof(FEPackage, mbFastInterp) == 0x14 && offsetof(FEPackage, mpEngine) == 0x30);
 static_assert(offsetof(FEPackage, mi32ScriptDelta) == 0x34 && offsetof(FEPackage, mObjects) == 0x44);
+static_assert(offsetof(FEPackage, mppButtons) == 0x90 && offsetof(FEPackage, mu32NumButtons) == 0x94);
 static_assert(offsetof(FEPackage, mi32Priority) == 0x18 && offsetof(FEPackage, mpParent) == 0x3C);
 static_assert(offsetof(FEPackage, mu32ControlMask) == 0x1C && offsetof(FEPackage, mu32SavedInputControlMask) == 0x28);
 static_assert(offsetof(FEPackage, mu32NumLibraryRefs) == 0x84 && offsetof(FEPackage, mpCurrentButton) == 0x8C);

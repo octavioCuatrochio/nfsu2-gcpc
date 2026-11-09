@@ -1249,8 +1249,61 @@ static void TestPackageManager()
     dl.clear();
 }
 
+// cFEng package wrappers over the global FEPackageManager + engine command queue.
+static void TestCFEngQueue()
+{
+    FEngine *e = TestEngine();
+    CollectCommands();
+    FEPackageManager *m = bridge::TheFEPackageManager();
+    alignas(4) uint8_t hdr[0x40] = {};
+    auto *h = reinterpret_cast<uint32_t *>(hdr);
+    h[0] = 0xE76E4546u; h[2] = 0x64486B50u; h[4] = 0x20000u;
+    std::strcpy(reinterpret_cast<char *>(hdr + 0x28), "Garage.fng");
+    uint32_t chunk[4] = {0x30203};
+    alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
+    auto *pkg = reinterpret_cast<FEPackage *>(pm);
+    pkg->mu32ControlMask = 0x10;
+    int screen;
+    FEPackageData d{};
+    d.mpData = hdr; d.mpChunk = chunk; d.mpPackage = pkg; d.mpScreen = &screen;
+    d.node.prev = m->mList.prev; d.node.next = &m->mList; m->mList.prev->next = &d.node; m->mList.prev = &d.node;
+    alignas(8) unsigned char feb[sizeof(cFEng)] = {};
+    auto *fe = reinterpret_cast<cFEng *>(feb);
+    fe->mpEngine = e;
+    auto &dl = teststub::delivered;
+    dl.clear();
+    fe->SwitchFEngPackages("Garage.fng", "Shop.fng");
+    fe->SwitchFEngPackages("nope", "x");
+    auto c = CollectCommands();
+    CHECK(c.size() == 1 && c[0].type == 3 && c[0].name == "Shop.fng" && c[0].pkg == pkg && c[0].mask == 0x10);
+    CHECK(dl.size() == 1 && dl[0].msg == 0x5ECA113Du && dl[0].a == &screen);
+    pkg->SetControlMask(0x10);
+    dl.clear();
+    fe->QueuePopPackage("GARAGE.FNG");
+    c = CollectCommands();
+    CHECK(c.size() == 1 && c[0].type == 1 && dl.size() == 1 && dl[0].msg == 0x90CA113Du);
+    e->QueuePackagePush("Pending", nullptr, 0);                 // not loaded: pop unqueues the pending push
+    auto *pend = reinterpret_cast<FEPackageCommand *>(e->mPackageCommands.tail);
+    fe->QueuePopPackage("Pending");
+    CHECK(e->mPackageCommands.count == 0);
+    bridge::FreeArray(pend->node.mpcName);                       // unlinked, not freed (as the original)
+    bridge::FreeArray(pend);
+    // SetButtonState: the last button with the hash
+    alignas(8) unsigned char om[3][sizeof(FEObject)] = {};
+    FEObject *b[3] = {FEObject::Construct(om[0]), FEObject::Construct(om[1]), FEObject::Construct(om[2])};
+    b[0]->mu32NameHash = 5; b[1]->mu32NameHash = 6; b[2]->mu32NameHash = 5;
+    pkg->mppButtons = b; pkg->mu32NumButtons = 3;
+    cFEng::SetButtonState("garage.fng", 5, false);
+    CHECK((b[2]->mu32Flags & 0x04000000u) && !(b[0]->mu32Flags & 0x04000000u));
+    cFEng::SetButtonState("garage.fng", 5, true);
+    CHECK(!(b[2]->mu32Flags & 0x04000000u));
+    m->mList.next = m->mList.prev = &m->mList;                   // unregister
+    dl.clear();
+}
+
 int main()
 {
+    TestCFEngQueue();
     TestPackageManager();
     TestSlotPool();
     TestATan();
