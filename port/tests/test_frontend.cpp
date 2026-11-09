@@ -7,6 +7,7 @@
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEMessageResponse.h"
 #include "frontend/FEPool.h"
+#include "frontend/FEPackage.h"
 #include "bWare/bMath.h"
 #include <algorithm>
 #include "bridge/Bridge.h"
@@ -338,7 +339,7 @@ static void TestScriptCopy()
     FEScript::Construct(&src);
     src.SetName("Fade_In");
     CHECK(src.mu32Id == FEHashUpper("Fade_In") && std::strcmp(src.mpcName, "Fade_In") == 0);
-    src._unknown0C = 1; src.mi32Time = 2; src._unknown14 = 3; src.mpChainedScript = &src;
+    src.mi32Length = 1; src.mi32Time = 2; src.mu32Flags = 3; src.mpChainedScript = &src;
     src.SetTrackCount(2);
     CHECK(src.mu32NumTracks == 2 && reinterpret_cast<uint32_t *>(src.mpTracks)[-1] == 2);
     CHECK(src.mpTracks[1].mBaseKey.node.vtable == &teststub::feKeyNodeVTable && src.mpTracks[1].mKeys.head == nullptr);
@@ -361,7 +362,7 @@ static void TestScriptCopy()
     FEScript deep;
     FEScript::CopyConstruct(&deep, src, false);
     CHECK(deep.mu32Id == src.mu32Id && deep.mpcName != src.mpcName && std::strcmp(deep.mpcName, "Fade_In") == 0);
-    CHECK(deep._unknown0C == 1 && deep.mi32Time == 2 && deep._unknown14 == 3 && deep.mpChainedScript == nullptr);
+    CHECK(deep.mi32Length == 1 && deep.mi32Time == 2 && deep.mu32Flags == 3 && deep.mpChainedScript == nullptr);
     CHECK(teststub::keyNodeNews == 3 && deep.mpTracks[0].mKeys.mbIsReference == 0);
     int n = 0;
     for (FEMinNode *p = deep.mpTracks[0].mKeys.head; p; p = p->next, ++n) {
@@ -655,6 +656,57 @@ static void TestTrigAndSlerp()
     CHECK(big.x == 0.f && big.w == 1.f);
 }
 
+// FEPackage::UpdateObject: script clock, end handling and event ranges.
+static void TestUpdateObject()
+{
+    struct ObjWithMovie { FEObject o; int32_t movieTime; };
+    alignas(8) unsigned char mem[sizeof(ObjWithMovie)] = {};
+    auto *obj = FEObject::Construct(mem);
+    uint32_t data[40] = {};
+    obj->mpData = data;
+    FEScript a, b;
+    FEScript::Construct(&a); FEScript::Construct(&b);
+    a.mi32Length = 100; b.mi32Length = 50;
+    a.mEvents.mu32Count = 1; b.mEvents.mu32Count = 1;          // count only: messages go to the stub
+    obj->mpCurrentScript = &a;
+    alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
+    auto *pkg = reinterpret_cast<FEPackage *>(pm);
+    pkg->mbFastInterp = 1; pkg->mi32ScriptDelta = 30;
+    auto &msgs = teststub::messages;
+    msgs.clear();
+    a.mi32Time = 0;
+    pkg->UpdateObject(obj, 16);
+    CHECK(a.mi32Time == 30 && msgs.size() == 1 && msgs[0].from == 0 && msgs[0].to == 30);
+    a.mi32Time = 90; msgs.clear();                              // stop mode: ends at length + 1
+    pkg->UpdateObject(obj, 16);
+    CHECK(a.mi32Time == 101 && msgs.size() == 1 && msgs[0].from == 90 && msgs[0].to == 100);
+    pkg->mi32ScriptDelta = 0; msgs.clear();                     // finished: tracks skipped, running flags cleared
+    obj->mu32Flags |= 0x1800000;
+    pkg->UpdateObject(obj, 16);
+    CHECK(a.mi32Time == 101 && msgs.size() == 1 && msgs[0].from == 101 && msgs[0].to == 100);   // empty range, like the original
+    CHECK((obj->mu32Flags & 0x1800000) == 0);
+    pkg->mi32ScriptDelta = 30;
+    a.mu32Flags = 1; a.mi32Time = 90; msgs.clear();             // loop: wraps, two event ranges
+    pkg->UpdateObject(obj, 16);
+    CHECK(a.mi32Time == 20 && msgs.size() == 2 && msgs[0].to == 100 && msgs[1].from == 0 && msgs[1].to == 20);
+    a.mu32Flags = 2; a.mi32Time = 180; msgs.clear();            // ping-pong past 2*length wraps
+    pkg->UpdateObject(obj, 16);
+    CHECK(a.mi32Time == 10);
+    a.mu32Flags = 0; a.mpChainedScript = &b; a.mi32Time = 90; msgs.clear();   // chain: rest carries over
+    pkg->UpdateObject(obj, 16);
+    CHECK(obj->mpCurrentScript == &b && b.mi32Time == 20 && a.mi32Time == 0);
+    CHECK(msgs.size() == 2 && msgs[0].script == &a && msgs[1].script == &b && msgs[1].to == 20);
+    obj->mu32Type = 7;                                          // movie: playback time += delta (fast mode)
+    reinterpret_cast<ObjWithMovie *>(mem)->movieTime = 5;
+    pkg->UpdateObject(obj, 16);
+    CHECK(reinterpret_cast<ObjWithMovie *>(mem)->movieTime == 21);
+    obj->mu32Type = 5; teststub::lastTypeUpdate = nullptr;
+    pkg->UpdateObject(obj, 16);
+    CHECK(teststub::lastTypeUpdate == obj);
+    obj->mpData = nullptr;
+    obj->Destruct();
+}
+
 int main()
 {
     TestCrc();
@@ -678,6 +730,7 @@ int main()
     TestKeyInterp();
     TestInterpLinear();
     TestTrigAndSlerp();
+    TestUpdateObject();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

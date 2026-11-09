@@ -22,6 +22,8 @@ FEMultiPool objDataPool{{&feMinListVTable, 0, nullptr, nullptr}};
 int feMsgRespVTable = 0, feMsgRespBlockVTable = 0, virtualDtorCalls = 0;
 int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0, feKeyNodeVTable = 0, keyNodeNews = 0, feKeyNodeBlockVTable = 0, linearCalls = 0;
 uint32_t holdDirtyFlags = 0;
+std::vector<ScriptMessage> messages;
+void *lastTypeUpdate = nullptr;
 FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
 FEMinList msgRespPool{&feMinListVTable, 0, nullptr, nullptr}, scriptPool{&feMinListVTable, 0, nullptr, nullptr};
 uint32_t nextGUID = 100;
@@ -87,6 +89,13 @@ const bASinTableEntry *BASinTable()
     return t;
 #endif
 }
+void FEPackage_IssueScriptMessages(void *, void *, void *, void *script, int32_t from, int32_t to)
+{
+    teststub::messages.push_back({script, from, to});
+}
+void FEPackage_UpdateGroup(void *, void *g, int32_t) { teststub::lastTypeUpdate = g; }
+void FEListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
+void FECodeListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
 uint32_t HoldDirtyFlags()
 {
 #ifdef NFSU2_REFEREE

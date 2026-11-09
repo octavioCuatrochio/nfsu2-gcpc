@@ -606,6 +606,54 @@ static void CheckUpdateObjectTracks(int iters)
     }
 }
 
+// FEPackage::UpdateObject (PC 54CE60): script clock + end handling (stop/loop/ping-pong/chain) + tracks + movie
+// time, on synthetic worlds without events or list/group types (those call still-original engine code).
+static void CheckUpdateObject(int iters)
+{
+    auto orig = ORIG<void(THISCALL *)(void *, FEObject *, int32_t)>(0x54CE60);
+    struct World { UotWorld u; FEScript next; int32_t movie; uint8_t pkg[0x40]; };
+    static World a, b;
+    auto build = [](World &w, uint32_t seed) {
+        BuildUot(w.u, seed);
+        std::mt19937 r(seed ^ 0x9E3779B9u);
+        std::memset(&w.next, 0, sizeof w.next);
+        std::memset(w.pkg, 0, sizeof w.pkg);
+        FEScript &sc = w.u.sc;
+        sc.mu32NumTracks &= 0xFF;                           // SetupMoveToTracks uses the full count
+        sc.mi32Length = int32_t(r() % 120) - 5;
+        sc.mi32Time = int32_t(r() % 150);
+        sc.mu32Flags = r() % 4;
+        sc.mEvents.mu32Count = 0;
+        w.next = sc;                                        // chained target shares the tracks
+        w.next.mi32Time = 7;
+        w.next.mpChainedScript = nullptr;
+        sc.mpChainedScript = r() % 4 == 0 ? &w.next : nullptr;
+        w.u.obj.mpCurrentScript = &sc;
+        w.u.obj.mu32Type = r() % 2 ? 7 : r() % 4;
+        w.u.obj.mu32Flags |= r() & 0x400000;
+        w.pkg[0x14] = uint8_t(r() % 3);
+        int32_t d = int32_t(r() % 70) - 20;
+        std::memcpy(w.pkg + 0x34, &d, 4);
+        w.movie = 3;
+    };
+    for (int it = 0; it < iters / 10; ++it) {
+        uint32_t seed = rng();
+        build(a, seed);
+        build(b, seed);
+        int32_t delta = int32_t(rng() % 40);
+        if (std::getenv("REFEREE_TRACE")) { std::printf("UO it %d seed %u mode %u len %d t %d chain %d\n", it, seed, a.u.sc.mu32Flags, a.u.sc.mi32Length, a.u.sc.mi32Time, a.u.sc.mpChainedScript != nullptr); std::fflush(stdout); }
+        orig(a.pkg, &a.u.obj, delta);
+        if (std::getenv("REFEREE_TRACE")) { std::printf(" orig ok\n"); std::fflush(stdout); }
+        reinterpret_cast<FEPackage *>(b.pkg)->UpdateObject(&b.u.obj, delta);
+        bool cur = (a.u.obj.mpCurrentScript == &a.next) == (b.u.obj.mpCurrentScript == &b.next);
+        bool same = cur && a.u.sc.mi32Time == b.u.sc.mi32Time && a.next.mi32Time == b.next.mi32Time &&
+                    a.u.obj.mu32Flags == b.u.obj.mu32Flags && std::memcmp(a.u.data, b.u.data, sizeof a.u.data) == 0 &&
+                    a.movie == b.movie;
+        for (int i = 0; i < 5; ++i) same = same && a.u.tracks[i].mu8Flags == b.u.tracks[i].mu8Flags;
+        EXPECT(same, "UpdateObject mode %u fast %d len %d t %d", a.u.sc.mu32Flags, a.pkg[0x14], a.u.sc.mi32Length, a.u.sc.mi32Time);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -631,6 +679,7 @@ static int RunAll()
     CheckInterpLinear(iters);
     CheckTrigAndSlerp(iters);
     CheckUpdateObjectTracks(iters);
+    CheckUpdateObject(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",

@@ -154,8 +154,8 @@ FEScript *FEScript::Construct(void *mem)
     s->mEvents.mpEvents = nullptr;
     s->mpcName = nullptr;
     s->mu32Id = 0;
-    s->_unknown0C = 0;
-    s->_unknown14 = 0;
+    s->mi32Length = 0;
+    s->mu32Flags = 0;
     s->mpChainedScript = nullptr;
     s->mu32NumTracks = 0;
     s->mpTracks = nullptr;
@@ -168,9 +168,9 @@ FEScript *FEScript::CopyConstruct(void *mem, const FEScript &src, bool reference
     FEScript *s = Construct(mem);
     s->SetName(src.mpcName);
     s->mu32Id = src.mu32Id;
-    s->_unknown0C = src._unknown0C;
+    s->mi32Length = src.mi32Length;
     s->mi32Time = src.mi32Time;
-    s->_unknown14 = src._unknown14;
+    s->mu32Flags = src.mu32Flags;
     s->SetTrackCount(src.mu32NumTracks);
     for (uint32_t i = 0; i < s->mu32NumTracks; ++i) {
         if (reference) s->mpTracks[i].AssignReference(src.mpTracks[i]);

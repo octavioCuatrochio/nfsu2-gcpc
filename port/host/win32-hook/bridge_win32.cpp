@@ -89,6 +89,13 @@ void *FEKeyNodeVTable() { return reinterpret_cast<void *>(0x79AA34); }
 ::FEMinList *FEKeyNodePool() { return reinterpret_cast<::FEMinList *>(0x839BD0); }
 void *FEKeyNodeBlockVTable() { return reinterpret_cast<void *>(0x79B9EC); }
 const bASinTableEntry *BASinTable() { return reinterpret_cast<const bASinTableEntry *>(0x7EA628); }
+void FEPackage_IssueScriptMessages(void *pkg, void *engine, void *obj, void *script, int32_t from, int32_t to)
+{
+    reinterpret_cast<void(THISCALL *)(void *, void *, void *, void *, int32_t, int32_t)>(0x534C70)(pkg, engine, obj, script, from, to);
+}
+void FEPackage_UpdateGroup(void *pkg, void *g, int32_t d) { reinterpret_cast<void(THISCALL *)(void *, void *, int32_t)>(0x504910)(pkg, g, d); }
+void FEListBox_Update(void *lb, float d) { reinterpret_cast<void(THISCALL *)(void *, float)>(0x517230)(lb, d); }
+void FECodeListBox_Update(void *lb, float d) { reinterpret_cast<void(THISCALL *)(void *, float)>(0x504DC0)(lb, d); }
 uint32_t HoldDirtyFlags() { return *reinterpret_cast<const uint32_t *>(0x7F7C8C); }
 void *FERefListVTable() { return reinterpret_cast<void *>(0x79AA30); }
 void *FEMessageResponseVTable() { return reinterpret_cast<void *>(0x79AA38); }

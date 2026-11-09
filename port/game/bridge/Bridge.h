@@ -57,6 +57,11 @@ void *FEKeyNodeVTable();                                               // PC 0x7
 ::FEMinList *FEKeyNodePool();                                          // PC 0x839BD0
 void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
 const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628 (game data)
+// FEPackage callees not rewritten yet (PC __thiscall)
+void FEPackage_IssueScriptMessages(void *pkg, void *engine, void *obj, void *script, int32_t from, int32_t to);   // 534C70
+void FEPackage_UpdateGroup(void *pkg, void *group, int32_t delta);                                       // 504910
+void FEListBox_Update(void *listBox, float delta);                                                        // 517230
+void FECodeListBox_Update(void *listBox, float delta);                                                    // 504DC0
 uint32_t HoldDirtyFlags();                                             // uHoldDirtyFlags, PC 0x7F7C8C
 void *FERefListVTable();                                               // PC 0x79AA30
 void *FEMessageResponseVTable();                                       // PC 0x79AA38

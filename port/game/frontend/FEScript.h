@@ -66,9 +66,9 @@ struct FEScriptEventList {
 
 struct FEScript {
     FEMinNode node;                  // +0x00 vtable PC 0x79AD28
-    uint32_t _unknown0C;             // +0x0C
-    uint32_t mi32Time;               // +0x10 current script time (FEPackage::UpdateObjectTracks); not set by the ctor
-    uint32_t _unknown14;             // +0x14
+    int32_t mi32Length;              // +0x0C script length (time)
+    int32_t mi32Time;                // +0x10 current script time (FEPackage::UpdateObjectTracks); not set by the ctor
+    uint32_t mu32Flags;              // +0x14 bits 0-1: at the end 0 stop, 1 loop, 2 ping-pong
     FEScript *mpChainedScript;       // +0x18 script of the same object (re-linked by FEObject's copy ctor)
     uint32_t mu32NumTracks;          // +0x1C
     FEKeyTrack *mpTracks;            // +0x20 new[] (count cookie at [-4])
