@@ -9,6 +9,8 @@
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
+#include "bWare/bString.h"
+#include "frontend/FEPackageManager.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/FEListBox.h"
 #include "bWare/bMath.h"
@@ -1184,8 +1186,41 @@ static void TestSlotPool()
     CHECK(*bridge::BPNodeSlotPool() == nullptr && teststub::liveAllocations == live);
 }
 
+// FEPackageManager lookups: name hash from the data header or the LZ chunk, move-to-front, checksum.
+static void TestPackageManager()
+{
+    FEPackageManager m{0, {nullptr, nullptr}};
+    m.mList.next = m.mList.prev = &m.mList;
+    alignas(4) uint8_t hdr[2][0x40] = {};
+    uint32_t chunks[3][6] = {{0x30203}, {0x30210, 0, FEHashUpper("LZPKG")}, {0x30203}};
+    for (int i = 0; i < 2; ++i) {
+        auto *h = reinterpret_cast<uint32_t *>(hdr[i]);
+        h[0] = 0xE76E4546u; h[2] = 0x64486B50u; h[4] = 0x20000u + i;
+    }
+    std::strcpy(reinterpret_cast<char *>(hdr[0] + 0x28), "MAIN.FNG");
+    std::strcpy(reinterpret_cast<char *>(hdr[1] + 0x28), "Opts.fng");
+    reinterpret_cast<uint32_t *>(hdr[1])[2] = 0;                 // bad magic: hash 0
+    FEPackageData d[3] = {};
+    d[0].mpData = hdr[0]; d[0].mpChunk = chunks[0];
+    d[1].mpChunk = chunks[1];
+    d[2].mpData = hdr[1]; d[2].mpChunk = chunks[2];
+    for (auto &x : d) {   // AddTail
+        x.node.prev = m.mList.prev; x.node.next = &m.mList; m.mList.prev->next = &x.node; m.mList.prev = &x.node;
+    }
+    CHECK(d[0].GetNameHash() == FEHashUpper("main.fng") && d[1].GetNameHash() == FEHashUpper("LZPKG") && d[2].GetNameHash() == 0);
+    CHECK(std::string(FEPackageManager::GetBasePkgName("a\\b\\Main.fng")) == "Main.fng" && std::string(FEPackageManager::GetBasePkgName("x")) == "x");
+    CHECK(m.FindFEPackageData("dir\\lzpkg") == &d[1] && m.mList.next == &d[1].node && d[1].node.next == &d[0].node);   // moved to front
+    CHECK(m.FindFEPackageData("nope") == nullptr && m.FindFEPackageData(static_cast<const void *>(chunks[2])) == &d[2]);
+    CHECK(m.GetPackageData("MAIN.FNG") == hdr[0] && m.mList.next == &d[0].node);
+    FEPackage pk{}; pk.mpcName = "PKG";
+    CHECK(m.GetActiveScreensChecksum() == 0);
+    d[2].mpPackage = &pk; d[0].mpPackage = &pk;
+    CHECK(m.GetActiveScreensChecksum() == 2 * bStringHash("PKG"));
+}
+
 int main()
 {
+    TestPackageManager();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

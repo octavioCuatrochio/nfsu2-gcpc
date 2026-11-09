@@ -1,3 +1,4 @@
+#include "frontend/FEPackageManager.h"
 #include "bWare/bSlotPool.h"
 #include "bWare/bMath.h"
 // Bridge implementation for the hooked build: calls into the original SPEED2.EXE (PC v1.2).
@@ -96,6 +97,9 @@ void *bWareMalloc(uint32_t size, const char *name, int32_t line, uint32_t flags)
 SlotPoolManager *TheSlotPoolManager() { return reinterpret_cast<SlotPoolManager *>(0x828530); }
 SlotPool **BPNodeSlotPool() { return reinterpret_cast<SlotPool **>(0x8284F0); }
 int32_t *BPListWantToClose() { return reinterpret_cast<int32_t *>(0x8284F4); }
+void *bMalloc(uint32_t size, uint32_t flags) { return reinterpret_cast<void *(__cdecl *)(uint32_t, uint32_t)>(0x440820)(size, flags); }
+void LZDecompress(const uint8_t *src, uint8_t *dst) { reinterpret_cast<void(__cdecl *)(const uint8_t *, uint8_t *)>(0x574670)(src, dst); }
+FEPackageManager *TheFEPackageManager() { return reinterpret_cast<FEPackageManager *>(0x8637B0); }
 void bWareFree(void *p) { reinterpret_cast<void(__cdecl *)(void *)>(0x440540)(p); }
 uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }
 uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }

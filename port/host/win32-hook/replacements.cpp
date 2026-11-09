@@ -17,6 +17,7 @@
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
 #include "frontend/FENode.h"
+#include "frontend/FEPackageManager.h"
 #include "frontend/cFEng.h"
 #include "frontend/FEListBox.h"
 #include "bWare/bMath.h"
@@ -202,6 +203,11 @@ bool THISCALL FENode_SetName(FENode *self, const char *n) { return self->SetName
 bool THISCALL FEngine_RecordPackageMarker(FEngine *self, const char *n) { return self->RecordPackageMarker(n); }
 void THISCALL FEngine_ClearPackageMarkers(FEngine *self) { self->ClearPackageMarkers(); }
 void THISCALL FEngine_ProcessPackageCommands(FEngine *self) { self->ProcessPackageCommands(); }
+FEPackageData *THISCALL FEPkgMgr_FindByName(FEPackageManager *self, const char *n) { return self->FindFEPackageData(n); }
+FEPackageData *THISCALL FEPkgMgr_FindByChunk(FEPackageManager *self, const void *c) { return self->FindFEPackageData(c); }
+uint8_t *THISCALL FEPkgMgr_GetPackageData(FEPackageManager *self, const char *n) { return self->GetPackageData(n); }
+uint32_t THISCALL FEPkgMgr_Checksum(FEPackageManager *self) { return self->GetActiveScreensChecksum(); }
+uint32_t THISCALL FEPackageData_GetNameHash(const FEPackageData *self) { return self->GetNameHash(); }
 void THISCALL FEListBox_ScrollSelection(FEListBox *self, int32_t dx, int32_t dy) { self->ScrollSelection(dx, dy); }
 void THISCALL FEListBox_Update(FEListBox *self, float dt) { self->Update(dt); }
 void THISCALL FEListBox_CompleteScroll(FEListBox *self) { self->CompleteScroll(); }
@@ -446,6 +452,12 @@ const Replacement kReplacements[] = {
     {0x51ACE0, (const void *)&FEngine_QueuePackagePushForModal, "FEngine::QueuePackagePushForModal", {0x55, 0x56, 0x57, 0x6A, 0x20, 0x8B}},
     {0x51ADB0, (const void *)&FEngine_QueuePackagePop, "FEngine::QueuePackagePop", {0x53, 0x56, 0x57, 0x6A, 0x20, 0x8B}},
     {0x51AF50, (const void *)&FEngine_QueuePackageUserTransfer, "FEngine::QueuePackageUserTransfer", {0x56, 0x6A, 0x20, 0x8B, 0xF1, 0xE8}},
+    {0x51BB70, (const void *)&FEPkgMgr_FindByName, "FEPackageManager::FindFEPackageData(name)", {0x53, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
+    {0x51BB30, (const void *)&FEPkgMgr_FindByChunk, "FEPackageManager::FindFEPackageData(chunk)", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x8D}},
+    {0x51BC40, (const void *)&FEPkgMgr_GetPackageData, "FEPackageManager::GetPackageData", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x50}},
+    {0x51BAD0, (const void *)&FEPkgMgr_Checksum, "FEPackageManager::GetActiveScreensChecksum", {0x8B, 0x41, 0x04, 0x53, 0x56, 0x57}},
+    {0x51BB20, (const void *)&FEPkgMgr_GetActiveScreensChecksum, "FEPkgMgr_GetActiveScreensChecksum", {0xB9, 0xB0, 0x37, 0x86, 0x00, 0xE9}},
+    {0x50B920, (const void *)&FEPackageData_GetNameHash, "FEPackageData::GetNameHash", {0x8B, 0x51, 0x10, 0x8B, 0x02, 0x3D}},
     {0x541FC0, (const void *)&FEngine_ProcessMessageQueue, "FEngine::ProcessMessageQueue", {0x83, 0xEC, 0x0C, 0x53, 0x8B, 0xD9}},
     {0x5367E0, (const void *)&FEngine_ProcessObjectMessage, "FEngine::ProcessObjectMessage", {0x53, 0x8B, 0x5C, 0x24, 0x10, 0x55}},
     {0x51B000, (const void *)&FEngine_ProcessListBoxResponses, "FEngine::ProcessListBoxResponses", {0x8B, 0x44, 0x24, 0x0C, 0x3D, 0xF9}},

@@ -31,6 +31,7 @@
 #include "bWare/bSlotPool.h"
 #include "camera/CameraNoise.h"
 #include "camera/Camera.h"
+#include "frontend/FEPackageManager.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include <float.h>
@@ -1008,6 +1009,68 @@ static void CheckNoise(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
+static void CheckPackageManager(int iters)
+{
+    auto oFind = ORIG<FEPackageData *(THISCALL *)(FEPackageManager *, const char *)>(0x51BB70);
+    auto oFindC = ORIG<FEPackageData *(THISCALL *)(FEPackageManager *, const void *)>(0x51BB30);
+    auto oGet = ORIG<uint8_t *(THISCALL *)(FEPackageManager *, const char *)>(0x51BC40);
+    auto oSum = ORIG<uint32_t(THISCALL *)(FEPackageManager *)>(0x51BAD0);
+    auto oHash = ORIG<uint32_t(THISCALL *)(const FEPackageData *)>(0x50B920);
+    static const char *kNames[] = {"MAIN.FNG", "Opts.fng", "a", "LZ_ONE", "garage"};
+    struct Arena { FEPackageManager m; FEPackageData d[5]; uint32_t chunk[5][6]; uint8_t hdr[5][0x40]; FEPackage pk[2]; };
+    alignas(8) static Arena ar, snap;
+    for (int it = 0; it < iters / 8; ++it) {
+        std::memset(&ar, 0, sizeof ar);
+        ar.m.mList.next = ar.m.mList.prev = &ar.m.mList;
+        ar.pk[0].mpcName = "PKG0"; ar.pk[1].mpcName = "pkg1";
+        int n = rng() % 6;
+        for (int i = 0; i < n; ++i) {
+            FEPackageData &d = ar.d[i];
+            int nm = rng() % 5;
+            if (rng() % 4 == 0) { ar.chunk[i][0] = 0x30210; ar.chunk[i][2] = FEHashUpper(kNames[nm]); }
+            else {
+                ar.chunk[i][0] = rng() % 8 ? 0x30203 : 0x1234;
+                auto *h = reinterpret_cast<uint32_t *>(ar.hdr[i]);
+                h[0] = rng() % 8 ? 0xE76E4546u : 1; h[2] = 0x64486B50u; h[4] = rng() % 8 ? 0x20000u + rng() % 3 : 0x1FFFF;
+                std::strcpy(reinterpret_cast<char *>(ar.hdr[i] + 0x28), kNames[nm]);
+                d.mpData = ar.hdr[i];
+            }
+            d.mpChunk = ar.chunk[i];
+            d.mpPackage = rng() % 2 ? &ar.pk[rng() % 2] : nullptr;
+            d.node.prev = ar.m.mList.prev; d.node.next = &ar.m.mList; ar.m.mList.prev->next = &d.node; ar.m.mList.prev = &d.node;
+        }
+        for (int q = 0; q < 6; ++q) {
+            char name[32];
+            std::snprintf(name, sizeof name, "%s%s", rng() % 2 ? "x\\" : "", kNames[rng() % 5]);
+            if (rng() % 3 == 0) for (char *c = name; *c; ++c) *c = static_cast<char>(*c ^ ((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') ? 0x20 : 0));
+            int op = rng() % 4;
+            const void *qc = ar.chunk[rng() % 5];
+            std::memcpy(&snap, &ar, sizeof ar);
+            uintptr_t r1 = 0, r2 = 0;
+            // LZ chunks would allocate in GetPackageData: only query names whose data is raw (or absent)
+            switch (op) {
+            case 0: r1 = reinterpret_cast<uintptr_t>(oFind(&ar.m, name)); break;
+            case 1: r1 = reinterpret_cast<uintptr_t>(oFindC(&ar.m, qc)); break;
+            case 2: { FEPackageData *d = ar.m.FindFEPackageData(name); std::memcpy(&ar, &snap, sizeof ar);
+                      if (d && d->mpChunk[0] == 0x30210) { op = 0; r1 = reinterpret_cast<uintptr_t>(oFind(&ar.m, name)); }
+                      else r1 = reinterpret_cast<uintptr_t>(oGet(&ar.m, name)); break; }
+            default: r1 = oSum(&ar.m); for (int i = 0; i < n; ++i) r1 = r1 * 31 + oHash(&ar.d[i]); break;
+            }
+            Arena after;
+            std::memcpy(&after, &ar, sizeof ar);
+            std::memcpy(&ar, &snap, sizeof ar);
+            switch (op) {
+            case 0: r2 = reinterpret_cast<uintptr_t>(ar.m.FindFEPackageData(name)); break;
+            case 1: r2 = reinterpret_cast<uintptr_t>(ar.m.FindFEPackageData(qc)); break;
+            case 2: r2 = reinterpret_cast<uintptr_t>(ar.m.GetPackageData(name)); break;
+            default: r2 = ar.m.GetActiveScreensChecksum(); for (int i = 0; i < n; ++i) r2 = r2 * 31 + ar.d[i].GetNameHash(); break;
+            }
+            EXPECT(r1 == r2 && std::memcmp(&after, &ar, sizeof ar) == 0, "FEPackageManager op %d '%s' n=%d", op, name, n);
+        }
+    }
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1420,6 +1483,7 @@ static int RunAll()
     CheckBoxes(iters);
     CheckSlotPoolB(iters);
     CheckNoise(iters);
+    CheckPackageManager(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);

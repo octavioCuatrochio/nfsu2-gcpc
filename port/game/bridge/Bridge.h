@@ -15,6 +15,7 @@ struct FEPackage;     // frontend/FEPackage.h
 struct cFEng;         // frontend/cFEng.h
 struct SlotPoolManager;   // bWare/bSlotPool.h
 struct SlotPool;
+struct FEPackageManager;   // frontend/FEPackageManager.h
 
 struct bASinTableEntry;
 namespace bridge {
@@ -64,7 +65,10 @@ void *bWareMalloc(uint32_t size, const char *name, int32_t line, uint32_t flags)
 ::SlotPoolManager *TheSlotPoolManager();                                   // PC 0x828530 (game global)
 ::SlotPool **BPNodeSlotPool();          // PC 0x8284F0 (game global)
 int32_t *BPListWantToClose();          // PC 0x8284F4 (game global)
-void bWareFree(void *p);                                                       // PC 0x440540 (__cdecl)
+void bWareFree(void *p);
+void *bMalloc(uint32_t size, uint32_t flags);                                      // PC 0x440820 (__cdecl; GC bMalloc(int,int))
+void LZDecompress(const uint8_t *src, uint8_t *dst);                               // PC 0x574670 (__cdecl)
+::FEPackageManager *TheFEPackageManager();                                         // PC 0x8637B0 (game global)                                                       // PC 0x440540 (__cdecl)
 uint16_t BaselineFovNoise();           // PC 0x7EC1F0 aBaselineFovNoise (game global)
 uint32_t *BRandomSeed();              // PC 0x7EA624 (game global)
 const uint8_t *BFastATanTable();      // PC 0x7EACB0 (game data, 257 bytes)

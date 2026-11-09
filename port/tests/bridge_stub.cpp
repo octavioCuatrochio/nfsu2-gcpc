@@ -1,3 +1,4 @@
+#include "frontend/FEPackageManager.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/cFEng.h"
 #include "frontend/FENode.h"
@@ -100,6 +101,9 @@ SlotPoolManager *TheSlotPoolManager()
 }
 SlotPool **BPNodeSlotPool() { static SlotPool *p; return &p; }
 int32_t *BPListWantToClose() { static int32_t w; return &w; }
+void *bMalloc(uint32_t size, uint32_t) { ++teststub::liveAllocations; return std::malloc(size); }
+void LZDecompress(const uint8_t *src, uint8_t *dst) { std::memcpy(dst, src + 0x10, reinterpret_cast<const uint32_t *>(src)[2]); }   // stub: stored
+FEPackageManager *TheFEPackageManager() { static FEPackageManager m{0, {&m.mList, &m.mList}}; return &m; }
 void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE
 uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }
