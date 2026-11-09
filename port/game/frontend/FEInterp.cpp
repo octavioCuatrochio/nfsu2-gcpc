@@ -178,9 +178,8 @@ void FEInterpLinear(FEKeyTrack *track, int32_t time, void *out)
     }
 }
 
-namespace {
 // FEKeyInterp (GC 801401EC, inlined on PC): 0 step, 1/3 linear, others leave `out` alone.
-void KeyInterp(FEKeyTrack *track, int32_t time, void *out)
+void FEKeyInterp(FEKeyTrack *track, int32_t time, void *out)
 {
     switch (track->mu8InterpType) {
     case 0: FEInterpNone(track, time, out); break;
@@ -190,6 +189,7 @@ void KeyInterp(FEKeyTrack *track, int32_t time, void *out)
     }
 }
 
+namespace {
 uint32_t CountKeys(const FEKeyTrack *t)   // FERefList::GetNumElements (GC 80142828, inlined on PC)
 {
     uint32_t n = 0;
@@ -202,7 +202,7 @@ uint32_t CountKeys(const FEKeyTrack *t)   // FERefList::GetNumElements (GC 80142
 void FEKeyInterpFast(FEKeyTrack *track, int32_t time, void *out)
 {
     if (track->mu8Flags & 0x80) return;
-    KeyInterp(track, time, out);
+    FEKeyInterp(track, time, out);
     if (CountKeys(track) == 0) track->mu8Flags |= 0x80;
 }
 
@@ -211,7 +211,7 @@ void FEKeyInterpFast(FEKeyTrack *track, int32_t time, void *out)
 void FEKeyTrack::SetBaseValueAt(int32_t time, const FEColor &value)
 {
     FEColor cur{{0, 0, 0, 0}};
-    KeyInterp(this, time, &cur);
+    FEKeyInterp(this, time, &cur);
     FEColor d = FEColorSub(value, cur);
     FEColor base;
     std::memcpy(&base, &mBaseKey._data[1], sizeof base);

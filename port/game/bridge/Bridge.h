@@ -57,6 +57,7 @@ void *FEKeyNodeVTable();                                               // PC 0x7
 ::FEMinList *FEKeyNodePool();                                          // PC 0x839BD0
 void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
 const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628 (game data)
+uint32_t HoldDirtyFlags();                                             // uHoldDirtyFlags, PC 0x7F7C8C
 void *FERefListVTable();                                               // PC 0x79AA30
 void *FEMessageResponseVTable();                                       // PC 0x79AA38
 

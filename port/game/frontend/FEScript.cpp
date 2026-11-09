@@ -169,7 +169,7 @@ FEScript *FEScript::CopyConstruct(void *mem, const FEScript &src, bool reference
     s->SetName(src.mpcName);
     s->mu32Id = src.mu32Id;
     s->_unknown0C = src._unknown0C;
-    s->_unknown10 = src._unknown10;
+    s->mi32Time = src.mi32Time;
     s->_unknown14 = src._unknown14;
     s->SetTrackCount(src.mu32NumTracks);
     for (uint32_t i = 0; i < s->mu32NumTracks; ++i) {

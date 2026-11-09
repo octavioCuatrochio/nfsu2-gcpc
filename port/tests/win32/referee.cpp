@@ -24,6 +24,7 @@
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
 #include "frontend/FEMath.h"
+#include "frontend/FEPackage.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include "bridge_stub.h"
@@ -541,6 +542,70 @@ static void CheckTrigAndSlerp(int iters)
     }
 }
 
+// FEPackage::UpdateObjectTracks (PC 541DB0): synthetic object + script with random step/linear tracks (no
+// quaternion), both interpolation modes, random alpha/flags. Compares data, track flags and object flags.
+struct UotWorld {
+    FEObject obj;
+    FEScript sc;
+    FEKeyTrack tracks[5];
+    FEKeyNode keys[5][3];
+    uint32_t data[40];
+    uint8_t pkg[0x18];
+};
+static void BuildUot(UotWorld &w, uint32_t seed)
+{
+    std::mt19937 r(seed);
+    std::memset(&w, 0, sizeof w);
+    static const int8_t kIdx[] = {0, 0, 4, 7, 10, 14, 19, 33, -2};
+    static const uint8_t kSize[] = {0, 4, 4, 8, 12, 16, 16};
+    int n = r() % 6;
+    w.sc.mu32NumTracks = (r() % 8 == 0 ? 0x100 : 0) | uint32_t(n);   // only the low byte counts
+    w.sc.mpTracks = n || r() % 2 ? w.tracks : nullptr;
+    w.sc.mi32Time = r() % 60;
+    for (int i = 0; i < n; ++i) {
+        FEKeyTrack &t = w.tracks[i];
+        uint8_t type = uint8_t(1 + r() % 4);                // int/float/vec2/vec3 (+ color below)
+        if (r() % 4 == 0) type = 6;
+        t.mu8ParamType = type;
+        t.mu8ValueSize = kSize[type];
+        t.mu8InterpType = uint8_t(r() % 5);
+        t.mu8Flags = uint8_t((r() & 0x80) | (r() % 2));
+        t.mi8DataIndex = kIdx[r() % 8];
+        t._length[0] = uint8_t(r() % 80);
+        t.mBaseKey.node.next = nullptr;
+        int nk = r() % 4;
+        for (int k = 0; k < nk; ++k) {
+            FEKeyNode &kn = w.keys[i][k];
+            kn.node.next = k + 1 < nk ? &w.keys[i][k + 1].node : nullptr;
+            kn.node.prev = k ? &w.keys[i][k - 1].node : nullptr;
+            kn._data[0] = uint32_t(k * 20 + r() % 10);
+            for (int j = 1; j < 5; ++j) kn._data[j] = type == 1 || type == 6 ? r() % 300 : 0x3F800000u + (r() % 0x100000);
+        }
+        t.mKeys.head = nk ? &w.keys[i][0].node : nullptr;
+        t.mKeys.tail = nk ? &w.keys[i][nk - 1].node : nullptr;
+    }
+    for (auto &d : w.data) d = r() % 3 == 0 ? 0 : r();
+    if (r() % 3 == 0) w.data[3] = 0;                       // invisible
+    w.obj.mpData = w.data;
+    w.obj.mu32Flags = r() & 0x03C00000u;
+    w.pkg[0x14] = uint8_t(r() % 2);
+}
+static void CheckUpdateObjectTracks(int iters)
+{
+    auto orig = ORIG<void(THISCALL *)(const void *, FEObject *, FEScript *)>(0x541DB0);
+    static UotWorld a, b;
+    for (int it = 0; it < iters / 10; ++it) {
+        uint32_t seed = rng();
+        BuildUot(a, seed);
+        BuildUot(b, seed);
+        orig(a.pkg, &a.obj, &a.sc);
+        reinterpret_cast<const FEPackage *>(b.pkg)->UpdateObjectTracks(&b.obj, &b.sc);
+        bool same = std::memcmp(a.data, b.data, sizeof a.data) == 0 && a.obj.mu32Flags == b.obj.mu32Flags;
+        for (int i = 0; i < 5; ++i) same = same && a.tracks[i].mu8Flags == b.tracks[i].mu8Flags;
+        EXPECT(same, "UpdateObjectTracks fast=%d n=%u", a.pkg[0x14], a.sc.mu32NumTracks);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -565,6 +630,7 @@ static int RunAll()
     CheckKeyInterp(iters);
     CheckInterpLinear(iters);
     CheckTrigAndSlerp(iters);
+    CheckUpdateObjectTracks(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",

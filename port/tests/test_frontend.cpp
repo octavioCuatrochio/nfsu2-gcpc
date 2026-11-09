@@ -338,7 +338,7 @@ static void TestScriptCopy()
     FEScript::Construct(&src);
     src.SetName("Fade_In");
     CHECK(src.mu32Id == FEHashUpper("Fade_In") && std::strcmp(src.mpcName, "Fade_In") == 0);
-    src._unknown0C = 1; src._unknown10 = 2; src._unknown14 = 3; src.mpChainedScript = &src;
+    src._unknown0C = 1; src.mi32Time = 2; src._unknown14 = 3; src.mpChainedScript = &src;
     src.SetTrackCount(2);
     CHECK(src.mu32NumTracks == 2 && reinterpret_cast<uint32_t *>(src.mpTracks)[-1] == 2);
     CHECK(src.mpTracks[1].mBaseKey.node.vtable == &teststub::feKeyNodeVTable && src.mpTracks[1].mKeys.head == nullptr);
@@ -361,7 +361,7 @@ static void TestScriptCopy()
     FEScript deep;
     FEScript::CopyConstruct(&deep, src, false);
     CHECK(deep.mu32Id == src.mu32Id && deep.mpcName != src.mpcName && std::strcmp(deep.mpcName, "Fade_In") == 0);
-    CHECK(deep._unknown0C == 1 && deep._unknown10 == 2 && deep._unknown14 == 3 && deep.mpChainedScript == nullptr);
+    CHECK(deep._unknown0C == 1 && deep.mi32Time == 2 && deep._unknown14 == 3 && deep.mpChainedScript == nullptr);
     CHECK(teststub::keyNodeNews == 3 && deep.mpTracks[0].mKeys.mbIsReference == 0);
     int n = 0;
     for (FEMinNode *p = deep.mpTracks[0].mKeys.head; p; p = p->next, ++n) {

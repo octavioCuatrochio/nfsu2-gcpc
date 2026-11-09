@@ -51,6 +51,7 @@ struct FEKeyTrack {
 void FEInterpNone(FEKeyTrack *track, int32_t time, void *out);      // GC 8014115C / PC 519D40 (step)
 void FEInterpLinear(FEKeyTrack *track, int32_t time, void *out);    // GC 80140318 / PC 52BDC0
 void FEKeyInterpFast(FEKeyTrack *track, int32_t time, void *out);   // GC 80140244 / PC 5354F0
+void FEKeyInterp(FEKeyTrack *track, int32_t time, void *out);       // GC 801401EC (PC: inlined): 0 step, 1/3 linear
 
 struct FEScriptEvent {               // 0xC bytes, copied as raw data
     uint32_t _data[3];
@@ -66,7 +67,7 @@ struct FEScriptEventList {
 struct FEScript {
     FEMinNode node;                  // +0x00 vtable PC 0x79AD28
     uint32_t _unknown0C;             // +0x0C
-    uint32_t _unknown10;             // +0x10 not set by the constructor
+    uint32_t mi32Time;               // +0x10 current script time (FEPackage::UpdateObjectTracks); not set by the ctor
     uint32_t _unknown14;             // +0x14
     FEScript *mpChainedScript;       // +0x18 script of the same object (re-linked by FEObject's copy ctor)
     uint32_t mu32NumTracks;          // +0x1C
