@@ -781,6 +781,87 @@ static void TestPackageCommands()
     e->mpPackages = nullptr;
 }
 
+// FEngine::ProcessPackageCommands: push/pop/switch parent links, mask hand-back, modal input masks, deletion.
+static void TestProcessPackageCommands()
+{
+    FEngine *e = TestEngine();
+    Collect(); CollectCommands();
+    int live = teststub::liveAllocations;
+    alignas(8) unsigned char pm[5][sizeof(FEPackage)] = {};
+    FEPackage *P[5];
+    for (int i = 0; i < 5; ++i) P[i] = reinterpret_cast<FEPackage *>(pm[i]);
+    FEPackage *A = P[0], *B = P[1], *C = P[2], *D = P[3], *X = P[4];
+    auto link = [&](std::initializer_list<FEPackage *> l) {
+        FEPackage *prev = nullptr;
+        for (FEPackage *p : l) { reinterpret_cast<FEMinNode *>(p)->next = nullptr; if (prev) reinterpret_cast<FEMinNode *>(prev)->next = reinterpret_cast<FEMinNode *>(p); else e->mpPackages = p; prev = p; }
+    };
+    link({A, B});
+    A->mi32Priority = 0; B->mi32Priority = 1; B->mpParent = A;
+    teststub::levelSortingList = {"c", "D"};
+    auto &d = teststub::delivered;
+    // push "C" from B: priority 2, parent B, B loses the mask (ctrl + input)
+    B->SetControlMask(0xFF); teststub::pushResult = C;
+    d.clear();
+    e->QueuePackagePush("C", B, 0x0F);
+    e->ProcessPackageCommands();
+    CHECK(d.size() == 1 && std::string(d[0].kind) == "pushpkg" && teststub::lastPushName == "C" && d[0].msg == 2 && d[0].arg == 0x0F);
+    CHECK(C->mpParent == B && B->mu32ControlMask == 0xF0 && B->mu32InputControlMask == 0xF0);
+    CHECK(e->mPackageCommands.count == 0 && teststub::liveAllocations == live);
+    // pop B (parent A active): A gets B's mask, B's children re-parented to A, input masks restored, B unloaded
+    link({A, B, C});
+    A->SetControlMask(0x100); B->SetControlMask(0x0F); C->mu32SavedControlMask = 0x55;   // Pop restores ctrl/savedInput from it
+    d.clear();
+    e->QueuePackagePop(B);
+    e->ProcessPackageCommands();
+    CHECK(d.size() == 1 && std::string(d[0].kind) == "unload" && d[0].pkg == B);
+    CHECK(A->mu32ControlMask == 0x10F && A->mu32InputControlMask == 0x10F && C->mpParent == A && C->mu32InputControlMask == 0x55);
+    // pop with an inactive parent: the link is dropped, nobody gets the mask
+    link({A, B, C});
+    B->mpParent = X; B->mi32Priority = 1; C->mpParent = B; X->SetControlMask(0);
+    e->QueuePackagePop(B);
+    e->ProcessPackageCommands();
+    CHECK(B->mpParent == nullptr && C->mpParent == nullptr && X->mu32ControlMask == 0);
+    // pop of a package that was never pushed (priority < 0): nothing happens
+    B->mi32Priority = -1;
+    d.clear();
+    e->QueuePackagePop(B);
+    e->ProcessPackageCommands();
+    CHECK(d.empty());
+    // switch B -> "D": D takes B's priority, parent and children; A gets B's mask back
+    link({A, B, C});
+    B->mi32Priority = 1; B->mpParent = A; C->mpParent = B;
+    A->SetControlMask(0); B->SetControlMask(0x30); teststub::pushResult = D;
+    d.clear();
+    e->QueuePackageSwitch("d", B);
+    e->ProcessPackageCommands();
+    CHECK(d.size() == 2 && std::string(d[0].kind) == "unload" && std::string(d[1].kind) == "pushpkg" && d[1].msg == 1 && d[1].arg == 0x30);
+    CHECK(D->mpParent == A && C->mpParent == D && A->mu32ControlMask == 0x30);
+    // push of a package not in the level sorting list: no push; modal push limits every other package's input
+    d.clear();
+    e->QueuePackagePush("nope", A, 0);
+    e->QueuePackagePushForModal("C", nullptr, 0x0F);   // priority -1 -> pushed at 0, no parent
+    A->SetControlMask(0xFF); B->SetControlMask(0xFF); C->SetControlMask(0xFF); C->mpParent = nullptr;
+    teststub::pushResult = C;
+    e->ProcessPackageCommands();
+    CHECK(d.size() == 1 && d[0].msg == 0 && C->mpParent == nullptr);
+    CHECK(A->mu32InputControlMask == 0xF0 && B->mu32InputControlMask == 0xF0 && C->mu32InputControlMask == 0xFF);
+    // user transfer: false (4) -> to the parent, true (8) -> to the first child; message 0x334C5493 to the receiver
+    link({A, B, C});
+    B->mpParent = A; C->mpParent = B;
+    A->SetControlMask(0); B->SetControlMask(0x0F); C->SetControlMask(0);
+    e->QueuePackageUserTransfer(B, false, 0x03);       // mask stored = B ctrl & 3 = 3
+    e->ProcessPackageCommands();
+    CHECK(A->mu32ControlMask == 0x03 && B->mu32ControlMask == 0x0C);
+    e->QueuePackageUserTransfer(B, true, 0xFF);        // mask = 0x0C
+    e->ProcessPackageCommands();
+    CHECK(C->mu32ControlMask == 0x0C && B->mu32ControlMask == 0 && C->mu32SavedInputControlMask == 0x0C);
+    auto q = Collect();
+    CHECK(q.size() == 2 && q[0].msg == 0x334C5493u && q[1].msg == 0x334C5493u);
+    CHECK(teststub::liveAllocations == live);
+    teststub::pushResult = nullptr;
+    e->mpPackages = nullptr;
+}
+
 // FEPackage::UpdateObject + IssueScriptMessages: script clock, end handling and event ranges. Every script has
 // one event per time step (message = base + time, target = the object) so the queued messages show the range.
 static void TestUpdateObject()
@@ -1033,6 +1114,7 @@ int main()
 {
     TestPackageCommands();
     TestPackageMarkers();
+    TestProcessPackageCommands();
     TestCrc();
     TestWideHelpers();
     TestWideString();

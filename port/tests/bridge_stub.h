@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include <string>
 namespace teststub {
 extern bool useOldDirtyFlag;   // value returned by bridge::UseOldFEngDirtyFlag()
 extern int liveAllocations;    // bridge::Alloc minus bridge::FreeArray
@@ -14,6 +15,7 @@ namespace teststub {
 extern FEMultiPool objDataPool;
 }
 struct FEMinList;
+struct FEPackage;
 namespace teststub {
 extern FEMinList msgRespPool, scriptPool;
 extern int feMsgRespVTable, feMsgRespBlockVTable, virtualDtorCalls;
@@ -26,6 +28,9 @@ extern std::vector<QueuedMessage> queued, forwarded;   // queued: SendMessageToG
 extern int feMessageNodeVTable, fePackageCommandVTable;
 struct Delivered { const char *kind; void *a, *pkg; uint32_t msg, arg; };
 extern std::vector<Delivered> delivered;
+extern std::vector<std::string> levelSortingList;          // cFEng_FindInLevelSortingList (case-insensitive)
+extern std::string lastPushName;                            // copy: the command (and its name) is freed
+extern FEPackage *pushResult;                               // FEngine_PushPackage return value
 extern void *currentButton;
 struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback
 extern void *lastTypeUpdate;

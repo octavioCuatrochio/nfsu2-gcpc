@@ -1,3 +1,5 @@
+#include "frontend/FENode.h"
+#include <strings.h>
 // Bridge stand-ins for native unit tests: plain heap, no character histogram, settable dirty flag.
 #include "bridge/Bridge.h"
 #include "bridge_stub.h"
@@ -33,6 +35,9 @@ FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
 FEMinList msgRespPool{&feMinListVTable, 0, nullptr, nullptr}, scriptPool{&feMinListVTable, 0, nullptr, nullptr};
 uint32_t nextGUID = 100;
 void *lastDestructorCallback = nullptr;
+std::vector<std::string> levelSortingList;
+FEPackage *pushResult = nullptr;
+std::string lastPushName;
 }  // namespace teststub
 
 namespace bridge {
@@ -60,6 +65,10 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feKeyNodeVTable) static_cast<FEKeyNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feKeyNodeBlockVTable) FEKeyNodeBlock_ScalarDtor(static_cast<FEKeyNodeBlock *>(o), 1);
     else if (vt == &teststub::feScriptBlockVTable) FEScriptBlock_ScalarDtor(static_cast<FEScriptBlock *>(o), 1);
+    else if (vt == &teststub::fePackageCommandVTable) {   // ~FENode frees the name
+        FreeArray(static_cast<FENode *>(o)->mpcName);
+        FreeArray(o);
+    }
     else FreeArray(o);
 }
 void VirtualScalarDtor(void *o, uint32_t flags)
@@ -98,6 +107,19 @@ void FEListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { teststub::del
 void FECodeListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { teststub::delivered.push_back({"cscroll", lb, nullptr, uint32_t(dx), uint32_t(dy)}); }
 void FEUIData_Call4(void *, uint32_t slot, uint32_t a, const void *, uint32_t c, const void *) { teststub::delivered.push_back({"ui", nullptr, nullptr, a + slot * 0x10000, c}); }
 void FEUIData_Call5(void *, uint32_t slot, uint32_t a, const void *, const void *, const void *, uint32_t e) { teststub::delivered.push_back({"fwd", nullptr, nullptr, a + slot * 0x10000, e}); }
+void FEngine_UnloadPackage(void *, FEPackage *p) { teststub::delivered.push_back({"unload", nullptr, p, 0, 0}); }
+FEPackage *FEngine_PushPackage(void *, const char *n, uint8_t pri, uint32_t m)
+{
+    teststub::lastPushName = n;
+    teststub::delivered.push_back({"pushpkg", const_cast<char *>(n), teststub::pushResult, pri, m});
+    return teststub::pushResult;
+}
+void *cFEng_FindInLevelSortingList(const char *n)
+{
+    for (auto &s : teststub::levelSortingList)
+        if (strcasecmp(s.c_str(), n) == 0) return &s;
+    return nullptr;
+}
 void *FEPackageCommandVTable() { return &teststub::fePackageCommandVTable; }
 void *FEMessageNodeVTable() { return &teststub::feMessageNodeVTable; }
 void FEUIData_OnQueueMessage(void *, uint32_t msg, void *obj, void *, void *target, uint32_t) { teststub::forwarded.push_back({msg, obj, target}); }

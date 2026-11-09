@@ -30,7 +30,8 @@ struct FEPackage {
     uint32_t mu32NameHash;           // +0x10
     uint8_t mbFastInterp;            // +0x14 use FEKeyInterpFast (done-track skipping + dirty-flag tracking);
                                      //       also gates script time handling / events in UpdateObject
-    uint8_t _unknown15[7];
+    uint8_t _unknown15[3];
+    int32_t mi32Priority;            // +0x18 (GC +0x24) stack level given to PushPackage; <0: not pushed
     uint32_t mu32ControlMask;        // +0x1C (GC +0x28)
     uint32_t mu32SavedControlMask;   // +0x20 (GC +0x2C)
     uint32_t mu32InputControlMask;   // +0x24 (GC +0x30) mask used by input
@@ -38,7 +39,9 @@ struct FEPackage {
     uint8_t _unknown2C[4];
     void *mpEngine;                  // +0x30 FEngine (passed to IssueScriptMessages)
     int32_t mi32ScriptDelta;         // +0x34 time added to the current script per UpdateObject
-    uint8_t _unknown38[0xC];
+    uint8_t _unknown38[4];
+    FEPackage *mpParent;             // +0x3C (GC +0x48) package that pushed this one (gets its masks back on pop)
+    uint8_t _unknown40[4];
     FEMinList mObjects;              // +0x44 top-level objects
     FEMinList mResponses;            // +0x54 package-level FEMessageResponses ("global" handlers)
     uint8_t _unknown64[8];
@@ -80,6 +83,7 @@ struct FEPackage {
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(offsetof(FEPackage, mbFastInterp) == 0x14 && offsetof(FEPackage, mpEngine) == 0x30);
 static_assert(offsetof(FEPackage, mi32ScriptDelta) == 0x34 && offsetof(FEPackage, mObjects) == 0x44);
+static_assert(offsetof(FEPackage, mi32Priority) == 0x18 && offsetof(FEPackage, mpParent) == 0x3C);
 static_assert(offsetof(FEPackage, mu32ControlMask) == 0x1C && offsetof(FEPackage, mu32SavedInputControlMask) == 0x28);
 static_assert(offsetof(FEPackage, mu32NumLibraryRefs) == 0x84 && offsetof(FEPackage, mpCurrentButton) == 0x8C);
 static_assert(sizeof(FELibraryRef) == 0xC && sizeof(FEMessageTargets) == 0x10);

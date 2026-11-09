@@ -94,6 +94,74 @@ bool FEngine::PackagePopQueuedPushPackage(const char *name)
     return false;
 }
 
+// Command type bits: 1 pop the command's package (unload; its parent gets the command mask back), 2 push the named
+// package (if it is in cFEng's level sorting list) at priority+1, 0x10 (modal) limit every other package's input
+// mask, 4 / 8 hand the masked controls back to the parent / to the first child. A switch (3) pops then pushes,
+// and the new package takes over the old one's parent and children.
+// PC differences from GC: the parent of a popped package must still be active (else it is dropped, with a debug
+// print); the "replaced" package/parent of a switch persist across loop iterations (GC: reset per command).
+void FEngine::ProcessPackageCommands()
+{
+    FEPackage *replaced = nullptr;       // PC [esp+0x1C]: package popped by the last switch
+    FEPackage *replacedParent = nullptr; // PC [esp+0x18]: its parent
+    while (FEMinNode *head = mPackageCommands.RemHead()) {
+        auto *c = reinterpret_cast<FEPackageCommand *>(head);
+        int32_t priority = c->mpPackage ? c->mpPackage->mi32Priority : -1;
+        if ((c->mu32Type & 1) && priority >= 0) {
+            FEPackage *pkg = c->mpPackage;
+            if (FEPackage *parent = pkg->mpParent) {
+                bool active = false;
+                for (FEPackage *p = mpPackages; p; p = NextPackage(p))
+                    if (p == parent) { active = true; break; }
+                if (!active) pkg->mpParent = nullptr;   // "FEPC_Pop : Parent of package being popped ... invalid"
+            }
+            if (!(c->mu32Type & 2)) {
+                FEPackage *grand = pkg->mpParent;
+                for (FEPackage *p = mpPackages; p; p = NextPackage(p))
+                    if (p->mpParent == pkg) p->mpParent = grand;
+            } else {
+                replaced = pkg;
+                replacedParent = pkg->mpParent;
+            }
+            if (FEPackage *parent = c->mpPackage->mpParent) parent->SetControlMask(parent->mu32ControlMask | c->mu32Mask);
+            if (!(c->mu32Type & 2))
+                for (FEPackage *p = mpPackages; p; p = NextPackage(p)) p->RestoreControlMaskUsedByInput();
+            bridge::FEngine_UnloadPackage(this, c->mpPackage);
+            --priority;
+        }
+        if ((c->mu32Type & 2) && bridge::cFEng_FindInLevelSortingList(c->node.mpcName)) {
+            FEPackage *np = bridge::FEngine_PushPackage(this, c->node.mpcName, static_cast<uint8_t>(priority + 1), c->mu32Mask);
+            if (np) {
+                if (!(c->mu32Type & 1) && priority >= 0) {
+                    np->mpParent = c->mpPackage;
+                    c->mpPackage->SetControlMaskOnly(c->mpPackage->mu32ControlMask & ~c->mu32Mask);
+                } else if (c->mu32Type & 1) {
+                    np->mpParent = replacedParent;
+                    for (FEPackage *p = mpPackages; p; p = NextPackage(p))
+                        if (p->mpParent == replaced) p->mpParent = np;
+                }
+            }
+            if (c->mu32Type & 0x10)
+                for (FEPackage *p = mpPackages; p; p = NextPackage(p))
+                    if (p != np) p->SetControlMaskUsedByInputOnly(p->mu32ControlMask & ~c->mu32Mask);
+        }
+        // hand the masked controls from the command's package to `to` (and tell `to`)
+        auto giveBack = [&](FEPackage *to) {
+            FEPackage *pkg = c->mpPackage;
+            const uint32_t m = pkg->mu32ControlMask & c->mu32Mask;
+            pkg->SetControlMask(pkg->mu32ControlMask & ~m);
+            to->SetControlMask(to->mu32ControlMask | m);
+            QueueMessage(0x334C5493u, nullptr, to, reinterpret_cast<FEObject *>(uintptr_t(0xFFFFFFFCu)), c->mu32Mask);
+        };
+        if (c->mu32Type & 4)
+            if (FEPackage *parent = c->mpPackage->mpParent) giveBack(parent);
+        if (c->mu32Type & 8)
+            for (FEPackage *p = mpPackages; p; p = NextPackage(p))
+                if (p->mpParent == c->mpPackage) { giveBack(p); break; }
+        bridge::VirtualScalarDelete(c);
+    }
+}
+
 void FEngine::QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask)
 {
     FEPackageCommand *c = NewPackageCommand(flag ? 8 : 4, pkg->mu32ControlMask & mask, pkg);
