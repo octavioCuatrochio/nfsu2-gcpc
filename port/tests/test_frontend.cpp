@@ -1160,6 +1160,16 @@ static void TestSlotPool()
     CHECK(p->GetAllocatedSlot(2) == s[3]);
     while (p) { SlotPool *n = p->mpNext; std::free(p); --teststub::liveAllocations; p = n; }
     CHECK(teststub::liveAllocations == live);
+    // manager: bNewSlotPool rounds the size and registers; bDeleteSlotPool unlinks and frees the whole chain
+    SlotPoolManager *m = bridge::TheSlotPoolManager();
+    SlotPool *a = bNewSlotPool(5, 2, "a", 0), *b = bNewSlotPool(8, 1, "b", 0);
+    CHECK(a->mu32SlotSize == 8 && m->mpHead == a && m->mpTail == b && a->mpListNext == b && b->mpListNext == m->Sentinel());
+    CHECK(bMalloc(a) && bMalloc(a) && bMalloc(a) && a->mpNext != nullptr);   // third Malloc expands
+    bDeleteSlotPool(a);
+    CHECK(m->mpHead == b && b->mpListPrev == m->Sentinel());
+    bDeleteSlotPool(b);
+    bDeleteSlotPool(nullptr);
+    CHECK(m->mpHead == m->Sentinel() && teststub::liveAllocations == live);
 }
 
 int main()

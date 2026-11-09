@@ -78,7 +78,7 @@ void SlotPool::ExpandSlotPool(int32_t n)
     last->mpNext = np;
     // the new pool's last slot (word index (n-1)*size/4, signed) links to our current free list
     const int32_t word = static_cast<int32_t>((n - 1) * static_cast<int32_t>(mu32SlotSize)) / 4;
-    reinterpret_cast<void **>(np->SlotData())[word] = mpFreeList;
+    *reinterpret_cast<void **>(np->SlotData() + word * 4) = mpFreeList;   // PC: dword index word
     mpFreeList = np->mpFreeList;
     np->mpFreeList = nullptr;
     mi32TotalSlots += n;
@@ -126,3 +126,37 @@ void *SlotPool::GetAllocatedSlot(int32_t n)
     bridge::bWareFree(map);
     return result;
 }
+
+void SlotPoolManager::DeleteSlotPool(SlotPool *pool)
+{
+    if (!pool) return;
+    if (mi32Enabled != 0) {
+        SlotPool *next = pool->mpListNext, *prev = pool->mpListPrev;
+        prev->mpListNext = next;
+        next->mpListPrev = prev;
+    }
+    if ((pool->mu32Flags & 8) && pool->mi32NumAllocated > 0) pool->GetAllocatedSlot(0);   // result unused (PC too)
+    while (pool) {
+        SlotPool *next = pool->mpNext;
+        bridge::bWareFree(pool);
+        pool = next;
+    }
+}
+
+SlotPool *bNewSlotPool(int32_t slotSize, int32_t numSlots, const char *name, uint32_t memFlags)
+{
+    SlotPool *p = SlotPool::NewSlotPool(static_cast<uint32_t>(slotSize + 3) & ~3u, numSlots, name, memFlags);
+    if (!p) return nullptr;
+    SlotPoolManager *m = bridge::TheSlotPoolManager();
+    if (m->mi32Enabled == 1) {   // AddTail
+        SlotPool *tail = m->mpTail;
+        tail->mpListNext = p;
+        m->mpTail = p;
+        p->mpListPrev = tail;
+        p->mpListNext = m->Sentinel();
+    }
+    return p;
+}
+
+void bDeleteSlotPool(SlotPool *pool) { bridge::TheSlotPoolManager()->DeleteSlotPool(pool); }
+void *bMalloc(SlotPool *pool) { return pool->Malloc(); }

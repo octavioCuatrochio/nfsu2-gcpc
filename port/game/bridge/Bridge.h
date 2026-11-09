@@ -13,6 +13,7 @@ struct FEMultiPool;   // frontend/FEMultiPool.h
 struct FEMinList;     // frontend/FEMinList.h
 struct FEPackage;     // frontend/FEPackage.h
 struct cFEng;         // frontend/cFEng.h
+struct SlotPoolManager;   // bWare/bSlotPool.h
 
 struct bASinTableEntry;
 namespace bridge {
@@ -59,6 +60,7 @@ void *FEKeyNodeVTable();                                               // PC 0x7
 ::FEMinList *FEKeyNodePool();                                          // PC 0x839BD0
 void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
 void *bWareMalloc(uint32_t size, const char *name, int32_t line, uint32_t flags);   // PC 0x440390 (__cdecl)
+::SlotPoolManager *TheSlotPoolManager();                                   // PC 0x828530 (game global)
 void bWareFree(void *p);                                                       // PC 0x440540 (__cdecl)
 uint32_t *BRandomSeed();              // PC 0x7EA624 (game global)
 const uint8_t *BFastATanTable();      // PC 0x7EACB0 (game data, 257 bytes)

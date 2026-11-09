@@ -1,3 +1,4 @@
+#include "bWare/bSlotPool.h"
 #include "frontend/cFEng.h"
 #include "frontend/FENode.h"
 // Bridge stand-ins for native unit tests: plain heap, no character histogram, settable dirty flag.
@@ -90,6 +91,12 @@ void *bWareMalloc(uint32_t size, const char *, int32_t, uint32_t)
     void *p = std::malloc(size);
     if (p) std::memset(p, 0xCD, size);   // not zeroed
     return p;
+}
+SlotPoolManager *TheSlotPoolManager()
+{
+    static SlotPoolManager m = [] { SlotPoolManager x{}; x.mi32Enabled = 1; x.mpHead = x.mpTail = nullptr; return x; }();
+    if (!m.mpHead) m.mpHead = m.mpTail = m.Sentinel();
+    return &m;
 }
 void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE
