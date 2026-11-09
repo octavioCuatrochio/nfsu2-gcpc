@@ -134,6 +134,12 @@ void __cdecl FEInterpLinear_Hook(FEKeyTrack *t, int32_t time, void *out) { FEInt
 long double __cdecl bSin_Hook(uint32_t angle) { return bSin(static_cast<uint16_t>(angle)); }
 long double __cdecl bCos_Hook(uint32_t angle) { return bCos(static_cast<uint16_t>(angle)); }
 uint16_t __cdecl bFastATan_Hook(float x, float y) { return bFastATan(x, y); }
+uint32_t __cdecl bRandomIS_Hook(int32_t r, uint32_t *s) { return bRandom(r, s); }
+long double __cdecl bRandomFS_Hook(float r, uint32_t *s) { return bRandom(r, s); }
+uint32_t __cdecl bRandomI_Hook(int32_t r) { return bRandom(r); }
+long double __cdecl bRandomF_Hook(float r) { return bRandom(r); }
+long double __cdecl bFMod_Hook(float a, float b) { return bFMod(a, b); }
+int32_t __cdecl bSignedMod_Hook(int32_t a, int32_t b) { return bSignedMod(a, b); }
 int32_t __cdecl bFixATan1_Hook(int32_t r) { return bFixATan(r); }
 int32_t __cdecl bFixATan2_Hook(int32_t x, int32_t y) { return bFixATan(x, y); }
 void __cdecl bSinCos_Hook(float *s, float *c, uint32_t angle) { bSinCos(s, c, static_cast<uint16_t>(angle)); }
@@ -318,6 +324,12 @@ const Replacement kReplacements[] = {
     {0x505110, (const void *)&FELerpVector2, "FELerpVector2", {0x8B, 0x4C, 0x24, 0x08, 0x8B, 0x44}},
     {0x505150, (const void *)&FELerpVector3, "FELerpVector3", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x4C}},
     {0x5051A0, (const void *)&FELerpColor, "FELerpColor", {0x53, 0x55, 0x56, 0x8B, 0x74, 0x24}},
+    {0x43C140, (const void *)&bRandomIS_Hook, "bRandom(int, unsigned int *)", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x43C170, (const void *)&bRandomFS_Hook, "bRandom(float, unsigned int *)", {0x56, 0x8B, 0x74, 0x24, 0x0C, 0x8B}},
+    {0x43C1C0, (const void *)&bRandomI_Hook, "bRandom(int)", {0x8B, 0x0D, 0x24, 0xA6, 0x7E, 0x00}},
+    {0x43C1F0, (const void *)&bRandomF_Hook, "bRandom(float)", {0x51, 0x8B, 0x0D, 0x24, 0xA6, 0x7E}},
+    {0x43C240, (const void *)&bFMod_Hook, "bFMod", {0xD9, 0x44, 0x24, 0x08, 0xD9, 0xE1}},   // audit 5D45CA: push ecx = stack slot (fstp [esp])
+    {0x43C280, (const void *)&bSignedMod_Hook, "bSignedMod", {0x56, 0x8B, 0x74, 0x24, 0x0C, 0x85}},
     {0x43C570, (const void *)&bFastATan_Hook, "bFastATan", {0xD9, 0x44, 0x24, 0x04, 0x56, 0xD8}},
     {0x43C650, (const void *)&bFixATan1_Hook, "bFixATan(int)", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x57}},
     {0x43C6F0, (const void *)&bFixATan2_Hook, "bFixATan(int, int)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x57}},

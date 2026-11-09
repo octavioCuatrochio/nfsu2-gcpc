@@ -729,6 +729,49 @@ static void CheckATan(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+static void CheckRandomMod(int iters)
+{
+    auto oRandI = ORIG<uint32_t(__cdecl *)(int32_t, uint32_t *)>(0x43C140);
+    auto oRandF = ORIG<long double(__cdecl *)(float, uint32_t *)>(0x43C170);
+    auto oRandGI = ORIG<uint32_t(__cdecl *)(int32_t)>(0x43C1C0);
+    auto oRandGF = ORIG<long double(__cdecl *)(float)>(0x43C1F0);
+    auto oFMod = ORIG<long double(__cdecl *)(float, float)>(0x43C240);
+    auto oSMod = ORIG<int32_t(__cdecl *)(int32_t, int32_t)>(0x43C280);
+    uint32_t *g = reinterpret_cast<uint32_t *>(0x7EA624);
+    const uint32_t savedSeed = *g;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int i = 0; i < iters; ++i) {
+            uint32_t s0 = rng(), s1 = s0;
+            int32_t range = static_cast<int32_t>(rng());
+            if (rng() % 2) range = 1 + rng() % 1000;
+            if (range == 0) range = 7;
+            EXPECT(oRandI(range, &s0) == bRandom(range, &s1) && s0 == s1, "bRandom(int,seed) %d", range);
+            float fr = AtanSample();
+            long double x = oRandF(fr, &s0), y = bRandom(fr, &s1);
+            EXPECT(std::memcmp(&x, &y, 10) == 0 && s0 == s1, "bRandom(float,seed) %g", double(fr));
+            *g = s0;
+            uint32_t a = oRandGI(range);
+            uint32_t g1 = *g;
+            *g = s0;
+            EXPECT(a == bRandom(range) && g1 == *g, "bRandom(int) global");
+            *g = s0; x = oRandGF(fr); g1 = *g; *g = s0; y = bRandom(fr);
+            EXPECT(std::memcmp(&x, &y, 10) == 0 && g1 == *g, "bRandom(float) global");
+            float fa = AtanSample(), fb = AtanSample();
+            if (rng() % 4 == 0) fa = fb * static_cast<float>(static_cast<int32_t>(rng() % 9) - 4);   // exact multiples
+            x = oFMod(fa, fb); y = bFMod(fa, fb);
+            EXPECT(std::memcmp(&x, &y, 10) == 0 || (x != x && y != y), "bFMod(%.9g, %.9g): %.21Lg vs %.21Lg", double(fa), double(fb), x, y);
+            int32_t ia = FixSample(), ib = FixSample();
+            if (ib == 0) ib = 3;
+            if (rng() % 4 == 0) ia = ib * (static_cast<int32_t>(rng() % 7) - 3);
+            EXPECT(oSMod(ia, ib) == bSignedMod(ia, ib), "bSignedMod(%d, %d): %d vs %d", ia, ib, oSMod(ia, ib), bSignedMod(ia, ib));
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+    *g = savedSeed;
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1135,6 +1178,7 @@ static int RunAll()
     CheckTrigAndSlerp(iters);
     CheckSinCos();
     CheckATan(iters);
+    CheckRandomMod(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);

@@ -58,6 +58,7 @@ void *FEScriptVTable();                                                // PC 0x7
 void *FEKeyNodeVTable();                                               // PC 0x79AA34
 ::FEMinList *FEKeyNodePool();                                          // PC 0x839BD0
 void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
+uint32_t *BRandomSeed();              // PC 0x7EA624 (game global)
 const uint8_t *BFastATanTable();      // PC 0x7EACB0 (game data, 257 bytes)
 const uint16_t *BFixATanTable1();     // PC 0x7EB1C0 (game data, 129 entries: atan(i / 32))
 const uint16_t *BFixATanTable2();     // PC 0x7EB2C8 (game data, 129 entries: atan(i / 4))

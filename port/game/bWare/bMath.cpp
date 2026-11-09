@@ -59,6 +59,48 @@ void bSinCos(float *sinOut, float *cosOut, uint16_t angle)
     *cosOut = static_cast<float>(c * s);
 }
 
+namespace {
+uint32_t NextSeed(uint32_t s)
+{
+    const uint32_t t = s ^ 0x1D872B41u, u = (t >> 5) ^ t;
+    return (u << 27) ^ u ^ t;
+}
+}
+
+uint32_t bRandom(int32_t range, uint32_t *seed)
+{
+    const uint32_t r = *seed % static_cast<uint32_t>(range);
+    *seed = NextSeed(*seed);
+    return r;
+}
+
+long double bRandom(float range, uint32_t *seed)
+{
+    const uint32_t r = *seed % 0x7FFFFFFFu;   // < 2^31: the original's "+ 2^32 if negative" never applies
+    *seed = NextSeed(*seed);
+    return L(int32_t(r)) * 4.656612873077393e-10f * range;
+}
+
+uint32_t bRandom(int32_t range) { return bRandom(range, bridge::BRandomSeed()); }
+long double bRandom(float range) { return bRandom(range, bridge::BRandomSeed()); }
+
+long double bFMod(float a, float b)
+{
+    const L m = __builtin_fabsl(L(b));
+    const L q = L(a) / m;
+    L f = L(FEFtol(q));
+    if (f > q) f = f - 1.0f;
+    return m * (q - f);
+}
+
+int32_t bSignedMod(int32_t a, int32_t b)
+{
+    if (b < 0) b = static_cast<int32_t>(0u - static_cast<uint32_t>(b));
+    uint32_t c = static_cast<uint32_t>(a / b) * static_cast<uint32_t>(b);
+    if (a < 0) c -= static_cast<uint32_t>(b);
+    return static_cast<int32_t>(static_cast<uint32_t>(a) - c);
+}
+
 uint16_t bFastATan(float x, float y)
 {
     int q = 0;

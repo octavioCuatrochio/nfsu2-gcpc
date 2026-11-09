@@ -6,7 +6,7 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
 - Next: FEngine::PushPackage 555860 / UnloadPackage 5362E0, FECodeListBox::ScrollSelection 52BD70 (+ 518F20 axis helper, CheckMovement/MakeMove: big),
   FECodeListBox::Update 504DC0;
-  FEObject subclass copy ctors/Clones; more bWare math (bRandom 43C140.., bFMod 43C240, bSignedMod 43C280, matrices 43C780.., bNormalize 43CE50..).
+  FEObject subclass copy ctors/Clones; more bWare math (matrices 43C780.., bNormalize 43CE50.., bDistBetween 43CE10, bScaleAdd 43D090).
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
 - bStrToFloat (43DEF0) returns unrounded x87 ST0 (port: long double); a nonzero fraction is rounded to float and
   bumped by +1 ulp before being added (PC quirk). Referee can switch precision with _controlfp(_PC_24/_PC_53).

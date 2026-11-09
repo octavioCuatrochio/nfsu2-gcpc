@@ -19,6 +19,16 @@ void bSinCos(float *sinOut, float *cosOut, uint16_t angle);
 // GC 800597AC / PC 43C570: byte table (PC 0x7EACB0) indexed by ftol(ratio * -256) (negative -> read ascending).
 // Equal magnitudes: 0x2000, or 0 when both are zero (NaN -> 0x2000). Callers use the low 16 bits.
 uint16_t bFastATan(float x, float y);
+// Random numbers: result from the OLD seed (seed % range), then seed = s ^ (s >> 5) ^ (s << 27) style step
+// (t = s ^ 0x1D872B41; u = t ^ (t >> 5); s' = u ^ (u << 27) ^ t). Global seed: game data (bridge, PC 0x7EA624).
+uint32_t bRandom(int32_t range, uint32_t *seed);   // GC 800590C4 / PC 43C140: unsigned seed % range
+long double bRandom(float range, uint32_t *seed);  // GC 800590F8 / PC 43C170: (seed % 0x7FFFFFFF) * 2^-31 * range (x87)
+uint32_t bRandom(int32_t range);                   // GC 80059160 / PC 43C1C0
+long double bRandom(float range);                  // GC 80059184 / PC 43C1F0
+// GC 800591A8 / PC 43C240: q = a / |b|; (q - floor(q)) * |b| (floor via ftol, -1 when the truncation is above q).
+long double bFMod(float a, float b);
+// GC 80059210 / PC 43C280: a - (a / |b| * |b| - (a < 0 ? |b| : 0)); note a < 0 and divisible -> |b|, not 0.
+int32_t bSignedMod(int32_t a, int32_t b);
 // GC 800598A0 / PC 43C650: atan of a 16.16 ratio, piecewise linear over two uint16 tables (PC 0x7EB1C0 below 4.0,
 // 0x7EB2C8 below 32.0), a fixed segment below 256.0, 0x3FFF above. Odd: negative input -> negated result.
 int32_t bFixATan(int32_t ratio);

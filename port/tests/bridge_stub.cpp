@@ -85,6 +85,11 @@ void *FEKeyNodeVTable() { return &teststub::feKeyNodeVTable; }
 ::FEMinList *FEKeyNodePool() { ++teststub::keyNodeNews; return &teststub::keyNodePool; }
 void *FEKeyNodeBlockVTable() { return &teststub::feKeyNodeBlockVTable; }
 #ifdef NFSU2_REFEREE
+uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }
+#else
+uint32_t *BRandomSeed() { static uint32_t seed = 0x12345678; return &seed; }
+#endif
+#ifdef NFSU2_REFEREE
 const uint8_t *BFastATanTable() { return reinterpret_cast<const uint8_t *>(0x7EACB0); }
 const uint16_t *BFixATanTable1() { return reinterpret_cast<const uint16_t *>(0x7EB1C0); }
 const uint16_t *BFixATanTable2() { return reinterpret_cast<const uint16_t *>(0x7EB2C8); }
