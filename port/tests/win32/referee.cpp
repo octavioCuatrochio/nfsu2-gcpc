@@ -76,6 +76,51 @@ static void CheckStringHash(int iters)
     }
 }
 
+// bStr* family: random strings over a small alphabet (case pairs, high bytes) so prefixes and ties are common.
+static std::string StrSample()
+{
+    static const char kAlpha[] = "aAbBzZ_\xE9\xC9{[";
+    std::string s;
+    int n = rng() % 6;
+    for (int i = 0; i < n; ++i) s.push_back(kAlpha[rng() % (sizeof kAlpha - 1)]);
+    return s;
+}
+static void CheckStrFuncs(int iters)
+{
+    using Cmp = int(__cdecl *)(const char *, const char *);
+    using NCmp = int(__cdecl *)(const char *, const char *, int);
+    for (int i = 0; i < iters; ++i) {
+        std::string a = StrSample(), b = rng() % 3 ? a.substr(0, rng() % (a.size() + 1)) + StrSample() : StrSample();
+        // a guard byte before each string: stopping at the start reads s[-1] in the originals
+        char ga[16] = {static_cast<char>(rng())}, gb[16] = {static_cast<char>(rng())};
+        std::memcpy(ga + 1, a.c_str(), a.size() + 1);
+        std::memcpy(gb + 1, b.c_str(), b.size() + 1);
+        const char *pa = ga + 1, *pb = gb + 1;
+        int n = static_cast<int>(rng() % 8);
+        EXPECT(ORIG<int(__cdecl *)(const char *)>(0x43DBB0)(pa) == bStrLen(pa), "bStrLen");
+        EXPECT(ORIG<Cmp>(0x43DC30)(pa, pb) == bStrCmp(pa, pb), "bStrCmp(%s,%s)", pa, pb);
+        EXPECT(ORIG<Cmp>(0x43DCC0)(pa, pb) == bStrICmp(pa, pb), "bStrICmp(%s,%s)", pa, pb);
+        EXPECT(ORIG<NCmp>(0x43DC60)(pa, pb, n) == bStrNCmp(pa, pb, n), "bStrNCmp(%s,%s,%d)", pa, pb, n);
+        EXPECT(ORIG<NCmp>(0x43DD10)(pa, pb, n) == bStrNICmp(pa, pb, n), "bStrNICmp(%s,%s,%d)", pa, pb, n);
+        int c = (rng() % 4 == 0) ? 0 : static_cast<signed char>(StrSample().c_str()[0]);
+        if (rng() % 8 == 0) c = static_cast<unsigned char>(c);
+        EXPECT(ORIG<char *(__cdecl *)(const char *, int)>(0x43DDF0)(pa, c) == bStrChr(pa, c), "bStrChr(%s,%d)", pa, c);
+        char d1[32], d2[32];
+        std::memset(d1, 'x', sizeof d1); std::memset(d2, 'x', sizeof d2);
+        EXPECT(ORIG<char *(__cdecl *)(char *, const char *, const char *)>(0x43DDA0)(d1, pa, pb) == d1 && bStrCat(d2, pa, pb) == d2 &&
+               !std::memcmp(d1, d2, sizeof d1), "bStrCat");
+        std::memset(d1, 'x', sizeof d1); std::memset(d2, 'x', sizeof d2);
+        EXPECT(ORIG<char *(__cdecl *)(char *, const char *, int)>(0x43DC00)(d1, pa, n) == d1 && bStrNCpy(d2, pa, n) == d2 &&
+               !std::memcmp(d1, d2, sizeof d1), "bStrNCpy n=%d", n);
+        EXPECT(ORIG<char *(__cdecl *)(char *, const char *)>(0x43DBD0)(d1, pb) == d1 && bStrCpy(d2, pb) == d2 &&
+               !std::memcmp(d1, d2, sizeof d1), "bStrCpy");
+        char *r1 = ORIG<char *(__cdecl *)(char *)>(0x43DE20)(d1), *r2 = bToUpper(d2);
+        EXPECT(r1 - d1 == r2 - d2 && !std::memcmp(d1, d2, sizeof d1), "bToUpper");
+    }
+    EXPECT(ORIG<int(__cdecl *)(const char *)>(0x43DBB0)(nullptr) == bStrLen(nullptr), "bStrLen(null)");
+    EXPECT(ORIG<char *(__cdecl *)(const char *, int)>(0x43DDF0)(nullptr, 0) == bStrChr(nullptr, 0), "bStrChr(null)");
+}
+
 static void CheckWideCopies(int iters)
 {
     auto origCopy = ORIG<void(__cdecl *)(uint16_t *, const uint16_t *)>(0x511630);
@@ -876,6 +921,7 @@ static int RunAll()
     if (known != 0x377A6011u) { std::printf("referee: original code not callable (got %08X)\n", known); return 2; }
     CheckCrc(iters);
     CheckStringHash(iters);
+    CheckStrFuncs(iters);
     CheckWideCopies(iters);
     CheckMinList(iters);
     CheckFEObject(iters);

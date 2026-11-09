@@ -10,3 +10,24 @@ uint32_t bStringHash(const char *str, uint32_t seed);
 
 // Same with the default seed 0xFFFFFFFF. GC 8005DBE0 / PC 43DB50
 uint32_t bStringHash(const char *str);
+
+// --- C-string helpers (GC zBWare.cpp, PC 43DBB0..43DE49, all __cdecl). "Upper" = 'a'..'z' & 0x5F only (signed
+// chars: bytes >= 0x80 unchanged). Results are differences of SIGNED chars, like the originals.
+
+int bStrLen(const char *s);                                   // GC 8005DC40 / PC 43DBB0: null -> 0
+char *bStrCpy(char *dst, const char *src);                    // GC 8005DC70 / PC 43DBD0: returns dst
+// GC 8005DCA4 / PC 43DC00: copies up to n bytes, stops after the terminator (no padding, may not terminate)
+char *bStrNCpy(char *dst, const char *src, int n);
+int bStrCmp(const char *a, const char *b);                    // GC 8005DCF0 / PC 43DC30
+// GC 8005DD28 / PC 43DC60. Quirks kept: n exhausted -> 0; otherwise, at the stop position, a has more -> 1, b has
+// more -> -1, else the difference of the previous characters (a mismatch advances both first, so "ac"/"ad" n=9
+// gives 'c'-'d'; stopping at the very start reads a[-1]/b[-1] like the original).
+int bStrNCmp(const char *a, const char *b, int n);
+int bStrICmp(const char *a, const char *b);                   // GC 8005DDB4 / PC 43DCC0
+int bStrNICmp(const char *a, const char *b, int n);           // GC 8005DE18 / PC 43DD10: as bStrNCmp, case-folded
+char *bStrCat(char *dst, const char *a, const char *b);       // GC 8005DF00 / PC 43DDA0: dst = a + b; returns dst
+// PC 43DDF0 (no GC symbol; our name): first position whose (signed) char equals c, c == 0 finds the terminator;
+// null string or not found -> null.
+char *bStrChr(const char *s, int c);
+// GC 8005DF6C / PC 43DE20: in place. GC returns void; PC leaves EAX at the terminator (nothing uses it).
+char *bToUpper(char *s);
