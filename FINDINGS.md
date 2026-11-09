@@ -1,6 +1,13 @@
 # FINDINGS.md — verified knowledge (append as you learn; keep terse)
 Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live in `knowledge.db` (`matches`, `facts`).
 
+## Port status / next
+- Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
+  scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
+- Next: FEInterpLinear 52BDC0 (bridged) + FELerp* (Integer 5050D0, Vector2 505110, Vector3 505150, Color 5051A0,
+  Quaternion 519B00); then FEObject subclass copy ctors/Clones (callers of 554300; only reachable via vtable clone).
+- Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
+
 ## Binaries
 - `Speed.elf` == retail US `GUGE69` rev0 `main.dol` (all sections byte-identical). Build: changelist 114536, 2004-10-12.
 - GC compiler: GNU C++ 2.95.3 SN BUILD v1.76 (not CodeWarrior). Unity build: `zAI.cpp`, `zFe2.cpp`, ... (each includes many .cpp).

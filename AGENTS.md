@@ -1,194 +1,82 @@
 # AGENTS.md — how to work on the NFSU2 rewrite
 
-Read `README.md` first for the folder layout. This file is the playbook: how the decompilation was built,
-how to rewrite a function, how to verify it, and the traps already found. Follow it step by step.
+Read `README.md` for the folder layout. Progress lives in `knowledge.db` (`rewrite` table); durable knowledge and
+the current "next" targets live in `FINDINGS.md`.
 
-## 0. Ground rules
-- **Goal:** platform-agnostic native port of NFSU2, rewritten function by function. **Behavior** must match the
-  original; byte-for-byte matching is NOT a goal.
-- **The PC version is the behavior to reproduce.** The GameCube build (`Speed.elf`, full symbols) gives real
-  names and types; the PC exe (`pc/SPEED2.EXE`, v1.2, no symbols) is the target. When the two differ, PC wins;
-  note the difference in a comment.
-- **Never guess.** Every claim about a function must come from reading code (GameCube and PC decompilation,
-  disassembly) or from `knowledge/knowledge.db`. Matches below confidence ~0.8 are often wrong for small
-  helper functions: verify by reading.
-- **Record what you learn** in `FINDINGS.md` (durable knowledge, terse) and `knowledge.db` (`facts`, `matches` with `source='manual'`, `rewrite`). Rebuilds
-  never delete curated rows.
-- **Don't touch the user's game install** except copying `port/build-win32/dinput8.dll` into it for in-game
-  tests (inert unless launched with `WINEDLLOVERRIDES="dinput8=n,b"`). Don't write disc-check bypasses.
-- Shell is **zsh**: `$var` does not word-split (use `${=var}`), and `====` at line start is an error.
-  `pgrep -f SPEED2` matches your own shell; use `pgrep -x SPEED2.EXE`.
+## Rules
+- **Goal:** platform-agnostic native port, rewritten function by function. Match the **PC** (`pc/SPEED2.EXE` v1.2)
+  **behavior**; byte-for-byte is not a goal. GameCube `Speed.elf` (= retail US `main.dol`, full symbols) gives names
+  and types. When they differ, PC wins: comment the difference.
+- **Never guess.** Every claim comes from reading code (both decomps, disassembly) or `knowledge/knowledge.db`.
+  Matches below ~0.8 are often wrong for small functions: verify by reading.
+- **Record** durable knowledge in `FINDINGS.md` (terse) and `knowledge.db` (`facts`, `matches` with
+  `source='manual'`, `rewrite`). Rebuilds never delete curated rows.
+- **Game install:** only copy `port/build-win32/dinput8.dll` into it. No disc-check bypasses.
+- Shell is **zsh**: `$var` doesn't word-split (`${=var}`); a line starting with `====` is an error;
+  use `pgrep -x SPEED2.EXE` (not `-f`).
+- **Token economy:** terse replies (results, numbers, decisions). Never read whole decomp files: use
+  `tooling/knowledge/packet.py` or extract one function
+  (`awk '$0~"^// .* @ 00519f40$"{p=1;next} p&&/^\/\/ .* @ [0-9a-f]+$/{exit} p' pc_decomp/src/<file>`, file from
+  `pc_functions.decomp_file`). Exact SQL with `LIMIT`. Narrow disassembly ranges. Filter output
+  (`grep -E 'error|warning'`, `head`). Long jobs in background, don't poll. Don't re-read what you just wrote.
 
-## 0.1 Token economy (mandatory)
-- Replies: terse. Results, numbers, decisions. No restating the task, no recaps of unchanged things.
-- Never read whole decomp files (`gc_decomp/`, `pc_decomp/` are MBs). Use `tooling/knowledge/packet.py` or
-  extract one function: `awk '$0~"^// .* @ 00519f40$"{p=1;next} p&&/^\/\/ .* @ [0-9a-f]+$/{exit} p' pc_decomp/src/<file>`
-  (file from `pc_decomp/functions.tsv` or `pc_functions.decomp_file`).
-- Query `knowledge.db` with exact SQL (`LIMIT`, needed columns only) instead of dumping tables.
-- Disassemble narrow ranges (`--start-address/--stop-address`, pipe through `grep -E 'call|ret|ds:'`).
-- Always filter tool output: Ghidra headless logs -> `grep -E 'REPORT|ERROR|<SCRIPT TAG>'`; build output ->
-  `grep -E 'error|warning'`; long lists -> `head`.
-- Long jobs (Ghidra pipeline, exports, full decompiles): run in background, don't poll.
-- Don't re-read files you just wrote/edited; don't re-run unchanged steps.
-- Batch independent commands in one call; prefer existing scripts over ad-hoc code.
-- Record findings in `knowledge.db` once instead of re-deriving them next session.
+## Environment
+Ghidra 12.2 `~/Desktop/ghidra_12.2_PUBLIC` (patched DWARF1 + GameCube loader extensions installed; patches in
+`tooling/extensions/patches/`). Cross compiler `/opt/llvm-mingw` (i686). GCC 2.95.3 PPC `tooling/compiler/`.
+Game under Wine: `~/.wine/drive_c/Program Files (x86)/Need for Speed Underground 2/`. Dolphin + US disc image in
+`~/Downloads/`. nfsu2-re docs `ext/nfsu2-re/`.
 
-## 1. Environment (already set up)
-| Thing | Where |
-|---|---|
-| Ghidra 12.2 | `~/Desktop/ghidra_12.2_PUBLIC` (headless: `support/analyzeHeadless`) |
-| Patched extensions (DWARF1, GameCube loader) | installed in `~/.config/ghidra/ghidra_12.2_PUBLIC/Extensions`; source + zips in `tooling/extensions/` |
-| Windows cross compiler | `/opt/llvm-mingw` (i686-w64-mingw32-clang++) |
-| GCC 2.95.3 PowerPC (same compiler as the game) | `tooling/compiler/ppc-gcc`, `ppc-g++` |
-| Game (PC) under Wine | `~/.wine/drive_c/Program Files (x86)/Need for Speed Underground 2/` |
-| Dolphin | `dolphin-emu` (pacman); US disc image in `~/Downloads/Need for Speed - Underground 2 (USA)/` |
-| nfsu2-re docs | `ext/nfsu2-re/` |
+## Rebuilding the decompilation (rarely needed)
+GC: `tooling/rebuild.sh`, export `gc_decomp/` with `tooling/scripts/ExportDecomp.java`. PC: clean rebuild
+`rm -rf pc/ghidra && cp -r pc/baseline/ghidra pc/ghidra && tooling/pc_pipeline.sh`, then export `pc_decomp/`.
+Knowledge: `ExportKnowledge.java` + `ExportDecompFeatures.java` on both, then
+`python3 -I tooling/knowledge/build_db.py --nfsu2-re ext/nfsu2-re` and `python3 -I tooling/knowledge/match.py`.
+Measure changes with `tooling/knowledge/decomp_metrics.py pc/baseline/pc_decomp/src pc_decomp/src`; keep steps idempotent.
 
-## 2. How the decompilation was built (only needed to rebuild or improve it)
-1. **GameCube project** (`NFSU2.gpr`): `tooling/rebuild.sh` — imports `Speed.elf` with the GameCube CPU spec,
-   DWARF1 debug info, GCC 2.x demangler, ABI fixes (this/`__in_chrg`/struct returns/enums), class layouts,
-   vptrs. `gc_decomp/` is exported with `tooling/scripts/ExportDecomp.java`.
-2. **PC project** (`pc/ghidra`): imported + analyzed; `CreateMissingFunctions.java` (vtable entries, nfsu2-re
-   addresses) and `FixFunctionBoundaries.java`. The state after that is kept in `pc/baseline/ghidra`.
-3. **Knowledge base:** `ExportKnowledge.java` and `ExportDecompFeatures.java` on both projects into
-   `knowledge/raw/{gc,pc}`, then `python3 -I tooling/knowledge/build_db.py --nfsu2-re ext/nfsu2-re`.
-4. **Matching:** `python3 -I tooling/knowledge/match.py` (deterministic; ~6,300 pairs, 67% of game code).
-   Signals: unique strings, call graph, call order, globals, vtables (GCC slot k+1 = MSVC slot k, MSVC
-   destructor slots point to a "scalar deleting destructor" wrapper), float/int constants, a mutual-best
-   scorer, address order. Nintendo SDK functions are excluded (no PC counterpart).
-5. **PC enrichment:** clean rebuild with
-   `rm -rf pc/ghidra && cp -r pc/baseline/ghidra pc/ghidra && tooling/pc_pipeline.sh`, then export
-   `pc_decomp/` with `ExportDecomp.java`. The pipeline: names → GameCube types (layouts converted ONCE from
-   GCC vptr placement to MSVC vptr-at-0) → nfsu2-re field names → fill/grow class layouts from PC code →
-   repair embedded structs → validate signatures against the machine code (`ret N`, caller `add esp,N`,
-   ECX use) → reset signatures that make callers worse → names again.
-6. **Measure, don't eyeball:** `tooling/knowledge/decomp_metrics.py pc/baseline/pc_decomp/src pc_decomp/src`.
-   If a change makes a metric worse, find out why before keeping it.
+## The loop (per function or class)
+1. **Pick** something whose callees are rewritten, bridged or simple. Prefer whole small classes.
+2. **Packet:** `python3 -I tooling/knowledge/packet.py <Name|GC/PC addr|--class C>`.
+3. **Verify the match by reading** (callees, constants, offsets, how PC callers use it). Fix wrong/missing ones:
+   `DELETE FROM matches WHERE gc_addr=.. OR pc_addr=..; INSERT INTO matches(gc_addr,pc_addr,method,confidence,source,note) VALUES (..,..,'manual',1.0,'manual','why');`
+   No match? Find it through PC callers/callees. Inlined on PC: record a fact, rewrite anyway, no hook.
+4. **Read the machine code** (`objdump -d -M intel --start-address=.. --stop-address=.. pc/SPEED2.EXE`):
+   `mov esi,ecx` = thiscall; `ret N` = callee pops; caller `add esp,N` = cdecl; EAX return values callers use;
+   `movsx` vs `movzx`; null checks; bool args (use the low byte). Ghidra's branch structure can be wrong: trust asm.
+   File offset of a VA: `.text` VA−0x400000; `.rdata` 0x783000 → 0x383000.
+5. **Write** C++17 in `port/game/<area>/`: no `windows.h`/D3D/absolute addresses. Not-yet-rewritten things go
+   through `port/game/bridge/Bridge.h` (+ `host/win32-hook/bridge_win32.cpp` by address, + `tests/bridge_stub.cpp`).
+   Memory the exe may free: `bridge::Alloc`/`bridge::FreeArray`. Shared structs: exact PC layout, no virtuals or
+   inheritance (embed the base), `static_assert` offsets inside `#if UINTPTR_MAX == 0xFFFFFFFFu`, unknowns as
+   `_unknownXX`. Text is `uint16_t`. Comment GC + PC addresses and PC/GC differences.
+6. **Hook** in `host/win32-hook/replacements.cpp` with the first 6 bytes (`xxd -s $((0xADDR-0x400000)) -l 6 -i pc/SPEED2.EXE`);
+   member functions via `THISCALL` wrappers. Then **always** `python3 -I tooling/knowledge/audit_hooks.py`: flagged hooks
+   get `, 1, <stackArgBytes>, <calleePops>}` (register-preserving thunk); check call sites by eye (false positives:
+   `push ecx` used to reserve a stack slot, misaligned bytes, `or reg,-1`).
+7. **Verify, in order** (from `port/`):
+   - `cmake --build build-native && ctest --test-dir build-native --output-on-failure` — add unit tests (edge cases).
+   - `cmake --build build-win32 && tests/win32/run_referee.sh` — add a `Check...()` comparing ORIGINAL vs REWRITE for
+     every self-contained function (no game heap/CRT: runs in DllMain); synthetic stack objects are fine. Must say `0 mismatches`.
+   - In-game (anything touching game state) — race starts ~25 s after launch; screenshot then:
+     ```sh
+     G="$HOME/.wine/drive_c/Program Files (x86)/Need for Speed Underground 2"
+     cp build-win32/dinput8.dll "$G/" && cd "$G" && rm -f nfsu2port.log
+     (WINEDEBUG=-all WINEDLLOVERRIDES="dinput8=n,b" NFSU2PORT_SKIP_MOVIES=1 NFSU2PORT_SKIP_NIS=1 timeout 90 wine SPEED2.EXE >/dev/null 2>&1 &)
+     for i in $(seq 25); do sleep 1; W=$(xdotool search --name 'NFS Underground 2' | head -1); [ -n "$W" ] && xdotool windowactivate --sync $W key Return; done
+     sleep 6; spectacle -b -n -a -o shot.png; tac nfsu2port.log | grep -m5 <ADDR>   # call counts; must be > 0 when reachable
+     ```
+     A/B: `NFSU2PORT_DISABLE=all` or hex list. `NFSU2PORT_QUICKRACE=1` starts in a race (README).
+8. **Record:** `INSERT OR REPLACE INTO rewrite(gc_addr,pc_addr,status,file,note) VALUES (..)` — status `rewritten`
+   (not hooked/inlined) | `hooked` | `verified` (referee too). Update `FINDINGS.md` ("Next" + facts), commit.
 
-## 3. Rewriting a function or class — the loop
-**3.1 Pick** something whose callees are already rewritten, bridged, or simple. Prefer whole small classes.
-
-**3.2 Get the work packet:**
-```sh
-python3 -I tooling/knowledge/packet.py FEString::SetLabel      # or a GC/PC address, or --class FEString
-```
-It shows both decompilations, the match and its confidence, nfsu2-re notes, facts, every callee's status,
-and the class layout.
-
-**3.3 Verify the match by reading.** Check the PC function really does what the GameCube one does (same
-callees, constants, field offsets). Look at how PC *callers* use it: argument count and meaning. If wrong
-or missing, fix it:
-```sql
-DELETE FROM matches WHERE gc_addr=0x8015340C OR pc_addr=0x51DE90;
-INSERT INTO matches(gc_addr,pc_addr,method,confidence,source,note)
-VALUES (0x8015340C,0x51DE90,'manual',1.0,'manual','why you are sure');
-```
-Many small functions are **inlined on PC** (no PC function exists). Record that as a fact
-(`key='pc_inlined'`); rewrite them anyway as part of their class.
-
-**3.4 Read the PC machine code for anything the decompiler might hide:** calling convention
-(`mov esi,ecx` = `__thiscall`; `ret N` = callee pops N bytes; caller `add esp,N` = `__cdecl`), return values
-callers rely on (e.g. `bStrCpy` returns dst in EAX), sign vs zero extension (`movsx`), null checks. Use
-`objdump -d -M intel --start-address=0x... --stop-address=0x... pc/SPEED2.EXE`. File offset of a VA:
-`.text` VA−0x400000; `.rdata` VA 0x783000 = file 0x383000.
-
-**3.5 Write the code** in `port/game/<area>/`:
-- Plain C++17. No `windows.h`, no Direct3D, no console SDK, no absolute addresses.
-- Anything not rewritten yet goes through `port/game/bridge/Bridge.h`: add a declaration there, implement it
-  in `host/win32-hook/bridge_win32.cpp` (calls the original exe function/global by address, exact calling
-  convention), and in `tests/bridge_stub.cpp`. Memory that original game code may free MUST come from
-  `bridge::Alloc` / `bridge::FreeArray`.
-- Structs that original code also uses (objects created by the exe) must have the **exact PC layout**: no
-  virtual functions, no inheritance between layout structs (embed the base as a first member), `static_assert`
-  every offset you rely on (inside `#if UINTPTR_MAX == 0xFFFFFFFFu`). Unknown parts: `uint8_t _unknownXX[n]`.
-- Game text is 16-bit: use `uint16_t`, never `wchar_t`.
-- Comment every function with its GC and PC address, and any PC-vs-GameCube difference.
-
-**3.6 Hook it** in `host/win32-hook/replacements.cpp`: one line per PC function with its first 6 original
-bytes (`xxd -s $((0xADDR-0x400000)) -l 6 -i pc/SPEED2.EXE`). Member functions need a `__thiscall` wrapper
-(see the `THISCALL` wrappers there). Inlined-on-PC functions get no hook.
-
-**3.6b Audit register reliance (mandatory for every new hook):** `python3 -I tooling/knowledge/audit_hooks.py`.
-MSVC callers sometimes keep using ECX/EDX after a call because it knew the original left them alone; a C++ replacement
-clobbers them -> crash far from the hook (first seen: GetDataOffset 5046F0, crash in caller at 5179B3). Flagged hooks get
-`, 1, <stackArgBytes>, <calleePops>}` in replacements.cpp (register-preserving thunk). Check flagged call sites by eye:
-the script has false positives (it stops at misaligned bytes; `or reg,-1` is a write).
-
-**3.7 Verify — all three, in this order:**
-```sh
-cd port
-cmake --build build-native && ctest --test-dir build-native --output-on-failure   # 1. unit tests (add some!)
-cmake --build build-win32 && tests/win32/run_referee.sh                           # 2. referee
-```
-- **Unit tests** (`tests/test_*.cpp`, stub bridge): known vectors, edge cases (null, empty, long, high bytes).
-- **Referee** (`tests/win32/referee.cpp`): runs inside a real SPEED2.EXE process before the game starts and
-  compares ORIGINAL vs REWRITE on thousands of random inputs. Add a `Check...()` for every self-contained
-  function (no game heap/globals). Must end with `0 mismatches`.
-- **In-game** (for anything touching game state):
-```sh
-G="$HOME/.wine/drive_c/Program Files (x86)/Need for Speed Underground 2"
-cp build-win32/dinput8.dll "$G/" && cd "$G" && rm -f nfsu2port.log
-(WINEDEBUG=-all WINEDLLOVERRIDES="dinput8=n,b" timeout 100 wine SPEED2.EXE >/dev/null 2>&1 &)
-# Enter skips intro screens and walks the menus; screenshot with spectacle -b -n -a -o shot.png
-for i in $(seq 12); do sleep 5; W=$(xdotool search --name 'NFS Underground 2' | head -1); [ -n "$W" ] && xdotool windowactivate --sync $W key Return; done
-cat nfsu2port.log      # hook install result + call counts every 10 s: your function must be called
-```
-  A/B: `NFSU2PORT_DISABLE=all` (or comma-separated hex addresses) runs the original code for comparison.
-  Faster: `NFSU2PORT_SKIP_MOVIES=1 NFSU2PORT_SKIP_NIS=1`, and `NFSU2PORT_QUICKRACE=1` to start in a race (README).
-
-Persistent alternative to `WINEDLLOVERRIDES`: see "Running the game with the rewritten code" in `README.md`.
-
-**3.8 Record:**
-```sql
-INSERT OR REPLACE INTO rewrite(gc_addr,pc_addr,status,file,note)
-VALUES (0x8014297C,0x535FE0,'hooked','port/game/frontend/FEString.cpp','unit+in-game ok');
--- status: 'rewritten' (no PC function / not hooked) | 'hooked' (live in the game) | 'verified' (referee too)
-```
-
-## 4. Traps already found (don't repeat them)
-- GCC 2.95 puts the vtable pointer after the first polymorphic class's fields; MSVC at offset 0. Fields
-  before the GCC vptr shift +4 on PC. Some classes are much bigger on PC (e.g. `PlayerCareerState`
-  0xD34 → 0x854C): never assume GameCube layouts, check PC code.
-- GameCube-only constructs: `__in_chrg` (destructor flag), r3 struct-return pointer, floats in FPRs. Not
-  present on PC.
-- GameCube loaders are 5-10x bigger than PC ones (they byte-swap data): size ratio is not a match signal there.
-- MSVC folds identical functions (one PC address for several GameCube functions) and inlines small ones.
-- Ghidra's own PC parameter counts are unreliable (undercounted); `ret N` and caller cleanup are the truth.
-- Crash at an address outside our code after adding hooks: suspect register reliance (3.6b) first; get the address
-  with `WINEDEBUG=err+seh` and look at the instructions right after the call into our hook.
-- Native unit tests are 64-bit: stubs/tests/templates must use the structs (sizeof(T)), never hard-coded 32-bit
-  offsets/sizes; pin PC sizes with static_asserts inside `#if UINTPTR_MAX == 0xFFFFFFFFu`.
-- Verify vtable identities via the destructor that installs them (FEMinNode was first misidentified).
-- Make pipeline steps idempotent; a second run of the layout conversion corrupted 46 structs once.
-- x87 float code: MSVC keeps intermediates in x87 registers (precision = FPU control word: 53-bit by default,
-  24-bit once D3D9 sets it). Writing `float` math rounds differently near thresholds. Mirror it with `long double`
-  in the original's evaluation order (on i686 that compiles to the same x87 ops under the same control word);
-  round to float only where the original stores to memory. Made Close() and quaternion multiply bit-exact.
-- The GameCube `Speed.elf` is byte-identical to retail US `main.dol`: it is the real game, not a prototype.
-
-## 5. Status (update this section when you finish a batch)
-- Done: `bStringHash` (2), `FEHashUpper`, `bCalculateCrc32`, `CopyString<short>`, `bStrCpy`, `FEWideString` (whole class),
-  `FEString` (all but FEObject base, which goes through the bridge). Referee: 120k checks, 0 mismatches. In-game: menus render correctly
-  (incl. accented text), call counts confirm the code runs.
-- Also done: `FEMinList`/`FEMinNode` (referee-verified). Dev switches: SKIP_MOVIES, SKIP_NIS, QUICKRACE (README).
-- Also done: `FEObject` ctor/dtor/scalar dtor, SetName, FindScript, FindResponse, GetDataOffset.
-- Also done: FEMultiPool/FESlotPool/FESlotNode (referee-verified bit logic).
-- Also done: FEResponse, FEMessageResponse::SetCount (MSVC new[] cookie layout).
-- Also done: FEPool<T,N> (pooled new/delete for FEMessageResponse and FEScript), FEMessageResponse lifecycle, AddTail.
-- Also done: pool blocks (ctor/dtor/scalar dtor 53E710/53EB40/53EB20, 53E910/53EC40/53EC20; referee byte-compare
-  of both ctors), FEScript default ctor 511D70. In-game: race starts, no crash.
-- Also done: FERefList (RemNode 5055C0, Purge 511D00), FEKeyTrack dtor 52B960, ~FEScript 535170 + scalar dtor 53EE30.
-- Also done: FEScript.cpp: FEKeyTrack ctor/operator= (525E80/54D350), event list SetCount 519A10, SetName 518730,
-  SetTrackCount 535210, copy ctor 551BE0 (bool = share key lists by reference).
-- Also done: FEKeyNode pool (new/delete 53E650/525BF0, node ctor/scalar dtor, block ctor/dtor 5319C0/531BE0/531BC0).
-- Also done: FEObject copy ctor 554300 + Clone 5545D0 (unit tests only: not reached by any menu path we can drive).
-- Also done: FEObject::SetupMoveToTracks 517720, FERefList::GetHead 4FE890, FEMath (quat multiply 4FE6B0, FEColor sub 505580).
-- Also done: FEScript::FindTrack 504A00, FEObject::SetTrackValue (vec3/vec2/color: 5178D0/5179D0/517AD0; referee).
-- Also done: FEObject::SetPosition/SetRotation/SetSize/SetColor (517C10/517C80/517DB0/517E20), Close comparators
-  (504500/5045A0/504640). Referee exact, incl. floats.
-- Also done: FEInterp.cpp: GetKeyAt/GetDeltaKeyAt/first key, FEInterpNone, FEKeyInterpFast, SetBaseValueAt.
-- Next in the frontend: FEInterpLinear 52BDC0 (bridged; x87-heavy: see trap) + FELerp* helpers (5050D0, 505110,
-  505150, 519B00 quaternion slerp, 5051A0), then subclass copy ctors/Clones.
-- In-game check timing: race starts ~25 s after launch with SKIP_MOVIES/NIS; screenshot right then (no need to wait).
-  (`FEWidget`, `FELabelWidget`, `FEButtonWidget`, ...). `python3 -I tooling/knowledge/packet.py --class FEObject`.
-- Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;`
+## Traps
+- GCC 2.95 puts the vptr after the first polymorphic class's fields; MSVC at 0 (fields before it shift +4 on PC).
+  Some classes are much bigger on PC: never assume GC layouts.
+- GC-only: `__in_chrg`, r3 struct returns, FPR floats. GC loaders are 5-10x bigger (byte-swapping).
+- MSVC folds identical functions and inlines small ones; Ghidra undercounts PC params (trust `ret N`/cleanup).
+- Crash outside our code after a new hook: register reliance first (`WINEDEBUG=err+seh`, read the caller after the call).
+- Native tests are 64-bit: use `sizeof(T)`, never hard-coded 32-bit sizes.
+- Verify vtable identities via the destructor that installs them.
+- x87: MSVC keeps float intermediates in x87 registers (control-word precision: 53-bit default, 24-bit after D3D9).
+  Mirror with `long double` in the original's evaluation order; round to float only where the original stores
+  to memory (`fstp DWORD`). `_ftol` (75BED4) is the conversion for float→int.
+- Test stubs: `bridge_stub.cpp` VirtualScalarDelete must route pooled classes to their own scalar dtor.
