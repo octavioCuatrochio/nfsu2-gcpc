@@ -670,6 +670,27 @@ static void CheckInterpLinear(int iters)
 
 // bWare trig (bSin exhaustive over all angles; bSinF/bASin random + boundaries, compared at 80-bit precision) and
 // the quaternion helpers + slerp (PC 4FE770/4FE7D0/4FE830/511C80/519B00).
+// bCos / bSinCos: every angle, under 53- and 24-bit precision.
+static void CheckSinCos()
+{
+    auto oCos = ORIG<long double(__cdecl *)(uint32_t)>(0x43C370);
+    auto oSinCos = ORIG<void(__cdecl *)(float *, float *, uint32_t)>(0x43C390);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (uint32_t a = 0; a < 0x10000; ++a) {
+            long double o = oCos(a), r = bCos(uint16_t(a));
+            EXPECT(std::memcmp(&o, &r, 10) == 0, "bCos %04X pc=%x", a, pc);
+            float os = 7, oc = 7, rs = 7, rc = 7;
+            oSinCos(&os, &oc, a | (rng() & 0xFFFF0000u));   // only the low 16 bits are read (movzx)
+            bSinCos(&rs, &rc, uint16_t(a));
+            EXPECT(std::memcmp(&os, &rs, 4) == 0 && std::memcmp(&oc, &rc, 4) == 0, "bSinCos %04X pc=%x: %.9g/%.9g %.9g/%.9g",
+                   a, pc, double(os), double(rs), double(oc), double(rc));
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1074,6 +1095,7 @@ static int RunAll()
     CheckKeyInterp(iters);
     CheckInterpLinear(iters);
     CheckTrigAndSlerp(iters);
+    CheckSinCos();
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);

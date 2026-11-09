@@ -27,6 +27,38 @@ long double bSinF(float radians)
     return bSin(static_cast<uint16_t>(FEFtol(L(radians) * 10430.3779296875f)));
 }
 
+// PC 43C370 (tail-jumps into bSin with the stack argument + 0x4000; bSin reads its low 16 bits)
+long double bCos(uint16_t angle)
+{
+    return bSin(static_cast<uint16_t>(angle + 0x4000));
+}
+
+// PC 43C390. Same range reduction as bSin.
+void bSinCos(float *sinOut, float *cosOut, uint16_t angle)
+{
+    L x = L(int32_t(angle)) * 9.58738019107841e-05f;
+    L s = 1.0f;
+    if (!(x < 4.71238899230957f)) x -= 6.2831854820251465f;
+    else if (!(x < 1.5707963705062866f)) { x -= 3.1415927410125732f; s = -1.0f; }
+    const L x2 = x * x, x3 = x2 * x;
+    const float x4 = static_cast<float>(x2 * x2);
+    const L x5 = x3 * x2;
+    const float x6 = static_cast<float>(L(x4) * x2);
+    const L x7 = x5 * x2;
+    const float x8 = static_cast<float>(L(x6) * x2);
+    L r = x - x3 * 0.1666666716337204f;
+    r = r + x5 * 0.008333333767950535f;
+    r = r - x7 * 0.00019841270113829523f;
+    r = r + (x7 * x2) * 2.7557318844628753e-06f;
+    *sinOut = static_cast<float>(r * s);
+    L c = 1.0f - 0.5f * x2;
+    c = c + L(x4) * 0.0416666679084301f;
+    c = c - L(x6) * 0.0013888889225199819f;
+    c = c + L(x8) * 2.4801587642286904e-05f;
+    c = c - (L(x8) * x2) * 2.755731998149713e-07f;
+    *cosOut = static_cast<float>(c * s);
+}
+
 // PC 43C490. Binary search over 12 segments (each half the previous width), 16 entries each, then a linear
 // correction with the entry's slope.
 uint16_t bASin(float x)
