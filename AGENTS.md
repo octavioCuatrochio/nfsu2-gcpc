@@ -176,7 +176,8 @@ VALUES (0x8014297C,0x535FE0,'hooked','port/game/frontend/FEString.cpp','unit+in-
 - Also done: FERefList (RemNode 5055C0, Purge 511D00), FEKeyTrack dtor 52B960, ~FEScript 535170 + scalar dtor 53EE30.
 - Also done: FEScript.cpp: FEKeyTrack ctor/operator= (525E80/54D350), event list SetCount 519A10, SetName 518730,
   SetTrackCount 535210, copy ctor 551BE0 (bool = share key lists by reference).
-- Next in the frontend: FEKeyNode pool (new 53E650, block ctor 5319C0, scalar dtor via vtable 0x79AA34), then
-  FEObject copy ctor 554300 + Clone 5545D0.
+- Also done: FEKeyNode pool (new/delete 53E650/525BF0, node ctor/scalar dtor, block ctor/dtor 5319C0/531BE0/531BC0).
+- Next in the frontend: FEObject copy ctor 554300 + Clone 5545D0.
+- In-game check timing: race starts ~25 s after launch with SKIP_MOVIES/NIS; screenshot right then (no need to wait).
   (`FEWidget`, `FELabelWidget`, `FEButtonWidget`, ...). `python3 -I tooling/knowledge/packet.py --class FEObject`.
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;`

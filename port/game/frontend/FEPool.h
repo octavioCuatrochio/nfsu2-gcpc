@@ -100,6 +100,7 @@ void FEPoolDelete(FEMinList &blocks, void *obj)
 // The two instantiations in the game
 using FEMessageResponseBlock = FEPoolBlock<FEMessageResponse, 64>;   // 0x620 bytes, pool list PC 0x8637A0
 using FEScriptBlock = FEPoolBlock<FEScript, 32>;                     // 0x6A0 bytes, pool list PC 0x839C30
+using FEKeyNodeBlock = FEPoolBlock<FEKeyNode, 256>;                  // 0x2020 bytes, pool list PC 0x839BD0
 // Concrete block lifecycles. Ctor signature fits FEPoolNew's constructBlock.
 void FEMessageResponseBlock_Construct(void *mem);                                       // PC 53E710
 void FEMessageResponseBlock_Destruct(FEMessageResponseBlock *b);                        // PC 53EB40
@@ -107,9 +108,13 @@ FEMessageResponseBlock *FEMessageResponseBlock_ScalarDtor(FEMessageResponseBlock
 void FEScriptBlock_Construct(void *mem);                                                // PC 53E910
 void FEScriptBlock_Destruct(FEScriptBlock *b);                                          // PC 53EC40
 FEScriptBlock *FEScriptBlock_ScalarDtor(FEScriptBlock *b, uint32_t flags);              // PC 53EC20
+void FEKeyNodeBlock_Construct(void *mem);                                               // PC 5319C0
+void FEKeyNodeBlock_Destruct(FEKeyNodeBlock *b);                                        // PC 531BE0
+FEKeyNodeBlock *FEKeyNodeBlock_ScalarDtor(FEKeyNodeBlock *b, uint32_t flags);           // PC 531BC0
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FEMessageResponseBlock) == 0x620 && offsetof(FEMessageResponseBlock, freeList) == 0x60C);
 static_assert(offsetof(FEMessageResponseBlock, used) == 0x61C);
 static_assert(sizeof(FEScriptBlock) == 0x6A0 && offsetof(FEScriptBlock, freeList) == 0x68C);
+static_assert(sizeof(FEKeyNodeBlock) == 0x2020 && offsetof(FEKeyNodeBlock, freeList) == 0x200C);
 #endif

@@ -10,6 +10,12 @@
 struct FEKeyNode {
     FEMinNode node;                  // +0x00 vtable PC 0x79AA34
     uint32_t _data[5];               // +0x0C time + value (not interpreted here)
+
+    static FEKeyNode *Construct(void *mem);   // PC 4FE8B0
+    void Destruct();                          // PC 51AB10 (folded: plain FEMinNode dtor; not hooked)
+    FEKeyNode *ScalarDeletingDestructor(uint32_t flags);   // PC 531FE0 (vtable slot 0, pooled delete)
+    static void *PoolNew();                   // PC 53E650 (operator new, pool 0x839BD0)
+    static void PoolDelete(void *p);          // PC 525BF0 (operator delete)
 };
 
 // One animated property of a script (element of FEScript::mpTracks, MSVC new[] with count cookie).

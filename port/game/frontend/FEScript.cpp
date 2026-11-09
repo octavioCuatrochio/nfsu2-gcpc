@@ -30,6 +30,31 @@ void ReferenceList(FERefList &l, FERefList *other)
 }
 }  // namespace
 
+// PC 4FE8B0
+FEKeyNode *FEKeyNode::Construct(void *mem)
+{
+    auto *k = static_cast<FEKeyNode *>(mem);
+    k->node.next = k->node.prev = Unlinked();
+    k->node.vtable = bridge::FEKeyNodeVTable();
+    return k;
+}
+
+void FEKeyNode::Destruct() { node.vtable = bridge::FEMinNodeVTable(); }
+
+// PC 531FE0. Same double destruction as the other pooled classes.
+FEKeyNode *FEKeyNode::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) {
+        bridge::VirtualScalarDtor(this, 0);
+        PoolDelete(this);
+    }
+    return this;
+}
+
+void *FEKeyNode::PoolNew() { return FEPoolNew<FEKeyNode, 256>(*bridge::FEKeyNodePool(), FEKeyNodeBlock_Construct); }
+void FEKeyNode::PoolDelete(void *p) { FEPoolDelete<FEKeyNode, 256>(*bridge::FEKeyNodePool(), p); }
+
 // PC 525E80. Base key data (+0x14..+0x24) and the ref list's padding are left as they were.
 FEKeyTrack *FEKeyTrack::Construct(void *mem)
 {
@@ -66,11 +91,8 @@ FEKeyTrack &FEKeyTrack::Assign(const FEKeyTrack &src)
         return *this;
     }
     for (FEMinNode *n = src.mKeys.head; n; n = n->next) {
-        auto *k = static_cast<FEKeyNode *>(bridge::FEKeyNode_PoolNew());
-        if (k) {   // original: null -> the copy below writes through null (crash), same here
-            k->node.next = k->node.prev = Unlinked();
-            k->node.vtable = bridge::FEKeyNodeVTable();
-        }
+        auto *k = static_cast<FEKeyNode *>(FEKeyNode::PoolNew());
+        if (k) FEKeyNode::Construct(k);   // original: null -> the copy below writes through null (crash)
         std::memcpy(k->_data, reinterpret_cast<const FEKeyNode *>(n)->_data, sizeof k->_data);
         // append after tail (FEMinList::AddNode logic without a count)
         FEMinNode *after = mKeys.tail;

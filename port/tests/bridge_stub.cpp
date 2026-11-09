@@ -18,7 +18,8 @@ int feMinNodeVTable = 0, feMinListVTable = 0, virtualDeletes = 0;
 int feObjectVTable = 0, feSlotNodeVTable = 0, feSlotPoolVTable = 0;
 FEMultiPool objDataPool{{&feMinListVTable, 0, nullptr, nullptr}};
 int feMsgRespVTable = 0, feMsgRespBlockVTable = 0, virtualDtorCalls = 0;
-int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0, feKeyNodeVTable = 0, keyNodeNews = 0;
+int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0, feKeyNodeVTable = 0, keyNodeNews = 0, feKeyNodeBlockVTable = 0;
+FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
 FEMinList msgRespPool{&feMinListVTable, 0, nullptr, nullptr}, scriptPool{&feMinListVTable, 0, nullptr, nullptr};
 uint32_t nextGUID = 100;
 void *lastDestructorCallback = nullptr;
@@ -56,6 +57,8 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feSlotPoolVTable) static_cast<FESlotPool *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feMsgRespBlockVTable)
         FEMessageResponseBlock_ScalarDtor(static_cast<FEMessageResponseBlock *>(o), 1);
+    else if (vt == &teststub::feKeyNodeVTable) static_cast<FEKeyNode *>(o)->ScalarDeletingDestructor(1);
+    else if (vt == &teststub::feKeyNodeBlockVTable) FEKeyNodeBlock_ScalarDtor(static_cast<FEKeyNodeBlock *>(o), 1);
     else if (vt == &teststub::feScriptBlockVTable) FEScriptBlock_ScalarDtor(static_cast<FEScriptBlock *>(o), 1);
     else FreeArray(o);
 }
@@ -70,7 +73,8 @@ void *FEMessageResponseBlockVTable() { return &teststub::feMsgRespBlockVTable; }
 void *FEScriptBlockVTable() { return &teststub::feScriptBlockVTable; }
 void *FEScriptVTable() { return &teststub::feScriptVTable; }
 void *FEKeyNodeVTable() { return &teststub::feKeyNodeVTable; }
-void *FEKeyNode_PoolNew() { ++teststub::keyNodeNews; ++teststub::liveAllocations; return std::malloc(sizeof(FEKeyNode)); }
+::FEMinList *FEKeyNodePool() { ++teststub::keyNodeNews; return &teststub::keyNodePool; }
+void *FEKeyNodeBlockVTable() { return &teststub::feKeyNodeBlockVTable; }
 void *FERefListVTable() { return &teststub::feRefListVTable; }
 void *FEMessageResponseVTable() { return &teststub::feMsgRespVTable; }
 void *FEObjectVTable() { return &teststub::feObjectVTable; }

@@ -54,7 +54,8 @@ void *FEMessageResponseBlockVTable();                                  // PC 0x7
 void *FEScriptBlockVTable();                                           // PC 0x79BF54 (slot 0 = 53EC20)
 void *FEScriptVTable();                                                // PC 0x79AD28 (slot 0 = 53EE30)
 void *FEKeyNodeVTable();                                               // PC 0x79AA34
-void *FEKeyNode_PoolNew();                                             // PC 53E650 on pool list 0x839BD0 (not rewritten)
+::FEMinList *FEKeyNodePool();                                          // PC 0x839BD0
+void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
 void *FERefListVTable();                                               // PC 0x79AA30
 void *FEMessageResponseVTable();                                       // PC 0x79AA38
 

@@ -83,6 +83,13 @@ FEScript *THISCALL FEScript_CopyCtor(FEScript *self, const FEScript *src, int re
 {
     return FEScript::CopyConstruct(self, *src, (reference & 0xFF) != 0);   // bool arg: only the low byte is set
 }
+FEKeyNode *THISCALL FEKeyNode_Ctor(FEKeyNode *self) { return FEKeyNode::Construct(self); }
+FEKeyNode *THISCALL FEKeyNode_ScalarDtor(FEKeyNode *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void *THISCALL KeyNodePool_New(FEMinList *pool) { return FEPoolNew<FEKeyNode, 256>(*pool, FEKeyNodeBlock_Construct); }
+void THISCALL KeyNodePool_Delete(FEMinList *pool, void *p) { FEPoolDelete<FEKeyNode, 256>(*pool, p); }
+void *THISCALL KeyNodeBlock_Ctor(void *self) { FEKeyNodeBlock_Construct(self); return self; }
+void THISCALL KeyNodeBlock_Dtor(FEKeyNodeBlock *self) { FEKeyNodeBlock_Destruct(self); }
+void *THISCALL KeyNodeBlock_ScalarDtor(FEKeyNodeBlock *self, uint32_t f) { return FEKeyNodeBlock_ScalarDtor(self, f); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -170,6 +177,13 @@ const Replacement kReplacements[] = {
     {0x518730, (const void *)&FEScript_SetName, "FEScript::SetName", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x535210, (const void *)&FEScript_SetTrackCount, "FEScript::SetTrackCount", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
     {0x551BE0, (const void *)&FEScript_CopyCtor, "FEScript::FEScript(const FEScript&, bool)", {0x6A, 0xFF, 0x68, 0xD3, 0x7B, 0x77}},
+    {0x4FE8B0, (const void *)&FEKeyNode_Ctor, "FEKeyNode::FEKeyNode()", {0x8B, 0xC1, 0xB9, 0xFE, 0xCA, 0xAD}},
+    {0x531FE0, (const void *)&FEKeyNode_ScalarDtor, "FEKeyNode scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x28, 0x8B}},
+    {0x53E650, (const void *)&KeyNodePool_New, "FEKeyNode::operator new (pool)", {0x6A, 0xFF, 0x68, 0x6B, 0x80, 0x77}},
+    {0x525BF0, (const void *)&KeyNodePool_Delete, "FEKeyNode::operator delete (pool)", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x77}},
+    {0x5319C0, (const void *)&KeyNodeBlock_Ctor, "FEPoolNode<FEKeyNode,256> ctor", {0x6A, 0xFF, 0x68, 0x68, 0x6F, 0x77}},
+    {0x531BE0, (const void *)&KeyNodeBlock_Dtor, "FEPoolNode<FEKeyNode,256> dtor", {0x6A, 0xFF, 0x68, 0x71, 0x75, 0x77}},
+    {0x531BC0, (const void *)&KeyNodeBlock_ScalarDtor, "FEPoolNode<FEKeyNode,256> scalar deleting dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

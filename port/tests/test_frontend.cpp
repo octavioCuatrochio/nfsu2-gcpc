@@ -383,7 +383,8 @@ static void TestScriptCopy()
     ref2.Destruct(); ref.Destruct();
     CHECK(teststub::virtualDeletes == deletes);          // references never delete keys
     deep.Destruct();
-    CHECK(teststub::virtualDeletes == deletes + 3);      // the 3 cloned nodes
+    CHECK(teststub::virtualDeletes == deletes + 4);      // the 3 cloned nodes + their emptied pool block
+    CHECK(teststub::keyNodePool.count == 0);
     src.mpTracks[0].mKeys.head = src.mpTracks[0].mKeys.tail = nullptr;   // stack keys: not ours to delete
     src.Destruct();
     CHECK(teststub::liveAllocations == liveBefore);

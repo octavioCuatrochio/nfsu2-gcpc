@@ -43,3 +43,25 @@ FEScriptBlock *FEScriptBlock_ScalarDtor(FEScriptBlock *b, uint32_t flags)
     if (flags & 1) bridge::FreeArray(b);
     return b;
 }
+
+namespace {
+void KeyNodeCtor(void *p) { FEKeyNode::Construct(p); }
+void KeyNodeDtor(void *p) { static_cast<FEKeyNode *>(p)->Destruct(); }
+}  // namespace
+
+void FEKeyNodeBlock_Construct(void *mem)
+{
+    static_cast<FEKeyNodeBlock *>(mem)->Construct(bridge::FEKeyNodeBlockVTable(), KeyNodeCtor);
+}
+
+void FEKeyNodeBlock_Destruct(FEKeyNodeBlock *b)
+{
+    b->Destruct(bridge::FEKeyNodeBlockVTable(), KeyNodeDtor);
+}
+
+FEKeyNodeBlock *FEKeyNodeBlock_ScalarDtor(FEKeyNodeBlock *b, uint32_t flags)
+{
+    FEKeyNodeBlock_Destruct(b);
+    if (flags & 1) bridge::FreeArray(b);
+    return b;
+}

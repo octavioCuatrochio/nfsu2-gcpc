@@ -212,7 +212,7 @@ template <class Block>
 static void CheckBlockCtor(uintptr_t orig, void (*rewrite)(void *), const char *name,
                            std::initializer_list<std::pair<const void *, uint32_t>> vtables)
 {
-    static uint32_t buf[0x800];
+    static uint32_t buf[0x900];   // >= largest block (0x2020 bytes)
     static uint32_t a[sizeof(Block) / 4];
     std::memset(buf, 0xCD, sizeof buf);
     ORIG<void *(THISCALL *)(void *)>(orig)(buf);
@@ -266,6 +266,8 @@ static int RunAll()
     CheckKeyTrackCtor(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
+    CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",
+        {{&teststub::feKeyNodeBlockVTable, 0x79B9EC}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feKeyNodeVTable, 0x79AA34}});
     CheckBlockCtor<FEScriptBlock>(0x53E910, FEScriptBlock_Construct, "FEScript block",
         {{&teststub::feScriptBlockVTable, 0x79BF54}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feScriptVTable, 0x79AD28}});
     EXPECT(ORIG<uint32_t(__cdecl *)(const char *)>(0x505450)(nullptr) == FEHashUpper(nullptr), "FEHashUpper(null)");
