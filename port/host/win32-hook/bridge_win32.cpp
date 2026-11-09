@@ -1,3 +1,4 @@
+#include "bWare/bMath.h"
 // Bridge implementation for the hooked build: calls into the original SPEED2.EXE (PC v1.2).
 #include "bridge/Bridge.h"
 
@@ -87,10 +88,7 @@ void *FEScriptVTable() { return reinterpret_cast<void *>(0x79AD28); }
 void *FEKeyNodeVTable() { return reinterpret_cast<void *>(0x79AA34); }
 ::FEMinList *FEKeyNodePool() { return reinterpret_cast<::FEMinList *>(0x839BD0); }
 void *FEKeyNodeBlockVTable() { return reinterpret_cast<void *>(0x79B9EC); }
-void FELerpQuaternion(const void *a, const void *b, float t, const void *base, void *out)
-{
-    reinterpret_cast<void(__cdecl *)(const void *, const void *, float, const void *, void *)>(0x519B00)(a, b, t, base, out);
-}
+const bASinTableEntry *BASinTable() { return reinterpret_cast<const bASinTableEntry *>(0x7EA628); }
 void *FERefListVTable() { return reinterpret_cast<void *>(0x79AA30); }
 void *FEMessageResponseVTable() { return reinterpret_cast<void *>(0x79AA38); }
 

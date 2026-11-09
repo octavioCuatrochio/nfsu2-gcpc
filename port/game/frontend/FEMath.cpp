@@ -1,4 +1,6 @@
 #include "FEMath.h"
+#include "bWare/bMath.h"
+#include <cmath>
 #include <initializer_list>
 
 // Mirrors PC 4FE6B0's x87 evaluation: products and sums stay in registers (long double here; on i686 this is the
@@ -88,4 +90,72 @@ void FELerpColor(const FEColor *a, const FEColor *b, float t, const FEColor *bas
     FEColor r;
     for (int i = 0; i < 4; ++i) r.c[i] = LerpInt(a->c[i], b->c[i], t, base->c[i]);
     *out = r;
+}
+
+void FEQuatScale(FEQuaternion *out, const FEQuaternion *q, float s)
+{
+    FEQuaternion r{static_cast<float>(L(s) * q->x), static_cast<float>(L(s) * q->y), static_cast<float>(L(s) * q->z),
+                   static_cast<float>(L(s) * q->w)};
+    *out = r;
+}
+
+void FEQuatAdd(FEQuaternion *out, const FEQuaternion *a, const FEQuaternion *b)
+{
+    FEQuaternion r{static_cast<float>(L(a->x) + b->x), static_cast<float>(L(a->y) + b->y), static_cast<float>(L(a->z) + b->z),
+                   static_cast<float>(L(a->w) + b->w)};
+    *out = r;
+}
+
+void FEQuatSub(FEQuaternion *out, const FEQuaternion *a, const FEQuaternion *b)
+{
+    FEQuaternion r{static_cast<float>(L(a->x) - b->x), static_cast<float>(L(a->y) - b->y), static_cast<float>(L(a->z) - b->z),
+                   static_cast<float>(L(a->w) - b->w)};
+    *out = r;
+}
+
+void FEQuatNormalize(FEQuaternion *q)
+{
+    L x = q->x, y = q->y, z = q->z, w = q->w;
+    L inv = 1.0f / std::sqrt(((x * x + y * y) + z * z) + w * w);
+    if (inv <= 9.999999747378752e-06f) { *q = FEQuaternion{0.f, 0.f, 0.f, 1.f}; return; }
+    q->x = static_cast<float>(inv * q->x);
+    q->y = static_cast<float>(inv * q->y);
+    q->z = static_cast<float>(inv * q->z);
+    q->w = static_cast<float>(inv * q->w);
+}
+
+void FELerpQuaternion(const FEQuaternion *a, const FEQuaternion *b, float t, const FEQuaternion *base, FEQuaternion *out)
+{
+    FEQuaternion q = *b;
+    L cosv = ((L(b->w) * a->w + L(b->z) * a->z) + L(b->y) * a->y) + L(b->x) * a->x;
+    if (cosv < 0) {
+        cosv = -cosv;
+        q = FEQuaternion{-q.x, -q.y, -q.z, -q.w};
+    }
+    FEQuaternion res;
+    if (cosv < 0.9990000128746033f) {
+        uint16_t angle = static_cast<uint16_t>(0x4000 - bASin(static_cast<float>(cosv)));   // acos
+        float theta = static_cast<float>(L(int32_t(angle)) * 9.58738019107841e-05f);
+        float sinTheta = static_cast<float>(bSinF(theta));
+        float sinT = static_cast<float>(bSinF(static_cast<float>(L(theta) * t)));
+        float sin1T = static_cast<float>(bSinF(static_cast<float>((1.0f - L(t)) * theta)));
+        FEQuaternion r{static_cast<float>(L(sinT) * q.x), static_cast<float>(L(sinT) * q.y),
+                       static_cast<float>(L(sinT) * q.z), static_cast<float>(L(sinT) * q.w)};
+        FEQuaternion s;
+        FEQuatScale(&s, a, sin1T);
+        L sumX = L(r.x) + s.x;                                   // stays in a register in the original
+        float sumY = static_cast<float>(L(r.y) + s.y);
+        float sumZ = static_cast<float>(L(r.z) + s.z);
+        float sumW = static_cast<float>(L(r.w) + s.w);
+        float inv = static_cast<float>(1.0f / L(sinTheta));
+        res = FEQuaternion{static_cast<float>(sumX * inv), static_cast<float>(L(sumY) * inv),
+                           static_cast<float>(L(sumZ) * inv), static_cast<float>(L(sumW) * inv)};
+    } else {
+        FEQuaternion d, sc;
+        FEQuatSub(&d, b, a);
+        FEQuatScale(&sc, &d, t);
+        FEQuatAdd(&res, a, &sc);
+        FEQuatNormalize(&res);
+    }
+    *out = FEQuatMultiply(res, *base);
 }

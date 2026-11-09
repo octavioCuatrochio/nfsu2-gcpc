@@ -14,6 +14,7 @@
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
 #include "frontend/FEMath.h"
+#include "bWare/bMath.h"
 #include "frontend/FEString.h"
 #include <new>
 #include "frontend/FEWideString.h"
@@ -125,6 +126,12 @@ void THISCALL FEKeyTrack_SetBaseValueAt(FEKeyTrack *self, int32_t t, const FECol
 void __cdecl FEInterpNone_Hook(FEKeyTrack *t, int32_t time, void *out) { FEInterpNone(t, time, out); }
 void __cdecl FEKeyInterpFast_Hook(FEKeyTrack *t, int32_t time, void *out) { FEKeyInterpFast(t, time, out); }
 void __cdecl FEInterpLinear_Hook(FEKeyTrack *t, int32_t time, void *out) { FEInterpLinear(t, time, out); }
+long double __cdecl bSin_Hook(uint32_t angle) { return bSin(static_cast<uint16_t>(angle)); }
+long double __cdecl bSinF_Hook(float r) { return bSinF(r); }
+uint32_t __cdecl bASin_Hook(float x) { return bASin(x); }
+FEQuaternion *__cdecl FEQuatScale_Hook(FEQuaternion *o, const FEQuaternion *q, float s) { FEQuatScale(o, q, s); return o; }
+FEQuaternion *__cdecl FEQuatAdd_Hook(FEQuaternion *o, const FEQuaternion *a, const FEQuaternion *b) { FEQuatAdd(o, a, b); return o; }
+FEQuaternion *__cdecl FEQuatSub_Hook(FEQuaternion *o, const FEQuaternion *a, const FEQuaternion *b) { FEQuatSub(o, a, b); return o; }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -247,6 +254,14 @@ const Replacement kReplacements[] = {
     {0x505110, (const void *)&FELerpVector2, "FELerpVector2", {0x8B, 0x4C, 0x24, 0x08, 0x8B, 0x44}},
     {0x505150, (const void *)&FELerpVector3, "FELerpVector3", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x4C}},
     {0x5051A0, (const void *)&FELerpColor, "FELerpColor", {0x53, 0x55, 0x56, 0x8B, 0x74, 0x24}},
+    {0x43C2B0, (const void *)&bSin_Hook, "bSin(angle)", {0x0F, 0xB7, 0x44, 0x24, 0x04, 0x89}, 1, 4, 0},   // 43F70A reuses ECX after the call (real)
+    {0x43C350, (const void *)&bSinF_Hook, "bSin(float)", {0xD9, 0x44, 0x24, 0x04, 0xD8, 0x0D}},
+    {0x43C490, (const void *)&bASin_Hook, "bASin", {0x51, 0xD9, 0x44, 0x24, 0x08, 0x53}},
+    {0x4FE770, (const void *)&FEQuatScale_Hook, "FEQuaternion scale", {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24}},
+    {0x4FE7D0, (const void *)&FEQuatAdd_Hook, "FEQuaternion add", {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24}},
+    {0x4FE830, (const void *)&FEQuatSub_Hook, "FEQuaternion sub", {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24}},
+    {0x511C80, (const void *)&FEQuatNormalize, "FEQuaternion normalize", {0x8B, 0x4C, 0x24, 0x04, 0xD9, 0x41}},
+    {0x519B00, (const void *)&FELerpQuaternion, "FELerpQuaternion", {0x83, 0xEC, 0x44, 0x8B, 0x4C, 0x24}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

@@ -32,6 +32,14 @@ void FELerpInteger(int32_t a, int32_t b, float t, const int32_t *base, int32_t *
 void FELerpVector2(const FEVector2 *a, const FEVector2 *b, float t, const FEVector2 *base, FEVector2 *out);   // PC 505110
 void FELerpVector3(const FEVector3 *a, const FEVector3 *b, float t, const FEVector3 *base, FEVector3 *out);   // PC 505150
 void FELerpColor(const FEColor *a, const FEColor *b, float t, const FEColor *base, FEColor *out);       // PC 5051A0
+// Quaternion helpers (PC __cdecl, struct return through the first argument; each component rounded to float).
+void FEQuatScale(FEQuaternion *out, const FEQuaternion *q, float s);                   // PC 4FE770
+void FEQuatAdd(FEQuaternion *out, const FEQuaternion *a, const FEQuaternion *b);       // PC 4FE7D0
+void FEQuatSub(FEQuaternion *out, const FEQuaternion *a, const FEQuaternion *b);       // PC 4FE830
+void FEQuatNormalize(FEQuaternion *q);                                                 // PC 511C80: tiny 1/len -> identity
+// GC FELerpQuaternion 80140A8C / PC 519B00: slerp (bWare table trig) or, when nearly parallel (|cos| >= 0.999),
+// normalized lerp; result * base. As in the original, the near-parallel branch uses b un-negated.
+void FELerpQuaternion(const FEQuaternion *a, const FEQuaternion *b, float t, const FEQuaternion *base, FEQuaternion *out);
 // MSVC __ftol2 (PC 75BED4): truncate toward zero through a 64-bit integer, low 32 bits.
 int32_t FEFtol(long double x);
 // PC 505580 / GC FEColor::operator-: per-channel subtraction (32-bit wraparound).

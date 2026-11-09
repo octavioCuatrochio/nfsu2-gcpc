@@ -170,7 +170,8 @@ void FEInterpLinear(FEKeyTrack *track, int32_t time, void *out)
                           reinterpret_cast<const FEVector2 *>(base), static_cast<FEVector2 *>(out)); break;
     case 4: FELerpVector3(reinterpret_cast<const FEVector3 *>(a), reinterpret_cast<const FEVector3 *>(b), t,
                           reinterpret_cast<const FEVector3 *>(base), static_cast<FEVector3 *>(out)); break;
-    case 5: bridge::FELerpQuaternion(a, b, t, base, out); break;
+    case 5: FELerpQuaternion(reinterpret_cast<const FEQuaternion *>(a), reinterpret_cast<const FEQuaternion *>(b), t,
+                             reinterpret_cast<const FEQuaternion *>(base), static_cast<FEQuaternion *>(out)); break;
     case 6: FELerpColor(reinterpret_cast<const FEColor *>(a), reinterpret_cast<const FEColor *>(b), t,
                         reinterpret_cast<const FEColor *>(base), static_cast<FEColor *>(out)); break;
     default: break;

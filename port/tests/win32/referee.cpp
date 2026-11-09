@@ -24,6 +24,7 @@
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
 #include "frontend/FEMath.h"
+#include "bWare/bMath.h"
 #include <cmath>
 #include "bridge_stub.h"
 #define THISCALL __attribute__((thiscall))
@@ -484,6 +485,62 @@ static void CheckInterpLinear(int iters)
     }
 }
 
+// bWare trig (bSin exhaustive over all angles; bSinF/bASin random + boundaries, compared at 80-bit precision) and
+// the quaternion helpers + slerp (PC 4FE770/4FE7D0/4FE830/511C80/519B00).
+static void CheckTrigAndSlerp(int iters)
+{
+    auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
+    auto oSinF = ORIG<long double(__cdecl *)(float)>(0x43C350);
+    auto oASin = ORIG<uint32_t(__cdecl *)(float)>(0x43C490);
+    int bad = 0;
+    for (uint32_t a = 0; a < 0x10000; ++a) {
+        long double o = oSin(a), r = bSin(uint16_t(a));
+        if (std::memcmp(&o, &r, 10) != 0 && ++bad <= 3) std::printf("bSin %04X\n", a);
+        ++checks;
+    }
+    failures += bad;
+    std::uniform_real_distribution<float> big(-20.f, 20.f), unit(-1.05f, 1.05f);
+    for (int it = 0; it < iters; ++it) {
+        float f = big(rng);
+        long double o = oSinF(f), r = bSinF(f);
+        EXPECT(std::memcmp(&o, &r, 10) == 0, "bSinF %g", double(f));
+        float x = it % 4 == 0 ? float(int(rng() % 65537) - 32768) / 32768.f : unit(rng);   // segment boundaries too
+        EXPECT((oASin(x) & 0xFFFF) == bASin(x), "bASin %.9g: %X vs %X", double(x), oASin(x) & 0xFFFF, bASin(x));
+    }
+    auto oScale = ORIG<FEQuaternion *(__cdecl *)(FEQuaternion *, const FEQuaternion *, float)>(0x4FE770);
+    auto oAdd = ORIG<FEQuaternion *(__cdecl *)(FEQuaternion *, const FEQuaternion *, const FEQuaternion *)>(0x4FE7D0);
+    auto oSub = ORIG<FEQuaternion *(__cdecl *)(FEQuaternion *, const FEQuaternion *, const FEQuaternion *)>(0x4FE830);
+    auto oNorm = ORIG<void(__cdecl *)(FEQuaternion *)>(0x511C80);
+    auto oSlerp = ORIG<void(__cdecl *)(const FEQuaternion *, const FEQuaternion *, float, const FEQuaternion *, FEQuaternion *)>(0x519B00);
+    std::uniform_real_distribution<float> qd(-1.f, 1.f), td(0.f, 1.f);
+    auto rq = [&](bool norm) {
+        FEQuaternion q{qd(rng), qd(rng), qd(rng), qd(rng)};
+        if (norm) FEQuatNormalize(&q);
+        return q;
+    };
+    for (int it = 0; it < iters / 2; ++it) {
+        FEQuaternion a = rq(false), b = rq(false), o{}, r{};
+        float s = qd(rng) * 3.f;
+        oScale(&o, &a, s); FEQuatScale(&r, &a, s);
+        EXPECT(std::memcmp(&o, &r, sizeof o) == 0, "quat scale");
+        oAdd(&o, &a, &b); FEQuatAdd(&r, &a, &b);
+        EXPECT(std::memcmp(&o, &r, sizeof o) == 0, "quat add");
+        oSub(&o, &a, &b); FEQuatSub(&r, &a, &b);
+        EXPECT(std::memcmp(&o, &r, sizeof o) == 0, "quat sub");
+        FEQuaternion na = a, nb = a;
+        if (it % 50 == 0) { na = nb = FEQuaternion{2e5f, 0, 0, 0}; }
+        oNorm(&na); FEQuatNormalize(&nb);
+        EXPECT(std::memcmp(&na, &nb, sizeof na) == 0, "quat normalize");
+        // slerp: unit quaternions, sometimes nearly parallel / opposite
+        FEQuaternion qa = rq(true), qb = rq(true), base = rq(true);
+        if (it % 5 == 0) { qb = qa; qb.x += 0.01f * qd(rng); FEQuatNormalize(&qb); }
+        if (it % 7 == 0) qb = FEQuaternion{-qb.x, -qb.y, -qb.z, -qb.w};
+        float t = it % 11 == 0 ? 0.5f : td(rng);
+        oSlerp(&qa, &qb, t, &base, &o); FELerpQuaternion(&qa, &qb, t, &base, &r);
+        EXPECT(std::memcmp(&o, &r, sizeof o) == 0, "slerp t=%g", double(t));
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -507,6 +564,7 @@ static int RunAll()
     CheckSetters(iters);
     CheckKeyInterp(iters);
     CheckInterpLinear(iters);
+    CheckTrigAndSlerp(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",

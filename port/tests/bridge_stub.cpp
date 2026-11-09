@@ -8,6 +8,8 @@
 #include <new>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
+#include "bWare/bMath.h"
 
 namespace teststub {
 bool useOldDirtyFlag = false;
@@ -65,7 +67,25 @@ void *FEScriptVTable() { return &teststub::feScriptVTable; }
 void *FEKeyNodeVTable() { return &teststub::feKeyNodeVTable; }
 ::FEMinList *FEKeyNodePool() { ++teststub::keyNodeNews; return &teststub::keyNodePool; }
 void *FEKeyNodeBlockVTable() { return &teststub::feKeyNodeBlockVTable; }
-void FELerpQuaternion(const void *, const void *, float, const void *, void *out) { ++teststub::linearCalls; std::memset(out, 0x11, 16); }
+const bASinTableEntry *BASinTable()
+{
+#ifdef NFSU2_REFEREE
+    return reinterpret_cast<const bASinTableEntry *>(0x7EA628);   // runs inside SPEED2.EXE
+#else
+    static bASinTableEntry t[12 * 16 + 1];                          // formula approximation (not the game's data)
+    static bool init = false;
+    if (!init) {
+        for (int seg = 0, start = 0, step = 0x8000; seg < 12; ++seg, start += step, step >>= 1)
+            for (int k = 0; k < 16; ++k) {
+                double x = (start + (step >> 4) * k) / 65536.0;
+                t[seg * 16 + k].angle = static_cast<uint16_t>(std::asin(x) * 65536.0 / 6.283185307179586 + 0.5);
+                t[seg * 16 + k].slope = static_cast<float>(1.0 / (6.283185307179586 * std::sqrt(1.0 - x * x)));
+            }
+        init = true;
+    }
+    return t;
+#endif
+}
 void *FERefListVTable() { return &teststub::feRefListVTable; }
 void *FEMessageResponseVTable() { return &teststub::feMsgRespVTable; }
 void *FEObjectVTable() { return &teststub::feObjectVTable; }

@@ -12,6 +12,7 @@
 struct FEMultiPool;   // frontend/FEMultiPool.h
 struct FEMinList;     // frontend/FEMinList.h
 
+struct bASinTableEntry;
 namespace bridge {
 
 // --- memory: buffers are shared with original game code, so they must come from the game's heap ---
@@ -55,7 +56,7 @@ void *FEScriptVTable();                                                // PC 0x7
 void *FEKeyNodeVTable();                                               // PC 0x79AA34
 ::FEMinList *FEKeyNodePool();                                          // PC 0x839BD0
 void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
-void FELerpQuaternion(const void *a, const void *b, float t, const void *base, void *out);   // PC 519B00 (slerp, __cdecl, not rewritten)
+const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628 (game data)
 void *FERefListVTable();                                               // PC 0x79AA30
 void *FEMessageResponseVTable();                                       // PC 0x79AA38
 

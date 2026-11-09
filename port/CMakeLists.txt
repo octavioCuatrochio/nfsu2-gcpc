@@ -32,6 +32,7 @@ if(WIN32)
   # referee: a dinput8.dll that compares original exe functions with rewrites, then exits (see run_referee.sh)
   add_library(referee SHARED tests/win32/referee.cpp tests/bridge_stub.cpp)
   target_include_directories(referee PRIVATE tests)
+  target_compile_definitions(referee PRIVATE NFSU2_REFEREE)
   target_link_libraries(referee PRIVATE nfsu2game)
   set_target_properties(referee PROPERTIES PREFIX "" OUTPUT_NAME "dinput8" LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/referee
                                            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/referee

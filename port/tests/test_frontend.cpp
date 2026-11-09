@@ -7,6 +7,8 @@
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEMessageResponse.h"
 #include "frontend/FEPool.h"
+#include "bWare/bMath.h"
+#include <algorithm>
 #include "bridge/Bridge.h"
 #include <cstdlib>
 #include "frontend/FEString.h"
@@ -625,6 +627,34 @@ static void TestInterpLinear()
     FEInterpLinear(&t, 20, c); CHECK(c[0] == 77);
 }
 
+// bWare trig sanity (the stub asin table is a formula approximation; exactness is the referee's job) and slerp.
+static void TestTrigAndSlerp()
+{
+    double worst = 0;
+    for (int a = 0; a < 65536; a += 7) worst = std::max(worst, std::fabs(double(bSin(uint16_t(a))) - std::sin(a * 6.283185307179586 / 65536)));
+    CHECK(worst < 2e-4);
+    CHECK(std::fabs(double(bSinF(1.0f)) - std::sin(1.0)) < 2e-4);
+    for (float x = -0.95f; x < 0.95f; x += 0.0137f) {   // near +-1 the stub table is too coarse
+        double want = std::asin(x) * 65536 / 6.283185307179586;
+        double got = int16_t(bASin(x));
+        CHECK(std::fabs(got - want) < 6.0);                 // stub table: point-derivative slopes
+    }
+    CHECK(bASin(1.5f) == 0x4000 && bASin(-1.f) == 0xC000);
+    FEQuaternion id{0, 0, 0, 1}, rz{0, 0, 0.7071068f, 0.7071068f}, out;
+    FELerpQuaternion(&id, &rz, 0.f, &id, &out);
+    CHECK(std::fabs(out.w - 1.f) < 1e-3f && std::fabs(out.z) < 1e-3f);
+    FELerpQuaternion(&id, &rz, 1.f, &id, &out);
+    CHECK(std::fabs(out.z - 0.7071f) < 2e-3f && std::fabs(out.w - 0.7071f) < 2e-3f);
+    FELerpQuaternion(&id, &rz, 0.5f, &id, &out);       // 45 degrees about z
+    CHECK(std::fabs(out.z - 0.3827f) < 2e-3f && std::fabs(out.w - 0.9239f) < 2e-3f);
+    FEQuaternion near{0, 0, 0.001f, 1.f};
+    FELerpQuaternion(&id, &near, 0.5f, &id, &out);     // nearly parallel: normalized lerp
+    CHECK(std::fabs(out.w - 1.f) < 1e-5f);
+    FEQuaternion big{1e6f, 0, 0, 0};
+    FEQuatNormalize(&big);                              // 1/len <= 1e-5 -> identity
+    CHECK(big.x == 0.f && big.w == 1.f);
+}
+
 int main()
 {
     TestCrc();
@@ -647,6 +677,7 @@ int main()
     TestSetTrackValue();
     TestKeyInterp();
     TestInterpLinear();
+    TestTrigAndSlerp();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }
