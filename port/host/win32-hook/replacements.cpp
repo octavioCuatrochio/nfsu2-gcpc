@@ -140,6 +140,7 @@ int32_t THISCALL SlotPool_GetSlotNumber(SlotPool *self, const void *p) { return 
 void *THISCALL SlotPool_FastMalloc(SlotPool *self) { return self->FastMalloc(); }
 void THISCALL SlotPool_Free(SlotPool *self, void *p) { self->Free(p); }
 void *THISCALL SlotPool_Malloc(SlotPool *self) { return self->Malloc(); }
+void *THISCALL SlotPool_GetAllocatedSlot(SlotPool *self, int32_t n) { return self->GetAllocatedSlot(n); }
 void THISCALL SlotPool_Expand(SlotPool *self, int32_t n) { self->ExpandSlotPool(n); }
 SlotPool *__cdecl SlotPool_New(uint32_t size, int32_t n, const char *name, uint32_t flags) { return SlotPool::NewSlotPool(size, n, name, flags); }
 int32_t __cdecl bEqual2_Hook(const bVector2 *a, const bVector2 *b, float e) { return bEqual(a, b, e); }
@@ -379,6 +380,7 @@ const Replacement kReplacements[] = {
     {0x43CD80, (const void *)&SlotPool_GetSlotNumber, "SlotPool::GetSlotNumber", {0x53, 0x56, 0x33, 0xF6, 0x85, 0xC9}},
     {0x43CDD0, (const void *)&SlotPool_FastMalloc, "SlotPool::FastMalloc", {0x8B, 0x51, 0x18, 0x8B, 0x41, 0x10}},
     {0x43CDF0, (const void *)&SlotPool_Free, "SlotPool::Free", {0x8B, 0x41, 0x18, 0x8B, 0x54, 0x24}},
+    {0x440C30, (const void *)&SlotPool_GetAllocatedSlot, "SlotPool::GetAllocatedSlot", {0x51, 0x53, 0x55, 0x56, 0x57, 0x6A}},
     {0x440B40, (const void *)&SlotPool_New, "SlotPool::NewSlotPool", {0x53, 0x8B, 0x5C, 0x24, 0x14, 0x55}},
     {0x440BB0, (const void *)&SlotPool_Expand, "SlotPool::ExpandSlotPool", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
     {0x440D40, (const void *)&SlotPool_Malloc, "SlotPool::Malloc", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x10}},

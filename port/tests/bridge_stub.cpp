@@ -91,6 +91,7 @@ void *bWareMalloc(uint32_t size, const char *, int32_t, uint32_t)
     if (p) std::memset(p, 0xCD, size);   // not zeroed
     return p;
 }
+void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE
 uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }
 #else

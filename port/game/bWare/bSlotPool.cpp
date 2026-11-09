@@ -1,4 +1,5 @@
 #include "bSlotPool.h"
+#include <cstring>
 #include "bridge/Bridge.h"
 
 void SlotPool::FlushSlotPool(SlotPool *pool)
@@ -99,4 +100,29 @@ SlotPool *SlotPool::NewSlotPool(uint32_t slotSize, int32_t numSlots, const char 
     p->mi32MostAllocated = 0;
     FlushSlotPool(p);
     return p;
+}
+
+void *SlotPool::GetSlot(int32_t index)
+{
+    for (SlotPool *p = this; p; p = p->mpNext) {
+        if (index >= 0 && index < p->mi32NumSlots) return p->SlotData() + static_cast<uint32_t>(index) * mu32SlotSize;
+        index -= p->mi32NumSlots;
+    }
+    return nullptr;
+}
+
+void *SlotPool::GetAllocatedSlot(int32_t n)
+{
+    auto *map = static_cast<int8_t *>(bridge::bWareMalloc(static_cast<uint32_t>(mi32TotalSlots), nullptr, 0, 0));
+    std::memset(map, 1, static_cast<uint32_t>(mi32TotalSlots));
+    for (void *f = mpFreeList; f; f = *static_cast<void **>(f)) map[GetSlotNumber(this, f)] = 0;
+    void *result = nullptr;
+    const int32_t total = mi32TotalSlots;
+    for (int32_t i = 0; i < total; ++i) {
+        if (!map[i]) continue;
+        if (n == 0) { result = GetSlot(i); break; }
+        --n;
+    }
+    bridge::bWareFree(map);
+    return result;
 }

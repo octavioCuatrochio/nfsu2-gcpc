@@ -31,6 +31,11 @@ struct SlotPool {
     // GC 8005CD80 / PC 440D40: FastMalloc, expanding by numSlots/4 + 1 first when empty and flag 1; flag 2 zeroes
     // (slotSize >> 2) words of the slot.
     void *Malloc();
+    // GC 8005CB3C (PC: inlined): slot `index` over the chain (first pool's slot size), null if out of range.
+    void *GetSlot(int32_t index);
+    // GC 8005CB84 / PC 440C30 (ret 4): the n-th allocated slot (in slot order), null if fewer. Builds a byte map
+    // of size mi32TotalSlots with bWareMalloc; a free-list entry outside every pool marks map[-1] (as the original).
+    void *GetAllocatedSlot(int32_t n);
     // GC 8005CA44 / PC 440BB0 (ret 4): append a pool of n slots (same size/name/flags) to the chain and splice its
     // free list in front of ours (the new pool's last slot points at our old head). No allocation-failure check.
     void ExpandSlotPool(int32_t n);

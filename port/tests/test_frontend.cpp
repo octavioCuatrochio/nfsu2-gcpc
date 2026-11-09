@@ -1153,6 +1153,11 @@ static void TestSlotPool()
     CHECK(p->mpFreeList == s[1] && p->FastMalloc() == s[1]);
     CHECK(SlotPool::GetSlotNumber(p, reinterpret_cast<uint8_t *>(p) - 8) == -1 && SlotPool::GetSlotNumber(nullptr, s[0]) == -1);
     CHECK(bCountTotalSlots(p) == 8 && p->mi32NumAllocated == 7 && bCountFreeSlots(p) == 1 && !bIsSlotPoolFull(p));
+    // allocated (slot order): s0, s1 (re-taken), s2, s3 | s4, s5 | one slot of the third pool
+    CHECK(p->GetAllocatedSlot(0) == s[0] && p->GetAllocatedSlot(1) == s[1] && p->GetAllocatedSlot(4) == s[4]);
+    CHECK(p->GetAllocatedSlot(7) == nullptr && p->GetSlot(5) == s[5] && p->GetSlot(8) == nullptr && p->GetSlot(-1) == nullptr);
+    p->Free(s[2]);
+    CHECK(p->GetAllocatedSlot(2) == s[3]);
     while (p) { SlotPool *n = p->mpNext; std::free(p); --teststub::liveAllocations; p = n; }
     CHECK(teststub::liveAllocations == live);
 }
