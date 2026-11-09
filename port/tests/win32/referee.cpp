@@ -29,6 +29,7 @@
 #include "frontend/cFEng.h"
 #include "frontend/FEListBox.h"
 #include "bWare/bSlotPool.h"
+#include "camera/CameraNoise.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include <float.h>
@@ -981,6 +982,24 @@ static void CheckSlotPoolB(int iters)
     }
 }
 
+static void CheckNoise(int iters)
+{
+    auto oNI = ORIG<long double(__cdecl *)(float)>(0x4411B0);
+    auto oN = ORIG<long double(__cdecl *)(float)>(0x441270);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int i = 0; i < iters; ++i) {
+            float x = rng() % 4 ? static_cast<float>(static_cast<int32_t>(rng() % 2000001) - 1000000) / 1000.0f
+                                : static_cast<float>(static_cast<int32_t>(rng() % 200) - 100);
+            long double a = oNI(x), b = NoiseInterpolated(x);
+            EXPECT(std::memcmp(&a, &b, 10) == 0, "NoiseInterpolated(%.9g) pc=%x", double(x), pc);
+            if (i % 4 == 0) { a = oN(x); b = Noise(x); EXPECT(std::memcmp(&a, &b, 10) == 0, "Noise(%.9g) pc=%x", double(x), pc); }
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1392,6 +1411,7 @@ static int RunAll()
     CheckVectors(iters);
     CheckBoxes(iters);
     CheckSlotPoolB(iters);
+    CheckNoise(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);
