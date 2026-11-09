@@ -791,6 +791,24 @@ static void CheckMatrices(int iters)
             else if (it % 2) { oTr(&o1, &a); bTransposeMatrix(&o2, &a); }
             else { oId(&o1); bIdentity(&o2); }
             EXPECT(std::memcmp(&o1, &o2, sizeof o1) == 0, "matrix op mode %d pc=%x", mode, pc);
+            {
+                auto oInv = ORIG<void(__cdecl *)(bMatrix4 *, const bMatrix4 *)>(0x43C7C0);
+                bMatrix4 i1 = o1, i2 = o1;
+                oInv(&i1, &a); bInvertMatrix(&i2, &a);
+                // NaN results (singular input) may differ in sign: x87 picks between two NaN operands by position
+                // and the compiler may commute; any NaN is accepted for a NaN (documented in bMath.h).
+                auto same = [](float x, float y) { return std::memcmp(&x, &y, 4) == 0 || (x != x && y != y); };
+                int k = 0;
+                while (k < 16 && same(i1.m[k], i2.m[k])) ++k;
+                uint32_t b1 = 0, b2 = 0;
+                if (k < 16) { std::memcpy(&b1, &i1.m[k], 4); std::memcpy(&b2, &i2.m[k], 4); }
+                EXPECT(k == 16, "bInvertMatrix pc=%x elem %d: %08X vs %08X (%.9g vs %.9g)", pc, k, b1, b2, k < 16 ? double(i1.m[k]) : 0.0, k < 16 ? double(i2.m[k]) : 0.0);
+                i1 = a; i2 = a;
+                oInv(&i1, &i1); bInvertMatrix(&i2, &i2);
+                k = 0;
+                while (k < 16 && same(i1.m[k], i2.m[k])) ++k;
+                EXPECT(k == 16, "bInvertMatrix in place pc=%x", pc);
+            }
             if (mode == 3) { o1 = a; o2 = a; oTr(&o1, &o1); bTransposeMatrix(&o2, &o2); EXPECT(std::memcmp(&o1, &o2, sizeof o1) == 0, "transpose in place"); }
         }
     }

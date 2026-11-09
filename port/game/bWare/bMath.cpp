@@ -5,6 +5,13 @@
 
 namespace {
 using L = long double;
+// x87 fchs: flip the sign bit after the operation (compilers may otherwise fold -(a*b) into a*(-b), which differs
+// for NaN results).
+inline L Fchs(L x)
+{
+    volatile L v = x;   // opaque (exact for long double): the negation must follow the operation
+    return -v;
+}
 }
 
 // PC 43C2B0
@@ -129,6 +136,39 @@ void eMulMatrix(bMatrix4 *out, const bMatrix4 *pa, const bMatrix4 *pb)
     r[14] = float(((((L(a.m[15]) * L(b.m[14])) + (L(a.m[14]) * L(b.m[10]))) + (L(b.m[6]) * L(a.m[13]))) + (L(a.m[12]) * L(b.m[2]))));
     r[15] = float(((((L(b.m[15]) * L(a.m[15])) + (L(a.m[14]) * L(b.m[11]))) + (L(a.m[12]) * L(b.m[3]))) + (L(b.m[7]) * L(a.m[13]))));
     std::memcpy(out->m, r, sizeof r);   // PC 4012B0 copy
+}
+
+// Generated from the PC asm by tooling/x87sym.py.
+void bInvertMatrix(bMatrix4 *out, const bMatrix4 *in)
+{
+    const bMatrix4 s = *in;
+    out->m[3] = 0.0f;
+    const float t1 = float(((L(s.m[10]) * L(s.m[4])) - (L(s.m[8]) * L(s.m[6]))));
+    const float t2 = float(((L(s.m[9]) * L(s.m[4])) - (L(s.m[8]) * L(s.m[5]))));
+    const float t3 = float((L(0x1.0000000000000p+0f) / (((((L(s.m[5]) * L(s.m[10])) - (L(s.m[9]) * L(s.m[6]))) * L(s.m[0])) - (L(t1) * L(s.m[1]))) + (L(t2) * L(s.m[2])))));
+    const float t4 = float((((L(s.m[5]) * L(s.m[10])) - (L(s.m[9]) * L(s.m[6]))) * L(t3)));
+    out->m[0] = float((((L(s.m[5]) * L(s.m[10])) - (L(s.m[9]) * L(s.m[6]))) * L(t3)));
+    const float t5 = float(Fchs((((L(s.m[10]) * L(s.m[1])) - (L(s.m[9]) * L(s.m[2]))) * L(t3))));
+    out->m[1] = float(Fchs((((L(s.m[10]) * L(s.m[1])) - (L(s.m[9]) * L(s.m[2]))) * L(t3))));
+    const float t6 = float((((L(s.m[6]) * L(s.m[1])) - (L(s.m[5]) * L(s.m[2]))) * L(t3)));
+    out->m[2] = float((((L(s.m[6]) * L(s.m[1])) - (L(s.m[5]) * L(s.m[2]))) * L(t3)));
+    const float t7 = float(Fchs((L(t1) * L(t3))));
+    out->m[4] = float(Fchs((L(t1) * L(t3))));
+    out->m[7] = 0.0f;
+    out->m[11] = 0.0f;
+    out->m[15] = 1.0f;
+    const float t8 = float((((L(s.m[10]) * L(s.m[0])) - (L(s.m[8]) * L(s.m[2]))) * L(t3)));
+    out->m[5] = float((((L(s.m[10]) * L(s.m[0])) - (L(s.m[8]) * L(s.m[2]))) * L(t3)));
+    const float t9 = float(Fchs((((L(s.m[6]) * L(s.m[0])) - (L(s.m[4]) * L(s.m[2]))) * L(t3))));
+    out->m[6] = float(Fchs((((L(s.m[6]) * L(s.m[0])) - (L(s.m[4]) * L(s.m[2]))) * L(t3))));
+    const float t10 = float((L(t2) * L(t3)));
+    out->m[8] = float((L(t2) * L(t3)));
+    const float t11 = float(Fchs((((L(s.m[9]) * L(s.m[0])) - (L(s.m[8]) * L(s.m[1]))) * L(t3))));
+    out->m[9] = float(Fchs((((L(s.m[9]) * L(s.m[0])) - (L(s.m[8]) * L(s.m[1]))) * L(t3))));
+    out->m[10] = float((((L(s.m[0]) * L(s.m[5])) - (L(s.m[4]) * L(s.m[1]))) * L(t3)));
+    out->m[12] = float(Fchs((((L(t10) * L(s.m[14])) + (L(t7) * L(s.m[13]))) + (L(t4) * L(s.m[12])))));
+    out->m[13] = float(Fchs((((L(t11) * L(s.m[14])) + (L(t8) * L(s.m[13]))) + (L(t5) * L(s.m[12])))));
+    out->m[14] = float(Fchs(((((((L(s.m[0]) * L(s.m[5])) - (L(s.m[4]) * L(s.m[1]))) * L(t3)) * L(s.m[14])) + (L(t9) * L(s.m[13]))) + (L(t6) * L(s.m[12])))));
 }
 
 void bMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b) { eMulMatrix(out, b, a); }

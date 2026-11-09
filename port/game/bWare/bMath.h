@@ -35,7 +35,11 @@ void bIdentity(bMatrix4 *m);                                   // GC ? / PC 43C7
 // (unrolled) order in x87 and rounded once; result written through a temporary (out may alias a or b).
 void eMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b);
 void bMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b);   // GC 80059A8C / PC 43C990: eMulMatrix(out, b, a)
-void bTransposeMatrix(bMatrix4 *out, const bMatrix4 *in);      // PC 43C9D0 (via a copy: in may alias out)
+void bTransposeMatrix(bMatrix4 *out, const bMatrix4 *in);
+// GC 80059A6C / PC 43C7C0: inverse of an affine matrix (3x3 cofactors / determinant, translation row = -t * R^-1,
+// column 3 = 0,0,0,1). Original's x87 order and float temporaries; reads all of `in` first (in may alias out).
+// Known difference: singular input (det 0) gives NaNs whose SIGN may differ (NaN-vs-NaN operand choice).
+void bInvertMatrix(bMatrix4 *out, const bMatrix4 *in);      // PC 43C9D0 (via a copy: in may alias out)
 // GC 80059210 / PC 43C280: a - (a / |b| * |b| - (a < 0 ? |b| : 0)); note a < 0 and divisible -> |b|, not 0.
 int32_t bSignedMod(int32_t a, int32_t b);
 // GC 800598A0 / PC 43C650: atan of a 16.16 ratio, piecewise linear over two uint16 tables (PC 0x7EB1C0 below 4.0,

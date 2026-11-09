@@ -46,7 +46,28 @@ def addr(op):
     raise SystemExit(f'unknown base {reg} in {op}')
 
 
+def const(va):
+    """float constant at an absolute VA, as an exact C++ hex-float literal"""
+    import struct
+    with open(exe, 'rb') as f:
+        d = f.read(0x400)
+        pe = struct.unpack_from('<I', d, 0x3c)[0]
+        ns = struct.unpack_from('<H', d, pe + 6)[0]
+        opt = struct.unpack_from('<H', d, pe + 20)[0]
+        for i in range(ns):
+            o = pe + 24 + opt + i * 40
+            vs, va0, rs, ro = struct.unpack_from('<IIII', d, o + 8)
+            if 0x400000 + va0 <= va < 0x400000 + va0 + vs:
+                f.seek(ro + va - 0x400000 - va0)
+                v = struct.unpack('<f', f.read(4))[0]
+                return f'L({float(v).hex()}f)'
+    raise SystemExit(f'constant {va:x} not in a section')
+
+
 def load(op):
+    m = re.match(r'DWORD PTR ds:(0x[0-9a-f]+)$', op)
+    if m:
+        return const(int(m.group(1), 16))
     a = addr(op)
     if a in mem:
         return mem[a]
@@ -150,7 +171,7 @@ for va, ins in lines:
         i = sti(ops[0]) if ops else 1
         st[0], st[i] = st[i], st[0]; continue
     if op == 'fchs':
-        st[0] = f'(-{st[0]})'; continue
+        st[0] = f'Fchs({st[0]})'; continue   # exact x87 fchs (sign flip after the operation, NaN too)
     if op == 'fabs':
         st[0] = f'__builtin_fabsl({st[0]})'; continue
     if op == 'fsqrt':
