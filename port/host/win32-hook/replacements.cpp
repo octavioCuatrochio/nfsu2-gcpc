@@ -134,6 +134,13 @@ void __cdecl FEInterpLinear_Hook(FEKeyTrack *t, int32_t time, void *out) { FEInt
 long double __cdecl bSin_Hook(uint32_t angle) { return bSin(static_cast<uint16_t>(angle)); }
 long double __cdecl bCos_Hook(uint32_t angle) { return bCos(static_cast<uint16_t>(angle)); }
 uint16_t __cdecl bFastATan_Hook(float x, float y) { return bFastATan(x, y); }
+int32_t __cdecl bEqual2_Hook(const bVector2 *a, const bVector2 *b, float e) { return bEqual(a, b, e); }
+int32_t __cdecl bEqual3_Hook(const bVector3 *a, const bVector3 *b, float e) { return bEqual(a, b, e); }
+void __cdecl bInitBB0_Hook(bVector2 *a, bVector2 *b) { bInitializeBoundingBox(a, b); }
+void __cdecl bInitBB1_Hook(bVector2 *a, bVector2 *b, const bVector2 *p) { bInitializeBoundingBox(a, b, p); }
+void __cdecl bExpandBB_Hook(bVector2 *a, bVector2 *b, const bVector2 *p) { bExpandBoundingBox(a, b, p); }
+void __cdecl bExpandBBR_Hook(bVector2 *a, bVector2 *b, const bVector2 *p, float r) { bExpandBoundingBox(a, b, p, r); }
+void __cdecl bExpandBB2_Hook(bVector2 *a, bVector2 *b, const bVector2 *p, const bVector2 *q) { bExpandBoundingBox(a, b, p, q); }
 long double __cdecl bDistBetween_Hook(const bVector3 *a, const bVector3 *b) { return bDistBetween(a, b); }
 void __cdecl bNormalize2_Hook(bVector2 *o, const bVector2 *i) { bNormalize(o, i); }
 void __cdecl bNormalize2S_Hook(bVector2 *o, const bVector2 *i, float s) { bNormalize(o, i, s); }
@@ -348,6 +355,14 @@ const Replacement kReplacements[] = {
     {0x43CF90, (const void *)&bNormalize3S_Hook, "bNormalize(bVector3, scale)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x41}},
     {0x43D010, (const void *)&bNormalize4_Hook, "bNormalize(bVector4)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x41}},
     {0x43D090, (const void *)&bScaleAdd, "bScaleAdd(bVector2)", {0x8B, 0x44, 0x24, 0x0C, 0xD9, 0x44}},
+    {0x43D150, (const void *)&bEqual2_Hook, "bEqual(bVector2)", {0x8B, 0x4C, 0x24, 0x04, 0xD9, 0x01}},
+    {0x43D190, (const void *)&bEqual3_Hook, "bEqual(bVector3)", {0x8B, 0x4C, 0x24, 0x04, 0xD9, 0x01}},
+    {0x43D1E0, (const void *)&bCross, "bCross", {0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0x44}},
+    {0x43D220, (const void *)&bInitBB0_Hook, "bInitializeBoundingBox", {0x8B, 0x44, 0x24, 0x04, 0xC7, 0x00}},
+    {0x43D250, (const void *)&bInitBB1_Hook, "bInitializeBoundingBox(p)", {0x8B, 0x44, 0x24, 0x0C, 0xD9, 0x00}},
+    {0x43D270, (const void *)&bExpandBB_Hook, "bExpandBoundingBox(p)", {0x8B, 0x54, 0x24, 0x0C, 0xD9, 0x02}},
+    {0x43D2F0, (const void *)&bExpandBBR_Hook, "bExpandBoundingBox(p, r)", {0x8B, 0x54, 0x24, 0x0C, 0xD9, 0x02}},
+    {0x43D380, (const void *)&bExpandBB2_Hook, "bExpandBoundingBox(p, q)", {0x8B, 0x4C, 0x24, 0x0C, 0xD9, 0x01}},
     {0x43C570, (const void *)&bFastATan_Hook, "bFastATan", {0xD9, 0x44, 0x24, 0x04, 0x56, 0xD8}},
     {0x43C650, (const void *)&bFixATan1_Hook, "bFixATan(int)", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x57}},
     {0x43C6F0, (const void *)&bFixATan2_Hook, "bFixATan(int, int)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x57}},

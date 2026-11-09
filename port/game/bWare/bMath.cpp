@@ -182,6 +182,71 @@ void bScaleAdd(bVector2 *out, const bVector2 *a, const bVector2 *b, float s)
     out->y = static_cast<float>(y);
 }
 
+int32_t bEqual(const bVector2 *a, const bVector2 *b, float eps)
+{
+    if (__builtin_fabsl(L(a->x) - b->x) > eps) return 0;
+    return !(__builtin_fabsl(L(a->y) - b->y) > eps);
+}
+
+int32_t bEqual(const bVector3 *a, const bVector3 *b, float eps)
+{
+    if (__builtin_fabsl(L(a->x) - b->x) > eps) return 0;
+    if (__builtin_fabsl(L(a->y) - b->y) > eps) return 0;
+    return !(__builtin_fabsl(L(a->z) - b->z) > eps);
+}
+
+void bCross(bVector3 *out, const bVector3 *a, const bVector3 *b)
+{
+    const L y = L(b->x) * a->z - L(b->z) * a->x;
+    const L z = L(b->y) * a->x - L(a->y) * b->x;
+    const L x = L(b->z) * a->y - L(b->y) * a->z;
+    out->x = static_cast<float>(x);
+    out->y = static_cast<float>(y);
+    out->z = static_cast<float>(z);
+}
+
+void bInitializeBoundingBox(bVector2 *min, bVector2 *max)
+{
+    const uint32_t big = 0x7F7FFFFFu, nbig = 0xFF7FFFFFu;   // +-FLT_MAX
+    std::memcpy(&min->x, &big, 4); std::memcpy(&min->y, &big, 4);
+    std::memcpy(&max->x, &nbig, 4); std::memcpy(&max->y, &nbig, 4);
+}
+
+void bInitializeBoundingBox(bVector2 *min, bVector2 *max, const bVector2 *p)
+{
+    const float x = p->x, y = p->y;
+    min->x = x; min->y = y;
+    max->x = x; max->y = y;
+}
+
+namespace {
+// x87 min / max of a stored float against an unrounded candidate (the chosen value is stored as float).
+inline L KeepIfLess(float cur, L v) { return (L(cur) < v) ? L(cur) : v; }
+inline L KeepIfGreater(float cur, L v) { return (L(cur) > v) ? L(cur) : v; }
+void Expand(bVector2 *min, bVector2 *max, L lx, L ly, L hx, L hy)
+{
+    const L mx = KeepIfLess(min->x, lx), my = KeepIfLess(min->y, ly);
+    const L Mx = KeepIfGreater(max->x, hx), My = KeepIfGreater(max->y, hy);
+    min->x = static_cast<float>(mx); min->y = static_cast<float>(my);
+    max->x = static_cast<float>(Mx); max->y = static_cast<float>(My);
+}
+}
+
+void bExpandBoundingBox(bVector2 *min, bVector2 *max, const bVector2 *p)
+{
+    Expand(min, max, p->x, p->y, p->x, p->y);
+}
+
+void bExpandBoundingBox(bVector2 *min, bVector2 *max, const bVector2 *p, float r)
+{
+    Expand(min, max, L(p->x) - r, L(p->y) - r, L(r) + p->x, L(r) + p->y);
+}
+
+void bExpandBoundingBox(bVector2 *min, bVector2 *max, const bVector2 *p, const bVector2 *q)
+{
+    Expand(min, max, p->x, p->y, q->x, q->y);
+}
+
 void bIdentity(bMatrix4 *m)
 {
     for (int i = 0; i < 16; ++i) m->m[i] = (i % 5 == 0) ? 1.0f : 0.0f;

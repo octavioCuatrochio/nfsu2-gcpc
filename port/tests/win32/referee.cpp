@@ -858,6 +858,44 @@ static void CheckVectors(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+static void CheckBoxes(int iters)
+{
+    auto oEq2 = ORIG<int32_t(__cdecl *)(const bVector2 *, const bVector2 *, float)>(0x43D150);
+    auto oEq3 = ORIG<int32_t(__cdecl *)(const bVector3 *, const bVector3 *, float)>(0x43D190);
+    auto oCross = ORIG<void(__cdecl *)(bVector3 *, const bVector3 *, const bVector3 *)>(0x43D1E0);
+    auto oI0 = ORIG<void(__cdecl *)(bVector2 *, bVector2 *)>(0x43D220);
+    auto oI1 = ORIG<void(__cdecl *)(bVector2 *, bVector2 *, const bVector2 *)>(0x43D250);
+    auto oE = ORIG<void(__cdecl *)(bVector2 *, bVector2 *, const bVector2 *)>(0x43D270);
+    auto oER = ORIG<void(__cdecl *)(bVector2 *, bVector2 *, const bVector2 *, float)>(0x43D2F0);
+    auto oE2 = ORIG<void(__cdecl *)(bVector2 *, bVector2 *, const bVector2 *, const bVector2 *)>(0x43D380);
+    auto v = []() { return rng() % 5 == 0 ? 0.0f : AtanSample(); };
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            float buf1[12], buf2[12];
+            for (int i = 0; i < 12; ++i) buf1[i] = buf2[i] = v();
+            if (rng() % 3 == 0) { buf1[4] = buf2[4] = buf1[0]; buf1[5] = buf2[5] = buf1[1]; }   // equal values
+            float e = rng() % 4 == 0 ? 0.0f : __builtin_fabsf(AtanSample());
+            auto V2 = [](float *b, int i) { return reinterpret_cast<bVector2 *>(b + i); };
+            auto V3 = [](float *b, int i) { return reinterpret_cast<bVector3 *>(b + i); };
+            int mode = rng() % 8;
+            switch (mode) {
+            case 0: EXPECT(oEq2(V2(buf1, 0), V2(buf1, 4), e) == bEqual(V2(buf2, 0), V2(buf2, 4), e), "bEqual2"); break;
+            case 1: EXPECT(oEq3(V3(buf1, 0), V3(buf1, 4), e) == bEqual(V3(buf2, 0), V3(buf2, 4), e), "bEqual3"); break;
+            case 2: { int o = rng() % 2 ? 8 : 0; oCross(V3(buf1, o), V3(buf1, 0), V3(buf1, 3)); bCross(V3(buf2, o), V3(buf2, 0), V3(buf2, 3)); break; }
+            case 3: oI0(V2(buf1, 0), V2(buf1, 2)); bInitializeBoundingBox(V2(buf2, 0), V2(buf2, 2)); break;
+            case 4: oI1(V2(buf1, 0), V2(buf1, 2), V2(buf1, 4)); bInitializeBoundingBox(V2(buf2, 0), V2(buf2, 2), V2(buf2, 4)); break;
+            case 5: oE(V2(buf1, 0), V2(buf1, 2), V2(buf1, 4)); bExpandBoundingBox(V2(buf2, 0), V2(buf2, 2), V2(buf2, 4)); break;
+            case 6: oER(V2(buf1, 0), V2(buf1, 2), V2(buf1, 4), e); bExpandBoundingBox(V2(buf2, 0), V2(buf2, 2), V2(buf2, 4), e); break;
+            default: oE2(V2(buf1, 0), V2(buf1, 2), V2(buf1, 4), V2(buf1, 6)); bExpandBoundingBox(V2(buf2, 0), V2(buf2, 2), V2(buf2, 4), V2(buf2, 6));
+            }
+            EXPECT(std::memcmp(buf1, buf2, sizeof buf1) == 0, "box/cross op %d pc=%x", mode, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1267,6 +1305,7 @@ static int RunAll()
     CheckRandomMod(iters);
     CheckMatrices(iters);
     CheckVectors(iters);
+    CheckBoxes(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);

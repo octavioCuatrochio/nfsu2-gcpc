@@ -45,6 +45,20 @@ void bNormalize(bVector4 *out, const bVector4 *in);
 // GC ? / PC 43D090: out = a + b * s (2D).
 void bScaleAdd(bVector2 *out, const bVector2 *a, const bVector2 *b, float s);
 
+// GC 8005D544 / 8005D588, PC 43D150 / 43D190: every |a - b| component is NOT greater than eps (NaN counts as equal).
+int32_t bEqual(const bVector2 *a, const bVector2 *b, float eps);
+int32_t bEqual(const bVector3 *a, const bVector3 *b, float eps);
+// GC 8005D5EC / PC 43D1E0: out = a x b (all reads before the stores).
+void bCross(bVector3 *out, const bVector3 *a, const bVector3 *b);
+// Bounding boxes (2D). PC 43D220 / 43D250: empty box (+-FLT_MAX) / box of one point.
+void bInitializeBoundingBox(bVector2 *min, bVector2 *max);
+void bInitializeBoundingBox(bVector2 *min, bVector2 *max, const bVector2 *p);
+// PC 43D270 / 43D2F0 / 43D380: min = (min < v) ? min : v, max = (max > v) ? max : v per axis (NaN takes v);
+// with radius r: v = p -+ r (unrounded for the comparison); with two points: min against p, max against q.
+void bExpandBoundingBox(bVector2 *min, bVector2 *max, const bVector2 *p);
+void bExpandBoundingBox(bVector2 *min, bVector2 *max, const bVector2 *p, float r);
+void bExpandBoundingBox(bVector2 *min, bVector2 *max, const bVector2 *p, const bVector2 *q);
+
 // 4x4 float matrix, row-major (m[row * 4 + col]); 64 bytes, layout shared with game code.
 struct bMatrix4 { float m[16]; };
 void bIdentity(bMatrix4 *m);                                   // GC ? / PC 43C780
