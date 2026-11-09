@@ -251,3 +251,57 @@ void FEObject::SetupMoveToTracks()
         }
     }
 }
+
+namespace {
+enum : int { kTrackColor = 0, kTrackPosition = 2, kTrackRotation = 3, kTrackSize = 4 };
+template <typename T> T ReadData(const FEObject &o, int track)
+{
+    T v;
+    std::memcpy(&v, static_cast<const uint8_t *>(o.mpData) + FEObject::GetDataOffset(track), sizeof v);
+    return v;
+}
+}  // namespace
+
+void FEObject::SetPosition(const FEVector3 &v, bool add)
+{
+    if (static_cast<int32_t>(mu32Type) >= 0x100) return;
+    FEVector3 ref = add ? FEVector3{0, 0, 0} : ReadData<FEVector3>(*this, kTrackPosition);
+    if (!FEVector3Close(v, ref)) mu32Flags |= FEOBJ_DIRTY;
+    SetTrackValue(kTrackPosition, v, add);
+}
+
+void FEObject::SetSize(const FEVector3 &v, bool add)
+{
+    if (static_cast<int32_t>(mu32Type) >= 0x100) return;
+    FEVector3 ref = add ? FEVector3{0, 0, 0} : ReadData<FEVector3>(*this, kTrackSize);
+    if (!FEVector3Close(v, ref)) mu32Flags |= FEOBJ_DIRTY;
+    SetTrackValue(kTrackSize, v, add);
+}
+
+void FEObject::SetColor(const FEColor &c, bool add)
+{
+    if (static_cast<int32_t>(mu32Type) >= 0x100) return;
+    FEColor ref = add ? FEColor{{0, 0, 0, 0}} : ReadData<FEColor>(*this, kTrackColor);
+    if (!FEColorClose(c, ref)) mu32Flags |= FEOBJ_DIRTY;
+    SetTrackValue(kTrackColor, c, add);
+}
+
+// PC 517C80 (SetTrackValue for quaternions inlined; no dirty check).
+void FEObject::SetRotation(const FEQuaternion &q, bool add)
+{
+    if (static_cast<int32_t>(mu32Type) >= 0x100) return;
+    mu32Flags |= FEOBJ_DIRTY;
+    auto apply = [&](void *dst) {
+        FEQuaternion cur;
+        std::memcpy(&cur, dst, sizeof cur);
+        FEQuaternion r = add ? FEQuatMultiply(cur, q) : q;
+        std::memcpy(dst, &r, sizeof r);
+    };
+    for (FEMinNode *n = mScripts.head; n; n = n->next) {
+        FEKeyTrack *t = reinterpret_cast<FEScript *>(n)->FindTrack(kTrackRotation);
+        if (!t) continue;
+        apply(&t->mBaseKey._data[1]);
+        t->mu8Flags &= 0x7F;
+    }
+    apply(static_cast<uint8_t *>(mpData) + GetDataOffset(kTrackRotation));
+}

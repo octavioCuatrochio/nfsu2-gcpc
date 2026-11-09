@@ -160,6 +160,10 @@ VALUES (0x8014297C,0x535FE0,'hooked','port/game/frontend/FEString.cpp','unit+in-
   offsets/sizes; pin PC sizes with static_asserts inside `#if UINTPTR_MAX == 0xFFFFFFFFu`.
 - Verify vtable identities via the destructor that installs them (FEMinNode was first misidentified).
 - Make pipeline steps idempotent; a second run of the layout conversion corrupted 46 structs once.
+- x87 float code: MSVC keeps intermediates in x87 registers (precision = FPU control word: 53-bit by default,
+  24-bit once D3D9 sets it). Writing `float` math rounds differently near thresholds. Mirror it with `long double`
+  in the original's evaluation order (on i686 that compiles to the same x87 ops under the same control word);
+  round to float only where the original stores to memory. Made Close() and quaternion multiply bit-exact.
 - The GameCube `Speed.elf` is byte-identical to retail US `main.dol`: it is the real game, not a prototype.
 
 ## 5. Status (update this section when you finish a batch)
@@ -180,8 +184,9 @@ VALUES (0x8014297C,0x535FE0,'hooked','port/game/frontend/FEString.cpp','unit+in-
 - Also done: FEObject copy ctor 554300 + Clone 5545D0 (unit tests only: not reached by any menu path we can drive).
 - Also done: FEObject::SetupMoveToTracks 517720, FERefList::GetHead 4FE890, FEMath (quat multiply 4FE6B0, FEColor sub 505580).
 - Also done: FEScript::FindTrack 504A00, FEObject::SetTrackValue (vec3/vec2/color: 5178D0/5179D0/517AD0; referee).
-- Next in the frontend: FEObject::SetPosition/SetRotation/SetSize/SetColor wrappers (PC 517C80/517DB0/517E20 are
-  0.7 matches: verify), FEKeyTrack::GetKeyAt/GetDeltaKeyAt, FEKeyInterp, subclass copy ctors/Clones.
+- Also done: FEObject::SetPosition/SetRotation/SetSize/SetColor (517C10/517C80/517DB0/517E20), Close comparators
+  (504500/5045A0/504640). Referee exact, incl. floats.
+- Next in the frontend: FEKeyTrack::GetKeyAt/GetDeltaKeyAt, FEKeyInterp/FEKeyInterpFast, subclass copy ctors/Clones.
 - In-game check timing: race starts ~25 s after launch with SKIP_MOVIES/NIS; screenshot right then (no need to wait).
   (`FEWidget`, `FELabelWidget`, `FEButtonWidget`, ...). `python3 -I tooling/knowledge/packet.py --class FEObject`.
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;`

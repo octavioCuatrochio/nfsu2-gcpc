@@ -112,6 +112,12 @@ FEKeyTrack *THISCALL FEScript_FindTrack(const FEScript *self, int track) { retur
 void THISCALL FEObject_SetTrackVec3(FEObject *self, int track, const FEVector3 *v, int add) { self->SetTrackValue(track, *v, (add & 0xFF) != 0); }
 void THISCALL FEObject_SetTrackVec2(FEObject *self, int track, const FEVector2 *v, int add) { self->SetTrackValue(track, *v, (add & 0xFF) != 0); }
 void THISCALL FEObject_SetTrackColor(FEObject *self, int track, const FEColor *v, int add) { self->SetTrackValue(track, *v, (add & 0xFF) != 0); }
+void THISCALL FEObject_SetPosition(FEObject *self, const FEVector3 *v, int add) { self->SetPosition(*v, (add & 0xFF) != 0); }
+void THISCALL FEObject_SetRotation(FEObject *self, const FEQuaternion *q, int add) { self->SetRotation(*q, (add & 0xFF) != 0); }
+void THISCALL FEObject_SetSize(FEObject *self, const FEVector3 *v, int add) { self->SetSize(*v, (add & 0xFF) != 0); }
+void THISCALL FEObject_SetColor(FEObject *self, const FEColor *c, int add) { self->SetColor(*c, (add & 0xFF) != 0); }
+bool __cdecl FEVector3_Close(const FEVector3 *a, const FEVector3 *b) { return FEVector3Close(*a, *b); }
+bool __cdecl FEColor_Close(const FEColor *a, const FEColor *b) { return FEColorClose(*a, *b); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -216,6 +222,13 @@ const Replacement kReplacements[] = {
     {0x5178D0, (const void *)&FEObject_SetTrackVec3, "FEObject::SetTrackValue(FEVector3)", {0x51, 0x53, 0x8B, 0x5C, 0x24, 0x10}},
     {0x5179D0, (const void *)&FEObject_SetTrackVec2, "FEObject::SetTrackValue(FEVector2)", {0x51, 0x56, 0x8B, 0x74, 0x24, 0x10}},
     {0x517AD0, (const void *)&FEObject_SetTrackColor, "FEObject::SetTrackValue(FEColor)", {0x51, 0x53, 0x8B, 0x59, 0x4C, 0x85}},
+    {0x517C10, (const void *)&FEObject_SetPosition, "FEObject::SetPosition", {0x83, 0xEC, 0x0C, 0x56, 0x8B, 0xF1}, 1, 8, 1},   // 4EC40C: push ecx = stack slot (thunk anyway)
+    {0x517C80, (const void *)&FEObject_SetRotation, "FEObject::SetRotation", {0x83, 0xEC, 0x14, 0x81, 0x79, 0x18}},
+    {0x517DB0, (const void *)&FEObject_SetSize, "FEObject::SetSize", {0x83, 0xEC, 0x0C, 0x56, 0x8B, 0xF1}},
+    {0x517E20, (const void *)&FEObject_SetColor, "FEObject::SetColor", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0xF1}},
+    {0x504500, (const void *)&FEVector3_Close, "FEVector3 Close (copy 1)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x01}},
+    {0x5045A0, (const void *)&FEVector3_Close, "FEVector3 Close (copy 2)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x01}},
+    {0x504640, (const void *)&FEColor_Close, "FEColor Close", {0x8B, 0x4C, 0x24, 0x04, 0x8B, 0x44}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

@@ -42,6 +42,13 @@ struct FEObject {
     void SetupMoveToTracks();                         // GC 80137EA4 / PC 517720
     // Sets (add=false) or adds to (add=true) a track's value: in every script's matching track (base key value,
     // flag bit 7 cleared) and in the object's data. GC 8013825C/801383B0/801384EC, PC 5178D0/5179D0/517AD0.
+    // Setters used by game code. Ignored for factory types >= 0x100. Mark the object dirty (FEOBJ_DIRTY) unless the
+    // value would not change (Close/ColorClose against the current value, or against zero when adding);
+    // SetRotation always marks it. GC 801385D0/80138700/80138858/80138988, PC 517C10/517C80/517DB0/517E20.
+    void SetPosition(const FEVector3 &v, bool add);
+    void SetRotation(const FEQuaternion &q, bool add);   // add: track/data = value * q
+    void SetSize(const FEVector3 &v, bool add);
+    void SetColor(const FEColor &c, bool add);
     void SetTrackValue(int track, const FEVector3 &v, bool add);
     void SetTrackValue(int track, const FEVector2 &v, bool add);
     void SetTrackValue(int track, const FEColor &v, bool add);

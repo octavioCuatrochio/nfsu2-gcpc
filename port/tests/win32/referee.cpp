@@ -249,7 +249,7 @@ static void CheckKeyTrackCtor(int iters)
 }
 
 // Quaternion multiply (PC 4FE6B0) and FEColor::operator- (PC 505580): random values, original vs rewrite.
-// Quaternions: x87 keeps intermediates in 80-bit registers, so allow 2 ulp-ish relative slack.
+// Exact: the rewrite mirrors the x87 evaluation order and precision.
 static void CheckFEMath(int iters)
 {
     auto oq = ORIG<FEQuaternion *(THISCALL *)(const FEQuaternion *, FEQuaternion *, const FEQuaternion *)>(0x4FE6B0);
@@ -259,10 +259,7 @@ static void CheckFEMath(int iters)
         FEQuaternion a{d(rng), d(rng), d(rng), d(rng)}, b{d(rng), d(rng), d(rng), d(rng)}, ro{};
         oq(&a, &ro, &b);
         FEQuaternion rr = FEQuatMultiply(a, b);
-        const float *po = &ro.x, *pr = &rr.x;
-        bool ok = true;
-        for (int k = 0; k < 4; ++k) ok = ok && std::fabs(po[k] - pr[k]) <= 1e-5f * (1.f + std::fabs(po[k]));
-        EXPECT(ok, "quat multiply");
+        EXPECT(std::memcmp(&ro, &rr, sizeof ro) == 0, "quat multiply");
         FEColor ca, cb, co{};
         for (int k = 0; k < 4; ++k) { ca.c[k] = static_cast<int32_t>(rng()); cb.c[k] = static_cast<int32_t>(rng()); }
         oc(&ca, &co, &cb);
@@ -322,6 +319,59 @@ static void CheckSetTrackValue(int iters)
     }
 }
 
+// Close comparators (PC 504500/5045A0/504640) near their thresholds, and SetPosition/Rotation/Size/Color
+// (PC 517C10/517C80/517DB0/517E20) on synthetic objects.
+static void CheckSetters(int iters)
+{
+    auto oc1 = ORIG<bool(__cdecl *)(const FEVector3 *, const FEVector3 *)>(0x504500);
+    auto oc2 = ORIG<bool(__cdecl *)(const FEVector3 *, const FEVector3 *)>(0x5045A0);
+    auto occ = ORIG<bool(__cdecl *)(const FEColor *, const FEColor *)>(0x504640);
+    std::uniform_int_distribution<int> small(-3, 3);
+    for (int it = 0; it < iters / 4; ++it) {
+        FEVector3 a{float(rng() % 5) * 0.25f, float(small(rng)), 1000.f}, b = a;
+        float *pb = &b.x;
+        pb[rng() % 3] += float(small(rng)) * 5e-7f;               // around the 1e-6 threshold
+        if (rng() % 50 == 0) pb[rng() % 3] = NAN;
+        EXPECT((oc1(&a, &b) & 1) == FEVector3Close(a, b) && (oc2(&a, &b) & 1) == FEVector3Close(a, b), "Vec3 Close");
+        FEColor ca{{int32_t(rng()), small(rng), INT32_MAX, INT32_MIN}}, cb = ca;
+        cb.c[rng() % 4] += small(rng);
+        EXPECT((occ(&ca, &cb) & 1) == FEColorClose(ca, cb), "Color Close");
+    }
+    auto oPos = ORIG<void(THISCALL *)(FEObject *, const FEVector3 *, int)>(0x517C10);
+    auto oRot = ORIG<void(THISCALL *)(FEObject *, const FEQuaternion *, int)>(0x517C80);
+    auto oSize = ORIG<void(THISCALL *)(FEObject *, const FEVector3 *, int)>(0x517DB0);
+    auto oCol = ORIG<void(THISCALL *)(FEObject *, const FEColor *, int)>(0x517E20);
+    static TrackWorld a, b;
+    for (int it = 0; it < iters / 10; ++it) {
+        uint32_t seed = rng();
+        BuildTrackWorld(a, seed);
+        BuildTrackWorld(b, seed);
+        uint32_t type = rng() % 3 == 0 ? 0x100 + rng() % 4 : rng() % 8, flags = rng() & ~0x400000u;
+        a.obj.mu32Type = b.obj.mu32Type = type;
+        a.obj.mu32Flags = b.obj.mu32Flags = flags;
+        int kind = rng() % 4, add = rng() & 1;
+        bool same_value = rng() % 3 == 0;
+        if (kind == 0 || kind == 2) {
+            int off = kind == 0 ? 7 : 14;
+            FEVector3 v{float(rng() % 9), 2.f, 3.f};
+            if (same_value) std::memcpy(&v, &a.data[off], sizeof v);
+            if (same_value && add) v = FEVector3{0, 0, 0};
+            if (kind == 0) { oPos(&a.obj, &v, add); b.obj.SetPosition(v, add); }
+            else { oSize(&a.obj, &v, add); b.obj.SetSize(v, add); }
+        } else if (kind == 1) {
+            FEQuaternion q{0.f, 0.6f, 0.f, 0.8f};
+            oRot(&a.obj, &q, add); b.obj.SetRotation(q, add);
+        } else {
+            FEColor c{{int32_t(rng() % 300), 1, 2, 3}};
+            if (same_value) std::memcpy(&c, &a.data[0], sizeof c);
+            oCol(&a.obj, &c, add); b.obj.SetColor(c, add);
+        }
+        bool same = std::memcmp(a.data, b.data, sizeof a.data) == 0 && std::memcmp(a.tracks, b.tracks, sizeof a.tracks) == 0 &&
+                    a.obj.mu32Flags == b.obj.mu32Flags;
+        EXPECT(same, "setter kind %d add %d type %X", kind, add, type);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -342,6 +392,7 @@ static int RunAll()
     CheckKeyTrackCtor(iters);
     CheckFEMath(iters);
     CheckSetTrackValue(iters);
+    CheckSetters(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",
