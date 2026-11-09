@@ -65,7 +65,7 @@ void *FEScriptVTable() { return &teststub::feScriptVTable; }
 void *FEKeyNodeVTable() { return &teststub::feKeyNodeVTable; }
 ::FEMinList *FEKeyNodePool() { ++teststub::keyNodeNews; return &teststub::keyNodePool; }
 void *FEKeyNodeBlockVTable() { return &teststub::feKeyNodeBlockVTable; }
-void FEInterpLinear(void *, int32_t, void *out) { ++teststub::linearCalls; std::memset(out, 0x11, 4); }
+void FELerpQuaternion(const void *, const void *, float, const void *, void *out) { ++teststub::linearCalls; std::memset(out, 0x11, 16); }
 void *FERefListVTable() { return &teststub::feRefListVTable; }
 void *FEMessageResponseVTable() { return &teststub::feMsgRespVTable; }
 void *FEObjectVTable() { return &teststub::feObjectVTable; }

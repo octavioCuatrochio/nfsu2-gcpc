@@ -4,8 +4,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 ## Port status / next
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
-- Next: FEInterpLinear 52BDC0 (bridged) + FELerp* (Integer 5050D0, Vector2 505110, Vector3 505150, Color 5051A0,
-  Quaternion 519B00); then FEObject subclass copy ctors/Clones (callers of 554300; only reachable via vtable clone).
+- Next: FELerpQuaternion 519B00 (bridged; needs bWare trig bACos 43C490 / bSin 43C350 and quat helpers 4FE770,
+  4FE7D0, 4FE830, 511C80), then FEPackage::UpdateObjectTracks 541DB0, FEObject subclass copy ctors/Clones.
+- FEInterpLinear (52BDC0): wrap mode = flags&0x7F (0 clamp, 1 loop over track length, 2 ping-pong: reads a null
+  "from" key in the original). t rounded to float; t==0/1 -> key + base (quaternion: key*base); no keys -> base copy.
 - Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
 
 ## Binaries

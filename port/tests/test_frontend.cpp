@@ -571,9 +571,10 @@ static void TestKeyInterp()
     // fast dispatch: step track evaluates; flag bit 7 skips; no keys -> marked done
     t.mu8InterpType = 0; t.mu8Flags = 0; v = 0;
     FEKeyInterpFast(&t, 20, &v); CHECK(v == 102 && t.mu8Flags == 0);
-    t.mu8InterpType = 1; teststub::linearCalls = 0;
-    FEKeyInterpFast(&t, 20, &v); CHECK(teststub::linearCalls == 1);
-    t.mu8Flags = 0x80; FEKeyInterpFast(&t, 20, &v); CHECK(teststub::linearCalls == 1);
+    t.mu8InterpType = 1; v = 0;                         // linear on an int track: key 102 + base 999
+    t.mu8ParamType = 1;
+    FEKeyInterpFast(&t, 20, &v); CHECK(v == 102 + 999);
+    t.mu8Flags = 0x80; v = 0; FEKeyInterpFast(&t, 20, &v); CHECK(v == 0);
     t.mKeys.head = t.mKeys.tail = nullptr; t.mu8Flags = 0; t.mu8InterpType = 2;
     FEKeyInterpFast(&t, 20, &v); CHECK(t.mu8Flags == 0x80);
     // SetBaseValueAt: base += value - evaluated (step track with one key)
@@ -583,6 +584,45 @@ static void TestKeyInterp()
     t.SetBaseValueAt(0, FEColor{{15, 10, 5, -10}});
     CHECK(t.mBaseKey._data[1] == 6 && t.mBaseKey._data[2] == 1 && static_cast<int32_t>(t.mBaseKey._data[3]) == -4);
     CHECK(static_cast<int32_t>(t.mBaseKey._data[4]) == -19 && t.mu8Flags == 0);
+}
+
+// FEInterpLinear: clamp/loop modes, exact keys, float/int/vec3/color lerps, no keys -> base value.
+static void TestInterpLinear()
+{
+    auto fb = [](float f) { uint32_t u; std::memcpy(&u, &f, 4); return u; };
+    FEKeyTrack t;
+    FEKeyTrack::Construct(&t);
+    t._length[0] = 40;
+    FEKeyNode k[2];
+    k[0].node = {&teststub::feKeyNodeVTable, &k[1].node, nullptr};
+    k[1].node = {&teststub::feKeyNodeVTable, nullptr, &k[0].node};
+    k[0]._data[0] = 10; k[1]._data[0] = 30;
+    for (int i = 1; i < 5; ++i) { k[0]._data[i] = fb(0.f); k[1]._data[i] = fb(8.f); t.mBaseKey._data[i] = fb(1.f); }
+    t.mKeys.head = &k[0].node; t.mKeys.tail = &k[1].node;
+    t.mu8ParamType = 2;
+    float f = 0;
+    FEInterpLinear(&t, 20, &f); CHECK(f == 5.f);       // halfway 0..8 + base 1
+    FEInterpLinear(&t, 10, &f); CHECK(f == 1.f);       // exactly on key 0 (t == 0)
+    FEInterpLinear(&t, 35, &f); CHECK(f == 9.f);       // clamp past the last key
+    FEInterpLinear(&t, 0, &f);  CHECK(f == 1.f);       // before the first key: first key's value
+    t.mu8Flags = 1;                                     // loop: from key 30 (8) toward key 10 (0) over length 40
+    FEInterpLinear(&t, 40, &f); CHECK(f == 5.f);       // (40-30)/(40+10-30) = 0.5 -> 4 + 1
+    t.mu8Flags = 0;
+    t.mu8ParamType = 4;
+    float v3[3];
+    FEInterpLinear(&t, 25, v3); CHECK(v3[0] == 7.f && v3[1] == 7.f && v3[2] == 7.f);
+    t.mu8ParamType = 1;                                 // ints: truncate(diff * t + 0.5)
+    k[0]._data[1] = 0; k[1]._data[1] = 3; t.mBaseKey._data[1] = 100;
+    int32_t iv;
+    FEInterpLinear(&t, 15, &iv); CHECK(iv == 101);     // 3 * 0.25 + 0.5 = 1.25 -> 1
+    FEInterpLinear(&t, 26, &iv); CHECK(iv == 102);     // 3 * 0.8 + 0.5 = 2.9 -> 2, + base 100 + a 0
+    t.mu8ParamType = 6;
+    for (int i = 1; i < 5; ++i) { k[0]._data[i] = 0; k[1]._data[i] = static_cast<uint32_t>(-10); t.mBaseKey._data[i] = 0; }
+    int32_t c[4];
+    FEInterpLinear(&t, 20, c); CHECK(c[0] == -4 && c[3] == -4);   // -10 * 0.5 + 0.5 = -4.5 -> -4 (toward zero)
+    t.mKeys.head = t.mKeys.tail = nullptr;              // no keys: base copied
+    t.mBaseKey._data[1] = 77;
+    FEInterpLinear(&t, 20, c); CHECK(c[0] == 77);
 }
 
 int main()
@@ -606,6 +646,7 @@ int main()
     TestMoveToTracks();
     TestSetTrackValue();
     TestKeyInterp();
+    TestInterpLinear();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

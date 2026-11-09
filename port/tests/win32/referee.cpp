@@ -426,6 +426,64 @@ static void CheckKeyInterp(int iters)
     }
 }
 
+// FELerp* (PC 5050D0/505110/505150/5051A0) and FEInterpLinear (52BDC0, modes 0/1, all types but quaternion lerp)
+// on random inputs: byte-exact.
+static void CheckInterpLinear(int iters)
+{
+    auto oLI = ORIG<void(__cdecl *)(int32_t, int32_t, float, const int32_t *, int32_t *)>(0x5050D0);
+    auto oL2 = ORIG<void(__cdecl *)(const FEVector2 *, const FEVector2 *, float, const FEVector2 *, FEVector2 *)>(0x505110);
+    auto oL3 = ORIG<void(__cdecl *)(const FEVector3 *, const FEVector3 *, float, const FEVector3 *, FEVector3 *)>(0x505150);
+    auto oLC = ORIG<void(__cdecl *)(const FEColor *, const FEColor *, float, const FEColor *, FEColor *)>(0x5051A0);
+    auto oLin = ORIG<void(__cdecl *)(FEKeyTrack *, int32_t, void *)>(0x52BDC0);
+    std::uniform_real_distribution<float> fd(-500.f, 500.f), td(0.f, 1.f);
+    auto rf = [&] { return rng() % 8 == 0 ? float(int(rng() % 9) - 4) : fd(rng); };
+    for (int it = 0; it < iters / 4; ++it) {
+        float t = rng() % 10 == 0 ? 0.5f : td(rng);
+        int32_t ia = int32_t(rng()) >> (rng() % 31), ib = int32_t(rng()) >> (rng() % 31), ibase = int32_t(rng()), ro = 0, rr = 0;
+        oLI(ia, ib, t, &ibase, &ro); FELerpInteger(ia, ib, t, &ibase, &rr);
+        EXPECT(ro == rr, "FELerpInteger %d %d %f", ia, ib, double(t));
+        FEVector3 a{rf(), rf(), rf()}, b{rf(), rf(), rf()}, base{rf(), rf(), rf()}, o3{}, r3{};
+        oL3(&a, &b, t, &base, &o3); FELerpVector3(&a, &b, t, &base, &r3);
+        EXPECT(std::memcmp(&o3, &r3, sizeof o3) == 0, "FELerpVector3");
+        FEVector2 o2{}, r2{};
+        oL2(reinterpret_cast<FEVector2 *>(&a), reinterpret_cast<FEVector2 *>(&b), t, reinterpret_cast<FEVector2 *>(&base), &o2);
+        FELerpVector2(reinterpret_cast<FEVector2 *>(&a), reinterpret_cast<FEVector2 *>(&b), t, reinterpret_cast<FEVector2 *>(&base), &r2);
+        EXPECT(std::memcmp(&o2, &r2, sizeof o2) == 0, "FELerpVector2");
+        FEColor ca, cb, cbase, oc{}, rc{};
+        for (int k = 0; k < 4; ++k) { ca.c[k] = int32_t(rng() % 512) - 256; cb.c[k] = int32_t(rng() % 512) - 256; cbase.c[k] = int32_t(rng()); }
+        oLC(&ca, &cb, t, &cbase, &oc); FELerpColor(&ca, &cb, t, &cbase, &rc);
+        EXPECT(std::memcmp(&oc, &rc, sizeof oc) == 0, "FELerpColor");
+    }
+    static const uint8_t kTypes[] = {1, 2, 3, 4, 6};
+    for (int it = 0; it < iters / 4; ++it) {
+        FEKeyTrack tr{};
+        FEKeyNode k[6]{};
+        int n = rng() % 7;
+        int32_t time = int32_t(rng() % 10);
+        for (int i = 0; i < n; ++i) {
+            k[i].node.next = i + 1 < n ? &k[i + 1].node : nullptr;
+            k[i].node.prev = i ? &k[i - 1].node : nullptr;
+            k[i]._data[0] = uint32_t(time);
+            time += rng() % 4 == 0 ? 0 : int32_t(rng() % 25);
+            for (int j = 1; j < 5; ++j) { float f = rf(); std::memcpy(&k[i]._data[j], &f, 4); }
+        }
+        tr.mu8ParamType = kTypes[rng() % 5];
+        tr.mu8Flags = uint8_t(rng() % 2 | (rng() & 0x80));
+        int32_t len = int32_t(rng() % 150);
+        tr._length[0] = uint8_t(len);
+        for (int j = 1; j < 5; ++j) { float f = rf(); std::memcpy(&tr.mBaseKey._data[j], &f, 4); }
+        if (tr.mu8ParamType == 1 || tr.mu8ParamType == 6)
+            for (int i = 0; i < n; ++i) for (int j = 1; j < 5; ++j) k[i]._data[j] = uint32_t(int32_t(rng() % 2000) - 1000);
+        tr.mKeys.head = n ? &k[0].node : nullptr;
+        tr.mKeys.tail = n ? &k[n - 1].node : nullptr;
+        int32_t q = int32_t(rng() % 200) - 20;
+        uint8_t oa[16], ob[16];
+        std::memset(oa, 0xCD, sizeof oa); std::memset(ob, 0xCD, sizeof ob);
+        oLin(&tr, q, oa); FEInterpLinear(&tr, q, ob);
+        EXPECT(std::memcmp(oa, ob, sizeof oa) == 0, "FEInterpLinear type %d mode %d n=%d t=%d", tr.mu8ParamType, tr.mu8Flags & 0x7F, n, q);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -448,6 +506,7 @@ static int RunAll()
     CheckSetTrackValue(iters);
     CheckSetters(iters);
     CheckKeyInterp(iters);
+    CheckInterpLinear(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",

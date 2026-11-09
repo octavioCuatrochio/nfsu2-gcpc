@@ -56,7 +56,126 @@ void FEInterpNone(FEKeyTrack *track, int32_t time, void *out)
     std::memcpy(out, Value(src), size);
 }
 
-void FEInterpLinear(FEKeyTrack *track, int32_t time, void *out) { bridge::FEInterpLinear(track, time, out); }
+namespace {
+const uint32_t *Val(const FEKeyNode *k) { return &k->_data[1]; }
+float F(const uint32_t *p, int i) { float v; std::memcpy(&v, p + i, 4); return v; }
+int32_t I(const uint32_t *p, int i) { return static_cast<int32_t>(p[i]); }
+
+// Blend factor (time - from) / span, rounded to float; span <= 1e-5 (int compared as float) gives 0.
+float Factor(int32_t num, int32_t span)
+{
+    if (static_cast<long double>(span) <= 1e-5f) return 0.f;
+    return static_cast<float>(static_cast<long double>(num) / static_cast<long double>(span));
+}
+int32_t Sub(int32_t a, int32_t b) { return static_cast<int32_t>(static_cast<uint32_t>(a) - static_cast<uint32_t>(b)); }
+int32_t Add(int32_t a, int32_t b) { return static_cast<int32_t>(static_cast<uint32_t>(a) + static_cast<uint32_t>(b)); }
+
+void CopyBase(const FEKeyTrack *t, void *out)
+{
+    static const uint8_t kDwords[7] = {0, 1, 1, 2, 3, 4, 4};
+    if (t->mu8ParamType >= 1 && t->mu8ParamType <= 6) std::memcpy(out, &t->mBaseKey._data[1], kDwords[t->mu8ParamType] * 4);
+}
+
+// One key's value + base (t == 0 or 1). Quaternions: key * base.
+void KeyPlusBase(const FEKeyTrack *t, const uint32_t *k, void *out)
+{
+    const uint32_t *b = &t->mBaseKey._data[1];
+    auto *o = static_cast<uint32_t *>(out);
+    auto setf = [&](int i, long double v) { float f = static_cast<float>(v); std::memcpy(o + i, &f, 4); };
+    switch (t->mu8ParamType) {
+    case 1: o[0] = static_cast<uint32_t>(Add(I(b, 0), I(k, 0))); break;
+    case 2: setf(0, static_cast<long double>(F(b, 0)) + F(k, 0)); break;
+    case 3: setf(0, static_cast<long double>(F(b, 0)) + F(k, 0)); setf(1, static_cast<long double>(F(k, 1)) + F(b, 1)); break;
+    case 4:
+        setf(0, static_cast<long double>(F(b, 0)) + F(k, 0));
+        setf(1, static_cast<long double>(F(k, 1)) + F(b, 1));
+        setf(2, static_cast<long double>(F(k, 2)) + F(b, 2));
+        break;
+    case 5: {
+        FEQuaternion kq, bq;
+        std::memcpy(&kq, k, sizeof kq);
+        std::memcpy(&bq, b, sizeof bq);
+        FEQuaternion r = FEQuatMultiply(kq, bq);
+        std::memcpy(out, &r, sizeof r);
+        break;
+    }
+    case 6:
+        o[2] = static_cast<uint32_t>(Add(I(k, 2), I(b, 2)));
+        o[1] = static_cast<uint32_t>(Add(I(k, 1), I(b, 1)));
+        o[0] = static_cast<uint32_t>(Add(I(b, 0), I(k, 0)));
+        o[3] = static_cast<uint32_t>(Add(I(k, 3), I(b, 3)));
+        break;
+    default: break;
+    }
+}
+}  // namespace
+
+// GC 80140318 / PC 52BDC0. Wrap mode = flags & 0x7F: 0 clamp, 1 loop (wraps from the last key to the first over
+// the track length), 2 ping-pong (as in the original, it then reads a null "from" key: crash if a key is found).
+void FEInterpLinear(FEKeyTrack *track, int32_t time, void *out)
+{
+    if (!track->GetFirstKey()) { CopyBase(track, out); return; }
+    FEKeyNode *from = nullptr, *to = nullptr;
+    float t = 0.f;
+    switch (track->mu8Flags & 0x7F) {
+    case 0:
+        to = track->GetDeltaKeyAt(time);
+        if (!to) break;
+        from = Prev(to);
+        if (!from || time >= KeyTime(to)) t = 1.f;
+        else t = Factor(Sub(time, KeyTime(from)), Sub(KeyTime(to), KeyTime(from)));
+        break;
+    case 1: {
+        to = track->GetDeltaKeyAt(time);
+        if (!to) break;
+        int32_t toTime = KeyTime(to);
+        if (toTime < time) {                       // past the last key: blend toward the first one
+            from = to;
+            to = track->GetFirstKey();
+            t = Factor(Sub(time, KeyTime(from)), Sub(Add(track->Length(), KeyTime(to)), KeyTime(from)));
+        } else if (toTime == time) {
+            from = to;
+            t = 0.f;
+        } else if ((from = Prev(to)) != nullptr) {
+            t = Factor(Sub(time, KeyTime(from)), Sub(toTime, KeyTime(from)));
+        } else {                                   // before the first key: blend from the key at the track end
+            int32_t len = track->Length();
+            from = track->GetKeyAt(len);
+            int32_t rest = Sub(len, KeyTime(from));
+            t = Factor(Add(rest, time), Add(rest, toTime));
+        }
+        break;
+    }
+    case 2: {
+        int32_t len = track->Length(), tt = time;
+        if (tt > len) tt = Sub(Add(len, len), tt);
+        to = track->GetDeltaKeyAt(tt);
+        break;
+    }
+    default: break;
+    }
+    if (!to) { CopyBase(track, out); return; }
+    if (t == 0.f) { KeyPlusBase(track, Val(from), out); return; }
+    if (t == 1.f) { KeyPlusBase(track, Val(to), out); return; }
+
+    const uint32_t *a = Val(from), *b = Val(to), *base = &track->mBaseKey._data[1];
+    switch (track->mu8ParamType) {
+    case 1: FELerpInteger(I(a, 0), I(b, 0), t, reinterpret_cast<const int32_t *>(base), static_cast<int32_t *>(out)); break;
+    case 2: {
+        float r = static_cast<float>(((static_cast<long double>(F(b, 0)) - F(a, 0)) * t + F(a, 0)) + F(base, 0));
+        std::memcpy(out, &r, 4);
+        break;
+    }
+    case 3: FELerpVector2(reinterpret_cast<const FEVector2 *>(a), reinterpret_cast<const FEVector2 *>(b), t,
+                          reinterpret_cast<const FEVector2 *>(base), static_cast<FEVector2 *>(out)); break;
+    case 4: FELerpVector3(reinterpret_cast<const FEVector3 *>(a), reinterpret_cast<const FEVector3 *>(b), t,
+                          reinterpret_cast<const FEVector3 *>(base), static_cast<FEVector3 *>(out)); break;
+    case 5: bridge::FELerpQuaternion(a, b, t, base, out); break;
+    case 6: FELerpColor(reinterpret_cast<const FEColor *>(a), reinterpret_cast<const FEColor *>(b), t,
+                        reinterpret_cast<const FEColor *>(base), static_cast<FEColor *>(out)); break;
+    default: break;
+    }
+}
 
 namespace {
 // FEKeyInterp (GC 801401EC, inlined on PC): 0 step, 1/3 linear, others leave `out` alone.

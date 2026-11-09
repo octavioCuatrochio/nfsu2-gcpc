@@ -51,3 +51,41 @@ FEColor FEColorSub(const FEColor &a, const FEColor &b)
         r.c[i] = static_cast<int32_t>(static_cast<uint32_t>(a.c[i]) - static_cast<uint32_t>(b.c[i]));
     return r;
 }
+
+int32_t FEFtol(long double x)
+{
+    if (!(x > -9.2e18L && x < 9.2e18L)) return 0;   // x87 "integer indefinite" (0x8000000000000000): low dword 0
+    return static_cast<int32_t>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(x))));
+}
+
+namespace {
+using L = long double;
+int32_t LerpInt(int32_t a, int32_t b, float t, int32_t base)
+{
+    int32_t diff = static_cast<int32_t>(static_cast<uint32_t>(b) - static_cast<uint32_t>(a));
+    uint32_t r = static_cast<uint32_t>(FEFtol(L(diff) * t + 0.5f));
+    return static_cast<int32_t>(r + static_cast<uint32_t>(base) + static_cast<uint32_t>(a));
+}
+}  // namespace
+
+void FELerpInteger(int32_t a, int32_t b, float t, const int32_t *base, int32_t *out) { *out = LerpInt(a, b, t, *base); }
+
+void FELerpVector2(const FEVector2 *a, const FEVector2 *b, float t, const FEVector2 *base, FEVector2 *out)
+{
+    out->x = static_cast<float>(((L(b->x) - a->x) * t + a->x) + base->x);
+    out->y = static_cast<float>(((L(b->y) - a->y) * t + base->y) + a->y);
+}
+
+void FELerpVector3(const FEVector3 *a, const FEVector3 *b, float t, const FEVector3 *base, FEVector3 *out)
+{
+    out->x = static_cast<float>(((L(b->x) - a->x) * t + a->x) + base->x);
+    out->y = static_cast<float>(((L(b->y) - a->y) * t + base->y) + a->y);
+    out->z = static_cast<float>(((L(b->z) - a->z) * t + base->z) + a->z);
+}
+
+void FELerpColor(const FEColor *a, const FEColor *b, float t, const FEColor *base, FEColor *out)
+{
+    FEColor r;
+    for (int i = 0; i < 4; ++i) r.c[i] = LerpInt(a->c[i], b->c[i], t, base->c[i]);
+    *out = r;
+}
