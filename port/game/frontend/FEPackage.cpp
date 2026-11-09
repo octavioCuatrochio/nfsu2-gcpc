@@ -2,6 +2,7 @@
 #include "FEObject.h"
 #include "FEScript.h"
 #include "bridge/Bridge.h"
+#include "FEngine.h"
 
 namespace {
 enum : uint32_t {
@@ -181,7 +182,7 @@ void FEPackage::IssueScriptMessages(void *engine, FEObject *obj, FEScript *scrip
         if (++i >= count) return;
     for (; i < count && ev[i].mu32Time < static_cast<uint32_t>(to); ++i) {
         const FEScriptEvent &e = ev[i];
-        auto queue = [&](void *target) { bridge::FEngine_QueueMessage(engine, e.mu32MsgId, obj, this, target, 0); };
+        auto queue = [&](void *target) { static_cast<FEngine *>(engine)->QueueMessage(e.mu32MsgId, obj, this, static_cast<FEObject *>(target), 0); };
         auto setButton = [&] { SetCurrentButton(engine, FindObjectByGUID(e.mu32Target), true); };
         switch (e.mu32Target) {
         case 0xFFFFFFFBu: case 0xFFFFFFFAu: case 0xFFFFFFFCu:
@@ -263,15 +264,15 @@ FELibraryRef *FEPackage::FindLibraryReference(uint32_t hash) const
 void FEPackage::SetCurrentButton(void *engine, FEObject *button, bool notify)
 {
     constexpr uint32_t kUnhighlight = 0x55D1E635, kHighlight = 0xABC08912;
-    auto *special = reinterpret_cast<void *>(static_cast<uintptr_t>(0xFFFFFFFBu));
+    auto *special = reinterpret_cast<FEObject *>(static_cast<uintptr_t>(0xFFFFFFFBu));
     if (notify) {
         if (mpCurrentButton) {
-            bridge::FEngine_QueueMessage(engine, kUnhighlight, nullptr, this, mpCurrentButton, 0);
-            bridge::FEngine_QueueMessage(engine, kUnhighlight, mpCurrentButton, this, special, 0);
+            static_cast<FEngine *>(engine)->QueueMessage(kUnhighlight, nullptr, this, mpCurrentButton, 0);
+            static_cast<FEngine *>(engine)->QueueMessage(kUnhighlight, mpCurrentButton, this, special, 0);
         }
         if (button) {
-            bridge::FEngine_QueueMessage(engine, kHighlight, nullptr, this, button, 0);
-            bridge::FEngine_QueueMessage(engine, kHighlight, button, this, special, 0);
+            static_cast<FEngine *>(engine)->QueueMessage(kHighlight, nullptr, this, button, 0);
+            static_cast<FEngine *>(engine)->QueueMessage(kHighlight, button, this, special, 0);
         }
     }
     mpCurrentButton = button;

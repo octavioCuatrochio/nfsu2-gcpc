@@ -58,7 +58,8 @@ void *FEKeyNodeVTable();                                               // PC 0x7
 void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
 const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628 (game data)
 // FEPackage callees not rewritten yet (PC __thiscall)
-void FEngine_QueueMessage(void *engine, uint32_t msg, void *obj, void *pkg, void *target, uint32_t arg);   // 51AA20
+void *FEMessageNodeVTable();                                                      // PC 0x79AB60
+void FEUIData_OnQueueMessage(void *ui, uint32_t msg, void *obj, void *pkg, void *target, uint32_t arg);   // vtable +0x54
 void FEngine_SendMessageToGame(void *engine, uint32_t msg, void *obj, void *pkg);   // engine+0x10C vtable slot 6 (msg, obj, 0, pkg)
 bool FEObjectCallback_Call(void *callback, void *obj);                               // vtable slot 1, __thiscall
 void FEListBox_Update(void *listBox, float delta);                                                        // 517230

@@ -22,7 +22,8 @@ extern uint32_t holdDirtyFlags;
 struct ScriptMessage { void *script; int32_t from, to; };
 extern std::vector<ScriptMessage> messages;   // unused since IssueScriptMessages is rewritten
 struct QueuedMessage { uint32_t msg; void *obj; void *target; };
-extern std::vector<QueuedMessage> queued;
+extern std::vector<QueuedMessage> queued, forwarded;   // queued: SendMessageToGame calls; forwarded: UI hook
+extern int feMessageNodeVTable;
 extern void *currentButton;
 struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback
 extern void *lastTypeUpdate;

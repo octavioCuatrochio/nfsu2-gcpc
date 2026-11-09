@@ -23,7 +23,8 @@ int feMsgRespVTable = 0, feMsgRespBlockVTable = 0, virtualDtorCalls = 0;
 int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0, feKeyNodeVTable = 0, keyNodeNews = 0, feKeyNodeBlockVTable = 0, linearCalls = 0;
 uint32_t holdDirtyFlags = 0;
 std::vector<ScriptMessage> messages;
-std::vector<QueuedMessage> queued;
+std::vector<QueuedMessage> queued, forwarded;
+int feMessageNodeVTable = 0;
 void *currentButton = nullptr;
 void *lastTypeUpdate = nullptr;
 FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
@@ -91,10 +92,8 @@ const bASinTableEntry *BASinTable()
     return t;
 #endif
 }
-void FEngine_QueueMessage(void *, uint32_t msg, void *obj, void *, void *target, uint32_t)
-{
-    teststub::queued.push_back({msg, obj, target});
-}
+void *FEMessageNodeVTable() { return &teststub::feMessageNodeVTable; }
+void FEUIData_OnQueueMessage(void *, uint32_t msg, void *obj, void *, void *target, uint32_t) { teststub::forwarded.push_back({msg, obj, target}); }
 void FEngine_SendMessageToGame(void *, uint32_t msg, void *obj, void *) { teststub::queued.push_back({msg, obj, reinterpret_cast<void *>(-1)}); }
 bool FEObjectCallback_Call(void *cb, void *obj)
 {

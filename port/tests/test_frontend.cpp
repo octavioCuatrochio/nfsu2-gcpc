@@ -8,6 +8,7 @@
 #include "frontend/FEMessageResponse.h"
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
+#include "frontend/FEngine.h"
 #include "bWare/bMath.h"
 #include <algorithm>
 #include "bridge/Bridge.h"
@@ -656,6 +657,28 @@ static void TestTrigAndSlerp()
     CHECK(big.x == 0.f && big.w == 1.f);
 }
 
+// Test engine: messages queued by the rewritten FEngine::QueueMessage land in its list; collect() drains it.
+static FEngine *TestEngine()
+{
+    static FEngine *e = [] {
+        auto *p = static_cast<FEngine *>(std::calloc(1, sizeof(FEngine)));
+        p->mMessages = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+        return p;
+    }();
+    return e;
+}
+static std::vector<teststub::QueuedMessage> Collect()
+{
+    std::vector<teststub::QueuedMessage> out;
+    FEMinList &l = TestEngine()->mMessages;
+    while (FEMinNode *n = l.RemHead()) {
+        auto *m = reinterpret_cast<FEMessageNode *>(n);
+        out.push_back({m->mu32MsgId, m->mpObject, m->mpTarget});
+        bridge::FreeArray(m);
+    }
+    return out;
+}
+
 // FEPackage::UpdateObject + IssueScriptMessages: script clock, end handling and event ranges. Every script has
 // one event per time step (message = base + time, target = the object) so the queued messages show the range.
 static void TestUpdateObject()
@@ -675,29 +698,34 @@ static void TestUpdateObject()
     alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
     auto *pkg = reinterpret_cast<FEPackage *>(pm);
     pkg->mbFastInterp = 1; pkg->mi32ScriptDelta = 30;
-    auto &q = teststub::queued;
+    pkg->mpEngine = TestEngine();
+    std::vector<teststub::QueuedMessage> q;
     auto range = [&](size_t from, size_t n, uint32_t first, uint32_t last) {
         return q.size() >= from + n && q[from].msg == first && q[from + n - 1].msg == last;
     };
-    q.clear();
     pkg->UpdateObject(obj, 16);                                  // 0 -> 30: events 0..29
+    q = Collect();
     CHECK(a.mi32Time == 30 && q.size() == 30 && range(0, 30, 1000, 1029) && q[0].obj == obj && q[0].target == nullptr);
     a.mi32Time = 90; q.clear();                                  // stop: events 90..100 (end inclusive), time = 101
     pkg->UpdateObject(obj, 16);
+    q = Collect();
     CHECK(a.mi32Time == 101 && q.size() == 11 && range(0, 11, 1090, 1100));
     pkg->mi32ScriptDelta = 0; q.clear();                         // finished: no events, tracks skipped, flags cleared
     obj->mu32Flags |= 0x1800000;
     pkg->UpdateObject(obj, 16);
+    q = Collect();
     CHECK(a.mi32Time == 101 && q.empty() && (obj->mu32Flags & 0x1800000) == 0);
     pkg->mi32ScriptDelta = 30;
     a.mu32Flags = 1; a.mi32Time = 90; q.clear();                 // loop: 90..100 then 0..19
     pkg->UpdateObject(obj, 16);
+    q = Collect();
     CHECK(a.mi32Time == 20 && q.size() == 31 && range(0, 11, 1090, 1100) && range(11, 20, 1000, 1019));
     a.mu32Flags = 2; a.mi32Time = 180; q.clear();                // ping-pong past 2*length wraps
     pkg->UpdateObject(obj, 16);
     CHECK(a.mi32Time == 10);
     a.mu32Flags = 0; a.mpChainedScript = &b; a.mi32Time = 90; q.clear();   // chain: rest carries over
     pkg->UpdateObject(obj, 16);
+    q = Collect();
     CHECK(obj->mpCurrentScript == &b && b.mi32Time == 20 && a.mi32Time == 0);
     CHECK(q.size() == 31 && range(0, 11, 1090, 1100) && range(11, 20, 2000, 2019));
     obj->mu32Type = 7;                                           // movie: playback time += delta (fast mode)
@@ -721,15 +749,18 @@ static void TestUpdateObject()
     FEScript c = {};
     FEScript::Construct(&c);
     c.mi32Length = 100; c.mEvents = {4, ev};
-    q.clear();
-    pkg->IssueScriptMessages(nullptr, obj, &c, 0, 10);
-    CHECK(q.size() >= 3 && q[0].target == reinterpret_cast<void *>(-1) && q[1].target == reinterpret_cast<void *>(uintptr_t(0xFFFFFFFBu)));
-    CHECK(q[2].target == &g7->obj && pkg->mpCurrentButton == o9);
-    CHECK(q.size() == 5 && q[3].msg == 0xABC08912u && q[3].target == o9 && q[4].obj == o9);   // highlight messages
+    Collect();                                                   // drop leftovers from the updates above
+    pkg->IssueScriptMessages(TestEngine(), obj, &c, 0, 10);
+    q = Collect();
+    // engine queue: special (-5), GUID 7, then the two highlight messages; the game message goes to the UI handler
+    CHECK(q.size() == 4 && q[0].target == reinterpret_cast<FEObject *>(uintptr_t(0xFFFFFFFBu)) && q[1].target == &g7->obj);
+    CHECK(q[2].msg == 0xABC08912u && q[2].target == o9 && q[3].obj == o9 && pkg->mpCurrentButton == o9);
+    CHECK(!teststub::queued.empty() && teststub::queued.back().msg == 11);
     teststub::TestCallback cb{nullptr, {}, o9};                  // walk order + stop
     CHECK(!pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb)) && cb.visited.size() == 2 && cb.visited[1] == o9);
     q.clear();
-    pkg->IssueScriptMessages(nullptr, nullptr, &c, 2, 3);       // GUID target without obj: not queued
+    pkg->IssueScriptMessages(TestEngine(), nullptr, &c, 2, 3);  // GUID target without obj: not queued
+    q = Collect();
     CHECK(q.empty());
     obj->mpData = nullptr;
     obj->Destruct();
