@@ -78,15 +78,41 @@ void FEListBox::ScrollSelection(int32_t dx, int32_t dy)
     mfDirY = static_cast<float>(ddy);
     const long double len = __builtin_sqrtl(ddy * ddy + ddx * ddx);   // x87 fsqrt (current precision)
     if (len < static_cast<long double>(0.1f)) {
-        // CompleteScroll (inlined): jump to the target, clear scrolling/pending; selection 0 resets the axis
-        Raw(mfScrollX, mfTargetX);
-        Raw(mfScrollY, mfTargetY);
-        mu32Flags &= ~0x62u;
-        if (mu32SelColumn == 0) { mu32Flags &= ~8u; mfScrollX = 0.0f; }
-        if (mu32SelRow == 0) { mu32Flags &= ~0x10u; mfScrollY = 0.0f; }
+        CompleteScroll();   // inlined on PC
         return;
     }
     const long double inv = static_cast<long double>(1.0f) / len;
     mfDirX = static_cast<float>(inv * ddx);
     mfDirY = static_cast<float>(ddy * inv);
+}
+
+void FEListBox::CompleteScroll()
+{
+    Raw(mfScrollX, mfTargetX);
+    Raw(mfScrollY, mfTargetY);
+    mu32Flags &= ~0x62u;
+    if (mu32SelColumn == 0) { mu32Flags &= ~8u; mfScrollX = 0.0f; }
+    if (mu32SelRow == 0) { mu32Flags &= ~0x10u; mfScrollY = 0.0f; }
+}
+
+void FEListBox::Update(float dt)
+{
+    const long double pulse = static_cast<long double>(dt) * mfPulseRate + mfPulse;
+    mfPulse = static_cast<float>(pulse);
+    bool flip = false;
+    if (pulse < 0.0f) { mfPulse = 0.0f; flip = true; }
+    else if (pulse > 1.0f) { mfPulse = 1.0f; flip = true; }   // NaN: neither
+    if (flip) mfPulseRate = -mfPulseRate;
+    if (!(mu32Flags & 2)) return;
+    const long double x = mfDirX, y = mfDirY;
+    long double step = static_cast<long double>(y * mfSpeedY + x * mfSpeedX);
+    step = __builtin_fabsl(step) * dt;   // x87 fabs
+    const long double px = x * step + mfScrollX;
+    const float stepY = static_cast<float>(y * step);
+    mfScrollX = static_cast<float>(px);
+    const long double py = static_cast<long double>(stepY) + mfScrollY;
+    mfScrollY = static_cast<float>(py);
+    const long double toTarget = y * mfTargetY + x * mfTargetX;
+    const long double current = py * y + px * x;
+    if (toTarget - current < 0.0f) CompleteScroll();
 }

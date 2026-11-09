@@ -225,6 +225,38 @@ static void CheckListBoxScroll(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+static void CheckListBoxUpdate(int iters)
+{
+    auto oUpdate = ORIG<void(THISCALL *)(FEListBox *, float)>(0x517230);
+    auto oComplete = ORIG<void(THISCALL *)(FEListBox *)>(0x5043B0);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            alignas(8) static FEListBox a, b;
+            std::memset(&a, 0, sizeof a);
+            a.mu32Flags = rng() & 0x7F;
+            a.mu32SelColumn = rng() % 3; a.mu32SelRow = rng() % 3;
+            for (float *f : {&a.mfScrollX, &a.mfScrollY, &a.mfTargetX, &a.mfTargetY, &a.mfDirX, &a.mfDirY, &a.mfSpeedX, &a.mfSpeedY})
+                *f = rng() % 4 ? RandSlotFloat() : 0.0f;
+            a.mfPulse = static_cast<float>(rng() % 1200) / 1000.0f - 0.1f;
+            a.mfPulseRate = RandSlotFloat();
+            float dt = rng() % 8 ? static_cast<float>(rng() % 100) / 997.0f : 0.0f;
+            std::memcpy(&b, &a, sizeof a);
+            if (it % 8 == 0) {
+                oComplete(&a);
+                b.CompleteScroll();
+            } else {
+                oUpdate(&a, dt);
+                b.Update(dt);
+            }
+            EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "FEListBox::Update dt=%g pc=%x flags %X/%X scroll %g/%g %g/%g pulse %g/%g",
+                   dt, pc, a.mu32Flags, b.mu32Flags, a.mfScrollX, b.mfScrollX, a.mfScrollY, b.mfScrollY, a.mfPulse, b.mfPulse);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 static void CheckWideCopies(int iters)
 {
     auto origCopy = ORIG<void(__cdecl *)(uint16_t *, const uint16_t *)>(0x511630);
@@ -1029,6 +1061,7 @@ static int RunAll()
     CheckStrToNumber(iters);
     CheckLevelSortingList(iters);
     CheckListBoxScroll(iters);
+    CheckListBoxUpdate(iters);
     CheckWideCopies(iters);
     CheckMinList(iters);
     CheckFEObject(iters);

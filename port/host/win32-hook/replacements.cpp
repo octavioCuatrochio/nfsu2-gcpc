@@ -162,6 +162,8 @@ bool THISCALL FEngine_RecordPackageMarker(FEngine *self, const char *n) { return
 void THISCALL FEngine_ClearPackageMarkers(FEngine *self) { self->ClearPackageMarkers(); }
 void THISCALL FEngine_ProcessPackageCommands(FEngine *self) { self->ProcessPackageCommands(); }
 void THISCALL FEListBox_ScrollSelection(FEListBox *self, int32_t dx, int32_t dy) { self->ScrollSelection(dx, dy); }
+void THISCALL FEListBox_Update(FEListBox *self, float dt) { self->Update(dt); }
+void THISCALL FEListBox_CompleteScroll(FEListBox *self) { self->CompleteScroll(); }
 cFEngLevelSorter *THISCALL cFEng_FindInLevelSortingList(cFEng *self, const char *n) { return self->FindInLevelSortingList(n); }
 bool THISCALL FEngine_PackagePopQueuedPushPackage(FEngine *self, const char *n) { return self->PackagePopQueuedPushPackage(n); }
 void THISCALL FEngine_RecordLastPackageButton(FEngine *self, uint32_t h, uint32_t g) { self->RecordLastPackageButton(h, g); }
@@ -333,6 +335,8 @@ const Replacement kReplacements[] = {
     {0x52B3A0, (const void *)&FEPackage_SetCurrentButton, "FEPackage::SetCurrentButton", {0x8A, 0x44, 0x24, 0x0C, 0x84, 0xC0}},
     {0x51AA20, (const void *)&FEngine_QueueMessage, "FEngine::QueueMessage", {0x56, 0x57, 0x6A, 0x20, 0x8B, 0xF9}},
     {0x51CCD0, (const void *)&cFEng_FindInLevelSortingList, "cFEng::FindInLevelSortingList", {0x53, 0x56, 0x8B, 0x71, 0x10, 0x57}},
+    {0x517230, (const void *)&FEListBox_Update, "FEListBox::Update", {0xD9, 0x44, 0x24, 0x04, 0x83, 0xEC}},
+    {0x5043B0, (const void *)&FEListBox_CompleteScroll, "FEListBox::CompleteScroll", {0x8B, 0x81, 0x94, 0x00, 0x00, 0x00}},
     {0x516E90, (const void *)&FEListBox_ScrollSelection, "FEListBox::ScrollSelection", {0x51, 0x8B, 0x51, 0x5C, 0x8B, 0xC2}},
     {0x5559C0, (const void *)&FEngine_ProcessPackageCommands, "FEngine::ProcessPackageCommands", {0x83, 0xEC, 0x10, 0x53, 0x55, 0x33}},
     {0x51AE80, (const void *)&FEngine_PackagePopQueuedPushPackage, "FEngine::PackagePopQueuedPushPackage", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x55}},
