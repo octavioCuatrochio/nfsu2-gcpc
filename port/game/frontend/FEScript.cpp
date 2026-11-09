@@ -157,7 +157,8 @@ FEScript *FEScript::Construct(void *mem)
     s->mpcName = nullptr;
     s->mu32Id = 0;
     s->_unknown0C = 0;
-    s->_unknown14 = s->_unknown18 = 0;
+    s->_unknown14 = 0;
+    s->mpChainedScript = nullptr;
     s->mu32NumTracks = 0;
     s->mpTracks = nullptr;
     return s;

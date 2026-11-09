@@ -32,6 +32,9 @@ struct FEObject {
 
     // Lifecycle on raw memory (objects are created/destroyed by game code while hooked)
     static FEObject *Construct(void *mem);                 // GC 801379F0 / PC 52AF20
+    // GC 80137A80 / PC 554300. `reference`: scripts share the source's key lists (FEScript copy ctor).
+    static FEObject *CopyConstruct(void *mem, const FEObject &src, bool reference);
+    FEObject *Clone(bool reference) const;                 // GC 80138C44 / PC 5545D0 (vtable slot 1)
     void Destruct();                                       // GC 80137CD0 / PC 52AF90
     FEObject *ScalarDeletingDestructor(uint32_t flags);    // PC 534BB0 (vtable slot 0)
 

@@ -47,7 +47,7 @@ struct FEScript {
     uint32_t _unknown0C;             // +0x0C
     uint32_t _unknown10;             // +0x10 not set by the constructor
     uint32_t _unknown14;             // +0x14
-    uint32_t _unknown18;             // +0x18 not copied by the copy constructor
+    FEScript *mpChainedScript;       // +0x18 script of the same object (re-linked by FEObject's copy ctor)
     uint32_t mu32NumTracks;          // +0x1C
     FEKeyTrack *mpTracks;            // +0x20 new[] (count cookie at [-4])
     FEScriptEventList mEvents;       // +0x24

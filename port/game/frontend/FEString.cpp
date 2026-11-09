@@ -44,7 +44,7 @@ FEString *FEString::Construct(void *mem)
 FEString *FEString::CopyConstruct(void *mem, const FEString &src, bool deep)
 {
     auto *s = static_cast<FEString *>(mem);
-    bridge::FEObject_CopyConstruct(&s->base, &src.base, deep);
+    FEObject::CopyConstruct(&s->base, src.base, deep);
     s->base.node.vtable = bridge::FEStringVTable();
     s->mpcLabel = nullptr;
     new (&s->mstrText) FEWideString(src.mstrText);

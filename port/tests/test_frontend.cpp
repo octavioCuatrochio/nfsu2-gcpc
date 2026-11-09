@@ -335,7 +335,7 @@ static void TestScriptCopy()
     FEScript::Construct(&src);
     src.SetName("Fade_In");
     CHECK(src.mu32Id == FEHashUpper("Fade_In") && std::strcmp(src.mpcName, "Fade_In") == 0);
-    src._unknown0C = 1; src._unknown10 = 2; src._unknown14 = 3; src._unknown18 = 4;
+    src._unknown0C = 1; src._unknown10 = 2; src._unknown14 = 3; src.mpChainedScript = &src;
     src.SetTrackCount(2);
     CHECK(src.mu32NumTracks == 2 && reinterpret_cast<uint32_t *>(src.mpTracks)[-1] == 2);
     CHECK(src.mpTracks[1].mBaseKey.node.vtable == &teststub::feKeyNodeVTable && src.mpTracks[1].mKeys.head == nullptr);
@@ -358,7 +358,7 @@ static void TestScriptCopy()
     FEScript deep;
     FEScript::CopyConstruct(&deep, src, false);
     CHECK(deep.mu32Id == src.mu32Id && deep.mpcName != src.mpcName && std::strcmp(deep.mpcName, "Fade_In") == 0);
-    CHECK(deep._unknown0C == 1 && deep._unknown10 == 2 && deep._unknown14 == 3 && deep._unknown18 == 0);
+    CHECK(deep._unknown0C == 1 && deep._unknown10 == 2 && deep._unknown14 == 3 && deep.mpChainedScript == nullptr);
     CHECK(teststub::keyNodeNews == 3 && deep.mpTracks[0].mKeys.mbIsReference == 0);
     int n = 0;
     for (FEMinNode *p = deep.mpTracks[0].mKeys.head; p; p = p->next, ++n) {
@@ -390,6 +390,56 @@ static void TestScriptCopy()
     CHECK(teststub::liveAllocations == liveBefore);
 }
 
+// FEObject copy ctor / Clone: header copied, fresh GUID, zeroed data block of the same size, responses deep-copied,
+// scripts copied in order, current + chained scripts re-found by id in the copy.
+static void TestFEObjectCopy()
+{
+    int liveBefore = teststub::liveAllocations;
+    alignas(8) unsigned char mem[sizeof(FEObject)];
+    FEObject *src = FEObject::Construct(mem);
+    src->mu32Type = 7; src->mu32Flags = 0x40; src->_unknown20 = 3; src->_unknown22 = 4; src->_unknown24 = 5; src->_unknown28 = 6;
+    src->SetName("Button");
+    src->mpData = teststub::objDataPool.Alloc(16);
+    src->mu32DataSize = 16;
+    std::memset(src->mpData, 0xEE, 16);
+    for (int i = 0; i < 2; ++i) {
+        FEMessageResponse *m = FEMessageResponse::Construct(FEMessageResponse::PoolNew());
+        m->mu32MsgId = 0x100 + i;
+        m->SetCount(1);
+        m->mpResponses[0].mu32Type = 0x201; m->mpResponses[0].SetParam(i ? "b" : "a");
+        src->mResponses.AddTail(&m->node);
+    }
+    FEScript *sc[2];
+    for (int i = 0; i < 2; ++i) {
+        sc[i] = FEScript::Construct(FEPoolNew<FEScript, 32>(teststub::scriptPool, FEScriptBlock_Construct));
+        sc[i]->SetName(i ? "Highlight" : "Init");
+        src->mScripts.AddTail(&sc[i]->node);
+    }
+    sc[0]->mpChainedScript = sc[1];
+    src->mpCurrentScript = sc[1];
+
+    teststub::lastSetupMoveTo = nullptr;
+    uint32_t guid = teststub::nextGUID;
+    FEObject *c = src->Clone(false);
+    CHECK(c != nullptr && c->mu32GUID == guid && c->node.vtable == &teststub::feObjectVTable);
+    CHECK(c->mu32Type == 7 && c->mu32Flags == 0x40 && c->_unknown20 == 3 && c->_unknown22 == 4 && c->_unknown24 == 5 && c->_unknown28 == 0);
+    CHECK(c->mpcName != src->mpcName && std::strcmp(c->mpcName, "Button") == 0 && c->mu32NameHash == src->mu32NameHash);
+    CHECK(c->mu32DataSize == 16 && c->mpData != src->mpData && static_cast<uint8_t *>(c->mpData)[15] == 0);
+    CHECK(c->mResponses.count == 2 && c->FindResponse(0x101) != nullptr);
+    FEMessageResponse *r = c->FindResponse(0x100);
+    CHECK(r && r->mu32Count == 1 && std::strcmp(reinterpret_cast<const char *>(r->mpResponses[0].mParam), "a") == 0);
+    CHECK(r->mpResponses[0].mParam != src->FindResponse(0x100)->mpResponses[0].mParam);
+    CHECK(c->mScripts.count == 2);
+    FEScript *c0 = reinterpret_cast<FEScript *>(c->mScripts.head), *c1 = reinterpret_cast<FEScript *>(c->mScripts.tail);
+    CHECK(c0 != sc[0] && c0->mu32Id == sc[0]->mu32Id && c1->mu32Id == sc[1]->mu32Id);
+    CHECK(c0->mpChainedScript == c1 && c1->mpChainedScript == nullptr);
+    CHECK(c->mpCurrentScript == c1 && teststub::lastSetupMoveTo == c);
+
+    c->ScalarDeletingDestructor(1);
+    src->ScalarDeletingDestructor(0);
+    CHECK(teststub::liveAllocations == liveBefore);
+}
+
 int main()
 {
     TestCrc();
@@ -407,6 +457,7 @@ int main()
     TestPoolBlocks();
     TestScriptDestruct();
     TestScriptCopy();
+    TestFEObjectCopy();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

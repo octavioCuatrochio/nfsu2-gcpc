@@ -90,6 +90,11 @@ void THISCALL KeyNodePool_Delete(FEMinList *pool, void *p) { FEPoolDelete<FEKeyN
 void *THISCALL KeyNodeBlock_Ctor(void *self) { FEKeyNodeBlock_Construct(self); return self; }
 void THISCALL KeyNodeBlock_Dtor(FEKeyNodeBlock *self) { FEKeyNodeBlock_Destruct(self); }
 void *THISCALL KeyNodeBlock_ScalarDtor(FEKeyNodeBlock *self, uint32_t f) { return FEKeyNodeBlock_ScalarDtor(self, f); }
+FEObject *THISCALL FEObject_CopyCtor(FEObject *self, const FEObject *src, int reference)
+{
+    return FEObject::CopyConstruct(self, *src, (reference & 0xFF) != 0);   // bool arg: low byte only
+}
+FEObject *THISCALL FEObject_Clone(const FEObject *self, int reference) { return self->Clone((reference & 0xFF) != 0); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -184,6 +189,8 @@ const Replacement kReplacements[] = {
     {0x5319C0, (const void *)&KeyNodeBlock_Ctor, "FEPoolNode<FEKeyNode,256> ctor", {0x6A, 0xFF, 0x68, 0x68, 0x6F, 0x77}},
     {0x531BE0, (const void *)&KeyNodeBlock_Dtor, "FEPoolNode<FEKeyNode,256> dtor", {0x6A, 0xFF, 0x68, 0x71, 0x75, 0x77}},
     {0x531BC0, (const void *)&KeyNodeBlock_ScalarDtor, "FEPoolNode<FEKeyNode,256> scalar deleting dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x554300, (const void *)&FEObject_CopyCtor, "FEObject::FEObject(const FEObject&, bool)", {0x6A, 0xFF, 0x68, 0x89, 0x7E, 0x77}},
+    {0x5545D0, (const void *)&FEObject_Clone, "FEObject::Clone", {0x6A, 0xFF, 0x68, 0x6B, 0x80, 0x77}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

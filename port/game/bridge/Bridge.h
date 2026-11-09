@@ -28,7 +28,6 @@ void WideCharHistogram_UnpackString(void *histogram, uint16_t *dst, int dstBytes
 bool UseOldFEngDirtyFlag();
 
 // --- FEng objects not rewritten yet ---
-void FEObject_CopyConstruct(void *self, const void *src, bool deep);   // PC 554300 (__thiscall, ret 8)
 void *FEStringVTable();                                                // PC 0x78F53C (hooked: the game's vtable)
 // FEString::pLabelCallback (PC 0x838478): if set, calls its vtable[0](callback, string)
 void CallLabelCallback(void *feString);
@@ -39,6 +38,7 @@ void *FEMinListVTable();                                               // PC 0x7
 void VirtualScalarDelete(void *object);
 void VirtualScalarDtor(void *object, uint32_t flags);                 // vtable slot 0 with explicit flags
 
+void FEObject_SetupMoveToTracks(void *object);                         // PC 517720 (GC 80138DB4-ish, not rewritten)
 void *FEObjectVTable();                                                // PC 0x79B8E0
 uint32_t NextFEObjectGUID();                                           // FEngine::SysGUID++ (PC 0x7F7CF8)
 ::FEMultiPool *ObjDataPool();                                            // global FEMultiPool, PC 0x863770

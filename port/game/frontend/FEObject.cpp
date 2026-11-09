@@ -2,6 +2,7 @@
 #include "FEHash.h"
 #include "FEMultiPool.h"
 #include "bridge/Bridge.h"
+#include "FEPool.h"
 #include <cstring>
 
 // Exactly the fields both originals set; type (+0x18), +0x22 and the current script (+0x54) are left as they were.
@@ -84,3 +85,89 @@ uint32_t FEObject::GetDataOffset(int track)
     return (track >= 0 && track <= 10) ? kOffsets[track] : 0;
 }
 
+
+namespace {
+// FEMinList::AddNode(tail, node) as inlined in PC 554300
+void AppendNode(FEMinList &l, FEMinNode *n) { l.AddTail(n); }
+
+FEScript *FindScriptIn(const FEMinList &scripts, uint32_t id)
+{
+    for (FEMinNode *n = scripts.head; n; n = n->next)
+        if (reinterpret_cast<FEScript *>(n)->mu32Id == id) return reinterpret_cast<FEScript *>(n);
+    return nullptr;
+}
+}  // namespace
+
+// PC 554300. Differences from Construct: +0x20 and +0x58 are not initialized (left as they were), the GUID is
+// still a fresh one. Data block: same size, zeroed (contents not copied). Responses are deep-copied; scripts via
+// FEScript's copy ctor; the current script and each script's chained script are re-found by id in the copy.
+// Like the original, the source's current script is dereferenced while searching (null + scripts = crash).
+FEObject *FEObject::CopyConstruct(void *mem, const FEObject &src, bool reference)
+{
+    auto *o = static_cast<FEObject *>(mem);
+    auto *unlinked = reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED);
+    o->node.next = o->node.prev = unlinked;
+    o->node.vtable = bridge::FEObjectVTable();
+    o->mu32NameHash = 0;
+    o->mpcName = nullptr;
+    o->mu32Flags = 0;
+    o->_unknown24 = o->_unknown28 = 0;
+    o->mpData = nullptr;
+    o->mResponses = FEMinList{bridge::FEMinListVTable(), 0, nullptr, nullptr};
+    o->mScripts = FEMinList{bridge::FEMinListVTable(), 0, nullptr, nullptr};
+    o->mu32GUID = bridge::NextFEObjectGUID();
+
+    // SetDataSize (GC, inlined on PC)
+    uint32_t size = src.mu32DataSize;
+    bridge::ObjDataPool()->Free(o->mpData);
+    o->mpData = nullptr;
+    void *data = bridge::ObjDataPool()->Alloc(size);
+    o->mu32DataSize = size;
+    o->mpData = data;
+    std::memset(data, 0, size);
+
+    o->mu32Type = src.mu32Type;
+    o->mu32Flags = src.mu32Flags;
+    o->_unknown20 = src._unknown20;
+    o->_unknown22 = src._unknown22;
+    o->_unknown24 = src._unknown24;
+    o->SetName(src.mpcName);
+
+    for (FEMinNode *n = src.mResponses.head; n; n = n->next) {
+        auto *from = reinterpret_cast<const FEMessageResponse *>(n);
+        FEMessageResponse *m = FEMessageResponse::Construct(FEMessageResponse::PoolNew());
+        uint32_t count = from->mu32Count;
+        m->SetCount(count);
+        m->mu32MsgId = from->mu32MsgId;
+        for (uint32_t i = 0; i < count; ++i) m->mpResponses[i].Assign(from->mpResponses[i]);
+        AppendNode(o->mResponses, &m->node);
+    }
+
+    for (FEMinNode *n = src.mScripts.head; n; n = n->next) {
+        void *mem2 = FEPoolNew<FEScript, 32>(*bridge::FEScriptPool(), FEScriptBlock_Construct);
+        FEScript *s = FEScript::CopyConstruct(mem2, *reinterpret_cast<const FEScript *>(n), reference);
+        if (s) AppendNode(o->mScripts, &s->node);
+    }
+
+    FEScript *cur = nullptr;
+    for (FEMinNode *n = o->mScripts.head; n; n = n->next)
+        if (reinterpret_cast<FEScript *>(n)->mu32Id == src.mpCurrentScript->mu32Id) { cur = reinterpret_cast<FEScript *>(n); break; }
+    o->mpCurrentScript = cur;
+    if (cur) bridge::FEObject_SetupMoveToTracks(o);
+
+    FEMinNode *d = o->mScripts.head;
+    for (FEMinNode *n = src.mScripts.head; n; n = n->next, d = d->next) {
+        const FEScript *from = reinterpret_cast<const FEScript *>(n);
+        if (from->mpChainedScript)
+            reinterpret_cast<FEScript *>(d)->mpChainedScript = FindScriptIn(o->mScripts, from->mpChainedScript->mu32Id);
+    }
+    return o;
+}
+
+// PC 5545D0: new (game heap, 0x5C) + copy ctor; null on allocation failure.
+FEObject *FEObject::Clone(bool reference) const
+{
+    void *mem = bridge::Alloc(sizeof(FEObject));
+    if (!mem) return nullptr;
+    return CopyConstruct(mem, *this, reference);
+}

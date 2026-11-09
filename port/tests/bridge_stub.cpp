@@ -23,6 +23,7 @@ FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
 FEMinList msgRespPool{&feMinListVTable, 0, nullptr, nullptr}, scriptPool{&feMinListVTable, 0, nullptr, nullptr};
 uint32_t nextGUID = 100;
 void *lastDestructorCallback = nullptr;
+void *lastSetupMoveTo = nullptr;
 }  // namespace teststub
 
 namespace bridge {
@@ -31,19 +32,7 @@ void FreeArray(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 void *WideCharHistogram() { return nullptr; }
 void WideCharHistogram_UnpackString(void *, uint16_t *, int, const char *) { std::abort(); }
 bool UseOldFEngDirtyFlag() { return teststub::useOldDirtyFlag; }
-// stand-in FEObject: zero the base, mark it constructed
-// stand-in deep copy: same header fields, own (empty) name, data and lists (via the struct: tests are 64-bit)
-void FEObject_CopyConstruct(void *self, const void *src, bool)
-{
-    auto *o = static_cast<FEObject *>(self);
-    std::memcpy(static_cast<void *>(o), src, sizeof(FEObject));
-    o->mu32NameHash = 0;
-    o->mpcName = nullptr;
-    o->mpData = nullptr;
-    o->mu32DataSize = 0;
-    o->mResponses.count = 0; o->mResponses.head = o->mResponses.tail = nullptr;
-    o->mScripts.count = 0; o->mScripts.head = o->mScripts.tail = nullptr;
-}
+void FEObject_SetupMoveToTracks(void *o) { teststub::lastSetupMoveTo = o; }
 void *FEStringVTable() { return &teststub::feStringVTable; }
 void CallLabelCallback(void *s) { teststub::lastLabelCallback = s; }
 void *FEMinNodeVTable() { return &teststub::feMinNodeVTable; }
@@ -57,6 +46,9 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feSlotPoolVTable) static_cast<FESlotPool *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feMsgRespBlockVTable)
         FEMessageResponseBlock_ScalarDtor(static_cast<FEMessageResponseBlock *>(o), 1);
+    else if (vt == &teststub::feScriptVTable) static_cast<FEScript *>(o)->ScalarDeletingDestructor(1);
+    else if (vt == &teststub::feMsgRespVTable) static_cast<FEMessageResponse *>(o)->ScalarDeletingDestructor(1);
+    else if (vt == &teststub::feObjectVTable) static_cast<FEObject *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feKeyNodeVTable) static_cast<FEKeyNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feKeyNodeBlockVTable) FEKeyNodeBlock_ScalarDtor(static_cast<FEKeyNodeBlock *>(o), 1);
     else if (vt == &teststub::feScriptBlockVTable) FEScriptBlock_ScalarDtor(static_cast<FEScriptBlock *>(o), 1);
