@@ -25,7 +25,9 @@ struct FEMessageTargets {           // 0x10 bytes
 };
 
 struct FEPackage {
-    uint8_t _unknown00[0x14];
+    FEMinNode node;                  // +0x00 FEngine package list link
+    const char *mpcName;             // +0x0C
+    uint32_t mu32NameHash;           // +0x10
     uint8_t mbFastInterp;            // +0x14 use FEKeyInterpFast (done-track skipping + dirty-flag tracking);
                                      //       also gates script time handling / events in UpdateObject
     uint8_t _unknown15[7];

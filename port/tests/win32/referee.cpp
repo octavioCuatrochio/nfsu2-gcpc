@@ -763,6 +763,24 @@ static void CheckPackageSmall(int iters)
     }
 }
 
+// FEMessageResponse::FindConditionBranchTarget (PC 504490) on random opcode lists with nested conditions.
+static void CheckConditionBranch(int iters)
+{
+    auto orig = ORIG<uint32_t(THISCALL *)(const FEMessageResponse *, uint32_t)>(0x504490);
+    static const uint32_t kOps[] = {0x300, 0x301, 0x500, 0x501, 0x200, 0x0, 0x1};
+    for (int it = 0; it < iters / 4; ++it) {
+        FEResponse code[16]{};
+        FEMessageResponse r{};
+        r.mu32Count = 1 + rng() % 16;
+        r.mpResponses = code;
+        for (uint32_t i = 0; i < 16; ++i) code[i].mu32Type = kOps[rng() % 7];
+        uint32_t start = rng() % r.mu32Count;
+        // keep the walk inside the array: the original reads up to index count (one past the end) at worst
+        if (r.mu32Count < 16) code[r.mu32Count].mu32Type = 0x501;
+        EXPECT(orig(&r, start) == r.FindConditionBranchTarget(start), "FindConditionBranchTarget n=%u i=%u", r.mu32Count, start);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -792,6 +810,7 @@ static int RunAll()
     CheckPackageUpdate(iters);
     CheckFindObject(iters);
     CheckPackageSmall(iters);
+    CheckConditionBranch(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",

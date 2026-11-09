@@ -129,3 +129,19 @@ void FEMessageResponse::PoolDelete(void *p)
 {
     FEPoolDelete<FEMessageResponse, 64>(*bridge::FEMessageResponsePool(), p);
 }
+
+// PC 504490. Conditions 0x300/0x301 nest; 0x500 (else) ends the branch only at depth 1; 0x501 closes one level.
+uint32_t FEMessageResponse::FindConditionBranchTarget(uint32_t index) const
+{
+    const uint32_t n = mu32Count;
+    if (index == n - 1) return n;
+    int32_t depth = 1;
+    do {
+        ++index;
+        uint32_t t = mpResponses[index].mu32Type;
+        if (t == 0x500) { if (depth == 1) depth = 0; }
+        else if (t == 0x300 || t == 0x301) ++depth;
+        else if (t == 0x501) --depth;
+    } while (index < n && depth != 0);
+    return index;
+}

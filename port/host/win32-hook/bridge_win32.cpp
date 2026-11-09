@@ -89,10 +89,14 @@ void *FEKeyNodeVTable() { return reinterpret_cast<void *>(0x79AA34); }
 ::FEMinList *FEKeyNodePool() { return reinterpret_cast<::FEMinList *>(0x839BD0); }
 void *FEKeyNodeBlockVTable() { return reinterpret_cast<void *>(0x79B9EC); }
 const bASinTableEntry *BASinTable() { return reinterpret_cast<const bASinTableEntry *>(0x7EA628); }
-void FEngine_ProcessResponses(void *e, void *r, void *o, void *p, uint32_t arg)
-{
-    reinterpret_cast<void(THISCALL *)(void *, void *, void *, void *, uint32_t)>(0x52C7C0)(e, r, o, p, arg);
-}
+void FEngine_QueuePackageSwitch(void *e, const char *n, void *p) { reinterpret_cast<void(THISCALL *)(void *, const char *, void *)>(0x51AB20)(e, n, p); }
+void FEngine_QueuePackagePush(void *e, const char *n, void *p, uint32_t m) { reinterpret_cast<void(THISCALL *)(void *, const char *, void *, uint32_t)>(0x51AC10)(e, n, p, m); }
+void FEngine_QueuePackagePop(void *e, void *p) { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x51ADB0)(e, p); }
+void FEngine_QueuePackageUserTransfer(void *e, void *p, bool f, uint32_t a) { reinterpret_cast<void(THISCALL *)(void *, void *, int, uint32_t)>(0x51AF50)(e, p, f ? 1 : 0, a); }
+void FEngine_RecordPackageMarker(void *e, const char *n) { reinterpret_cast<void(THISCALL *)(void *, const char *)>(0x51B070)(e, n); }
+void FEngine_RecordLastPackageButton(void *e, uint32_t h, uint32_t g) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, uint32_t)>(0x50B300)(e, h, g); }
+uint32_t FEngine_RecallLastPackageButton(void *e, uint32_t h) { return reinterpret_cast<uint32_t(THISCALL *)(void *, uint32_t)>(0x50B360)(e, h); }
+void FEngine_ClearPackageMarkers(void *e) { reinterpret_cast<void(THISCALL *)(void *)>(0x50B390)(e); }
 void FEListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x516E90)(lb, dx, dy); }
 void FECodeListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x52BD70)(lb, dx, dy); }
 void FEUIData_Call4(void *ui, uint32_t slot, uint32_t a, const void *b, uint32_t c, const void *d)

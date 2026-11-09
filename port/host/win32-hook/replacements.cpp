@@ -157,6 +157,9 @@ void THISCALL FEngine_ProcessMessageQueue(FEngine *self) { self->ProcessMessageQ
 void THISCALL FEngine_ProcessObjectMessage(FEngine *self, FEObject *o, FEPackage *p, uint32_t msg, uint32_t arg) { self->ProcessObjectMessage(o, p, msg, arg); }
 bool THISCALL FEngine_ProcessListBoxResponses(FEngine *self, FEObject *o, FEPackage *p, uint32_t msg) { return self->ProcessListBoxResponses(o, p, msg); }
 bool THISCALL FEngine_ProcessCodeListBoxResponses(FEngine *self, FEObject *o, FEPackage *p, uint32_t msg) { return self->ProcessCodeListBoxResponses(o, p, msg); }
+void THISCALL FEngine_ProcessResponses(FEngine *self, FEMessageResponse *r, FEObject *o, FEPackage *p, uint32_t arg) { self->ProcessResponses(r, o, p, arg); }
+uint32_t THISCALL FEMessageResponse_FindConditionBranchTarget(const FEMessageResponse *self, uint32_t i) { return self->FindConditionBranchTarget(i); }
+void THISCALL FEObject_SetCurrentScript(FEObject *self, FEScript *s) { self->SetCurrentScript(s); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -304,6 +307,9 @@ const Replacement kReplacements[] = {
     {0x5367E0, (const void *)&FEngine_ProcessObjectMessage, "FEngine::ProcessObjectMessage", {0x53, 0x8B, 0x5C, 0x24, 0x10, 0x55}},
     {0x51B000, (const void *)&FEngine_ProcessListBoxResponses, "FEngine::ProcessListBoxResponses", {0x8B, 0x44, 0x24, 0x0C, 0x3D, 0xF9}},
     {0x52C750, (const void *)&FEngine_ProcessCodeListBoxResponses, "FEngine::ProcessCodeListBoxResponses", {0x8B, 0x44, 0x24, 0x0C, 0x3D, 0xF9}},
+    {0x52C7C0, (const void *)&FEngine_ProcessResponses, "FEngine::ProcessResponses", {0x83, 0xEC, 0x08, 0x55, 0x8B, 0x6C}},
+    {0x504490, (const void *)&FEMessageResponse_FindConditionBranchTarget, "FEMessageResponse::FindConditionBranchTarget", {0x8B, 0x54, 0x24, 0x04, 0x57, 0x8B}},
+    {0x5178B0, (const void *)&FEObject_SetCurrentScript, "FEObject::SetCurrentScript", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

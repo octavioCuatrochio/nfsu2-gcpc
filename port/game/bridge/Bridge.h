@@ -59,7 +59,15 @@ void *FEKeyNodeBlockVTable();                                          // PC 0x7
 const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628 (game data)
 // FEPackage callees not rewritten yet (PC __thiscall)
 void *FEMessageNodeVTable();                                                      // PC 0x79AB60
-void FEngine_ProcessResponses(void *engine, void *response, void *obj, void *pkg, uint32_t arg);   // 52C7C0
+// FEngine package stack / markers (not rewritten; __thiscall)
+void FEngine_QueuePackageSwitch(void *engine, const char *name, void *pkg);                 // 51AB20
+void FEngine_QueuePackagePush(void *engine, const char *name, void *pkg, uint32_t mask);    // 51AC10
+void FEngine_QueuePackagePop(void *engine, void *pkg);                                      // 51ADB0
+void FEngine_QueuePackageUserTransfer(void *engine, void *pkg, bool flag, uint32_t arg);     // 51AF50
+void FEngine_RecordPackageMarker(void *engine, const char *name);                           // 51B070
+void FEngine_RecordLastPackageButton(void *engine, uint32_t pkgHash, uint32_t guid);        // 50B300
+uint32_t FEngine_RecallLastPackageButton(void *engine, uint32_t pkgHash);                   // 50B360
+void FEngine_ClearPackageMarkers(void *engine);                                             // 50B390
 void FEListBox_ScrollSelection(void *listBox, int32_t dx, int32_t dy);             // 516E90
 void FECodeListBox_ScrollSelection(void *listBox, int32_t dx, int32_t dy);         // 52BD70
 // game UI handler virtual calls (__thiscall), slot given as a byte offset

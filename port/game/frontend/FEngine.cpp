@@ -23,7 +23,7 @@ void FEngine::QueueMessage(uint32_t msg, FEObject *obj, FEPackage *pkg, FEObject
 // GC 801484AC: the package's own response to the message, if any.
 void FEngine::ProcessGlobalMessage(FEPackage *pkg, uint32_t msg, uint32_t arg)
 {
-    if (FEMessageResponse *r = pkg->FindResponse(msg)) bridge::FEngine_ProcessResponses(this, r, nullptr, pkg, arg);
+    if (FEMessageResponse *r = pkg->FindResponse(msg)) ProcessResponses(r, nullptr, pkg, arg);
 }
 
 namespace {
@@ -113,5 +113,82 @@ void FEngine::ProcessObjectMessage(FEObject *obj, FEPackage *pkg, uint32_t msg, 
 {
     if (obj->mu32Type == 4 && ProcessListBoxResponses(obj, pkg, msg)) return;
     if (obj->mu32Type == 6 && ProcessCodeListBoxResponses(obj, pkg, msg)) return;
-    if (FEMessageResponse *r = obj->FindResponse(msg)) bridge::FEngine_ProcessResponses(this, r, obj, pkg, arg);
+    if (FEMessageResponse *r = obj->FindResponse(msg)) ProcessResponses(r, obj, pkg, arg);
+}
+
+// PC 52C7C0. Response = {type, param, extra}. Opcodes:
+//   0 run script `param` on obj (time 0)       1 queue message param to target `extra` (GUID, or -4/-1 as is)
+//   2/3 queue message param to the game (-1) / special (-5)
+//   0x100 make GUID `param` the current button (0: none, no notification; missing GUID: ignored)
+//   0x101 engine flag 1 = (param == 1)          0x102 / 0x103 record / recall the package's last button
+//   0x105..0x108 package user transfer           0x200 switch / 0x201 push (control mask) / 0x202 push per arg bit
+//   0x203 pop / 0x204 push (mask 0)               0x2C0..0x2C2 package marker record / recall / clear
+//   0x300 / 0x301 if the current script id is not / is `param`: continue, else jump to the matching branch;
+//   0x500 (else) jumps to the end. The response count is read once (like the original).
+void FEngine::ProcessResponses(FEMessageResponse *resp, FEObject *obj, FEPackage *pkg, uint32_t arg)
+{
+    const uint32_t count = resp->mu32Count;
+    auto special = [](uint32_t v) { return reinterpret_cast<FEObject *>(static_cast<uintptr_t>(v)); };
+    for (uint32_t i = 0; i < count; ++i) {
+        const FEResponse &r = resp->mpResponses[i];
+        const uint32_t param = static_cast<uint32_t>(r.mParam);
+        switch (r.mu32Type) {
+        case 0:
+            if (obj)
+                if (FEScript *s = obj->FindScript(param)) { obj->SetCurrentScript(s); s->mi32Time = 0; }
+            break;
+        case 1: {
+            FEObject *target = special(r.mu32Extra);
+            if (r.mu32Extra != 0xFFFFFFFCu && r.mu32Extra != 0xFFFFFFFFu) target = pkg->FindObjectByGUID(r.mu32Extra);
+            QueueMessage(param, obj, pkg, target, arg);
+            break;
+        }
+        case 2: QueueMessage(param, obj, pkg, special(0xFFFFFFFFu), arg); break;
+        case 3: QueueMessage(param, obj, pkg, special(0xFFFFFFFBu), arg); break;
+        case 0x100: {
+            FEObject *b = param ? pkg->FindObjectByGUID(param) : nullptr;
+            if (b || !param) pkg->SetCurrentButton(this, b, b != nullptr);
+            break;
+        }
+        case 0x101: mbFlag01 = param == 1; break;
+        case 0x102:
+            bridge::FEngine_RecordLastPackageButton(this, pkg->mu32NameHash, pkg->mpCurrentButton ? pkg->mpCurrentButton->mu32GUID : 0);
+            break;
+        case 0x103: {
+            FEObject *b = nullptr;
+            if (uint32_t guid = bridge::FEngine_RecallLastPackageButton(this, pkg->mu32NameHash)) b = pkg->FindObjectByGUID(guid);
+            if (!b && param) b = pkg->FindObjectByGUID(param);
+            if (b || !param) pkg->SetCurrentButton(this, b, b != nullptr);
+            break;
+        }
+        case 0x105: bridge::FEngine_QueuePackageUserTransfer(this, pkg, true, arg); break;
+        case 0x106: bridge::FEngine_QueuePackageUserTransfer(this, pkg, true, 0xFF); break;
+        case 0x107: bridge::FEngine_QueuePackageUserTransfer(this, pkg, false, arg); break;
+        case 0x108: bridge::FEngine_QueuePackageUserTransfer(this, pkg, false, 0xFF); break;
+        case 0x200: bridge::FEngine_QueuePackageSwitch(this, reinterpret_cast<const char *>(r.mParam), pkg); break;
+        case 0x201: bridge::FEngine_QueuePackagePush(this, reinterpret_cast<const char *>(r.mParam), pkg, pkg->mu32ControlMask); break;
+        case 0x202:
+            for (uint32_t bit = 0; bit < 8; ++bit)
+                if (arg & (1u << bit)) bridge::FEngine_QueuePackagePush(this, reinterpret_cast<const char *>(r.mParam), pkg, 1u << bit);
+            break;
+        case 0x203: bridge::FEngine_QueuePackagePop(this, pkg); break;
+        case 0x204: bridge::FEngine_QueuePackagePush(this, reinterpret_cast<const char *>(r.mParam), pkg, 0); break;
+        case 0x2C0: bridge::FEngine_RecordPackageMarker(this, pkg->mpcName); break;
+        case 0x2C1:                                       // RecallPackageMarker (inlined): pop the last name
+            if (mu32NumPackageMarkers) {
+                --mu32NumPackageMarkers;
+                bridge::FEngine_QueuePackageSwitch(this, macPackageMarkers[0] + mu32NumPackageMarkers * 0x100, pkg);
+            }
+            break;
+        case 0x2C2: bridge::FEngine_ClearPackageMarkers(this); break;
+        case 0x300:
+            if (obj->mpCurrentScript->mu32Id != param) i = resp->FindConditionBranchTarget(i);
+            break;
+        case 0x301:
+            if (obj->mpCurrentScript->mu32Id == param) i = resp->FindConditionBranchTarget(i);
+            break;
+        case 0x500: i = resp->FindConditionBranchTarget(i); break;
+        default: break;
+        }
+    }
 }

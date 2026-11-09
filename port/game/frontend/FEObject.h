@@ -40,6 +40,7 @@ struct FEObject {
     FEObject *ScalarDeletingDestructor(uint32_t flags);    // PC 534BB0 (vtable slot 0)
 
     void SetupMoveToTracks();                         // GC 80137EA4 / PC 517720
+    void SetCurrentScript(FEScript *s) { mpCurrentScript = s; if (s) SetupMoveToTracks(); }   // GC 801381FC / PC 5178B0
     // Sets (add=false) or adds to (add=true) a track's value: in every script's matching track (base key value,
     // flag bit 7 cleared) and in the object's data. GC 8013825C/801383B0/801384EC, PC 5178D0/5179D0/517AD0.
     // Setters used by game code. Ignored for factory types >= 0x100. Mark the object dirty (FEOBJ_DIRTY) unless the

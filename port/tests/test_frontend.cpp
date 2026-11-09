@@ -811,6 +811,10 @@ static void TestProcessMessageQueue()
     e->mpPackages = p1;
     FEMessageResponse r{};
     r.mu32MsgId = 0x77;
+    static const char kP2[] = "P2", kA[] = "A", kB[] = "B";
+    FEResponse rr[3] = {{0x200, reinterpret_cast<uintptr_t>(kP2), 0}, {0x200, reinterpret_cast<uintptr_t>(kA), 0},
+                        {0x200, reinterpret_cast<uintptr_t>(kB), 0}};   // "switch package <name>": identifies the response
+    r.mu32Count = 1; r.mpResponses = &rr[0];
     for (auto *p : {p1, p2}) p->mResponses = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
     p2->mResponses.AddTail(&r.node);
     alignas(8) unsigned char om[3][sizeof(FEObject)] = {};
@@ -819,6 +823,7 @@ static void TestProcessMessageQueue()
     lb->mu32Type = 4;                                            // list box
     FEMessageResponse ra{}, rb{};
     ra.mu32MsgId = 0x77; rb.mu32MsgId = 0x13;
+    ra.mu32Count = 1; ra.mpResponses = &rr[1]; rb.mu32Count = 1; rb.mpResponses = &rr[2];
     list[0]->mResponses.AddTail(&ra.node);
     list[0]->mResponses.AddTail(&rb.node);
     FEMessageTargets tg{0x77, 0, 2, list};
@@ -837,16 +842,86 @@ static void TestProcessMessageQueue()
     e->QueueMessage(0x13, nullptr, p1, lb, 0);                    // list box, other message: own responses (none)
     e->ProcessMessageQueue();
     CHECK(e->mMessages.count == 0 && teststub::liveAllocations == live);   // every node deleted
+    auto sw = [&](size_t k, const char *name) { return k < d.size() && std::string(d[k].kind) == "switch" && d[k].a == name; };
     CHECK(d.size() == 7);
-    CHECK(std::string(d[0].kind) == "objresp" && d[0].a == list[0] && d[0].arg == 5);
-    CHECK(std::string(d[1].kind) == "resp" && d[1].pkg == p2 && d[1].arg == 5);
-    CHECK(std::string(d[2].kind) == "resp" && d[2].arg == 6 && std::string(d[3].kind) == "resp" && d[3].arg == 7);
+    CHECK(sw(0, kA) && d[0].pkg == p1 && sw(1, kP2) && d[1].pkg == p2);    // 0: A's response (p1 target), p2 global
+    CHECK(sw(2, kP2) && sw(3, kP2));                                         // -4 p2, -2 all -> p2's
     CHECK(e->mbFlag01 == 1);
     CHECK(std::string(d[4].kind) == "ui" && d[4].msg == 0x12 + 0x18 * 0x10000 && d[4].arg == 8);
-    CHECK(std::string(d[5].kind) == "objresp" && d[5].a == list[0] && d[5].arg == 9);
+    CHECK(sw(5, kB));                                                         // object message 0x13 -> B
     CHECK(std::string(d[6].kind) == "scroll" && d[6].a == lb && d[6].msg == 0 && d[6].arg == uint32_t(-1));
+    for (auto &x : {&r, &ra, &rb}) { x->mu32Count = 0; x->mpResponses = nullptr; }
     for (auto *o : {list[0], list[1], lb}) o->mResponses = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
     e->mpPackages = nullptr;
+}
+
+// FEngine::ProcessResponses opcodes: conditions/else, scripts, buttons, push per arg bit, markers, transfers.
+static void TestProcessResponses()
+{
+    FEngine *e = TestEngine();
+    Collect();
+    alignas(8) unsigned char pm[sizeof(FEPackage)] = {}, om[2][sizeof(FEObject)] = {};
+    auto *pkg = reinterpret_cast<FEPackage *>(pm);
+    pkg->mObjects = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+    pkg->mu32NameHash = 0xAB; pkg->mu32ControlMask = 0x30;
+    static const char kName[] = "PKG";
+    pkg->mpcName = kName;
+    FEObject *obj = FEObject::Construct(om[0]);
+    FEObject *btn = FEObject::Construct(om[1]);
+    btn->mu32GUID = 42;
+    pkg->mObjects.AddTail(&obj->node);
+    pkg->mObjects.AddTail(&btn->node);
+    FEScript s1 = {}, s2 = {};
+    FEScript::Construct(&s1); FEScript::Construct(&s2);
+    s1.mu32Id = 1; s2.mu32Id = 2; s2.mi32Time = 99;
+    obj->mScripts.AddTail(&s1.node); obj->mScripts.AddTail(&s2.node);
+    obj->mpCurrentScript = &s1;
+    static const char kT[] = "T", kE[] = "E";
+    auto U = [](const char *p) { return reinterpret_cast<uintptr_t>(p); };
+    FEResponse code[] = {
+        {0x300, 1, 0},            // if current script id != 1 -> skip (it is 1: run the if-branch)
+        {0x200, U(kT), 0},        //   switch "T"
+        {0x500, 0, 0},            // else
+        {0x200, U(kE), 0},        //   switch "E" (skipped)
+        {0x501, 0, 0},            // end
+        {0x100, 42, 0},           // current button = GUID 42 (notified)
+        {0x102, 0, 0},            // record last button: (pkg hash, 42)
+        {0x202, U(kT), 0},        // push "T" once per set arg bit
+        {0x2C0, 0, 0},            // record marker (package name)
+        {0x105, 0, 0}, {0x108, 0, 0},
+        {0, 2, 0},                // run script 2 from time 0
+    };
+    FEMessageResponse resp{};
+    resp.mu32Count = sizeof code / sizeof code[0];
+    resp.mpResponses = code;
+    CHECK(resp.FindConditionBranchTarget(0) == 2 && resp.FindConditionBranchTarget(2) == 4);
+    auto &d = teststub::delivered;
+    d.clear();
+    e->ProcessResponses(&resp, obj, pkg, 0x5);                // arg bits 0 and 2
+    auto kind = [&](size_t k) { return k < d.size() ? std::string(d[k].kind) : std::string(); };
+    CHECK(d.size() == 7);                                       // the button change goes to the engine queue
+    CHECK(kind(0) == "switch" && d[0].a == kT);
+    CHECK(pkg->mpCurrentButton == btn);
+    CHECK(kind(1) == "record" && d[1].msg == 0xAB && d[1].arg == 42);
+    CHECK(kind(2) == "push" && d[2].msg == 1 && kind(3) == "push" && d[3].msg == 4);
+    CHECK(kind(4) == "marker" && d[4].a == kName);
+    CHECK(kind(5) == "transfer" && d[5].msg == 1 && d[5].arg == 5 && kind(6) == "transfer" && d[6].msg == 0 && d[6].arg == 0xFF);
+    CHECK(obj->mpCurrentScript == &s2 && s2.mi32Time == 0);
+    auto q = Collect();                                         // highlight messages from the button change
+    CHECK(q.size() == 2);
+    // recall: last button unknown -> fallback GUID param; marker recall pops a name
+    teststub::recallGuid = 0;
+    pkg->mpCurrentButton = nullptr;
+    FEResponse code2[] = {{0x103, 42, 0}, {0x2C1, 0, 0}, {0x101, 1, 0}};
+    resp.mu32Count = 3; resp.mpResponses = code2;
+    e->mu32NumPackageMarkers = 1;
+    std::strcpy(e->macPackageMarkers[0], "MARK");
+    d.clear();
+    e->ProcessResponses(&resp, obj, pkg, 0);
+    CHECK(pkg->mpCurrentButton == btn && e->mu32NumPackageMarkers == 0 && e->mbFlag01 == 1);
+    CHECK(d.size() == 1 && std::string(d[0].kind) == "switch" && std::string(static_cast<char *>(d[0].a)) == "MARK");
+    Collect();
+    obj->mScripts = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
 }
 
 int main()
@@ -875,6 +950,7 @@ int main()
     TestUpdateObject();
     TestPackageUpdate();
     TestProcessMessageQueue();
+    TestProcessResponses();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

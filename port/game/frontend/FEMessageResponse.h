@@ -33,6 +33,8 @@ struct FEMessageResponse {
     void SetCount(uint32_t count);                     // GC 80137798 / PC 52AE00: resize, keeping the first entries
     void PurgeResponses();                             // GC 8013771C (PC: inlined)
     uint32_t FindResponse(uint32_t type) const;        // GC 801378C4: index, or 0xFFFFFFFF
+    // GC 80137908 / PC 504490: from a condition at `index`, the index of its matching else (0x500) / end (0x501).
+    uint32_t FindConditionBranchTarget(uint32_t index) const;
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
