@@ -4,13 +4,17 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 ## Port status / next
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
-- Next: FEngine package stack (QueuePackageSwitch 51AB20, Push 51AC10, Pop 51ADB0, UserTransfer 51AF50, markers), FEListBox::ScrollSelection 516E90 + Update 517230,
+- Next: package markers (RecordPackageMarker 51B070, Record/RecallLastPackageButton 50B300/50B360, Clear 50B390),
+  PackagePopQueuedPushPackage (GC 80147DF0), the FEPackageCommand consumer, FEListBox::ScrollSelection 516E90 + Update 517230,
   FECodeListBox::Update 504DC0, rest of FEPackage (FindResponse, control masks, library refs);
   FEObject subclass copy ctors/Clones; more bWare math (bCos etc. near 43C2B0).
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
 - bWare trig rewritten bit-exact (bSin/bSinF/bASin); bASin table is game data read from the exe (bridge).
 - FEInterpLinear (52BDC0): wrap mode = flags&0x7F (0 clamp, 1 loop over track length, 2 ping-pong: reads a null
   "from" key in the original). t rounded to float; t==0/1 -> key + base (quaternion: key*base); no keys -> base copy.
+- FEPackageCommand (PC 0x20, vtable 0x79AB64): FENode (+0xC name, +0x10 FEHashUpper) + type +0x14 (1 pop, 2 push,
+  3 switch, 4/8 user transfer false/true, 0x12 modal push), mask +0x18, pkg +0x1C; queue = FEngine+0x4124 FEMinList.
+  FENode::SetName is PC 519DE0 (was mis-matched to the FENode ctor). PC Switch/Pop/UserTransfer don't null-check pkg.
 - Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
 
 ## Binaries

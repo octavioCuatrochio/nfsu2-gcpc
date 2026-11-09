@@ -20,14 +20,69 @@ void FEngine::QueueMessage(uint32_t msg, FEObject *obj, FEPackage *pkg, FEObject
     mMessages.AddTail(&n->node);
 }
 
+namespace {
+// Inlined FEPackageCommand constructor + field setup (PC: every QueuePackage* starts like this). Like the original,
+// allocation failure crashes (writes through null).
+FEPackageCommand *NewPackageCommand(uint32_t type, uint32_t mask, FEPackage *pkg)
+{
+    auto *c = static_cast<FEPackageCommand *>(bridge::Alloc(sizeof(FEPackageCommand)));
+    if (c) {
+        c->node.node.next = c->node.node.prev = reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED);
+        c->node.mpcName = nullptr;
+        c->node.mu32NameHash = 0;
+        c->node.node.vtable = bridge::FEPackageCommandVTable();
+    }
+    c->mpPackage = pkg;
+    c->mu32Mask = mask;
+    c->mu32Type = type;
+    return c;
+}
+FEPackage *NextPackage(const FEPackage *p) { return reinterpret_cast<FEPackage *>(reinterpret_cast<const FEMinNode *>(p)->next); }
+}
+
+// GC null-checks pkg before clearing its masks; PC reads pkg->mu32ControlMask first, so pkg must be valid.
+void FEngine::QueuePackageSwitch(const char *name, FEPackage *pkg)
+{
+    FEPackageCommand *c = NewPackageCommand(3, pkg->mu32ControlMask, pkg);
+    c->node.SetName(name);
+    mPackageCommands.AddTail(&c->node.node);
+    pkg->SetControlMask(0);
+}
+
+void FEngine::QueuePackagePush(const char *name, FEPackage *pkg, uint32_t mask)
+{
+    FEPackageCommand *c = NewPackageCommand(2, mask, pkg);
+    c->node.SetName(name);
+    mPackageCommands.AddTail(&c->node.node);
+    if (pkg) pkg->SetControlMask(pkg->mu32ControlMask & ~mask);
+}
+
+void FEngine::QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask)
+{
+    FEPackageCommand *c = NewPackageCommand(0x12, mask, pkg);
+    c->node.SetName(name);
+    mPackageCommands.AddTail(&c->node.node);
+    for (FEPackage *p = mpPackages; p; p = NextPackage(p)) p->SetControlMaskOnly(p->mu32ControlMask & ~mask);
+}
+
+void FEngine::QueuePackagePop(FEPackage *pkg)
+{
+    FEPackageCommand *c = NewPackageCommand(1, pkg->mu32ControlMask, pkg);
+    mPackageCommands.AddTail(&c->node.node);
+    for (FEPackage *p = mpPackages; p; p = NextPackage(p)) p->RestoreControlMask();
+    pkg->SetControlMask(0);
+}
+
+void FEngine::QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask)
+{
+    FEPackageCommand *c = NewPackageCommand(flag ? 8 : 4, pkg->mu32ControlMask & mask, pkg);
+    mPackageCommands.AddTail(&c->node.node);
+}
+
 // GC 801484AC: the package's own response to the message, if any.
 void FEngine::ProcessGlobalMessage(FEPackage *pkg, uint32_t msg, uint32_t arg)
 {
     if (FEMessageResponse *r = pkg->FindResponse(msg)) ProcessResponses(r, nullptr, pkg, arg);
-}
-
-namespace {
-FEPackage *NextPackage(const FEPackage *p) { return reinterpret_cast<FEPackage *>(reinterpret_cast<const FEMinNode *>(p)->next); }
 }
 
 // PC 541FC0. Targets: an object -> ProcessObjectMessage; 0 -> every package (global response + listed objects);
@@ -161,23 +216,23 @@ void FEngine::ProcessResponses(FEMessageResponse *resp, FEObject *obj, FEPackage
             if (b || !param) pkg->SetCurrentButton(this, b, b != nullptr);
             break;
         }
-        case 0x105: bridge::FEngine_QueuePackageUserTransfer(this, pkg, true, arg); break;
-        case 0x106: bridge::FEngine_QueuePackageUserTransfer(this, pkg, true, 0xFF); break;
-        case 0x107: bridge::FEngine_QueuePackageUserTransfer(this, pkg, false, arg); break;
-        case 0x108: bridge::FEngine_QueuePackageUserTransfer(this, pkg, false, 0xFF); break;
-        case 0x200: bridge::FEngine_QueuePackageSwitch(this, reinterpret_cast<const char *>(r.mParam), pkg); break;
-        case 0x201: bridge::FEngine_QueuePackagePush(this, reinterpret_cast<const char *>(r.mParam), pkg, pkg->mu32ControlMask); break;
+        case 0x105: QueuePackageUserTransfer(pkg, true, arg); break;
+        case 0x106: QueuePackageUserTransfer(pkg, true, 0xFF); break;
+        case 0x107: QueuePackageUserTransfer(pkg, false, arg); break;
+        case 0x108: QueuePackageUserTransfer(pkg, false, 0xFF); break;
+        case 0x200: QueuePackageSwitch(reinterpret_cast<const char *>(r.mParam), pkg); break;
+        case 0x201: QueuePackagePush(reinterpret_cast<const char *>(r.mParam), pkg, pkg->mu32ControlMask); break;
         case 0x202:
             for (uint32_t bit = 0; bit < 8; ++bit)
-                if (arg & (1u << bit)) bridge::FEngine_QueuePackagePush(this, reinterpret_cast<const char *>(r.mParam), pkg, 1u << bit);
+                if (arg & (1u << bit)) QueuePackagePush(reinterpret_cast<const char *>(r.mParam), pkg, 1u << bit);
             break;
-        case 0x203: bridge::FEngine_QueuePackagePop(this, pkg); break;
-        case 0x204: bridge::FEngine_QueuePackagePush(this, reinterpret_cast<const char *>(r.mParam), pkg, 0); break;
+        case 0x203: QueuePackagePop(pkg); break;
+        case 0x204: QueuePackagePush(reinterpret_cast<const char *>(r.mParam), pkg, 0); break;
         case 0x2C0: bridge::FEngine_RecordPackageMarker(this, pkg->mpcName); break;
         case 0x2C1:                                       // RecallPackageMarker (inlined): pop the last name
             if (mu32NumPackageMarkers) {
                 --mu32NumPackageMarkers;
-                bridge::FEngine_QueuePackageSwitch(this, macPackageMarkers[0] + mu32NumPackageMarkers * 0x100, pkg);
+                QueuePackageSwitch(macPackageMarkers[0] + mu32NumPackageMarkers * 0x100, pkg);
             }
             break;
         case 0x2C2: bridge::FEngine_ClearPackageMarkers(this); break;

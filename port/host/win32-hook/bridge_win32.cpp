@@ -89,10 +89,6 @@ void *FEKeyNodeVTable() { return reinterpret_cast<void *>(0x79AA34); }
 ::FEMinList *FEKeyNodePool() { return reinterpret_cast<::FEMinList *>(0x839BD0); }
 void *FEKeyNodeBlockVTable() { return reinterpret_cast<void *>(0x79B9EC); }
 const bASinTableEntry *BASinTable() { return reinterpret_cast<const bASinTableEntry *>(0x7EA628); }
-void FEngine_QueuePackageSwitch(void *e, const char *n, void *p) { reinterpret_cast<void(THISCALL *)(void *, const char *, void *)>(0x51AB20)(e, n, p); }
-void FEngine_QueuePackagePush(void *e, const char *n, void *p, uint32_t m) { reinterpret_cast<void(THISCALL *)(void *, const char *, void *, uint32_t)>(0x51AC10)(e, n, p, m); }
-void FEngine_QueuePackagePop(void *e, void *p) { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x51ADB0)(e, p); }
-void FEngine_QueuePackageUserTransfer(void *e, void *p, bool f, uint32_t a) { reinterpret_cast<void(THISCALL *)(void *, void *, int, uint32_t)>(0x51AF50)(e, p, f ? 1 : 0, a); }
 void FEngine_RecordPackageMarker(void *e, const char *n) { reinterpret_cast<void(THISCALL *)(void *, const char *)>(0x51B070)(e, n); }
 void FEngine_RecordLastPackageButton(void *e, uint32_t h, uint32_t g) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, uint32_t)>(0x50B300)(e, h, g); }
 uint32_t FEngine_RecallLastPackageButton(void *e, uint32_t h) { return reinterpret_cast<uint32_t(THISCALL *)(void *, uint32_t)>(0x50B360)(e, h); }
@@ -107,6 +103,7 @@ void FEUIData_Call5(void *ui, uint32_t slot, uint32_t a, const void *b, const vo
 {
     (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t, const void *, const void *, const void *, uint32_t)>(ui))[slot / 4](ui, a, b, c, d, e);
 }
+void *FEPackageCommandVTable() { return reinterpret_cast<void *>(0x79AB64); }
 void *FEMessageNodeVTable() { return reinterpret_cast<void *>(0x79AB60); }
 void FEUIData_OnQueueMessage(void *ui, uint32_t msg, void *obj, void *pkg, void *target, uint32_t arg)
 {

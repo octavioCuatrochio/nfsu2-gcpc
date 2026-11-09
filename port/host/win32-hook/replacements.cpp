@@ -16,6 +16,7 @@
 #include "frontend/FEMath.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
+#include "frontend/FENode.h"
 #include "bWare/bMath.h"
 #include "frontend/FEString.h"
 #include <new>
@@ -154,6 +155,12 @@ void THISCALL FEngine_QueueMessage(FEngine *self, uint32_t msg, FEObject *obj, F
     self->QueueMessage(msg, obj, pkg, target, arg);
 }
 void THISCALL FEngine_ProcessMessageQueue(FEngine *self) { self->ProcessMessageQueue(); }
+bool THISCALL FENode_SetName(FENode *self, const char *n) { return self->SetName(n); }
+void THISCALL FEngine_QueuePackageSwitch(FEngine *self, const char *n, FEPackage *p) { self->QueuePackageSwitch(n, p); }
+void THISCALL FEngine_QueuePackagePush(FEngine *self, const char *n, FEPackage *p, uint32_t m) { self->QueuePackagePush(n, p, m); }
+void THISCALL FEngine_QueuePackagePushForModal(FEngine *self, const char *n, FEPackage *p, uint32_t m) { self->QueuePackagePushForModal(n, p, m); }
+void THISCALL FEngine_QueuePackagePop(FEngine *self, FEPackage *p) { self->QueuePackagePop(p); }
+void THISCALL FEngine_QueuePackageUserTransfer(FEngine *self, FEPackage *p, int f, uint32_t m) { self->QueuePackageUserTransfer(p, (f & 0xFF) != 0, m); }
 void THISCALL FEngine_ProcessObjectMessage(FEngine *self, FEObject *o, FEPackage *p, uint32_t msg, uint32_t arg) { self->ProcessObjectMessage(o, p, msg, arg); }
 bool THISCALL FEngine_ProcessListBoxResponses(FEngine *self, FEObject *o, FEPackage *p, uint32_t msg) { return self->ProcessListBoxResponses(o, p, msg); }
 bool THISCALL FEngine_ProcessCodeListBoxResponses(FEngine *self, FEObject *o, FEPackage *p, uint32_t msg) { return self->ProcessCodeListBoxResponses(o, p, msg); }
@@ -303,6 +310,12 @@ const Replacement kReplacements[] = {
     {0x504960, (const void *)&FEPackage_FindLibraryReference, "FEPackage::FindLibraryReference", {0x8B, 0x91, 0x84, 0x00, 0x00, 0x00}},
     {0x52B3A0, (const void *)&FEPackage_SetCurrentButton, "FEPackage::SetCurrentButton", {0x8A, 0x44, 0x24, 0x0C, 0x84, 0xC0}},
     {0x51AA20, (const void *)&FEngine_QueueMessage, "FEngine::QueueMessage", {0x56, 0x57, 0x6A, 0x20, 0x8B, 0xF9}},
+    {0x519DE0, (const void *)&FENode_SetName, "FENode::SetName", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x51AB20, (const void *)&FEngine_QueuePackageSwitch, "FEngine::QueuePackageSwitch", {0x53, 0x55, 0x56, 0x57, 0x6A, 0x20}},
+    {0x51AC10, (const void *)&FEngine_QueuePackagePush, "FEngine::QueuePackagePush", {0x53, 0x55, 0x56, 0x57, 0x6A, 0x20}},
+    {0x51ACE0, (const void *)&FEngine_QueuePackagePushForModal, "FEngine::QueuePackagePushForModal", {0x55, 0x56, 0x57, 0x6A, 0x20, 0x8B}},
+    {0x51ADB0, (const void *)&FEngine_QueuePackagePop, "FEngine::QueuePackagePop", {0x53, 0x56, 0x57, 0x6A, 0x20, 0x8B}},
+    {0x51AF50, (const void *)&FEngine_QueuePackageUserTransfer, "FEngine::QueuePackageUserTransfer", {0x56, 0x6A, 0x20, 0x8B, 0xF1, 0xE8}},
     {0x541FC0, (const void *)&FEngine_ProcessMessageQueue, "FEngine::ProcessMessageQueue", {0x83, 0xEC, 0x0C, 0x53, 0x8B, 0xD9}},
     {0x5367E0, (const void *)&FEngine_ProcessObjectMessage, "FEngine::ProcessObjectMessage", {0x53, 0x8B, 0x5C, 0x24, 0x10, 0x55}},
     {0x51B000, (const void *)&FEngine_ProcessListBoxResponses, "FEngine::ProcessListBoxResponses", {0x8B, 0x44, 0x24, 0x0C, 0x3D, 0xF9}},

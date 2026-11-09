@@ -23,7 +23,7 @@ struct ScriptMessage { void *script; int32_t from, to; };
 extern std::vector<ScriptMessage> messages;   // unused since IssueScriptMessages is rewritten
 struct QueuedMessage { uint32_t msg; void *obj; void *target; };
 extern std::vector<QueuedMessage> queued, forwarded;   // queued: SendMessageToGame calls; forwarded: UI hook
-extern int feMessageNodeVTable;
+extern int feMessageNodeVTable, fePackageCommandVTable;
 struct Delivered { const char *kind; void *a, *pkg; uint32_t msg, arg; };
 extern std::vector<Delivered> delivered;
 extern uint32_t recallGuid;

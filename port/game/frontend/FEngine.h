@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "FEMinList.h"
+#include "FENode.h"
 struct FEObject;
 struct FEPackage;
 struct FEMessageResponse;
@@ -17,6 +18,15 @@ struct FEMessageNode {
     uint32_t mu32Arg;                // +0x1C
 };
 
+// Queued package stack operation (0x20 bytes, game heap). GC FEPackageCommand; PC vtable 0x79AB64 (slot 0 51ABE0).
+// Types: 1 pop, 2 push, 3 switch, 4 / 8 user transfer (bool false / true), 0x12 push for modal.
+struct FEPackageCommand {
+    FENode node;                     // +0x00 name = package to load (not set for pop / user transfer)
+    uint32_t mu32Type;               // +0x14
+    uint32_t mu32Mask;               // +0x18 control mask argument (meaning depends on the type)
+    FEPackage *mpPackage;            // +0x1C package that queued it
+};
+
 struct FEngine {
     uint8_t _unknown000;
     uint8_t mbFlag01;                // +0x01 set by message 0x59BED120, cleared by 0x5D4CE32D (target -6)
@@ -26,7 +36,8 @@ struct FEngine {
     void *mpUIData;                  // +0x10C game-side handler (vtable: +0x18 SendMessageToGame, +0x54 message hook)
     uint8_t _unknown110[0x4114 - 0x110];
     FEMinList mMessages;             // +0x4114 queued messages
-    uint8_t _unknown4124[0x4148 - 0x4124];
+    FEMinList mPackageCommands;      // +0x4124 queued package stack operations (FEPackageCommand)
+    uint8_t _unknown4134[0x4148 - 0x4134];
     uint32_t mu32NumPackageMarkers;  // +0x4148
     char macPackageMarkers[1][0x100];   // +0x414C stack of package names (RecordPackageMarker); size unknown
     uint8_t _unknown424C[0x5251 - 0x424C];
@@ -42,11 +53,19 @@ struct FEngine {
     // GC 80148504 / PC 52C7C0: run a response list (opcodes: see the .cpp).
     void ProcessResponses(FEMessageResponse *resp, FEObject *obj, FEPackage *pkg, uint32_t arg);
     bool ProcessListBoxResponses(FEObject *listBox, FEPackage *pkg, uint32_t msg);       // GC 801482B4 / PC 51B000
+    // Package stack queue (GC 80147B64.. / PC 51AB20..). Each appends an FEPackageCommand to mPackageCommands and
+    // adjusts control masks (PC: the FEPackage mask setters are inlined).
+    void QueuePackageSwitch(const char *name, FEPackage *pkg);                       // GC 80147B64 / PC 51AB20
+    void QueuePackagePush(const char *name, FEPackage *pkg, uint32_t mask);          // GC 80147C00 / PC 51AC10
+    void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
+    void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
+    void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50
     bool ProcessCodeListBoxResponses(FEObject *listBox, FEPackage *pkg, uint32_t msg);   // GC 80148360 / PC 52C750
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
-static_assert(sizeof(FEMessageNode) == 0x20);
+static_assert(sizeof(FEMessageNode) == 0x20 && sizeof(FEPackageCommand) == 0x20 && offsetof(FEPackageCommand, mpPackage) == 0x1C);
+static_assert(offsetof(FEngine, mPackageCommands) == 0x4124);
 static_assert(offsetof(FEngine, mpPackages) == 0xE4 && offsetof(FEngine, mpUIData) == 0x10C && offsetof(FEngine, mMessages) == 0x4114);
 static_assert(offsetof(FEngine, mbForwardQueuedMessages) == 0x5251 && offsetof(FEngine, mu32NumPackageMarkers) == 0x4148);
 #endif

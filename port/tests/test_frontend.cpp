@@ -664,6 +664,7 @@ static FEngine *TestEngine()
     static FEngine *e = [] {
         auto *p = static_cast<FEngine *>(std::calloc(1, sizeof(FEngine)));
         p->mMessages = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+        p->mPackageCommands = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
         return p;
     }();
     return e;
@@ -678,6 +679,69 @@ static std::vector<teststub::QueuedMessage> Collect()
         bridge::FreeArray(m);
     }
     return out;
+}
+
+// Drains the test engine's package command queue (FEngine::QueuePackage*).
+struct Command { uint32_t type, mask; std::string name; FEPackage *pkg; uint32_t hash; };
+static std::vector<Command> CollectCommands()
+{
+    std::vector<Command> out;
+    FEMinList &l = TestEngine()->mPackageCommands;
+    while (FEMinNode *n = l.RemHead()) {
+        auto *c = reinterpret_cast<FEPackageCommand *>(n);
+        CHECK(c->node.node.vtable == &teststub::fePackageCommandVTable);
+        out.push_back({c->mu32Type, c->mu32Mask, c->node.mpcName ? c->node.mpcName : "", c->mpPackage, c->node.mu32NameHash});
+        bridge::FreeArray(c->node.mpcName);
+        bridge::FreeArray(c);
+    }
+    return out;
+}
+
+// FENode::SetName + FEngine::QueuePackage*: command fields and control mask side effects.
+static void TestPackageCommands()
+{
+    FEngine *e = TestEngine();
+    CollectCommands();
+    int live = teststub::liveAllocations;
+    FENode nd{};
+    CHECK(!nd.SetName(nullptr) && nd.mpcName == nullptr && nd.mu32NameHash == 0xFFFFFFFFu);
+    CHECK(nd.SetName("abc") && std::string(nd.mpcName) == "abc" && nd.mu32NameHash == FEHashUpper("ABC"));
+    CHECK(nd.SetName("Longer name") && std::string(nd.mpcName) == "Longer name" && teststub::liveAllocations == live + 1);
+    CHECK(!nd.SetName(nullptr) && nd.mpcName == nullptr && teststub::liveAllocations == live);
+
+    alignas(8) unsigned char pm[2][sizeof(FEPackage)] = {};
+    auto *p1 = reinterpret_cast<FEPackage *>(pm[0]);
+    auto *p2 = reinterpret_cast<FEPackage *>(pm[1]);
+    reinterpret_cast<FEMinNode *>(p1)->next = reinterpret_cast<FEMinNode *>(p2);
+    e->mpPackages = p1;
+    auto masks = [](FEPackage *p, uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+        return p->mu32ControlMask == a && p->mu32SavedControlMask == b && p->mu32InputControlMask == c && p->mu32SavedInputControlMask == d;
+    };
+    p1->SetControlMask(0xF0);
+    e->QueuePackageSwitch("sw", p1);
+    CHECK(masks(p1, 0, 0, 0, 0));
+    p1->SetControlMask(0xFF);
+    e->QueuePackagePush("push", p1, 0x0F);
+    CHECK(masks(p1, 0xF0, 0xF0, 0xF0, 0xF0));
+    e->QueuePackagePush(nullptr, nullptr, 1);                  // null package: no mask change
+    p2->SetControlMask(0x33); p2->mu32SavedControlMask = 0x77;
+    e->QueuePackagePushForModal("modal", p1, 0x30);           // every active package: ctrl &= ~mask, input = ctrl
+    CHECK(masks(p1, 0xC0, 0xF0, 0xC0, 0xF0) && masks(p2, 0x03, 0x77, 0x03, 0x33));
+    e->QueuePackageUserTransfer(p2, true, 0x02);              // mask = ctrl & arg, no side effects
+    e->QueuePackageUserTransfer(p2, false, 0xFF);
+    e->QueuePackagePop(p2);                                    // mask = ctrl; restore all, then clear p2
+    CHECK(masks(p1, 0xF0, 0xF0, 0xC0, 0xF0) && masks(p2, 0, 0, 0, 0));
+    auto c = CollectCommands();
+    CHECK(c.size() == 7);
+    CHECK(c[0].type == 3 && c[0].mask == 0xF0 && c[0].name == "sw" && c[0].pkg == p1 && c[0].hash == FEHashUpper("sw"));
+    CHECK(c[1].type == 2 && c[1].mask == 0x0F && c[1].name == "push" && c[1].pkg == p1);
+    CHECK(c[2].type == 2 && c[2].mask == 1 && c[2].name.empty() && c[2].pkg == nullptr && c[2].hash == 0xFFFFFFFFu);
+    CHECK(c[3].type == 0x12 && c[3].mask == 0x30 && c[3].name == "modal");
+    CHECK(c[4].type == 8 && c[4].mask == 0x02 && c[4].name.empty() && c[4].hash == 0 && c[4].pkg == p2);
+    CHECK(c[5].type == 4 && c[5].mask == 0x03);
+    CHECK(c[6].type == 1 && c[6].mask == 0x03 && c[6].hash == 0 && c[6].pkg == p2);
+    CHECK(teststub::liveAllocations == live);
+    e->mpPackages = nullptr;
 }
 
 // FEPackage::UpdateObject + IssueScriptMessages: script clock, end handling and event ranges. Every script has
@@ -841,15 +905,17 @@ static void TestProcessMessageQueue()
     e->QueueMessage(0xFB814F13, nullptr, p1, lb, 0);              // list box: scroll up, no response lookup
     e->QueueMessage(0x13, nullptr, p1, lb, 0);                    // list box, other message: own responses (none)
     e->ProcessMessageQueue();
-    CHECK(e->mMessages.count == 0 && teststub::liveAllocations == live);   // every node deleted
-    auto sw = [&](size_t k, const char *name) { return k < d.size() && std::string(d[k].kind) == "switch" && d[k].a == name; };
-    CHECK(d.size() == 7);
-    CHECK(sw(0, kA) && d[0].pkg == p1 && sw(1, kP2) && d[1].pkg == p2);    // 0: A's response (p1 target), p2 global
+    CHECK(e->mMessages.count == 0);
+    auto c = CollectCommands();
+    CHECK(teststub::liveAllocations == live);                   // every message node deleted, commands drained
+    auto sw = [&](size_t k, const char *name) { return k < c.size() && c[k].type == 3 && c[k].name == name; };
+    CHECK(c.size() == 5 && d.size() == 2);
+    CHECK(sw(0, kA) && c[0].pkg == p1 && sw(1, kP2) && c[1].pkg == p2);    // 0: A's response (p1 target), p2 global
     CHECK(sw(2, kP2) && sw(3, kP2));                                         // -4 p2, -2 all -> p2's
     CHECK(e->mbFlag01 == 1);
-    CHECK(std::string(d[4].kind) == "ui" && d[4].msg == 0x12 + 0x18 * 0x10000 && d[4].arg == 8);
-    CHECK(sw(5, kB));                                                         // object message 0x13 -> B
-    CHECK(std::string(d[6].kind) == "scroll" && d[6].a == lb && d[6].msg == 0 && d[6].arg == uint32_t(-1));
+    CHECK(std::string(d[0].kind) == "ui" && d[0].msg == 0x12 + 0x18 * 0x10000 && d[0].arg == 8);
+    CHECK(sw(4, kB));                                                         // object message 0x13 -> B
+    CHECK(std::string(d[1].kind) == "scroll" && d[1].a == lb && d[1].msg == 0 && d[1].arg == uint32_t(-1));
     for (auto &x : {&r, &ra, &rb}) { x->mu32Count = 0; x->mpResponses = nullptr; }
     for (auto *o : {list[0], list[1], lb}) o->mResponses = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
     e->mpPackages = nullptr;
@@ -899,13 +965,14 @@ static void TestProcessResponses()
     d.clear();
     e->ProcessResponses(&resp, obj, pkg, 0x5);                // arg bits 0 and 2
     auto kind = [&](size_t k) { return k < d.size() ? std::string(d[k].kind) : std::string(); };
-    CHECK(d.size() == 7);                                       // the button change goes to the engine queue
-    CHECK(kind(0) == "switch" && d[0].a == kT);
+    auto c = CollectCommands();
+    CHECK(d.size() == 2 && c.size() == 5);                      // the button change goes to the engine queue
+    CHECK(c[0].type == 3 && c[0].name == "T" && c[0].mask == 0x30);   // switch clears the package's masks
     CHECK(pkg->mpCurrentButton == btn);
-    CHECK(kind(1) == "record" && d[1].msg == 0xAB && d[1].arg == 42);
-    CHECK(kind(2) == "push" && d[2].msg == 1 && kind(3) == "push" && d[3].msg == 4);
-    CHECK(kind(4) == "marker" && d[4].a == kName);
-    CHECK(kind(5) == "transfer" && d[5].msg == 1 && d[5].arg == 5 && kind(6) == "transfer" && d[6].msg == 0 && d[6].arg == 0xFF);
+    CHECK(kind(0) == "record" && d[0].msg == 0xAB && d[0].arg == 42);
+    CHECK(c[1].type == 2 && c[1].mask == 1 && c[2].type == 2 && c[2].mask == 4 && c[2].name == "T");
+    CHECK(kind(1) == "marker" && d[1].a == kName);
+    CHECK(c[3].type == 8 && c[3].mask == 0 && c[4].type == 4 && c[4].mask == 0);   // ctrl & arg; ctrl is 0 by now
     CHECK(obj->mpCurrentScript == &s2 && s2.mi32Time == 0);
     auto q = Collect();                                         // highlight messages from the button change
     CHECK(q.size() == 2);
@@ -919,13 +986,15 @@ static void TestProcessResponses()
     d.clear();
     e->ProcessResponses(&resp, obj, pkg, 0);
     CHECK(pkg->mpCurrentButton == btn && e->mu32NumPackageMarkers == 0 && e->mbFlag01 == 1);
-    CHECK(d.size() == 1 && std::string(d[0].kind) == "switch" && std::string(static_cast<char *>(d[0].a)) == "MARK");
+    auto c2 = CollectCommands();
+    CHECK(d.empty() && c2.size() == 1 && c2[0].type == 3 && c2[0].name == "MARK");
     Collect();
     obj->mScripts = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
 }
 
 int main()
 {
+    TestPackageCommands();
     TestCrc();
     TestWideHelpers();
     TestWideString();

@@ -24,6 +24,7 @@ int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0, feKeyNodeV
 uint32_t holdDirtyFlags = 0;
 std::vector<ScriptMessage> messages;
 std::vector<QueuedMessage> queued, forwarded;
+int fePackageCommandVTable;
 int feMessageNodeVTable = 0;
 std::vector<Delivered> delivered;
 uint32_t recallGuid = 0;
@@ -94,10 +95,6 @@ const bASinTableEntry *BASinTable()
     return t;
 #endif
 }
-void FEngine_QueuePackageSwitch(void *, const char *n, void *p) { teststub::delivered.push_back({"switch", const_cast<char *>(n), p, 0, 0}); }
-void FEngine_QueuePackagePush(void *, const char *n, void *p, uint32_t m) { teststub::delivered.push_back({"push", const_cast<char *>(n), p, m, 0}); }
-void FEngine_QueuePackagePop(void *, void *p) { teststub::delivered.push_back({"pop", nullptr, p, 0, 0}); }
-void FEngine_QueuePackageUserTransfer(void *, void *p, bool f, uint32_t a) { teststub::delivered.push_back({"transfer", nullptr, p, f, a}); }
 void FEngine_RecordPackageMarker(void *, const char *n) { teststub::delivered.push_back({"marker", const_cast<char *>(n), nullptr, 0, 0}); }
 void FEngine_RecordLastPackageButton(void *, uint32_t h, uint32_t g) { teststub::delivered.push_back({"record", nullptr, nullptr, h, g}); }
 uint32_t FEngine_RecallLastPackageButton(void *, uint32_t) { return teststub::recallGuid; }
@@ -106,6 +103,7 @@ void FEListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { teststub::del
 void FECodeListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { teststub::delivered.push_back({"cscroll", lb, nullptr, uint32_t(dx), uint32_t(dy)}); }
 void FEUIData_Call4(void *, uint32_t slot, uint32_t a, const void *, uint32_t c, const void *) { teststub::delivered.push_back({"ui", nullptr, nullptr, a + slot * 0x10000, c}); }
 void FEUIData_Call5(void *, uint32_t slot, uint32_t a, const void *, const void *, const void *, uint32_t e) { teststub::delivered.push_back({"fwd", nullptr, nullptr, a + slot * 0x10000, e}); }
+void *FEPackageCommandVTable() { return &teststub::fePackageCommandVTable; }
 void *FEMessageNodeVTable() { return &teststub::feMessageNodeVTable; }
 void FEUIData_OnQueueMessage(void *, uint32_t msg, void *obj, void *, void *target, uint32_t) { teststub::forwarded.push_back({msg, obj, target}); }
 void FEngine_SendMessageToGame(void *, uint32_t msg, void *obj, void *) { teststub::queued.push_back({msg, obj, reinterpret_cast<void *>(-1)}); }

@@ -58,12 +58,9 @@ void *FEKeyNodeVTable();                                               // PC 0x7
 void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
 const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628 (game data)
 // FEPackage callees not rewritten yet (PC __thiscall)
+void *FEPackageCommandVTable();                                                   // PC 0x79AB64
 void *FEMessageNodeVTable();                                                      // PC 0x79AB60
-// FEngine package stack / markers (not rewritten; __thiscall)
-void FEngine_QueuePackageSwitch(void *engine, const char *name, void *pkg);                 // 51AB20
-void FEngine_QueuePackagePush(void *engine, const char *name, void *pkg, uint32_t mask);    // 51AC10
-void FEngine_QueuePackagePop(void *engine, void *pkg);                                      // 51ADB0
-void FEngine_QueuePackageUserTransfer(void *engine, void *pkg, bool flag, uint32_t arg);     // 51AF50
+// FEngine package markers (not rewritten; __thiscall)
 void FEngine_RecordPackageMarker(void *engine, const char *name);                           // 51B070
 void FEngine_RecordLastPackageButton(void *engine, uint32_t pkgHash, uint32_t guid);        // 50B300
 uint32_t FEngine_RecallLastPackageButton(void *engine, uint32_t pkgHash);                   // 50B360
