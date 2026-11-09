@@ -59,6 +59,11 @@ void *FEKeyNodeBlockVTable();                                          // PC 0x7
 const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628 (game data)
 // FEPackage callees not rewritten yet (PC __thiscall)
 void *FEMessageNodeVTable();                                                      // PC 0x79AB60
+void FEngine_ProcessResponses(void *engine, void *response, void *obj, void *pkg, uint32_t arg);   // 52C7C0
+void FEngine_ProcessObjectMessage(void *engine, void *obj, void *pkg, uint32_t msg, uint32_t arg);   // 5367E0
+// game UI handler virtual calls (__thiscall), slot given as a byte offset
+void FEUIData_Call4(void *ui, uint32_t slotOffset, uint32_t a, const void *b, uint32_t c, const void *d);
+void FEUIData_Call5(void *ui, uint32_t slotOffset, uint32_t a, const void *b, const void *c, const void *d, uint32_t e);
 void FEUIData_OnQueueMessage(void *ui, uint32_t msg, void *obj, void *pkg, void *target, uint32_t arg);   // vtable +0x54
 void FEngine_SendMessageToGame(void *engine, uint32_t msg, void *obj, void *pkg);   // engine+0x10C vtable slot 6 (msg, obj, 0, pkg)
 bool FEObjectCallback_Call(void *callback, void *obj);                               // vtable slot 1, __thiscall

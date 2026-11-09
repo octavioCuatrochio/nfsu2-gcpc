@@ -25,6 +25,7 @@ uint32_t holdDirtyFlags = 0;
 std::vector<ScriptMessage> messages;
 std::vector<QueuedMessage> queued, forwarded;
 int feMessageNodeVTable = 0;
+std::vector<Delivered> delivered;
 void *currentButton = nullptr;
 void *lastTypeUpdate = nullptr;
 FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
@@ -92,6 +93,10 @@ const bASinTableEntry *BASinTable()
     return t;
 #endif
 }
+void FEngine_ProcessResponses(void *, void *r, void *, void *p, uint32_t arg) { teststub::delivered.push_back({"resp", r, p, 0, arg}); }
+void FEngine_ProcessObjectMessage(void *, void *o, void *p, uint32_t msg, uint32_t arg) { teststub::delivered.push_back({"obj", o, p, msg, arg}); }
+void FEUIData_Call4(void *, uint32_t slot, uint32_t a, const void *, uint32_t c, const void *) { teststub::delivered.push_back({"ui", nullptr, nullptr, a + slot * 0x10000, c}); }
+void FEUIData_Call5(void *, uint32_t slot, uint32_t a, const void *, const void *, const void *, uint32_t e) { teststub::delivered.push_back({"fwd", nullptr, nullptr, a + slot * 0x10000, e}); }
 void *FEMessageNodeVTable() { return &teststub::feMessageNodeVTable; }
 void FEUIData_OnQueueMessage(void *, uint32_t msg, void *obj, void *, void *target, uint32_t) { teststub::forwarded.push_back({msg, obj, target}); }
 void FEngine_SendMessageToGame(void *, uint32_t msg, void *obj, void *) { teststub::queued.push_back({msg, obj, reinterpret_cast<void *>(-1)}); }

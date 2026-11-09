@@ -24,6 +24,8 @@ extern std::vector<ScriptMessage> messages;   // unused since IssueScriptMessage
 struct QueuedMessage { uint32_t msg; void *obj; void *target; };
 extern std::vector<QueuedMessage> queued, forwarded;   // queued: SendMessageToGame calls; forwarded: UI hook
 extern int feMessageNodeVTable;
+struct Delivered { const char *kind; void *a, *pkg; uint32_t msg, arg; };
+extern std::vector<Delivered> delivered;
 extern void *currentButton;
 struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback
 extern void *lastTypeUpdate;

@@ -1,6 +1,7 @@
 #include "FEPackage.h"
 #include "FEObject.h"
 #include "FEScript.h"
+#include "FEMessageResponse.h"
 #include "bridge/Bridge.h"
 #include "FEngine.h"
 
@@ -276,4 +277,18 @@ void FEPackage::SetCurrentButton(void *engine, FEObject *button, bool notify)
         }
     }
     mpCurrentButton = button;
+}
+
+FEMessageResponse *FEPackage::FindResponse(uint32_t msg) const
+{
+    for (FEMinNode *n = mResponses.head; n; n = n->next)
+        if (reinterpret_cast<FEMessageResponse *>(n)->mu32MsgId == msg) return reinterpret_cast<FEMessageResponse *>(n);
+    return nullptr;
+}
+
+FEMessageTargets *FEPackage::GetMessageTargets(uint32_t msg) const
+{
+    for (uint32_t i = 0; i < mu32NumMessageTargets; ++i)
+        if (mpMessageTargets[i].mu32MsgId == msg) return &mpMessageTargets[i];
+    return nullptr;
 }

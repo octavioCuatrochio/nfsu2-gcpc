@@ -153,6 +153,7 @@ void THISCALL FEngine_QueueMessage(FEngine *self, uint32_t msg, FEObject *obj, F
 {
     self->QueueMessage(msg, obj, pkg, target, arg);
 }
+void THISCALL FEngine_ProcessMessageQueue(FEngine *self) { self->ProcessMessageQueue(); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -296,6 +297,7 @@ const Replacement kReplacements[] = {
     {0x504960, (const void *)&FEPackage_FindLibraryReference, "FEPackage::FindLibraryReference", {0x8B, 0x91, 0x84, 0x00, 0x00, 0x00}},
     {0x52B3A0, (const void *)&FEPackage_SetCurrentButton, "FEPackage::SetCurrentButton", {0x8A, 0x44, 0x24, 0x0C, 0x84, 0xC0}},
     {0x51AA20, (const void *)&FEngine_QueueMessage, "FEngine::QueueMessage", {0x56, 0x57, 0x6A, 0x20, 0x8B, 0xF9}},
+    {0x541FC0, (const void *)&FEngine_ProcessMessageQueue, "FEngine::ProcessMessageQueue", {0x83, 0xEC, 0x0C, 0x53, 0x8B, 0xD9}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

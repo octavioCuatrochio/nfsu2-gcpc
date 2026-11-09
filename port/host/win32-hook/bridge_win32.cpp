@@ -89,6 +89,22 @@ void *FEKeyNodeVTable() { return reinterpret_cast<void *>(0x79AA34); }
 ::FEMinList *FEKeyNodePool() { return reinterpret_cast<::FEMinList *>(0x839BD0); }
 void *FEKeyNodeBlockVTable() { return reinterpret_cast<void *>(0x79B9EC); }
 const bASinTableEntry *BASinTable() { return reinterpret_cast<const bASinTableEntry *>(0x7EA628); }
+void FEngine_ProcessResponses(void *e, void *r, void *o, void *p, uint32_t arg)
+{
+    reinterpret_cast<void(THISCALL *)(void *, void *, void *, void *, uint32_t)>(0x52C7C0)(e, r, o, p, arg);
+}
+void FEngine_ProcessObjectMessage(void *e, void *o, void *p, uint32_t msg, uint32_t arg)
+{
+    reinterpret_cast<void(THISCALL *)(void *, void *, void *, uint32_t, uint32_t)>(0x5367E0)(e, o, p, msg, arg);
+}
+void FEUIData_Call4(void *ui, uint32_t slot, uint32_t a, const void *b, uint32_t c, const void *d)
+{
+    (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t, const void *, uint32_t, const void *)>(ui))[slot / 4](ui, a, b, c, d);
+}
+void FEUIData_Call5(void *ui, uint32_t slot, uint32_t a, const void *b, const void *c, const void *d, uint32_t e)
+{
+    (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t, const void *, const void *, const void *, uint32_t)>(ui))[slot / 4](ui, a, b, c, d, e);
+}
 void *FEMessageNodeVTable() { return reinterpret_cast<void *>(0x79AB60); }
 void FEUIData_OnQueueMessage(void *ui, uint32_t msg, void *obj, void *pkg, void *target, uint32_t arg)
 {

@@ -5,6 +5,7 @@
 #include "FEMinList.h"
 struct FEObject;
 struct FEScript;
+struct FEMessageResponse;
 
 // Game-side visitor (FEObjectCallback): vtable slot 1 = bool Function(FEObject *), false stops the walk.
 struct FEObjectCallback {
@@ -14,6 +15,13 @@ struct FEObjectCallback {
 struct FELibraryRef {               // 0xC bytes
     uint32_t mu32Hash;
     uint32_t _unknown04[2];
+};
+
+struct FEMessageTargets {           // 0x10 bytes
+    uint32_t mu32MsgId;
+    uint32_t _unknown04;
+    uint32_t mu32Count;
+    FEObject **mpObjects;
 };
 
 struct FEPackage {
@@ -30,7 +38,11 @@ struct FEPackage {
     int32_t mi32ScriptDelta;         // +0x34 time added to the current script per UpdateObject
     uint8_t _unknown38[0xC];
     FEMinList mObjects;              // +0x44 top-level objects
-    uint8_t _unknown54[0x30];
+    FEMinList mResponses;            // +0x54 package-level FEMessageResponses ("global" handlers)
+    uint8_t _unknown64[8];
+    uint32_t mu32NumMessageTargets;  // +0x6C
+    struct FEMessageTargets *mpMessageTargets;   // +0x70 per-message object lists
+    uint8_t _unknown74[0x10];
     uint32_t mu32NumLibraryRefs;     // +0x84
     struct FELibraryRef *mpLibraryRefs;   // +0x88 array, 0xC bytes each, hash first
     FEObject *mpCurrentButton;       // +0x8C
@@ -56,6 +68,8 @@ struct FEPackage {
     void SetControlMaskUsedByInputOnly(uint32_t m) { mu32InputControlMask = m; }
     void RestoreControlMaskUsedByInput() { mu32InputControlMask = mu32SavedInputControlMask; }
     struct FELibraryRef *FindLibraryReference(uint32_t hash) const;   // GC 8013A224 / PC 504960
+    FEMessageResponse *FindResponse(uint32_t msg) const;        // GC 80139110 (PC: inlined)
+    FEMessageTargets *GetMessageTargets(uint32_t msg) const;    // GC 801372C0 (PC: inlined)
     // GC 80139C2C / PC 52B3A0: with notify, the old button gets 0x55D1E635 and the new one 0xABC08912 (each sent
     // to the button and to target -5).
     void SetCurrentButton(void *engine, FEObject *button, bool notify);
@@ -66,5 +80,6 @@ static_assert(offsetof(FEPackage, mbFastInterp) == 0x14 && offsetof(FEPackage, m
 static_assert(offsetof(FEPackage, mi32ScriptDelta) == 0x34 && offsetof(FEPackage, mObjects) == 0x44);
 static_assert(offsetof(FEPackage, mu32ControlMask) == 0x1C && offsetof(FEPackage, mu32SavedInputControlMask) == 0x28);
 static_assert(offsetof(FEPackage, mu32NumLibraryRefs) == 0x84 && offsetof(FEPackage, mpCurrentButton) == 0x8C);
-static_assert(sizeof(FELibraryRef) == 0xC);
+static_assert(sizeof(FELibraryRef) == 0xC && sizeof(FEMessageTargets) == 0x10);
+static_assert(offsetof(FEPackage, mResponses) == 0x54 && offsetof(FEPackage, mpMessageTargets) == 0x70);
 #endif
