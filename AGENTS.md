@@ -186,7 +186,9 @@ VALUES (0x8014297C,0x535FE0,'hooked','port/game/frontend/FEString.cpp','unit+in-
 - Also done: FEScript::FindTrack 504A00, FEObject::SetTrackValue (vec3/vec2/color: 5178D0/5179D0/517AD0; referee).
 - Also done: FEObject::SetPosition/SetRotation/SetSize/SetColor (517C10/517C80/517DB0/517E20), Close comparators
   (504500/5045A0/504640). Referee exact, incl. floats.
-- Next in the frontend: FEKeyTrack::GetKeyAt/GetDeltaKeyAt, FEKeyInterp/FEKeyInterpFast, subclass copy ctors/Clones.
+- Also done: FEInterp.cpp: GetKeyAt/GetDeltaKeyAt/first key, FEInterpNone, FEKeyInterpFast, SetBaseValueAt.
+- Next in the frontend: FEInterpLinear 52BDC0 (bridged; x87-heavy: see trap) + FELerp* helpers (5050D0, 505110,
+  505150, 519B00 quaternion slerp, 5051A0), then subclass copy ctors/Clones.
 - In-game check timing: race starts ~25 s after launch with SKIP_MOVIES/NIS; screenshot right then (no need to wait).
   (`FEWidget`, `FELabelWidget`, `FEButtonWidget`, ...). `python3 -I tooling/knowledge/packet.py --class FEObject`.
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;`

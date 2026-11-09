@@ -87,6 +87,7 @@ void *FEScriptVTable() { return reinterpret_cast<void *>(0x79AD28); }
 void *FEKeyNodeVTable() { return reinterpret_cast<void *>(0x79AA34); }
 ::FEMinList *FEKeyNodePool() { return reinterpret_cast<::FEMinList *>(0x839BD0); }
 void *FEKeyNodeBlockVTable() { return reinterpret_cast<void *>(0x79B9EC); }
+void FEInterpLinear(void *t, int32_t time, void *out) { reinterpret_cast<void(__cdecl *)(void *, int32_t, void *)>(0x52BDC0)(t, time, out); }
 void *FERefListVTable() { return reinterpret_cast<void *>(0x79AA30); }
 void *FEMessageResponseVTable() { return reinterpret_cast<void *>(0x79AA38); }
 

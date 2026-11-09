@@ -16,7 +16,7 @@ struct FEMinList;
 namespace teststub {
 extern FEMinList msgRespPool, scriptPool;
 extern int feMsgRespVTable, feMsgRespBlockVTable, virtualDtorCalls;
-extern int feScriptBlockVTable, feScriptVTable, feRefListVTable, feKeyNodeVTable, keyNodeNews, feKeyNodeBlockVTable;
+extern int feScriptBlockVTable, feScriptVTable, feRefListVTable, feKeyNodeVTable, keyNodeNews, feKeyNodeBlockVTable, linearCalls;
 extern FEMinList keyNodePool;
 extern uint32_t nextGUID;
 extern void *lastDestructorCallback;

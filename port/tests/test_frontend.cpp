@@ -340,7 +340,7 @@ static void TestScriptCopy()
     src.SetTrackCount(2);
     CHECK(src.mu32NumTracks == 2 && reinterpret_cast<uint32_t *>(src.mpTracks)[-1] == 2);
     CHECK(src.mpTracks[1].mBaseKey.node.vtable == &teststub::feKeyNodeVTable && src.mpTracks[1].mKeys.head == nullptr);
-    src.mpTracks[0].mu8InterpType = 9; src.mpTracks[0].mi8DataIndex = -3; src.mpTracks[0]._unknown04[1] = 0x56; src.mpTracks[0].mBaseKey._data[4] = 77;
+    src.mpTracks[0].mu8InterpType = 9; src.mpTracks[0].mi8DataIndex = -3; src.mpTracks[0]._length[1] = 0x56; src.mpTracks[0].mBaseKey._data[4] = 77;
     FEKeyNode k[3];
     for (int i = 0; i < 3; ++i) {
         k[i].node = {&teststub::feKeyNodeVTable, i < 2 ? &k[i + 1].node : nullptr, i ? &k[i - 1].node : nullptr};
@@ -367,7 +367,7 @@ static void TestScriptCopy()
         CHECK(p->vtable == &teststub::feKeyNodeVTable);
     }
     CHECK(n == 3 && deep.mpTracks[0].mKeys.tail->next == nullptr);
-    CHECK(deep.mpTracks[0].mu8InterpType == 9 && deep.mpTracks[0].mi8DataIndex == -3 && deep.mpTracks[0]._unknown04[1] == 0x56 && deep.mpTracks[0].mBaseKey._data[4] == 77);
+    CHECK(deep.mpTracks[0].mu8InterpType == 9 && deep.mpTracks[0].mi8DataIndex == -3 && deep.mpTracks[0]._length[1] == 0x56 && deep.mpTracks[0].mBaseKey._data[4] == 77);
     CHECK(deep.mEvents.mu32Count == 1 && deep.mEvents.mpEvents != src.mEvents.mpEvents && deep.mEvents.mpEvents[0]._data[1] == 5);
 
     FEScript ref;
@@ -544,6 +544,47 @@ static void TestSetTrackValue()
     CHECK(teststub::liveAllocations == liveBefore);
 }
 
+// Key lookup + step interpolation + fast dispatch on a 3-key track (times 0, 10, 20).
+static void TestKeyInterp()
+{
+    FEKeyTrack t;
+    FEKeyTrack::Construct(&t);
+    t.mu8ValueSize = 4;
+    t._length[0] = 30;                                  // length 30
+    t.mBaseKey._data[0] = 0; t.mBaseKey._data[1] = 999;
+    FEKeyNode k[3];
+    for (int i = 0; i < 3; ++i) {
+        k[i].node = {&teststub::feKeyNodeVTable, i < 2 ? &k[i + 1].node : nullptr, i ? &k[i - 1].node : nullptr};
+        k[i]._data[0] = 10 * i; k[i]._data[1] = 100 + i;
+    }
+    t.mKeys.head = &k[0].node; t.mKeys.tail = &k[2].node;
+    CHECK(t.GetKeyAt(-1) == &t.mBaseKey && t.GetKeyAt(0) == &k[0] && t.GetKeyAt(5) == &k[1] && t.GetKeyAt(10) == &k[1]);
+    CHECK(t.GetKeyAt(11) == &k[2] && t.GetKeyAt(500) == &k[2]);
+    CHECK(t.GetDeltaKeyAt(-5) == &k[0] && t.GetDeltaKeyAt(15) == &k[2] && t.GetFirstKey() == &k[0]);
+    uint32_t v = 0;
+    FEInterpNone(&t, 0, &v);  CHECK(v == 100);
+    FEInterpNone(&t, 5, &v);  CHECK(v == 100);         // key 10 is after 5 -> previous key
+    FEInterpNone(&t, 10, &v); CHECK(v == 101);
+    FEInterpNone(&t, 25, &v); CHECK(v == 102);
+    t.mBaseKey.node.next = nullptr;
+    FEInterpNone(&t, 31, &v); CHECK(v == 999);         // past the length: base key (no next)
+    // fast dispatch: step track evaluates; flag bit 7 skips; no keys -> marked done
+    t.mu8InterpType = 0; t.mu8Flags = 0; v = 0;
+    FEKeyInterpFast(&t, 20, &v); CHECK(v == 102 && t.mu8Flags == 0);
+    t.mu8InterpType = 1; teststub::linearCalls = 0;
+    FEKeyInterpFast(&t, 20, &v); CHECK(teststub::linearCalls == 1);
+    t.mu8Flags = 0x80; FEKeyInterpFast(&t, 20, &v); CHECK(teststub::linearCalls == 1);
+    t.mKeys.head = t.mKeys.tail = nullptr; t.mu8Flags = 0; t.mu8InterpType = 2;
+    FEKeyInterpFast(&t, 20, &v); CHECK(t.mu8Flags == 0x80);
+    // SetBaseValueAt: base += value - evaluated (step track with one key)
+    t.mKeys.head = t.mKeys.tail = &k[0].node; k[0].node.next = nullptr;
+    t.mu8InterpType = 0; t.mu8ValueSize = 16; t.mu8Flags = 0x80;
+    for (int i = 0; i < 4; ++i) { k[0]._data[1 + i] = 10; t.mBaseKey._data[1 + i] = 1; }
+    t.SetBaseValueAt(0, FEColor{{15, 10, 5, -10}});
+    CHECK(t.mBaseKey._data[1] == 6 && t.mBaseKey._data[2] == 1 && static_cast<int32_t>(t.mBaseKey._data[3]) == -4);
+    CHECK(static_cast<int32_t>(t.mBaseKey._data[4]) == -19 && t.mu8Flags == 0);
+}
+
 int main()
 {
     TestCrc();
@@ -564,6 +605,7 @@ int main()
     TestFEObjectCopy();
     TestMoveToTracks();
     TestSetTrackValue();
+    TestKeyInterp();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

@@ -118,6 +118,12 @@ void THISCALL FEObject_SetSize(FEObject *self, const FEVector3 *v, int add) { se
 void THISCALL FEObject_SetColor(FEObject *self, const FEColor *c, int add) { self->SetColor(*c, (add & 0xFF) != 0); }
 bool __cdecl FEVector3_Close(const FEVector3 *a, const FEVector3 *b) { return FEVector3Close(*a, *b); }
 bool __cdecl FEColor_Close(const FEColor *a, const FEColor *b) { return FEColorClose(*a, *b); }
+FEKeyNode *THISCALL FEKeyTrack_GetKeyAt(FEKeyTrack *self, int32_t t) { return self->GetKeyAt(t); }
+FEKeyNode *THISCALL FEKeyTrack_GetDeltaKeyAt(const FEKeyTrack *self, int32_t t) { return self->GetDeltaKeyAt(t); }
+FEKeyNode *THISCALL FEKeyTrack_GetFirstKey(const FEKeyTrack *self) { return self->GetFirstKey(); }
+void THISCALL FEKeyTrack_SetBaseValueAt(FEKeyTrack *self, int32_t t, const FEColor *c) { self->SetBaseValueAt(t, *c); }
+void __cdecl FEInterpNone_Hook(FEKeyTrack *t, int32_t time, void *out) { FEInterpNone(t, time, out); }
+void __cdecl FEKeyInterpFast_Hook(FEKeyTrack *t, int32_t time, void *out) { FEKeyInterpFast(t, time, out); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -229,6 +235,12 @@ const Replacement kReplacements[] = {
     {0x504500, (const void *)&FEVector3_Close, "FEVector3 Close (copy 1)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x01}},
     {0x5045A0, (const void *)&FEVector3_Close, "FEVector3 Close (copy 2)", {0x8B, 0x4C, 0x24, 0x08, 0xD9, 0x01}},
     {0x504640, (const void *)&FEColor_Close, "FEColor Close", {0x8B, 0x4C, 0x24, 0x04, 0x8B, 0x44}},
+    {0x505260, (const void *)&FEKeyTrack_GetKeyAt, "FEKeyTrack::GetKeyAt", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}},
+    {0x5052B0, (const void *)&FEKeyTrack_GetDeltaKeyAt, "FEKeyTrack::GetDeltaKeyAt", {0x8A, 0x41, 0x2C, 0x84, 0xC0, 0x74}},
+    {0x4FE8D0, (const void *)&FEKeyTrack_GetFirstKey, "FEKeyTrack first key", {0x8A, 0x41, 0x2C, 0x84, 0xC0, 0x74}},
+    {0x519D40, (const void *)&FEInterpNone_Hook, "FEInterpNone", {0x8B, 0x4C, 0x24, 0x04, 0x8B, 0x41}},
+    {0x5354F0, (const void *)&FEKeyInterpFast_Hook, "FEKeyInterpFast", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x8A}},
+    {0x535570, (const void *)&FEKeyTrack_SetBaseValueAt, "FEKeyTrack::SetBaseValueAt", {0x83, 0xEC, 0x10, 0x53, 0x56, 0x8B}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

@@ -18,7 +18,7 @@ int feMinNodeVTable = 0, feMinListVTable = 0, virtualDeletes = 0;
 int feObjectVTable = 0, feSlotNodeVTable = 0, feSlotPoolVTable = 0;
 FEMultiPool objDataPool{{&feMinListVTable, 0, nullptr, nullptr}};
 int feMsgRespVTable = 0, feMsgRespBlockVTable = 0, virtualDtorCalls = 0;
-int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0, feKeyNodeVTable = 0, keyNodeNews = 0, feKeyNodeBlockVTable = 0;
+int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0, feKeyNodeVTable = 0, keyNodeNews = 0, feKeyNodeBlockVTable = 0, linearCalls = 0;
 FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
 FEMinList msgRespPool{&feMinListVTable, 0, nullptr, nullptr}, scriptPool{&feMinListVTable, 0, nullptr, nullptr};
 uint32_t nextGUID = 100;
@@ -65,6 +65,7 @@ void *FEScriptVTable() { return &teststub::feScriptVTable; }
 void *FEKeyNodeVTable() { return &teststub::feKeyNodeVTable; }
 ::FEMinList *FEKeyNodePool() { ++teststub::keyNodeNews; return &teststub::keyNodePool; }
 void *FEKeyNodeBlockVTable() { return &teststub::feKeyNodeBlockVTable; }
+void FEInterpLinear(void *, int32_t, void *out) { ++teststub::linearCalls; std::memset(out, 0x11, 4); }
 void *FERefListVTable() { return &teststub::feRefListVTable; }
 void *FEMessageResponseVTable() { return &teststub::feMsgRespVTable; }
 void *FEObjectVTable() { return &teststub::feObjectVTable; }

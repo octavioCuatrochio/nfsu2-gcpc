@@ -55,6 +55,7 @@ void *FEScriptVTable();                                                // PC 0x7
 void *FEKeyNodeVTable();                                               // PC 0x79AA34
 ::FEMinList *FEKeyNodePool();                                          // PC 0x839BD0
 void *FEKeyNodeBlockVTable();                                          // PC 0x79B9EC (slot 0 = 531BC0)
+void FEInterpLinear(void *track, int32_t time, void *out);              // PC 52BDC0 (__cdecl, not rewritten)
 void *FERefListVTable();                                               // PC 0x79AA30
 void *FEMessageResponseVTable();                                       // PC 0x79AA38
 

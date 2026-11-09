@@ -372,6 +372,60 @@ static void CheckSetters(int iters)
     }
 }
 
+// Key lookup (PC 505260/5052B0/4FE8D0), FEInterpNone (519D40) and FEKeyInterpFast (5354F0, step/none tracks
+// only: linear is still the original) on random synthetic key lists, incl. reference lists.
+static void CheckKeyInterp(int iters)
+{
+    auto oKeyAt = ORIG<FEKeyNode *(THISCALL *)(FEKeyTrack *, int32_t)>(0x505260);
+    auto oDelta = ORIG<FEKeyNode *(THISCALL *)(const FEKeyTrack *, int32_t)>(0x5052B0);
+    auto oFirst = ORIG<FEKeyNode *(THISCALL *)(const FEKeyTrack *)>(0x4FE8D0);
+    auto oNone = ORIG<void(__cdecl *)(FEKeyTrack *, int32_t, void *)>(0x519D40);
+    auto oFast = ORIG<void(__cdecl *)(FEKeyTrack *, int32_t, void *)>(0x5354F0);
+    for (int it = 0; it < iters / 10; ++it) {
+        FEKeyTrack t{}, owner{};
+        FEKeyNode k[6]{};
+        int n = rng() % 7;
+        int32_t time = 0;
+        for (int i = 0; i < n; ++i) {
+            k[i].node.next = i + 1 < n ? &k[i + 1].node : nullptr;
+            k[i].node.prev = i ? &k[i - 1].node : nullptr;
+            time += rng() % 3 == 0 ? 0 : int32_t(rng() % 20);
+            k[i]._data[0] = uint32_t(time);
+            for (int j = 1; j < 5; ++j) k[i]._data[j] = rng();
+        }
+        t.mu8ValueSize = uint8_t(1 + rng() % 16);
+        int32_t len = int32_t(rng() % 120) - 10;
+        t._length[0] = uint8_t(len); t._length[1] = uint8_t(len >> 8); t._length[2] = uint8_t(len >> 16);
+        t.mBaseKey.node.next = nullptr;                         // keep the past-the-end path readable
+        for (int j = 0; j < 5; ++j) t.mBaseKey._data[j] = rng() % 50;
+        FEKeyTrack *keys = &t;
+        if (rng() % 4 == 0) {                                  // keys live in another track's list
+            owner.mKeys.head = n ? &k[0].node : nullptr;
+            t.mKeys.mbIsReference = 1;
+            t.mKeys.head = reinterpret_cast<FEMinNode *>(&owner.mKeys);
+        } else {
+            t.mKeys.head = n ? &k[0].node : nullptr;
+            t.mKeys.tail = n ? &k[n - 1].node : nullptr;
+        }
+        (void)keys;
+        int32_t q = int32_t(rng() % 140) - 20;
+        EXPECT(oKeyAt(&t, q) == t.GetKeyAt(q), "GetKeyAt n=%d t=%d", n, q);
+        EXPECT(oDelta(&t, q) == t.GetDeltaKeyAt(q), "GetDeltaKeyAt n=%d t=%d", n, q);
+        EXPECT(oFirst(&t) == t.GetFirstKey(), "first key");
+        uint8_t oa[20], ob[20];
+        std::memset(oa, 0xCD, sizeof oa); std::memset(ob, 0xCD, sizeof ob);
+        oNone(&t, q, oa); FEInterpNone(&t, q, ob);
+        EXPECT(std::memcmp(oa, ob, sizeof oa) == 0, "FEInterpNone n=%d t=%d len=%d", n, q, len);
+        FEKeyTrack ta = t, tb = t;
+        uint8_t interp = rng() % 2 ? 0 : 2;
+        ta.mu8InterpType = tb.mu8InterpType = interp;
+        ta.mu8Flags = tb.mu8Flags = uint8_t(rng() & 0x80);
+        std::memset(oa, 0xCD, sizeof oa); std::memset(ob, 0xCD, sizeof ob);
+        oFast(&ta, q, oa); FEKeyInterpFast(&tb, q, ob);
+        EXPECT(std::memcmp(oa, ob, sizeof oa) == 0 && ta.mu8Flags == tb.mu8Flags, "FEKeyInterpFast interp %d", interp);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -393,6 +447,7 @@ static int RunAll()
     CheckFEMath(iters);
     CheckSetTrackValue(iters);
     CheckSetters(iters);
+    CheckKeyInterp(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",
