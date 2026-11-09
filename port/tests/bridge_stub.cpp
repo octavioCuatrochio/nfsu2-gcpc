@@ -96,7 +96,15 @@ void FEngine_QueueMessage(void *, uint32_t msg, void *obj, void *, void *target,
     teststub::queued.push_back({msg, obj, target});
 }
 void FEngine_SendMessageToGame(void *, uint32_t msg, void *obj, void *) { teststub::queued.push_back({msg, obj, reinterpret_cast<void *>(-1)}); }
-void *FEPackage_FindObjectByGUID(void *, uint32_t guid) { return reinterpret_cast<void *>(uintptr_t(0x1000) + guid); }
+bool FEObjectCallback_Call(void *cb, void *obj)
+{
+#ifdef NFSU2_REFEREE
+    return (*reinterpret_cast<bool(__attribute__((thiscall)) ***)(void *, void *)>(cb))[1](cb, obj);
+#endif
+    auto *t = static_cast<teststub::TestCallback *>(cb);
+    t->visited.push_back(obj);
+    return obj != t->stopAt;
+}
 void FEPackage_SetCurrentButton(void *, void *, void *obj, bool) { teststub::currentButton = obj; }
 void FEListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
 void FECodeListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }

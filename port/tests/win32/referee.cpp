@@ -705,6 +705,39 @@ static void CheckPackageUpdate(int iters)
     }
 }
 
+// FindObjectByGUID/Hash (PC 517FE0/517F80) and ForAllObjects (504880, with the exe's FEFindByGUID callback)
+// on random object trees with duplicate GUIDs/hashes.
+static void CheckFindObject(int iters)
+{
+    auto oGuid = ORIG<FEObject *(THISCALL *)(void *, uint32_t)>(0x517FE0);
+    auto oHash = ORIG<FEObject *(THISCALL *)(void *, uint32_t)>(0x517F80);
+    auto oAll = ORIG<bool(THISCALL *)(void *, void *)>(0x504880);
+    struct Tree { uint8_t pkg[0x60]; alignas(8) uint8_t objs[8][sizeof(FEGroup)]; };
+    static Tree t;
+    for (int it = 0; it < iters / 10; ++it) {
+        std::memset(&t, 0, sizeof t);
+        auto *list = reinterpret_cast<FEMinList *>(t.pkg + 0x44);
+        FEGroup *groups[8];
+        int ng = 0, n = rng() % 9;
+        for (int i = 0; i < n; ++i) {
+            auto *g = reinterpret_cast<FEGroup *>(t.objs[i]);
+            g->obj.mu32GUID = rng() % 6;
+            g->obj.mu32NameHash = rng() % 6;
+            g->obj.mu32Type = rng() % 3 == 0 ? 5 : 1;
+            FEMinList *parent = ng && rng() % 2 ? &groups[rng() % ng]->mChildren : list;
+            parent->AddNode(parent->tail, &g->obj.node);
+            if (g->obj.mu32Type == 5) groups[ng++] = g;
+        }
+        auto *pkg = reinterpret_cast<FEPackage *>(t.pkg);
+        uint32_t key = rng() % 7;
+        EXPECT(oGuid(t.pkg, key) == pkg->FindObjectByGUID(key), "FindObjectByGUID %u", key);
+        EXPECT(oHash(t.pkg, key) == pkg->FindObjectByHash(key), "FindObjectByHash %u", key);
+        struct { uint32_t vt, guid; void *result; } ca{0x79AAFC, key, nullptr}, cb{0x79AAFC, key, nullptr};
+        bool ra = oAll(t.pkg, &ca), rb = pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb));
+        EXPECT(ra == rb && ca.result == cb.result, "ForAllObjects %u", key);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -732,6 +765,7 @@ static int RunAll()
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);
+    CheckFindObject(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",

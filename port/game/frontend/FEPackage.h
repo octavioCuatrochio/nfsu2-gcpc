@@ -6,6 +6,11 @@
 struct FEObject;
 struct FEScript;
 
+// Game-side visitor (FEObjectCallback): vtable slot 1 = bool Function(FEObject *), false stops the walk.
+struct FEObjectCallback {
+    void *vtable;
+};
+
 struct FEPackage {
     uint8_t _unknown00[0x14];
     uint8_t mbFastInterp;            // +0x14 use FEKeyInterpFast (done-track skipping + dirty-flag tracking);
@@ -25,6 +30,11 @@ struct FEPackage {
     void IssueScriptMessages(void *engine, FEObject *obj, FEScript *script, int32_t from, int32_t to);
     void UpdateGroup(struct FEGroup *group, int32_t delta);   // GC 80139520 / PC 504910
     void Update(void *engine, int32_t delta);                 // GC 80139BD0 / PC 54D190: every top-level object
+    // Pre-order walk over all objects (groups recurse after their own callback); false if a callback stopped it.
+    bool ForAllObjects(FEObjectCallback *cb);                   // GC 801391DC / PC 504880
+    bool ForAllChildren(struct FEGroup *group, FEObjectCallback *cb);   // GC 80139144 / PC 504830
+    FEObject *FindObjectByGUID(uint32_t guid);                  // GC 801392C8 / PC 517FE0 (FEFindByGUID: obj+0xC)
+    FEObject *FindObjectByHash(uint32_t nameHash);              // GC 80139274 / PC 517F80 (FEFindByHash: obj+0x10)
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

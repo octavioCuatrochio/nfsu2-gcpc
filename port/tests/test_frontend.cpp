@@ -707,7 +707,16 @@ static void TestUpdateObject()
     obj->mu32Type = 4; teststub::lastTypeUpdate = nullptr;      // list box: bridged update
     pkg->UpdateObject(obj, 16);
     CHECK(teststub::lastTypeUpdate == obj);
-    // targets: game (-1), special (-5), GUID 7, set-button magic
+    // targets: game (-1), special (-5), GUID 7, set-button magic (GUID 9 inside a group)
+    alignas(8) unsigned char tm[2][sizeof(FEGroup)] = {};
+    auto *g7 = reinterpret_cast<FEGroup *>(tm[0]);
+    auto *o9 = reinterpret_cast<FEObject *>(tm[1]);
+    g7->obj.mu32GUID = 7; g7->obj.mu32Type = 5; o9->mu32GUID = 9;
+    pkg->mObjects = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+    g7->mChildren = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+    pkg->mObjects.AddTail(&g7->obj.node);
+    g7->mChildren.AddTail(&o9->node);
+    CHECK(pkg->FindObjectByGUID(9) == o9 && pkg->FindObjectByGUID(7) == &g7->obj && pkg->FindObjectByGUID(5) == nullptr);
     FEScriptEvent ev[4] = {{11, 0xFFFFFFFFu, 0}, {12, 0xFFFFFFFBu, 1}, {13, 7, 2}, {0x1B3909AA, 9, 3}};
     FEScript c = {};
     FEScript::Construct(&c);
@@ -715,7 +724,9 @@ static void TestUpdateObject()
     q.clear(); teststub::currentButton = nullptr;
     pkg->IssueScriptMessages(nullptr, obj, &c, 0, 10);
     CHECK(q.size() == 3 && q[0].target == reinterpret_cast<void *>(-1) && q[1].target == reinterpret_cast<void *>(uintptr_t(0xFFFFFFFBu)));
-    CHECK(q[2].target == reinterpret_cast<void *>(uintptr_t(0x1000 + 7)) && teststub::currentButton == reinterpret_cast<void *>(uintptr_t(0x1000 + 9)));
+    CHECK(q[2].target == &g7->obj && teststub::currentButton == o9);
+    teststub::TestCallback cb{nullptr, {}, o9};                  // walk order + stop
+    CHECK(!pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb)) && cb.visited.size() == 2 && cb.visited[1] == o9);
     q.clear();
     pkg->IssueScriptMessages(nullptr, nullptr, &c, 2, 3);       // GUID target without obj: not queued
     CHECK(q.empty());

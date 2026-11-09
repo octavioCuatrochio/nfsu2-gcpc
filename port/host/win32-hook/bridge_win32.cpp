@@ -99,7 +99,10 @@ void FEngine_SendMessageToGame(void *engine, uint32_t msg, void *obj, void *pkg)
     auto fn = (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t, void *, uint32_t, void *)>(ui))[6];
     fn(ui, msg, obj, 0, pkg);
 }
-void *FEPackage_FindObjectByGUID(void *pkg, uint32_t guid) { return reinterpret_cast<void *(THISCALL *)(void *, uint32_t)>(0x517FE0)(pkg, guid); }
+bool FEObjectCallback_Call(void *cb, void *obj)
+{
+    return (*reinterpret_cast<bool(THISCALL ***)(void *, void *)>(cb))[1](cb, obj);
+}
 void FEPackage_SetCurrentButton(void *pkg, void *engine, void *obj, bool notify)
 {
     reinterpret_cast<void(THISCALL *)(void *, void *, void *, int)>(0x52B3A0)(pkg, engine, obj, notify ? 1 : 0);

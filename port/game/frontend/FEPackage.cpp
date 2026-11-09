@@ -182,7 +182,7 @@ void FEPackage::IssueScriptMessages(void *engine, FEObject *obj, FEScript *scrip
     for (; i < count && ev[i].mu32Time < static_cast<uint32_t>(to); ++i) {
         const FEScriptEvent &e = ev[i];
         auto queue = [&](void *target) { bridge::FEngine_QueueMessage(engine, e.mu32MsgId, obj, this, target, 0); };
-        auto setButton = [&] { bridge::FEPackage_SetCurrentButton(this, engine, bridge::FEPackage_FindObjectByGUID(this, e.mu32Target), true); };
+        auto setButton = [&] { bridge::FEPackage_SetCurrentButton(this, engine, FindObjectByGUID(e.mu32Target), true); };
         switch (e.mu32Target) {
         case 0xFFFFFFFBu: case 0xFFFFFFFAu: case 0xFFFFFFFCu:
             queue(reinterpret_cast<void *>(static_cast<uintptr_t>(e.mu32Target)));
@@ -195,11 +195,58 @@ void FEPackage::IssueScriptMessages(void *engine, FEObject *obj, FEScript *scrip
             bridge::FEngine_SendMessageToGame(engine, e.mu32MsgId, obj, this);
             break;
         default: {
-            void *found = bridge::FEPackage_FindObjectByGUID(this, e.mu32Target);
+            void *found = FindObjectByGUID(e.mu32Target);
             if (e.mu32MsgId == kSetButton) setButton();   // looks the GUID up again, like the original
             else if (obj) queue(found);
             break;
         }
         }
     }
+}
+
+// PC 504880
+bool FEPackage::ForAllObjects(FEObjectCallback *cb)
+{
+    for (FEMinNode *n = mObjects.head; n; n = n->next) {
+        auto *o = reinterpret_cast<FEObject *>(n);
+        if (!bridge::FEObjectCallback_Call(cb, o)) return false;
+        if (o->mu32Type == 5 && !ForAllChildren(reinterpret_cast<FEGroup *>(o), cb)) return false;
+    }
+    return true;
+}
+
+// PC 504830
+bool FEPackage::ForAllChildren(FEGroup *group, FEObjectCallback *cb)
+{
+    for (FEMinNode *n = group->mChildren.head; n; n = n->next) {
+        auto *o = reinterpret_cast<FEObject *>(n);
+        if (!bridge::FEObjectCallback_Call(cb, o)) return false;
+        if (o->mu32Type == 5 && !ForAllChildren(reinterpret_cast<FEGroup *>(o), cb)) return false;
+    }
+    return true;
+}
+
+namespace {
+// Same order and stop rule as ForAllObjects with the FEFindByGUID / FEFindByHash callbacks (first match wins).
+template <typename Pred>
+FEObject *FindIn(const FEMinList &list, Pred pred)
+{
+    for (FEMinNode *n = list.head; n; n = n->next) {
+        auto *o = reinterpret_cast<FEObject *>(n);
+        if (pred(o)) return o;
+        if (o->mu32Type == 5)
+            if (FEObject *r = FindIn(reinterpret_cast<FEGroup *>(o)->mChildren, pred)) return r;
+    }
+    return nullptr;
+}
+}  // namespace
+
+FEObject *FEPackage::FindObjectByGUID(uint32_t guid)
+{
+    return FindIn(mObjects, [&](const FEObject *o) { return o->mu32GUID == guid; });
+}
+
+FEObject *FEPackage::FindObjectByHash(uint32_t nameHash)
+{
+    return FindIn(mObjects, [&](const FEObject *o) { return o->mu32NameHash == nameHash; });
 }

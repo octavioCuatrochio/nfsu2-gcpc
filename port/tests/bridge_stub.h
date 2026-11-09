@@ -24,6 +24,7 @@ extern std::vector<ScriptMessage> messages;   // unused since IssueScriptMessage
 struct QueuedMessage { uint32_t msg; void *obj; void *target; };
 extern std::vector<QueuedMessage> queued;
 extern void *currentButton;
+struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback
 extern void *lastTypeUpdate;
 extern FEMinList keyNodePool;
 extern uint32_t nextGUID;
