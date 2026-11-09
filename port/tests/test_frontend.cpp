@@ -700,11 +700,45 @@ static void TestUpdateObject()
     reinterpret_cast<ObjWithMovie *>(mem)->movieTime = 5;
     pkg->UpdateObject(obj, 16);
     CHECK(reinterpret_cast<ObjWithMovie *>(mem)->movieTime == 21);
-    obj->mu32Type = 5; teststub::lastTypeUpdate = nullptr;
+    obj->mu32Type = 4; teststub::lastTypeUpdate = nullptr;     // list box: bridged update
     pkg->UpdateObject(obj, 16);
     CHECK(teststub::lastTypeUpdate == obj);
     obj->mpData = nullptr;
     obj->Destruct();
+}
+
+// FEPackage::Update / UpdateGroup: every top-level object and every group child advances; children inherit the
+// group's 0x3C00000 flags.
+static void TestPackageUpdate()
+{
+    alignas(8) unsigned char gm[sizeof(FEGroup)] = {}, om[3][sizeof(FEObject)] = {};
+    uint32_t data[4][40] = {};
+    FEScript sc[4] = {};                       // Construct leaves the time (+0x10) uninitialized, like the original
+    auto *g = reinterpret_cast<FEGroup *>(gm);
+    FEObject *objs[4] = {&g->obj, FEObject::Construct(om[0]), FEObject::Construct(om[1]), FEObject::Construct(om[2])};
+    FEObject::Construct(&g->obj);
+    g->mChildren = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+    for (int i = 0; i < 4; ++i) {
+        FEScript::Construct(&sc[i]);
+        sc[i].mi32Length = 1000;
+        objs[i]->mpCurrentScript = &sc[i];
+        objs[i]->mpData = data[i];
+    }
+    g->obj.mu32Type = 5;
+    g->obj.mu32Flags = 0x800000 | 0x400000;   // dirty is cleared at the end of the group's own update
+    alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
+    auto *pkg = reinterpret_cast<FEPackage *>(pm);
+    pkg->mObjects = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+    pkg->mObjects.AddTail(&g->obj.node);
+    pkg->mObjects.AddTail(&objs[1]->node);
+    g->mChildren.AddTail(&objs[2]->node);
+    g->mChildren.AddTail(&objs[3]->node);
+    int marker = 0;
+    pkg->Update(&marker, 25);
+    CHECK(pkg->mpEngine == &marker && pkg->mi32ScriptDelta == 25);
+    for (int i = 0; i < 4; ++i) CHECK(sc[i].mi32Time == 25);
+    CHECK((objs[2]->mu32Flags & 0x800000) && (objs[3]->mu32Flags & 0x800000) && !(objs[1]->mu32Flags & 0x800000));
+    for (auto *o : objs) { o->mpData = nullptr; }
 }
 
 int main()
@@ -731,6 +765,7 @@ int main()
     TestInterpLinear();
     TestTrigAndSlerp();
     TestUpdateObject();
+    TestPackageUpdate();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

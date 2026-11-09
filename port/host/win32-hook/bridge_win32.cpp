@@ -93,7 +93,6 @@ void FEPackage_IssueScriptMessages(void *pkg, void *engine, void *obj, void *scr
 {
     reinterpret_cast<void(THISCALL *)(void *, void *, void *, void *, int32_t, int32_t)>(0x534C70)(pkg, engine, obj, script, from, to);
 }
-void FEPackage_UpdateGroup(void *pkg, void *g, int32_t d) { reinterpret_cast<void(THISCALL *)(void *, void *, int32_t)>(0x504910)(pkg, g, d); }
 void FEListBox_Update(void *lb, float d) { reinterpret_cast<void(THISCALL *)(void *, float)>(0x517230)(lb, d); }
 void FECodeListBox_Update(void *lb, float d) { reinterpret_cast<void(THISCALL *)(void *, float)>(0x504DC0)(lb, d); }
 uint32_t HoldDirtyFlags() { return *reinterpret_cast<const uint32_t *>(0x7F7C8C); }

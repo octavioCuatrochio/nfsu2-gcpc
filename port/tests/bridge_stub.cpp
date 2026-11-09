@@ -93,7 +93,6 @@ void FEPackage_IssueScriptMessages(void *, void *, void *, void *script, int32_t
 {
     teststub::messages.push_back({script, from, to});
 }
-void FEPackage_UpdateGroup(void *, void *g, int32_t) { teststub::lastTypeUpdate = g; }
 void FEListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
 void FECodeListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
 uint32_t HoldDirtyFlags()

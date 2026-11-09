@@ -58,7 +58,14 @@ struct FEObject {
     static uint32_t GetDataOffset(int track);          // GC 80138B70 / PC 5046F0 (byte offset of a key track in mpData)
 };
 
+// FEObject type 5: a group of child objects.
+struct FEGroup {
+    FEObject obj;                    // +0x00
+    FEMinList mChildren;             // +0x5C
+};
+
 #if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(offsetof(FEGroup, mChildren) == 0x5C);
 static_assert(offsetof(FEObject, mu32NameHash) == 0x10 && offsetof(FEObject, mpcName) == 0x14);
 static_assert(offsetof(FEObject, mu32Type) == 0x18 && offsetof(FEObject, mu32Flags) == 0x1C);
 static_assert(offsetof(FEObject, mpData) == 0x2C && offsetof(FEObject, mResponses) == 0x34);

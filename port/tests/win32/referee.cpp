@@ -654,6 +654,57 @@ static void CheckUpdateObject(int iters)
     }
 }
 
+// FEPackage::Update + UpdateGroup (PC 54D190/504910) on synthetic packages (top-level objects, groups with
+// children, scripts with random end modes, no events/tracks).
+static void CheckPackageUpdate(int iters)
+{
+    auto orig = ORIG<void(THISCALL *)(void *, void *, int32_t)>(0x54D190);
+    struct Pkg {
+        uint8_t pkg[0x60];
+        alignas(8) uint8_t objs[6][sizeof(FEGroup)];
+        FEScript sc[6];
+        uint32_t data[6][40];
+    };
+    static Pkg a, b;
+    auto build = [](Pkg &p, uint32_t seed) {
+        std::mt19937 r(seed);
+        std::memset(&p, 0, sizeof p);
+        auto *list = reinterpret_cast<FEMinList *>(p.pkg + 0x44);
+        FEGroup *lastGroup = nullptr;
+        int n = 1 + r() % 6;
+        for (int i = 0; i < n; ++i) {
+            auto *g = reinterpret_cast<FEGroup *>(p.objs[i]);
+            g->obj.mpCurrentScript = &p.sc[i];
+            g->obj.mpData = p.data[i];
+            g->obj.mu32Type = r() % 3 == 0 ? 5 : (r() % 2 ? 7 : 1);
+            g->obj.mu32Flags = r() & 0x3C00000u;
+            p.sc[i].mi32Length = int32_t(r() % 60);
+            p.sc[i].mi32Time = int32_t(r() % 70);
+            p.sc[i].mu32Flags = r() % 4;
+            if (lastGroup && r() % 2) lastGroup->mChildren.AddNode(lastGroup->mChildren.tail, &g->obj.node);
+            else list->AddNode(list->tail, &g->obj.node);
+            if (g->obj.mu32Type == 5) lastGroup = g;
+        }
+        p.pkg[0x14] = uint8_t(r() % 2);
+    };
+    for (int it = 0; it < iters / 20; ++it) {
+        uint32_t seed = rng();
+        build(a, seed);
+        build(b, seed);
+        int32_t delta = int32_t(rng() % 50);
+        orig(a.pkg, nullptr, delta);
+        reinterpret_cast<FEPackage *>(b.pkg)->Update(nullptr, delta);
+        bool same = true;
+        for (int i = 0; i < 6; ++i) {
+            auto *oa = reinterpret_cast<FEObject *>(a.objs[i]);
+            auto *ob = reinterpret_cast<FEObject *>(b.objs[i]);
+            same = same && a.sc[i].mi32Time == b.sc[i].mi32Time && oa->mu32Flags == ob->mu32Flags &&
+                   std::memcmp(a.objs[i] + sizeof(FEObject), b.objs[i] + sizeof(FEObject), 4) == 0;
+        }
+        EXPECT(same, "FEPackage::Update seed %u", seed);
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -680,6 +731,7 @@ static int RunAll()
     CheckTrigAndSlerp(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
+    CheckPackageUpdate(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",

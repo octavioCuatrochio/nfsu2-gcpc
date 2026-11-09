@@ -130,7 +130,7 @@ void FEPackage::UpdateObject(FEObject *obj, int32_t delta)
 
     switch (obj->mu32Type) {
     case 4: bridge::FEListBox_Update(obj, static_cast<float>(delta)); break;
-    case 5: bridge::FEPackage_UpdateGroup(this, obj, delta); break;
+    case 5: UpdateGroup(reinterpret_cast<FEGroup *>(obj), delta); break;
     case 6: bridge::FECodeListBox_Update(obj, static_cast<float>(delta)); break;
     case 7:                                             // FEMovie: playback time right after the FEObject part
         if (mbFastInterp) {
@@ -145,4 +145,22 @@ void FEPackage::UpdateObject(FEObject *obj, int32_t delta)
         flags &= hold | ~(kFlagTrack0Active | kFlagTracksRunning);
     flags &= hold | ~FEOBJ_DIRTY;
     if (flags & 0x1C00000) flags |= kFlagAnimating;
+}
+
+// PC 504910: children inherit the group's 0x3C00000 flags after their update.
+void FEPackage::UpdateGroup(FEGroup *group, int32_t delta)
+{
+    for (FEMinNode *n = group->mChildren.head; n; n = n->next) {
+        auto *child = reinterpret_cast<FEObject *>(n);
+        UpdateObject(child, delta);
+        child->mu32Flags |= group->obj.mu32Flags & 0x3C00000;
+    }
+}
+
+// PC 54D190
+void FEPackage::Update(void *engine, int32_t delta)
+{
+    mpEngine = engine;
+    mi32ScriptDelta = delta;
+    for (FEMinNode *n = mObjects.head; n; n = n->next) UpdateObject(reinterpret_cast<FEObject *>(n), delta);
 }

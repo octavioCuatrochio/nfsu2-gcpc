@@ -135,6 +135,8 @@ FEQuaternion *__cdecl FEQuatAdd_Hook(FEQuaternion *o, const FEQuaternion *a, con
 FEQuaternion *__cdecl FEQuatSub_Hook(FEQuaternion *o, const FEQuaternion *a, const FEQuaternion *b) { FEQuatSub(o, a, b); return o; }
 void THISCALL FEPackage_UpdateObjectTracks(const FEPackage *self, FEObject *o, FEScript *s) { self->UpdateObjectTracks(o, s); }
 void THISCALL FEPackage_UpdateObject(FEPackage *self, FEObject *o, int32_t delta) { self->UpdateObject(o, delta); }
+void THISCALL FEPackage_UpdateGroup(FEPackage *self, FEGroup *g, int32_t delta) { self->UpdateGroup(g, delta); }
+void THISCALL FEPackage_Update(FEPackage *self, void *engine, int32_t delta) { self->Update(engine, delta); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -267,6 +269,8 @@ const Replacement kReplacements[] = {
     {0x519B00, (const void *)&FELerpQuaternion, "FELerpQuaternion", {0x83, 0xEC, 0x44, 0x8B, 0x4C, 0x24}},
     {0x541DB0, (const void *)&FEPackage_UpdateObjectTracks, "FEPackage::UpdateObjectTracks", {0x8A, 0x41, 0x14, 0x84, 0xC0, 0x8B}},
     {0x54CE60, (const void *)&FEPackage_UpdateObject, "FEPackage::UpdateObject", {0x51, 0x55, 0x8B, 0x6C, 0x24, 0x0C}},
+    {0x504910, (const void *)&FEPackage_UpdateGroup, "FEPackage::UpdateGroup", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x56}},
+    {0x54D190, (const void *)&FEPackage_Update, "FEPackage::Update", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x8B}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},
