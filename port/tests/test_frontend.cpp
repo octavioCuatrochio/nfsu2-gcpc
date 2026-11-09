@@ -9,6 +9,7 @@
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
+#include "frontend/FEListBox.h"
 #include "bWare/bMath.h"
 #include <algorithm>
 #include "bridge/Bridge.h"
@@ -1001,8 +1002,14 @@ static void TestProcessMessageQueue()
     p2->mResponses.AddTail(&r.node);
     alignas(8) unsigned char om[3][sizeof(FEObject)] = {};
     FEObject *list[2] = {FEObject::Construct(om[0]), FEObject::Construct(om[1])};
-    FEObject *lb = FEObject::Construct(om[2]);
-    lb->mu32Type = 4;                                            // list box
+    alignas(8) unsigned char lbm[sizeof(FEListBox)] = {};
+    auto *listBox = reinterpret_cast<FEListBox *>(lbm);
+    FEObject *lb = FEObject::Construct(lbm);
+    lb->mu32Type = 4;                                            // list box: 1 column, 3 rows, clamped, row 1
+    FEListBoxSlot rows[3] = {{10, 0, 0}, {10, 10, 0}, {10, 20, 0}}, col = {5, 0, 0};
+    listBox->mu32Flags = 4; listBox->mu32NumColumns = 1; listBox->mu32NumRows = 3;
+    listBox->mpColumns = &col; listBox->mpRows = rows; listBox->mu32SelRow = 1;
+    listBox->mfScrollY = 10; listBox->mfTargetY = 10; listBox->mfViewWidth = 5; listBox->mfViewHeight = 10;
     FEMessageResponse ra{}, rb{};
     ra.mu32MsgId = 0x77; rb.mu32MsgId = 0x13;
     ra.mu32Count = 1; ra.mpResponses = &rr[1]; rb.mu32Count = 1; rb.mpResponses = &rr[2];
@@ -1027,13 +1034,14 @@ static void TestProcessMessageQueue()
     auto c = CollectCommands();
     CHECK(teststub::liveAllocations == live);                   // every message node deleted, commands drained
     auto sw = [&](size_t k, const char *name) { return k < c.size() && c[k].type == 3 && c[k].name == name; };
-    CHECK(c.size() == 5 && d.size() == 2);
+    CHECK(c.size() == 5 && d.size() == 1);
     CHECK(sw(0, kA) && c[0].pkg == p1 && sw(1, kP2) && c[1].pkg == p2);    // 0: A's response (p1 target), p2 global
     CHECK(sw(2, kP2) && sw(3, kP2));                                         // -4 p2, -2 all -> p2's
     CHECK(e->mbFlag01 == 1);
     CHECK(std::string(d[0].kind) == "ui" && d[0].msg == 0x12 + 0x18 * 0x10000 && d[0].arg == 8);
     CHECK(sw(4, kB));                                                         // object message 0x13 -> B
-    CHECK(std::string(d[1].kind) == "scroll" && d[1].a == lb && d[1].msg == 0 && d[1].arg == uint32_t(-1));
+    CHECK(listBox->mu32SelRow == 0 && listBox->mfTargetY == 0 && listBox->mu32Flags == (4 | 0x40 | 2));   // scroll up
+    CHECK(listBox->mfDirY == -1.0f && listBox->mfDirX == 0.0f);
     for (auto &x : {&r, &ra, &rb}) { x->mu32Count = 0; x->mpResponses = nullptr; }
     for (auto *o : {list[0], list[1], lb}) o->mResponses = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
     e->mpPackages = nullptr;

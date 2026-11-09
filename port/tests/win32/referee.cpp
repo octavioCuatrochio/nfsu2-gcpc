@@ -27,6 +27,7 @@
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
 #include "frontend/cFEng.h"
+#include "frontend/FEListBox.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include <float.h>
@@ -179,6 +180,49 @@ static void CheckLevelSortingList(int iters)
         if (rng() % 2) for (auto &ch : q) ch = static_cast<char>(ch ^ ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ? 0x20 : 0));
         EXPECT(orig(&fe, q.c_str()) == fe.FindInLevelSortingList(q.c_str()), "FindInLevelSortingList(%s) n=%d", q.c_str(), n);
     }
+}
+
+static float RandSlotFloat()
+{
+    switch (rng() % 6) {
+    case 0: return 0.0f;
+    case 1: return static_cast<float>(rng() % 200);
+    default: return static_cast<float>(static_cast<int32_t>(rng() % 200000) - 50000) / 997.0f;
+    }
+}
+static void CheckListBoxScroll(int iters)
+{
+    auto orig = ORIG<void(THISCALL *)(FEListBox *, int32_t, int32_t)>(0x516E90);
+    const unsigned int saved = _controlfp(0, 0);
+    FEListBoxSlot cols[6], rows[6];
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            alignas(8) static FEListBox a, b;
+            std::memset(&a, 0, sizeof a);
+            a.mu32NumColumns = 1 + rng() % 6;
+            a.mu32NumRows = 1 + rng() % 6;
+            for (auto *sl : {cols, rows})
+                for (int i = 0; i < 6; ++i) sl[i] = FEListBoxSlot{RandSlotFloat(), RandSlotFloat(), rng()};
+            a.mpColumns = cols; a.mpRows = rows;
+            a.mu32Flags = rng() & 0x7F;
+            a.mu32SelColumn = rng() % a.mu32NumColumns;
+            a.mu32SelRow = rng() % a.mu32NumRows;
+            for (float *f : {&a.mfViewWidth, &a.mfViewHeight, &a.mfScrollX, &a.mfScrollY, &a.mfTargetX, &a.mfTargetY, &a.mfDirX, &a.mfDirY})
+                *f = rng() % 3 ? RandSlotFloat() : 0.0f;
+            int32_t dx = static_cast<int32_t>(rng() % (2 * a.mu32NumColumns + 1)) - static_cast<int32_t>(a.mu32NumColumns);
+            int32_t dy = static_cast<int32_t>(rng() % (2 * a.mu32NumRows + 1)) - static_cast<int32_t>(a.mu32NumRows);
+            if (rng() % 4 == 0) dx = 0;
+            if (rng() % 4 == 0) dy = 0;
+            std::memcpy(&b, &a, sizeof a);
+            orig(&a, dx, dy);
+            b.ScrollSelection(dx, dy);
+            EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "FEListBox::ScrollSelection flags=%02X n=%u/%u sel=%u/%u d=%d/%d pc=%x: flags %X/%X tgt %g/%g %g/%g dir %g/%g %g/%g",
+                   b.mu32Flags, a.mu32NumColumns, a.mu32NumRows, a.mu32SelColumn, a.mu32SelRow, dx, dy, pc,
+                   a.mu32Flags, b.mu32Flags, a.mfTargetX, b.mfTargetX, a.mfTargetY, b.mfTargetY, a.mfDirX, b.mfDirX, a.mfDirY, b.mfDirY);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
 }
 
 static void CheckWideCopies(int iters)
@@ -984,6 +1028,7 @@ static int RunAll()
     CheckStrFuncs(iters);
     CheckStrToNumber(iters);
     CheckLevelSortingList(iters);
+    CheckListBoxScroll(iters);
     CheckWideCopies(iters);
     CheckMinList(iters);
     CheckFEObject(iters);

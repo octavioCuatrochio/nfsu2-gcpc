@@ -1,4 +1,5 @@
 #include "FEngine.h"
+#include "FEListBox.h"
 #include "cFEng.h"
 #include "FEHash.h"
 #include <cstring>
@@ -270,7 +271,7 @@ bool FEngine::ProcessListBoxResponses(FEObject *listBox, FEPackage *, uint32_t m
 {
     int32_t dx, dy;
     if (!ScrollDelta(msg, dx, dy)) return false;
-    bridge::FEListBox_ScrollSelection(listBox, dx, dy);
+    reinterpret_cast<FEListBox *>(listBox)->ScrollSelection(dx, dy);
     return true;
 }
 
