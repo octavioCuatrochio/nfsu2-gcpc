@@ -13,6 +13,7 @@
 #include "frontend/FEMessageResponse.h"
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
+#include "frontend/FEMath.h"
 #include "frontend/FEString.h"
 #include <new>
 #include "frontend/FEWideString.h"
@@ -95,6 +96,18 @@ FEObject *THISCALL FEObject_CopyCtor(FEObject *self, const FEObject *src, int re
     return FEObject::CopyConstruct(self, *src, (reference & 0xFF) != 0);   // bool arg: low byte only
 }
 FEObject *THISCALL FEObject_Clone(const FEObject *self, int reference) { return self->Clone((reference & 0xFF) != 0); }
+void THISCALL FEObject_SetupMoveToTracks(FEObject *self) { self->SetupMoveToTracks(); }
+FEMinNode *THISCALL FERefList_GetHead(const FERefList *self) { return self->GetHead(); }
+FEQuaternion *THISCALL FEQuat_Multiply(const FEQuaternion *a, FEQuaternion *out, const FEQuaternion *b)
+{
+    *out = FEQuatMultiply(*a, *b);
+    return out;
+}
+FEColor *THISCALL FEColor_Sub(const FEColor *a, FEColor *out, const FEColor *b)
+{
+    *out = FEColorSub(*a, *b);
+    return out;
+}
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -191,6 +204,10 @@ const Replacement kReplacements[] = {
     {0x531BC0, (const void *)&KeyNodeBlock_ScalarDtor, "FEPoolNode<FEKeyNode,256> scalar deleting dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
     {0x554300, (const void *)&FEObject_CopyCtor, "FEObject::FEObject(const FEObject&, bool)", {0x6A, 0xFF, 0x68, 0x89, 0x7E, 0x77}},
     {0x5545D0, (const void *)&FEObject_Clone, "FEObject::Clone", {0x6A, 0xFF, 0x68, 0x6B, 0x80, 0x77}},
+    {0x517720, (const void *)&FEObject_SetupMoveToTracks, "FEObject::SetupMoveToTracks", {0x83, 0xEC, 0x40, 0x53, 0x8B, 0xD9}, 1, 0, 1},   // 52749B: push ecx after the call (stack slot; thunk anyway)
+    {0x4FE890, (const void *)&FERefList_GetHead, "FERefList::GetHead", {0x8A, 0x41, 0x04, 0x84, 0xC0, 0x74}},
+    {0x4FE6B0, (const void *)&FEQuat_Multiply, "FEQuaternion multiply", {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24}},
+    {0x505580, (const void *)&FEColor_Sub, "FEColor::operator-", {0x8B, 0x51, 0x08, 0x8B, 0x44, 0x24}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

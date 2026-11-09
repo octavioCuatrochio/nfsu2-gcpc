@@ -20,5 +20,4 @@ extern int feScriptBlockVTable, feScriptVTable, feRefListVTable, feKeyNodeVTable
 extern FEMinList keyNodePool;
 extern uint32_t nextGUID;
 extern void *lastDestructorCallback;
-extern void *lastSetupMoveTo;
 }  // namespace teststub

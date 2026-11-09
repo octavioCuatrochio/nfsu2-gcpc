@@ -23,7 +23,6 @@ FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
 FEMinList msgRespPool{&feMinListVTable, 0, nullptr, nullptr}, scriptPool{&feMinListVTable, 0, nullptr, nullptr};
 uint32_t nextGUID = 100;
 void *lastDestructorCallback = nullptr;
-void *lastSetupMoveTo = nullptr;
 }  // namespace teststub
 
 namespace bridge {
@@ -32,7 +31,6 @@ void FreeArray(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 void *WideCharHistogram() { return nullptr; }
 void WideCharHistogram_UnpackString(void *, uint16_t *, int, const char *) { std::abort(); }
 bool UseOldFEngDirtyFlag() { return teststub::useOldDirtyFlag; }
-void FEObject_SetupMoveToTracks(void *o) { teststub::lastSetupMoveTo = o; }
 void *FEStringVTable() { return &teststub::feStringVTable; }
 void CallLabelCallback(void *s) { teststub::lastLabelCallback = s; }
 void *FEMinNodeVTable() { return &teststub::feMinNodeVTable; }

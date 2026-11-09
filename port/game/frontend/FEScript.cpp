@@ -59,8 +59,7 @@ void FEKeyNode::PoolDelete(void *p) { FEPoolDelete<FEKeyNode, 256>(*bridge::FEKe
 FEKeyTrack *FEKeyTrack::Construct(void *mem)
 {
     auto *t = static_cast<FEKeyTrack *>(mem);
-    std::memset(t->_byte0, 0, sizeof t->_byte0);
-    t->_bits4 = 0;
+    std::memset(t, 0, kHeaderBytes);
     t->mBaseKey.node.next = t->mBaseKey.node.prev = Unlinked();
     t->mBaseKey.node.vtable = bridge::FEKeyNodeVTable();
     t->mKeys.vtable = bridge::FERefListVTable();
@@ -83,8 +82,7 @@ void FEKeyTrack::Destruct()
 FEKeyTrack &FEKeyTrack::Assign(const FEKeyTrack &src)
 {
     mKeys.Purge();
-    std::memcpy(_byte0, src._byte0, sizeof _byte0);
-    _bits4 = src._bits4;
+    std::memcpy(this, &src, kHeaderBytes);
     std::memcpy(mBaseKey._data, src.mBaseKey._data, sizeof mBaseKey._data);
     if (src.mKeys.mbIsReference) {
         ReferenceList(mKeys, reinterpret_cast<FERefList *>(src.mKeys.head));
@@ -116,8 +114,7 @@ FEKeyTrack &FEKeyTrack::Assign(const FEKeyTrack &src)
 // does not purge first; the key list becomes a reference to src's list object itself.
 void FEKeyTrack::AssignReference(const FEKeyTrack &src)
 {
-    std::memcpy(_byte0, src._byte0, sizeof _byte0);
-    _bits4 = src._bits4;
+    std::memcpy(this, &src, kHeaderBytes);
     mBaseKey.node.next = src.mBaseKey.node.next;
     mBaseKey.node.prev = src.mBaseKey.node.prev;
     std::memcpy(mBaseKey._data, src.mBaseKey._data, sizeof mBaseKey._data);

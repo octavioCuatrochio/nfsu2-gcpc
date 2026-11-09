@@ -3,6 +3,7 @@
 #include "FEMultiPool.h"
 #include "bridge/Bridge.h"
 #include "FEPool.h"
+#include "FEMath.h"
 #include <cstring>
 
 // Exactly the fields both originals set; type (+0x18), +0x22 and the current script (+0x54) are left as they were.
@@ -153,7 +154,7 @@ FEObject *FEObject::CopyConstruct(void *mem, const FEObject &src, bool reference
     for (FEMinNode *n = o->mScripts.head; n; n = n->next)
         if (reinterpret_cast<FEScript *>(n)->mu32Id == src.mpCurrentScript->mu32Id) { cur = reinterpret_cast<FEScript *>(n); break; }
     o->mpCurrentScript = cur;
-    if (cur) bridge::FEObject_SetupMoveToTracks(o);
+    if (cur) o->SetupMoveToTracks();
 
     FEMinNode *d = o->mScripts.head;
     for (FEMinNode *n = src.mScripts.head; n; n = n->next, d = d->next) {
@@ -170,4 +171,52 @@ FEObject *FEObject::Clone(bool reference) const
     void *mem = bridge::Alloc(sizeof(FEObject));
     if (!mem) return nullptr;
     return CopyConstruct(mem, *this, reference);
+}
+
+// PC 517720. For each "move to" track (interp 3/4) of the current script: first key value = current object
+// value - base key value (quaternions: current * conjugate(base)). Every track's flag bit 7 is cleared first.
+void FEObject::SetupMoveToTracks()
+{
+    FEScript *s = mpCurrentScript;
+    for (uint32_t i = 0; i < s->mu32NumTracks; ++i) {
+        FEKeyTrack &t = s->mpTracks[i];
+        t.mu8Flags &= 0x7F;
+        if (t.mu8InterpType != 3 && t.mu8InterpType != 4) continue;
+        auto *cur = reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(mpData) + t.mi8DataIndex * 4);
+        auto *key = reinterpret_cast<FEKeyNode *>(t.mKeys.GetHead());
+        if (!key) continue;
+        uint32_t *out = &key->_data[1];
+        const uint32_t *base = &t.mBaseKey._data[1];
+        auto f = [](const uint32_t *p, int i) { float v; std::memcpy(&v, p + i, 4); return v; };
+        auto setf = [](uint32_t *p, int i, float v) { std::memcpy(p + i, &v, 4); };
+        switch (t.mu8ParamType) {
+        case 1: out[0] = cur[0] - base[0]; break;
+        case 2: setf(out, 0, f(cur, 0) - f(base, 0)); break;
+        case 3:
+            setf(out, 0, f(cur, 0) - f(base, 0));
+            setf(out, 1, f(cur, 1) - f(base, 1));
+            break;
+        case 4:
+            setf(out, 0, f(cur, 0) - f(base, 0));
+            setf(out, 2, f(cur, 2) - f(base, 2));
+            setf(out, 1, f(cur, 1) - f(base, 1));
+            break;
+        case 5: {
+            FEQuaternion a, conj{-f(base, 0), -f(base, 1), -f(base, 2), f(base, 3)};
+            std::memcpy(&a, cur, sizeof a);
+            FEQuaternion r = FEQuatMultiply(a, conj);
+            std::memcpy(out, &r, sizeof r);
+            break;
+        }
+        case 6: {
+            FEColor a, b;
+            std::memcpy(&a, cur, sizeof a);
+            std::memcpy(&b, base, sizeof b);
+            FEColor r = FEColorSub(a, b);
+            std::memcpy(out, &r, sizeof r);
+            break;
+        }
+        default: break;
+        }
+    }
 }

@@ -20,10 +20,16 @@ struct FEKeyNode {
 
 // One animated property of a script (element of FEScript::mpTracks, MSVC new[] with count cookie).
 struct FEKeyTrack {
-    uint8_t _byte0[4];               // +0x00
-    uint32_t _bits4;                 // +0x04 24-bit field + byte at +7 (copied as a whole)
+    uint8_t mu8ParamType;            // +0x00 value type: 1 int, 2 float, 3 vec2, 4 vec3, 5 quaternion, 6 color
+    uint8_t _unknown01;              // +0x01
+    uint8_t mu8InterpType;           // +0x02 3/4: relative ("move to") tracks, see FEObject::SetupMoveToTracks
+    uint8_t mu8Flags;                // +0x03 bit 7 cleared by SetupMoveToTracks
+    uint8_t _unknown04[3];           // +0x04 24-bit field
+    int8_t mi8DataIndex;             // +0x07 value position in FEObject::mpData, in dwords
     FEKeyNode mBaseKey;              // +0x08
     FERefList mKeys;                 // +0x28 owned key nodes, or a reference to another track's list
+
+    static constexpr size_t kHeaderBytes = 8;   // +0x00..+0x07, copied as a block
 
     static FEKeyTrack *Construct(void *mem);   // PC 525E80
     void Destruct();                           // PC 52B960 (GC: inlined in ~FEScript)
@@ -64,7 +70,7 @@ struct FEScript {
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FEKeyNode) == 0x20);
-static_assert(sizeof(FEKeyTrack) == 0x38 && offsetof(FEKeyTrack, mBaseKey) == 8 && offsetof(FEKeyTrack, mKeys) == 0x28);
+static_assert(offsetof(FEKeyTrack, mi8DataIndex) == 7 && sizeof(FEKeyTrack) == 0x38 && offsetof(FEKeyTrack, mBaseKey) == 8 && offsetof(FEKeyTrack, mKeys) == 0x28);
 static_assert(sizeof(FEScriptEvent) == 0xC);
 static_assert(offsetof(FEScript, mu32NumTracks) == 0x1C && offsetof(FEScript, mpTracks) == 0x20);
 static_assert(offsetof(FEScript, mEvents) == 0x24 && offsetof(FEScript, mpcName) == 0x2C);

@@ -102,3 +102,11 @@ void FERefList::Purge()
 {
     while (FEMinNode *n = RemHead()) bridge::VirtualScalarDelete(n);
 }
+
+// PC 4FE890
+FEMinNode *FERefList::GetHead() const
+{
+    const FERefList *l = this;
+    while (l->mbIsReference) l = reinterpret_cast<const FERefList *>(l->head);
+    return l->head;
+}

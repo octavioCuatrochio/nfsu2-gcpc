@@ -38,7 +38,6 @@ void *FEMinListVTable();                                               // PC 0x7
 void VirtualScalarDelete(void *object);
 void VirtualScalarDtor(void *object, uint32_t flags);                 // vtable slot 0 with explicit flags
 
-void FEObject_SetupMoveToTracks(void *object);                         // PC 517720 (GC 80138DB4-ish, not rewritten)
 void *FEObjectVTable();                                                // PC 0x79B8E0
 uint32_t NextFEObjectGUID();                                           // FEngine::SysGUID++ (PC 0x7F7CF8)
 ::FEMultiPool *ObjDataPool();                                            // global FEMultiPool, PC 0x863770

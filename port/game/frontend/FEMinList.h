@@ -40,6 +40,7 @@ struct FERefList {
 
     FEMinNode *RemNode(FEMinNode *node);   // PC 5055C0 (GC: inlined in RemHead 801427EC): unlinks, guards; null -> null
     FEMinNode *RemHead() { return head ? RemNode(head) : nullptr; }
+    FEMinNode *GetHead() const;            // GC 8030D094 / PC 4FE890: follows references to the owning list
     void Purge();                          // GC 8030D0CC / PC 511D00: deletes every node (virtual)
 };
 

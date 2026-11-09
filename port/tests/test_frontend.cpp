@@ -13,6 +13,7 @@
 #include "frontend/FEWideString.h"
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <vector>
 #include <cstdint>
 
@@ -339,7 +340,7 @@ static void TestScriptCopy()
     src.SetTrackCount(2);
     CHECK(src.mu32NumTracks == 2 && reinterpret_cast<uint32_t *>(src.mpTracks)[-1] == 2);
     CHECK(src.mpTracks[1].mBaseKey.node.vtable == &teststub::feKeyNodeVTable && src.mpTracks[1].mKeys.head == nullptr);
-    src.mpTracks[0]._byte0[2] = 9; src.mpTracks[0]._bits4 = 0x12345678; src.mpTracks[0].mBaseKey._data[4] = 77;
+    src.mpTracks[0].mu8InterpType = 9; src.mpTracks[0].mi8DataIndex = -3; src.mpTracks[0]._unknown04[1] = 0x56; src.mpTracks[0].mBaseKey._data[4] = 77;
     FEKeyNode k[3];
     for (int i = 0; i < 3; ++i) {
         k[i].node = {&teststub::feKeyNodeVTable, i < 2 ? &k[i + 1].node : nullptr, i ? &k[i - 1].node : nullptr};
@@ -366,7 +367,7 @@ static void TestScriptCopy()
         CHECK(p->vtable == &teststub::feKeyNodeVTable);
     }
     CHECK(n == 3 && deep.mpTracks[0].mKeys.tail->next == nullptr);
-    CHECK(deep.mpTracks[0]._byte0[2] == 9 && deep.mpTracks[0]._bits4 == 0x12345678 && deep.mpTracks[0].mBaseKey._data[4] == 77);
+    CHECK(deep.mpTracks[0].mu8InterpType == 9 && deep.mpTracks[0].mi8DataIndex == -3 && deep.mpTracks[0]._unknown04[1] == 0x56 && deep.mpTracks[0].mBaseKey._data[4] == 77);
     CHECK(deep.mEvents.mu32Count == 1 && deep.mEvents.mpEvents != src.mEvents.mpEvents && deep.mEvents.mpEvents[0]._data[1] == 5);
 
     FEScript ref;
@@ -418,7 +419,6 @@ static void TestFEObjectCopy()
     sc[0]->mpChainedScript = sc[1];
     src->mpCurrentScript = sc[1];
 
-    teststub::lastSetupMoveTo = nullptr;
     uint32_t guid = teststub::nextGUID;
     FEObject *c = src->Clone(false);
     CHECK(c != nullptr && c->mu32GUID == guid && c->node.vtable == &teststub::feObjectVTable);
@@ -433,10 +433,67 @@ static void TestFEObjectCopy()
     FEScript *c0 = reinterpret_cast<FEScript *>(c->mScripts.head), *c1 = reinterpret_cast<FEScript *>(c->mScripts.tail);
     CHECK(c0 != sc[0] && c0->mu32Id == sc[0]->mu32Id && c1->mu32Id == sc[1]->mu32Id);
     CHECK(c0->mpChainedScript == c1 && c1->mpChainedScript == nullptr);
-    CHECK(c->mpCurrentScript == c1 && teststub::lastSetupMoveTo == c);
+    CHECK(c->mpCurrentScript == c1);
 
     c->ScalarDeletingDestructor(1);
     src->ScalarDeletingDestructor(0);
+    CHECK(teststub::liveAllocations == liveBefore);
+}
+
+// SetupMoveToTracks: relative tracks get key0 = current - base (quaternion: current * conj(base)); others only
+// lose flag bit 7; reference lists resolve to the owning list; empty lists are skipped.
+static void TestMoveToTracks()
+{
+    auto fbits = [](float v) { uint32_t u; std::memcpy(&u, &v, 4); return u; };
+    auto bitsf = [](uint32_t u) { float v; std::memcpy(&v, &u, 4); return v; };
+    int liveBefore = teststub::liveAllocations;
+    alignas(8) unsigned char mem[sizeof(FEObject)];
+    FEObject *o = FEObject::Construct(mem);
+    uint32_t data[40] = {};
+    o->mpData = data;
+    FEScript sc;
+    FEScript::Construct(&sc);
+    sc.SetTrackCount(8);
+    FEKeyNode keys[7] = {};
+    for (int i = 0; i < 8; ++i) {
+        FEKeyTrack &t = sc.mpTracks[i];
+        t.mu8ParamType = static_cast<uint8_t>(i < 6 ? i + 1 : 2);
+        t.mu8InterpType = i == 6 ? 1 : (i & 1 ? 4 : 3);
+        t.mu8Flags = 0xFF;
+        t.mi8DataIndex = static_cast<int8_t>(i * 4);
+        if (i < 7) { t.mKeys.head = t.mKeys.tail = &keys[i].node; }
+    }
+    // track 7: reference to track 2's list (head stays empty on purpose -> resolves to keys[2])
+    sc.mpTracks[7].mKeys.mbIsReference = 1;
+    sc.mpTracks[7].mKeys.head = reinterpret_cast<FEMinNode *>(&sc.mpTracks[2].mKeys);
+    // values
+    FEKeyTrack *t = sc.mpTracks;
+    data[t[0].mi8DataIndex] = 10; t[0].mBaseKey._data[1] = 3;                                         // int
+    data[t[1].mi8DataIndex] = fbits(2.5f); t[1].mBaseKey._data[1] = fbits(0.5f);                       // float
+    data[t[2].mi8DataIndex] = fbits(1); data[t[2].mi8DataIndex + 1] = fbits(5);                        // vec2
+    t[2].mBaseKey._data[1] = fbits(4); t[2].mBaseKey._data[2] = fbits(2);
+    for (int k = 0; k < 3; ++k) { data[t[3].mi8DataIndex + k] = fbits(10.f * (k + 1)); t[3].mBaseKey._data[1 + k] = fbits(1.f); }
+    // quaternion: current = base -> result = identity (0,0,0,1) for a unit quaternion
+    float q[4] = {0.f, 0.6f, 0.f, 0.8f};
+    for (int k = 0; k < 4; ++k) { data[t[4].mi8DataIndex + k] = fbits(q[k]); t[4].mBaseKey._data[1 + k] = fbits(q[k]); }
+    for (int k = 0; k < 4; ++k) { data[t[5].mi8DataIndex + k] = 100 + k; t[5].mBaseKey._data[1 + k] = 200; }   // color
+    data[t[7].mi8DataIndex] = fbits(-3.f);                       // track 7 (float, via reference) -> keys[2]._data[1]
+    o->mpCurrentScript = &sc;
+    o->SetupMoveToTracks();
+    CHECK(keys[0]._data[1] == 7);
+    CHECK(bitsf(keys[1]._data[1]) == 2.0f);
+    CHECK(bitsf(keys[2]._data[1]) == -3.0f && bitsf(keys[2]._data[2]) == 3.0f);
+    CHECK(bitsf(keys[3]._data[1]) == 9.f && bitsf(keys[3]._data[2]) == 19.f && bitsf(keys[3]._data[3]) == 29.f);
+    CHECK(std::fabs(bitsf(keys[4]._data[1])) < 1e-6f && std::fabs(bitsf(keys[4]._data[2])) < 1e-6f);
+    CHECK(std::fabs(bitsf(keys[4]._data[4]) - 1.f) < 1e-6f);
+    CHECK(static_cast<int32_t>(keys[5]._data[1]) == -100 && static_cast<int32_t>(keys[5]._data[4]) == -97);
+    CHECK(keys[6]._data[1] == 0);                                // interp 1: untouched
+    for (int i = 0; i < 8; ++i) CHECK(sc.mpTracks[i].mu8Flags == 0x7F);
+    sc.mpTracks[7].mKeys.mbIsReference = 0; sc.mpTracks[7].mKeys.head = nullptr;
+    for (int i = 0; i < 7; ++i) sc.mpTracks[i].mKeys.head = sc.mpTracks[i].mKeys.tail = nullptr;
+    sc.Destruct();
+    o->mpData = nullptr;
+    o->Destruct();
     CHECK(teststub::liveAllocations == liveBefore);
 }
 
@@ -458,6 +515,7 @@ int main()
     TestScriptDestruct();
     TestScriptCopy();
     TestFEObjectCopy();
+    TestMoveToTracks();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

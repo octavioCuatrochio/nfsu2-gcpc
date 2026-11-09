@@ -38,6 +38,7 @@ struct FEObject {
     void Destruct();                                       // GC 80137CD0 / PC 52AF90
     FEObject *ScalarDeletingDestructor(uint32_t flags);    // PC 534BB0 (vtable slot 0)
 
+    void SetupMoveToTracks();                         // GC 80137EA4 / PC 517720
     void SetName(const char *name);                   // GC 80137DE8 / PC 5176B0
     FEScript *FindScript(uint32_t id) const;          // GC 80137E70 / PC 5046B0
     FEMessageResponse *FindResponse(uint32_t msg) const;   // GC 80138228 / PC 5046D0

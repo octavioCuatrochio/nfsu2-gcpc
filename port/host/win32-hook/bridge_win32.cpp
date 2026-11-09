@@ -30,7 +30,6 @@ bool UseOldFEngDirtyFlag()
     return *reinterpret_cast<int *>(0x8384D4) != 0;
 }
 
-void FEObject_SetupMoveToTracks(void *o) { reinterpret_cast<void(THISCALL *)(void *)>(0x517720)(o); }
 
 void *FEStringVTable()
 {

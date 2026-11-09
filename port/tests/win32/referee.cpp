@@ -23,6 +23,8 @@
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
+#include "frontend/FEMath.h"
+#include <cmath>
 #include "bridge_stub.h"
 #define THISCALL __attribute__((thiscall))
 
@@ -246,6 +248,29 @@ static void CheckKeyTrackCtor(int iters)
     }
 }
 
+// Quaternion multiply (PC 4FE6B0) and FEColor::operator- (PC 505580): random values, original vs rewrite.
+// Quaternions: x87 keeps intermediates in 80-bit registers, so allow 2 ulp-ish relative slack.
+static void CheckFEMath(int iters)
+{
+    auto oq = ORIG<FEQuaternion *(THISCALL *)(const FEQuaternion *, FEQuaternion *, const FEQuaternion *)>(0x4FE6B0);
+    auto oc = ORIG<FEColor *(THISCALL *)(const FEColor *, FEColor *, const FEColor *)>(0x505580);
+    std::uniform_real_distribution<float> d(-4.f, 4.f);
+    for (int it = 0; it < iters / 4; ++it) {
+        FEQuaternion a{d(rng), d(rng), d(rng), d(rng)}, b{d(rng), d(rng), d(rng), d(rng)}, ro{};
+        oq(&a, &ro, &b);
+        FEQuaternion rr = FEQuatMultiply(a, b);
+        const float *po = &ro.x, *pr = &rr.x;
+        bool ok = true;
+        for (int k = 0; k < 4; ++k) ok = ok && std::fabs(po[k] - pr[k]) <= 1e-5f * (1.f + std::fabs(po[k]));
+        EXPECT(ok, "quat multiply");
+        FEColor ca, cb, co{};
+        for (int k = 0; k < 4; ++k) { ca.c[k] = static_cast<int32_t>(rng()); cb.c[k] = static_cast<int32_t>(rng()); }
+        oc(&ca, &co, &cb);
+        FEColor cr = FEColorSub(ca, cb);
+        EXPECT(std::memcmp(&co, &cr, sizeof co) == 0, "FEColor sub");
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -264,6 +289,7 @@ static int RunAll()
     CheckSlotPool(iters);
     CheckRefList(iters);
     CheckKeyTrackCtor(iters);
+    CheckFEMath(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",
