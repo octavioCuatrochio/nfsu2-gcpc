@@ -22,6 +22,7 @@
 #include "frontend/FEObject.h"
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEPool.h"
+#include "frontend/FEScript.h"
 #include "bridge_stub.h"
 #define THISCALL __attribute__((thiscall))
 
@@ -227,6 +228,24 @@ static void CheckBlockCtor(uintptr_t orig, void (*rewrite)(void *), const char *
     EXPECT(bad < 0, "%s: word +0x%X orig %08X rewrite %08X", name, bad * 4, bad < 0 ? 0 : a[bad], bad < 0 ? 0 : buf[bad]);
 }
 
+// FEKeyTrack::FEKeyTrack (PC 525E80) on random garbage: fields it leaves alone must stay, vtables mapped.
+static void CheckKeyTrackCtor(int iters)
+{
+    auto orig = ORIG<void *(THISCALL *)(void *)>(0x525E80);
+    for (int it = 0; it < iters / 20; ++it) {
+        uint32_t a[0x38 / 4], b[0x38 / 4];
+        for (auto &w : a) w = rng();
+        std::memcpy(b, a, sizeof a);
+        orig(a);
+        FEKeyTrack::Construct(b);
+        for (auto &w : b) {
+            if (w == reinterpret_cast<uintptr_t>(&teststub::feKeyNodeVTable)) w = 0x79AA34;
+            else if (w == reinterpret_cast<uintptr_t>(&teststub::feRefListVTable)) w = 0x79AA30;
+        }
+        EXPECT(std::memcmp(a, b, sizeof a) == 0, "FEKeyTrack ctor");
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -244,6 +263,7 @@ static int RunAll()
     CheckFEObject(iters);
     CheckSlotPool(iters);
     CheckRefList(iters);
+    CheckKeyTrackCtor(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEScriptBlock>(0x53E910, FEScriptBlock_Construct, "FEScript block",

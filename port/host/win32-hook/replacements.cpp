@@ -12,6 +12,7 @@
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEMessageResponse.h"
 #include "frontend/FEPool.h"
+#include "frontend/FEScript.h"
 #include "frontend/FEString.h"
 #include <new>
 #include "frontend/FEWideString.h"
@@ -73,6 +74,15 @@ void THISCALL FERefList_Purge(FERefList *self) { self->Purge(); }
 void THISCALL FEKeyTrack_Dtor(FEKeyTrack *self) { self->Destruct(); }
 void THISCALL FEScript_Dtor(FEScript *self) { self->Destruct(); }
 FEScript *THISCALL FEScript_ScalarDtor(FEScript *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+FEKeyTrack *THISCALL FEKeyTrack_Ctor(FEKeyTrack *self) { return FEKeyTrack::Construct(self); }
+void THISCALL FEKeyTrack_Assign(FEKeyTrack *self, const FEKeyTrack *src) { self->Assign(*src); }
+void THISCALL FEScriptEvents_SetCount(FEScriptEventList *self, uint32_t n) { self->SetCount(n); }
+void THISCALL FEScript_SetName(FEScript *self, const char *name) { self->SetName(name); }
+void THISCALL FEScript_SetTrackCount(FEScript *self, uint32_t n) { self->SetTrackCount(n); }
+FEScript *THISCALL FEScript_CopyCtor(FEScript *self, const FEScript *src, int reference)
+{
+    return FEScript::CopyConstruct(self, *src, (reference & 0xFF) != 0);   // bool arg: only the low byte is set
+}
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -154,6 +164,12 @@ const Replacement kReplacements[] = {
     {0x52B960, (const void *)&FEKeyTrack_Dtor, "FEKeyTrack::~FEKeyTrack", {0x6A, 0xFF, 0x68, 0xBB, 0x74, 0x77}},
     {0x535170, (const void *)&FEScript_Dtor, "FEScript::~FEScript", {0x6A, 0xFF, 0x68, 0xD3, 0x7B, 0x77}},
     {0x53EE30, (const void *)&FEScript_ScalarDtor, "FEScript scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x38, 0x63}},
+    {0x525E80, (const void *)&FEKeyTrack_Ctor, "FEKeyTrack::FEKeyTrack()", {0x8B, 0xC1, 0x8B, 0x50, 0x04, 0x33}},
+    {0x54D350, (const void *)&FEKeyTrack_Assign, "FEKeyTrack::operator=", {0x53, 0x55, 0x56, 0x8B, 0xF1, 0x57}},
+    {0x519A10, (const void *)&FEScriptEvents_SetCount, "FEScript event list SetCount", {0x53, 0x8B, 0xD9, 0x8B, 0x03, 0x55}},
+    {0x518730, (const void *)&FEScript_SetName, "FEScript::SetName", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x535210, (const void *)&FEScript_SetTrackCount, "FEScript::SetTrackCount", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x551BE0, (const void *)&FEScript_CopyCtor, "FEScript::FEScript(const FEScript&, bool)", {0x6A, 0xFF, 0x68, 0xD3, 0x7B, 0x77}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

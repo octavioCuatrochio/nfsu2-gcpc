@@ -110,6 +110,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FERefList PC: vtable 0x79AA30, byte mbIsReference @+4 (borrowed list: head points at another list; never
   purged), head +8, tail +C, no count (RemNode 5055C0 doesn't count). FEKeyTrack PC 0x38: FEKeyNode @+8, FERefList @+0x28.
 
+- FEScript PC layout: +1C numTracks, +20 tracks (new[] 0x38 + cookie), +24 event list {count, 0xC-byte events},
+  +2C owned name, +30 FEHashUpper(name). Copy ctor 551BE0(src, bool reference): reference=true shares each track's
+  key list (FERefList points at the source list object) and also copies the base key's next/prev; false clones
+  keys (FEKeyTrack::operator= 54D350, which purges its own list unconditionally first). FEKeyNode 0x20, pool 0x839BD0.
+
 ## Tooling facts
 - Ghidra can't read DWARF v1 natively; patched dw1-emoose extension does. GC loader extension needed for Gekko (paired singles).
 - Ghidra's PC param counts are undercounted; trust `ret N` / caller cleanup.

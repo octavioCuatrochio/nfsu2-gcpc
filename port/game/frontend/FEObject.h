@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "FEMinList.h"
 #include "FEMessageResponse.h"
+#include "FEScript.h"
 
 // FEObject flag bits (FEObject::mu32Flags)
 enum : uint32_t {
@@ -12,34 +13,6 @@ enum : uint32_t {
     FEOBJ_DIRTY = 0x400000,          // object must be re-rendered
 };
 enum : uint32_t { FE_TYPE_STRING = 2 };   // FEObject::mu32Type (factory type, FEPackageReader::CreateObject)
-
-// Script attached to an object (not rewritten yet). Only what FEObject uses.
-struct FEScript {
-    FEMinNode node;                  // +0x0  vtable PC 0x79AD28 (GC: FEMinNode fields first, vptr at +8; same size)
-    uint32_t _unknown0C;             // +0xC
-    uint32_t _unknown10;             // +0x10 not set by the constructor
-    uint32_t _unknown14[3];          // +0x14
-    void *mpTracks;                  // +0x20 new[] array of 0x38-byte entries (dtor PC 52B960)
-    uint32_t _unknown24;             // +0x24
-    void *_owned28;                  // +0x28 new[]-owned
-    char *_owned2C;                  // +0x2C new[]-owned (GC: char *)
-    uint32_t mu32Id;                 // +0x30 script name hash
-
-    static FEScript *Construct(void *mem);   // PC 511D70 (GC FEScript::FEScript() inlined; body = GC Init 8013D1C4)
-    void Destruct();                         // GC 8013D1E8 / PC 535170
-    FEScript *ScalarDeletingDestructor(uint32_t flags);   // PC 53EE30 (vtable slot 0, pooled delete)
-};
-
-// One animated property of a script (element of FEScript::mpTracks, MSVC new[] with count cookie). PC 0x38 bytes
-// (GC 0x34). Only what the destructor touches is named.
-struct FEKeyTrack {
-    uint8_t _unknown00[8];
-    FEMinNode mBaseKey;              // +0x08 FEKeyNode (base key; FEMinNode-derived)
-    uint8_t _unknown14[0x14];
-    FERefList mKeys;                 // +0x28 key nodes (owned unless mbIsReference)
-
-    void Destruct();                 // PC 52B960 (GC: inlined in ~FEScript)
-};
 
 struct FEObject {
     FEMinNode node;                  // +0x00 vtable (PC FEObject 0x79B8E0) + list links (0xABADCAFE when unlinked)
@@ -74,6 +47,4 @@ static_assert(offsetof(FEObject, mu32Type) == 0x18 && offsetof(FEObject, mu32Fla
 static_assert(offsetof(FEObject, mpData) == 0x2C && offsetof(FEObject, mResponses) == 0x34);
 static_assert(offsetof(FEObject, mScripts) == 0x44 && offsetof(FEObject, mpCurrentScript) == 0x54);
 static_assert(sizeof(FEObject) == 0x5C);
-static_assert(sizeof(FEKeyTrack) == 0x38 && offsetof(FEKeyTrack, mKeys) == 0x28);
-static_assert(offsetof(FEScript, mu32Id) == 0x30 && offsetof(FEScript, mpTracks) == 0x20 && sizeof(FEScript) == 0x34);
 #endif

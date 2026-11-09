@@ -313,18 +313,80 @@ static void TestScriptDestruct()
     FEScript sc;
     FEScript::Construct(&sc);
     sc.mpTracks = tracks;
-    sc._owned28 = bridge::Alloc(8);
-    sc._owned2C = static_cast<char *>(bridge::Alloc(8));
+    sc.mEvents.SetCount(2);
+    sc.SetName("abc");
     int deletesBefore = teststub::virtualDeletes;
     sc.Destruct();
     CHECK(teststub::virtualDeletes - deletesBefore == 2);
-    CHECK(sc.mpTracks == nullptr && sc._owned28 == nullptr && sc._owned2C == nullptr);
+    CHECK(sc.mpTracks == nullptr && sc.mEvents.mpEvents == nullptr && sc.mpcName == nullptr);
     CHECK(sc.node.vtable == &teststub::feMinNodeVTable);
     CHECK(teststub::liveAllocations == liveBefore + 1);         // only the borrowed key is left
     bridge::FreeArray(keys[2]);
     // RemNode on an unlinked/null node
     FERefList l{&teststub::feRefListVTable, 0, {}, nullptr, nullptr};
     CHECK(l.RemNode(nullptr) == nullptr && l.RemHead() == nullptr);
+}
+
+// FEScript copy constructor: deep (new key nodes, same data) and reference (lists point at the source's).
+static void TestScriptCopy()
+{
+    int liveBefore = teststub::liveAllocations;
+    FEScript src;
+    FEScript::Construct(&src);
+    src.SetName("Fade_In");
+    CHECK(src.mu32Id == FEHashUpper("Fade_In") && std::strcmp(src.mpcName, "Fade_In") == 0);
+    src._unknown0C = 1; src._unknown10 = 2; src._unknown14 = 3; src._unknown18 = 4;
+    src.SetTrackCount(2);
+    CHECK(src.mu32NumTracks == 2 && reinterpret_cast<uint32_t *>(src.mpTracks)[-1] == 2);
+    CHECK(src.mpTracks[1].mBaseKey.node.vtable == &teststub::feKeyNodeVTable && src.mpTracks[1].mKeys.head == nullptr);
+    src.mpTracks[0]._byte0[2] = 9; src.mpTracks[0]._bits4 = 0x12345678; src.mpTracks[0].mBaseKey._data[4] = 77;
+    FEKeyNode k[3];
+    for (int i = 0; i < 3; ++i) {
+        k[i].node = {&teststub::feKeyNodeVTable, i < 2 ? &k[i + 1].node : nullptr, i ? &k[i - 1].node : nullptr};
+        for (auto &d : k[i]._data) d = 100 + i;
+    }
+    src.mpTracks[0].mKeys.head = &k[0].node; src.mpTracks[0].mKeys.tail = &k[2].node;
+    src.mEvents.SetCount(1);
+    CHECK(src.mEvents.mpEvents[0]._data[0] == 0);
+    src.mEvents.mpEvents[0]._data[1] = 5;
+    src.mEvents.SetCount(3);
+    CHECK(src.mEvents.mpEvents[0]._data[1] == 5 && src.mEvents.mpEvents[2]._data[2] == 0);
+    src.mEvents.SetCount(1);
+    CHECK(src.mEvents.mu32Count == 1 && src.mEvents.mpEvents[0]._data[1] == 5);
+
+    teststub::keyNodeNews = 0;
+    FEScript deep;
+    FEScript::CopyConstruct(&deep, src, false);
+    CHECK(deep.mu32Id == src.mu32Id && deep.mpcName != src.mpcName && std::strcmp(deep.mpcName, "Fade_In") == 0);
+    CHECK(deep._unknown0C == 1 && deep._unknown10 == 2 && deep._unknown14 == 3 && deep._unknown18 == 0);
+    CHECK(teststub::keyNodeNews == 3 && deep.mpTracks[0].mKeys.mbIsReference == 0);
+    int n = 0;
+    for (FEMinNode *p = deep.mpTracks[0].mKeys.head; p; p = p->next, ++n) {
+        CHECK(p != &k[n].node && reinterpret_cast<FEKeyNode *>(p)->_data[0] == 100u + n);
+        CHECK(p->vtable == &teststub::feKeyNodeVTable);
+    }
+    CHECK(n == 3 && deep.mpTracks[0].mKeys.tail->next == nullptr);
+    CHECK(deep.mpTracks[0]._byte0[2] == 9 && deep.mpTracks[0]._bits4 == 0x12345678 && deep.mpTracks[0].mBaseKey._data[4] == 77);
+    CHECK(deep.mEvents.mu32Count == 1 && deep.mEvents.mpEvents != src.mEvents.mpEvents && deep.mEvents.mpEvents[0]._data[1] == 5);
+
+    FEScript ref;
+    FEScript::CopyConstruct(&ref, src, true);
+    CHECK(ref.mpTracks[0].mKeys.mbIsReference == 1);
+    CHECK(ref.mpTracks[0].mKeys.head == reinterpret_cast<FEMinNode *>(&src.mpTracks[0].mKeys));
+    CHECK(ref.mpTracks[0].mBaseKey._data[4] == 77 && teststub::keyNodeNews == 3);
+    // a deep copy of a reference script shares the same list (Assign keeps references)
+    FEScript ref2;
+    FEScript::CopyConstruct(&ref2, ref, false);
+    CHECK(ref2.mpTracks[0].mKeys.mbIsReference == 1 && ref2.mpTracks[0].mKeys.head == ref.mpTracks[0].mKeys.head);
+
+    int deletes = teststub::virtualDeletes;
+    ref2.Destruct(); ref.Destruct();
+    CHECK(teststub::virtualDeletes == deletes);          // references never delete keys
+    deep.Destruct();
+    CHECK(teststub::virtualDeletes == deletes + 3);      // the 3 cloned nodes
+    src.mpTracks[0].mKeys.head = src.mpTracks[0].mKeys.tail = nullptr;   // stack keys: not ours to delete
+    src.Destruct();
+    CHECK(teststub::liveAllocations == liveBefore);
 }
 
 int main()
@@ -343,6 +405,7 @@ int main()
     TestMessageResponsePool();
     TestPoolBlocks();
     TestScriptDestruct();
+    TestScriptCopy();
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }
