@@ -182,7 +182,7 @@ void FEPackage::IssueScriptMessages(void *engine, FEObject *obj, FEScript *scrip
     for (; i < count && ev[i].mu32Time < static_cast<uint32_t>(to); ++i) {
         const FEScriptEvent &e = ev[i];
         auto queue = [&](void *target) { bridge::FEngine_QueueMessage(engine, e.mu32MsgId, obj, this, target, 0); };
-        auto setButton = [&] { bridge::FEPackage_SetCurrentButton(this, engine, FindObjectByGUID(e.mu32Target), true); };
+        auto setButton = [&] { SetCurrentButton(engine, FindObjectByGUID(e.mu32Target), true); };
         switch (e.mu32Target) {
         case 0xFFFFFFFBu: case 0xFFFFFFFAu: case 0xFFFFFFFCu:
             queue(reinterpret_cast<void *>(static_cast<uintptr_t>(e.mu32Target)));
@@ -249,4 +249,30 @@ FEObject *FEPackage::FindObjectByGUID(uint32_t guid)
 FEObject *FEPackage::FindObjectByHash(uint32_t nameHash)
 {
     return FindIn(mObjects, [&](const FEObject *o) { return o->mu32NameHash == nameHash; });
+}
+
+// PC 504960
+FELibraryRef *FEPackage::FindLibraryReference(uint32_t hash) const
+{
+    for (uint32_t i = 0; i < mu32NumLibraryRefs; ++i)
+        if (mpLibraryRefs[i].mu32Hash == hash) return &mpLibraryRefs[i];
+    return nullptr;
+}
+
+// PC 52B3A0
+void FEPackage::SetCurrentButton(void *engine, FEObject *button, bool notify)
+{
+    constexpr uint32_t kUnhighlight = 0x55D1E635, kHighlight = 0xABC08912;
+    auto *special = reinterpret_cast<void *>(static_cast<uintptr_t>(0xFFFFFFFBu));
+    if (notify) {
+        if (mpCurrentButton) {
+            bridge::FEngine_QueueMessage(engine, kUnhighlight, nullptr, this, mpCurrentButton, 0);
+            bridge::FEngine_QueueMessage(engine, kUnhighlight, mpCurrentButton, this, special, 0);
+        }
+        if (button) {
+            bridge::FEngine_QueueMessage(engine, kHighlight, nullptr, this, button, 0);
+            bridge::FEngine_QueueMessage(engine, kHighlight, button, this, special, 0);
+        }
+    }
+    mpCurrentButton = button;
 }

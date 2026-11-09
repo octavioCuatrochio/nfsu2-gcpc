@@ -103,10 +103,6 @@ bool FEObjectCallback_Call(void *cb, void *obj)
 {
     return (*reinterpret_cast<bool(THISCALL ***)(void *, void *)>(cb))[1](cb, obj);
 }
-void FEPackage_SetCurrentButton(void *pkg, void *engine, void *obj, bool notify)
-{
-    reinterpret_cast<void(THISCALL *)(void *, void *, void *, int)>(0x52B3A0)(pkg, engine, obj, notify ? 1 : 0);
-}
 void FEListBox_Update(void *lb, float d) { reinterpret_cast<void(THISCALL *)(void *, float)>(0x517230)(lb, d); }
 void FECodeListBox_Update(void *lb, float d) { reinterpret_cast<void(THISCALL *)(void *, float)>(0x504DC0)(lb, d); }
 uint32_t HoldDirtyFlags() { return *reinterpret_cast<const uint32_t *>(0x7F7C8C); }

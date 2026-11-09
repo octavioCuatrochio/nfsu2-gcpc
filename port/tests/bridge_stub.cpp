@@ -105,7 +105,6 @@ bool FEObjectCallback_Call(void *cb, void *obj)
     t->visited.push_back(obj);
     return obj != t->stopAt;
 }
-void FEPackage_SetCurrentButton(void *, void *, void *obj, bool) { teststub::currentButton = obj; }
 void FEListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
 void FECodeListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
 uint32_t HoldDirtyFlags()

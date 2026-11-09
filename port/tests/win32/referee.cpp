@@ -738,6 +738,31 @@ static void CheckFindObject(int iters)
     }
 }
 
+// FEPackage small members: SetControlMask (5047E0), FindLibraryReference (504960), SetCurrentButton without
+// notification (52B3A0; with notification it queues engine messages).
+static void CheckPackageSmall(int iters)
+{
+    auto oMask = ORIG<void(THISCALL *)(void *, uint32_t)>(0x5047E0);
+    auto oLib = ORIG<void *(THISCALL *)(const void *, uint32_t)>(0x504960);
+    auto oBtn = ORIG<void(THISCALL *)(void *, void *, void *, int)>(0x52B3A0);
+    static uint8_t a[0x100], b[0x100];
+    static FELibraryRef refs[8];
+    for (int it = 0; it < iters / 10; ++it) {
+        for (size_t i = 0; i < sizeof a; ++i) a[i] = b[i] = uint8_t(rng());
+        uint32_t m = rng();
+        oMask(a, m); reinterpret_cast<FEPackage *>(b)->SetControlMask(m);
+        void *btn = reinterpret_cast<void *>(uintptr_t(rng()));
+        oBtn(a, nullptr, btn, 0); reinterpret_cast<FEPackage *>(b)->SetCurrentButton(nullptr, static_cast<FEObject *>(btn), false);
+        EXPECT(std::memcmp(a, b, sizeof a) == 0, "SetControlMask/SetCurrentButton");
+        uint32_t n = rng() % 9;
+        for (uint32_t i = 0; i < 8; ++i) refs[i].mu32Hash = rng() % 6;
+        FELibraryRef *p = refs;
+        std::memcpy(a + 0x84, &n, 4); std::memcpy(a + 0x88, &p, 4);
+        uint32_t key = rng() % 7;
+        EXPECT(oLib(a, key) == reinterpret_cast<FEPackage *>(a)->FindLibraryReference(key), "FindLibraryReference");
+    }
+}
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
@@ -766,6 +791,7 @@ static int RunAll()
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);
     CheckFindObject(iters);
+    CheckPackageSmall(iters);
     CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
         {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
     CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",

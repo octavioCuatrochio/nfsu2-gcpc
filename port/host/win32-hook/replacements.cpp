@@ -145,6 +145,9 @@ bool THISCALL FEPackage_ForAllObjects(FEPackage *self, FEObjectCallback *cb) { r
 bool THISCALL FEPackage_ForAllChildren(FEPackage *self, FEGroup *g, FEObjectCallback *cb) { return self->ForAllChildren(g, cb); }
 FEObject *THISCALL FEPackage_FindObjectByGUID(FEPackage *self, uint32_t guid) { return self->FindObjectByGUID(guid); }
 FEObject *THISCALL FEPackage_FindObjectByHash(FEPackage *self, uint32_t hash) { return self->FindObjectByHash(hash); }
+void THISCALL FEPackage_SetControlMask(FEPackage *self, uint32_t m) { self->SetControlMask(m); }
+FELibraryRef *THISCALL FEPackage_FindLibraryReference(const FEPackage *self, uint32_t h) { return self->FindLibraryReference(h); }
+void THISCALL FEPackage_SetCurrentButton(FEPackage *self, void *engine, FEObject *b, int notify) { self->SetCurrentButton(engine, b, (notify & 0xFF) != 0); }
 FEScript *THISCALL FEScript_Ctor(FEScript *self) { return FEScript::Construct(self); }
 FEMessageResponse *THISCALL FEMessageResponse_Ctor(FEMessageResponse *self) { return FEMessageResponse::Construct(self); }
 void THISCALL FEMessageResponse_Dtor(FEMessageResponse *self) { self->Destruct(); }
@@ -284,6 +287,9 @@ const Replacement kReplacements[] = {
     {0x504830, (const void *)&FEPackage_ForAllChildren, "FEPackage::ForAllChildren", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x56}},
     {0x517FE0, (const void *)&FEPackage_FindObjectByGUID, "FEPackage::FindObjectByGUID", {0x6A, 0xFF, 0x68, 0x88, 0x6F, 0x77}},
     {0x517F80, (const void *)&FEPackage_FindObjectByHash, "FEPackage::FindObjectByHash", {0x6A, 0xFF, 0x68, 0x88, 0x6F, 0x77}},
+    {0x5047E0, (const void *)&FEPackage_SetControlMask, "FEPackage::SetControlMask", {0x8B, 0x44, 0x24, 0x04, 0x89, 0x41}},
+    {0x504960, (const void *)&FEPackage_FindLibraryReference, "FEPackage::FindLibraryReference", {0x8B, 0x91, 0x84, 0x00, 0x00, 0x00}},
+    {0x52B3A0, (const void *)&FEPackage_SetCurrentButton, "FEPackage::SetCurrentButton", {0x8A, 0x44, 0x24, 0x0C, 0x84, 0xC0}},
     {0x52AF20, (const void *)&FEObject_Ctor, "FEObject::FEObject()", {0x8B, 0xC1, 0xC7, 0x00, 0xE0, 0xB8}},
     {0x52AF90, (const void *)&FEObject_Dtor, "FEObject::~FEObject", {0x6A, 0xFF, 0x68, 0x4E, 0x74, 0x77}},
     {0x534BB0, (const void *)&FEObject_ScalarDtor, "FEObject scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x63}},

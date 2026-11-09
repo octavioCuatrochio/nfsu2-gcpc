@@ -61,7 +61,6 @@ const ::bASinTableEntry *BASinTable();                            // PC 0x7EA628
 void FEngine_QueueMessage(void *engine, uint32_t msg, void *obj, void *pkg, void *target, uint32_t arg);   // 51AA20
 void FEngine_SendMessageToGame(void *engine, uint32_t msg, void *obj, void *pkg);   // engine+0x10C vtable slot 6 (msg, obj, 0, pkg)
 bool FEObjectCallback_Call(void *callback, void *obj);                               // vtable slot 1, __thiscall
-void FEPackage_SetCurrentButton(void *pkg, void *engine, void *obj, bool notify);    // 52B3A0
 void FEListBox_Update(void *listBox, float delta);                                                        // 517230
 void FECodeListBox_Update(void *listBox, float delta);                                                    // 504DC0
 uint32_t HoldDirtyFlags();                                             // uHoldDirtyFlags, PC 0x7F7C8C

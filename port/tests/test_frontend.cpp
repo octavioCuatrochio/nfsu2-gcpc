@@ -721,10 +721,11 @@ static void TestUpdateObject()
     FEScript c = {};
     FEScript::Construct(&c);
     c.mi32Length = 100; c.mEvents = {4, ev};
-    q.clear(); teststub::currentButton = nullptr;
+    q.clear();
     pkg->IssueScriptMessages(nullptr, obj, &c, 0, 10);
-    CHECK(q.size() == 3 && q[0].target == reinterpret_cast<void *>(-1) && q[1].target == reinterpret_cast<void *>(uintptr_t(0xFFFFFFFBu)));
-    CHECK(q[2].target == &g7->obj && teststub::currentButton == o9);
+    CHECK(q.size() >= 3 && q[0].target == reinterpret_cast<void *>(-1) && q[1].target == reinterpret_cast<void *>(uintptr_t(0xFFFFFFFBu)));
+    CHECK(q[2].target == &g7->obj && pkg->mpCurrentButton == o9);
+    CHECK(q.size() == 5 && q[3].msg == 0xABC08912u && q[3].target == o9 && q[4].obj == o9);   // highlight messages
     teststub::TestCallback cb{nullptr, {}, o9};                  // walk order + stop
     CHECK(!pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb)) && cb.visited.size() == 2 && cb.visited[1] == o9);
     q.clear();
