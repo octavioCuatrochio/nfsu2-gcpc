@@ -84,6 +84,22 @@ void *FEScriptVTable() { return &teststub::feScriptVTable; }
 void *FEKeyNodeVTable() { return &teststub::feKeyNodeVTable; }
 ::FEMinList *FEKeyNodePool() { ++teststub::keyNodeNews; return &teststub::keyNodePool; }
 void *FEKeyNodeBlockVTable() { return &teststub::feKeyNodeBlockVTable; }
+#ifdef NFSU2_REFEREE
+const uint8_t *BFastATanTable() { return reinterpret_cast<const uint8_t *>(0x7EACB0); }
+const uint16_t *BFixATanTable1() { return reinterpret_cast<const uint16_t *>(0x7EB1C0); }
+const uint16_t *BFixATanTable2() { return reinterpret_cast<const uint16_t *>(0x7EB2C8); }
+#else
+// formula approximations (match the game's tables to +-1; [256] of the byte table is 0 like the game's)
+static uint16_t AtanUnits(double r) { return static_cast<uint16_t>(std::lround(std::atan(r) * 65536.0 / (2 * 3.14159265358979323846))); }
+const uint8_t *BFastATanTable()
+{
+    static uint8_t t[257];
+    for (int i = 0; i < 256; ++i) t[i] = static_cast<uint8_t>(std::lround(std::atan(i / 256.0) * 65536.0 / (2 * 3.14159265358979323846) / 32));
+    return t;
+}
+const uint16_t *BFixATanTable1() { static uint16_t t[129]; for (int i = 0; i < 129; ++i) t[i] = AtanUnits(i / 32.0); return t; }
+const uint16_t *BFixATanTable2() { static uint16_t t[129]; for (int i = 0; i < 129; ++i) t[i] = AtanUnits(i / 4.0); return t; }
+#endif
 const bASinTableEntry *BASinTable()
 {
 #ifdef NFSU2_REFEREE

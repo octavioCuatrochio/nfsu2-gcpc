@@ -133,6 +133,9 @@ void __cdecl FEKeyInterpFast_Hook(FEKeyTrack *t, int32_t time, void *out) { FEKe
 void __cdecl FEInterpLinear_Hook(FEKeyTrack *t, int32_t time, void *out) { FEInterpLinear(t, time, out); }
 long double __cdecl bSin_Hook(uint32_t angle) { return bSin(static_cast<uint16_t>(angle)); }
 long double __cdecl bCos_Hook(uint32_t angle) { return bCos(static_cast<uint16_t>(angle)); }
+uint16_t __cdecl bFastATan_Hook(float x, float y) { return bFastATan(x, y); }
+int32_t __cdecl bFixATan1_Hook(int32_t r) { return bFixATan(r); }
+int32_t __cdecl bFixATan2_Hook(int32_t x, int32_t y) { return bFixATan(x, y); }
 void __cdecl bSinCos_Hook(float *s, float *c, uint32_t angle) { bSinCos(s, c, static_cast<uint16_t>(angle)); }
 long double __cdecl bSinF_Hook(float r) { return bSinF(r); }
 uint32_t __cdecl bASin_Hook(float x) { return bASin(x); }
@@ -315,6 +318,9 @@ const Replacement kReplacements[] = {
     {0x505110, (const void *)&FELerpVector2, "FELerpVector2", {0x8B, 0x4C, 0x24, 0x08, 0x8B, 0x44}},
     {0x505150, (const void *)&FELerpVector3, "FELerpVector3", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x4C}},
     {0x5051A0, (const void *)&FELerpColor, "FELerpColor", {0x53, 0x55, 0x56, 0x8B, 0x74, 0x24}},
+    {0x43C570, (const void *)&bFastATan_Hook, "bFastATan", {0xD9, 0x44, 0x24, 0x04, 0x56, 0xD8}},
+    {0x43C650, (const void *)&bFixATan1_Hook, "bFixATan(int)", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x57}},
+    {0x43C6F0, (const void *)&bFixATan2_Hook, "bFixATan(int, int)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x57}},
     {0x43C370, (const void *)&bCos_Hook, "bCos", {0x8B, 0x44, 0x24, 0x04, 0x05, 0x00}},
     {0x43C390, (const void *)&bSinCos_Hook, "bSinCos", {0x83, 0xEC, 0x0C, 0x0F, 0xB7, 0x44}},
     {0x43C2B0, (const void *)&bSin_Hook, "bSin(angle)", {0x0F, 0xB7, 0x44, 0x24, 0x04, 0x89}, 1, 4, 0},   // 43F70A reuses ECX after the call (real)

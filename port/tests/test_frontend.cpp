@@ -1118,8 +1118,21 @@ static void TestProcessResponses()
     obj->mScripts = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
 }
 
+// bFastATan / bFixATan: quadrant mapping and special cases (stub tables are formula approximations).
+static void TestATan()
+{
+    CHECK(bFastATan(1, 0) == 0 && bFastATan(0, 1) == 0x4000 && bFastATan(-1, 0) == 0x8000 && bFastATan(0, -1) == 0xC000);
+    CHECK(bFastATan(2, 2) == 0x2000 && bFastATan(-2, 2) == 0x6000 && bFastATan(-2, -2) == 0xA000 && bFastATan(0, 0) == 0);
+    CHECK(std::abs(int(bFastATan(2, 1)) - 0x12E4) <= 0x40);           // atan(0.5) = 0x12E4
+    CHECK(bFixATan(0) == 0 && std::abs(bFixATan(0x10000) - 0x2000) <= 2 && bFixATan(-0x10000) == -bFixATan(0x10000));
+    CHECK(bFixATan(0x7FFFFFFF) == 0x3FFF && std::abs(bFixATan(0x400000) - 0x3EBA - ((0x3FD7 - 0x3EBA) * 0x4000 >> 16)) == 0);
+    CHECK(bFixATan(1, 0) == 0 && bFixATan(0, 5) == 0x4000 && bFixATan(-1, 0) == 0x8000 && bFixATan(1, -1) == -bFixATan(1, 1));
+    CHECK(std::abs(bFixATan(3, 3) - 0x2000) <= 2 && bFixATan(-3, -3) == bFixATan(3, 3) - 0x8000);
+}
+
 int main()
 {
+    TestATan();
     TestPackageCommands();
     TestPackageMarkers();
     TestProcessPackageCommands();

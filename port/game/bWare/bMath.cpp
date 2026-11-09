@@ -59,6 +59,68 @@ void bSinCos(float *sinOut, float *cosOut, uint16_t angle)
     *cosOut = static_cast<float>(c * s);
 }
 
+uint16_t bFastATan(float x, float y)
+{
+    int q = 0;
+    if (x < 0.0f) { x = -x; q = 1; }
+    L yy = y;
+    if (y < 0.0f) { q ^= 3; yy = -yy; }
+    const uint8_t *t = bridge::BFastATanTable();
+    uint32_t a;
+    if (L(x) > yy) a = uint32_t(t[-FEFtol(yy / x * -256.0f)]) << 5;
+    else if (yy > L(x)) a = 0x4000u - (uint32_t(t[-FEFtol(L(x) / yy * -256.0f)]) << 5);
+    else a = (yy == 0.0f) ? 0u : 0x2000u;
+    switch (q) {
+    case 0: return static_cast<uint16_t>(a);
+    case 3: return static_cast<uint16_t>(0u - a);
+    case 1: return static_cast<uint16_t>(0x8000u - a);
+    default: return static_cast<uint16_t>(a + 0x8000u);
+    }
+}
+
+int32_t bFixATan(int32_t ratio)
+{
+    const bool neg = ratio < 0;
+    int32_t x = neg ? static_cast<int32_t>(0u - static_cast<uint32_t>(ratio)) : ratio;
+    uint32_t c, s, frac;
+    if (x >= 0x200000) {
+        if (x < 0x1000000) { frac = static_cast<uint32_t>(x >> 8); c = 0x3EBA; s = 0x3FD7; }
+        else { c = s = 0x3FFF; frac = 0; }
+    } else if (x >= 0x40000) {
+        const uint16_t *t = bridge::BFixATanTable2() + (x >> 14);
+        c = t[0]; s = t[1]; frac = static_cast<uint32_t>(x & 0x3FFF) << 2;
+    } else {
+        const uint16_t *t = bridge::BFixATanTable1() + (x >> 11);
+        c = t[0]; s = t[1]; frac = static_cast<uint32_t>(x & 0x7FF) << 5;
+    }
+    const uint32_t r = static_cast<uint32_t>(static_cast<int32_t>((s - c) * frac) >> 16) + c;
+    return static_cast<int32_t>(neg ? 0u - r : r);
+}
+
+int32_t bFixATan(int32_t x, int32_t y)
+{
+    int q = 0;
+    if (x < 0) { q = 1; x = static_cast<int32_t>(0u - static_cast<uint32_t>(x)); }
+    if (y < 0) { q ^= 3; y = static_cast<int32_t>(0u - static_cast<uint32_t>(y)); }
+    uint32_t a;
+    if (x <= (y >> 14)) a = 0x4000;
+    else {
+        int32_t r;
+        if (x == 0) r = (y == 0) ? 0 : static_cast<int32_t>(uint32_t(y <= 0) + 0x7FFFFFFFu);   // only y == INT_MIN
+        else {
+            const int64_t p = int64_t(0x7FFFFFFF / x) * y;
+            r = static_cast<int32_t>(static_cast<uint32_t>(p >> 16) << 1);
+        }
+        a = static_cast<uint16_t>(bFixATan(r));
+    }
+    switch (q) {
+    case 0: return static_cast<int32_t>(a);
+    case 1: return static_cast<int32_t>(0x8000u - a);
+    case 2: return static_cast<int32_t>(a - 0x8000u);
+    default: return static_cast<int32_t>(0u - a);
+    }
+}
+
 // PC 43C490. Binary search over 12 segments (each half the previous width), 16 entries each, then a linear
 // correction with the entry's slope.
 uint16_t bASin(float x)

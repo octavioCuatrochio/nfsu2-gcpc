@@ -14,5 +14,14 @@ long double bSinF(float radians);
 long double bCos(uint16_t angle);    // PC 43C370: bSin(angle + 0x4000)
 // GC 80059370 / PC 43C390: sine and cosine series sharing x^2; even powers x^4, x^6, x^8 are rounded to float
 // (stack temporaries), both results multiplied by the quadrant sign and stored as float.
-void bSinCos(float *sinOut, float *cosOut, uint16_t angle);    // PC 43C350: bSin(ftol(radians * 65536/2pi)) (low 16 bits)
+void bSinCos(float *sinOut, float *cosOut, uint16_t angle);
+// atan2(y, x) in 16-bit angle units (0x10000 = 2pi). Tables are game data (bridge).
+// GC 800597AC / PC 43C570: byte table (PC 0x7EACB0) indexed by ftol(ratio * -256) (negative -> read ascending).
+// Equal magnitudes: 0x2000, or 0 when both are zero (NaN -> 0x2000). Callers use the low 16 bits.
+uint16_t bFastATan(float x, float y);
+// GC 800598A0 / PC 43C650: atan of a 16.16 ratio, piecewise linear over two uint16 tables (PC 0x7EB1C0 below 4.0,
+// 0x7EB2C8 below 32.0), a fixed segment below 256.0, 0x3FFF above. Odd: negative input -> negated result.
+int32_t bFixATan(int32_t ratio);
+// GC 8005996C / PC 43C6F0: integer atan2(y, x) via bFixATan((0x7FFFFFFF / |x| * |y|) >> 16 << 1); |x| <= |y| >> 14 -> 0x4000.
+int32_t bFixATan(int32_t x, int32_t y);    // PC 43C350: bSin(ftol(radians * 65536/2pi)) (low 16 bits)
 uint16_t bASin(float x);             // GC 800594C8 / PC 43C490: table + slope; |x| >= 1 -> +-0x4000

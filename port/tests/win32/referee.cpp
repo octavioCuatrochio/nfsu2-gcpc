@@ -691,6 +691,44 @@ static void CheckSinCos()
     _controlfp(saved, _MCW_PC);
 }
 
+static float AtanSample()
+{
+    switch (rng() % 8) {
+    case 0: return 0.0f;
+    case 1: return -0.0f;
+    case 2: return static_cast<float>(static_cast<int32_t>(rng() % 9) - 4);
+    default: return static_cast<float>(static_cast<int32_t>(rng() % 2000001) - 1000000) / static_cast<float>(1 + rng() % 5000);
+    }
+}
+static int32_t FixSample()
+{
+    switch (rng() % 6) {
+    case 0: return static_cast<int32_t>(rng() % 9) - 4;
+    case 1: return static_cast<int32_t>(rng() % 0x80000) - 0x40000;
+    case 2: return static_cast<int32_t>(rng() % 0x400000) - 0x200000;
+    case 3: return static_cast<int32_t>(rng() % 0x2000000) - 0x1000000;
+    default: { int32_t v = static_cast<int32_t>(rng()); return v == INT32_MIN ? 0 : v; }
+    }
+}
+static void CheckATan(int iters)
+{
+    auto oFast = ORIG<uint32_t(__cdecl *)(float, float)>(0x43C570);
+    auto oFix = ORIG<int32_t(__cdecl *)(int32_t)>(0x43C650);
+    auto oFix2 = ORIG<int32_t(__cdecl *)(int32_t, int32_t)>(0x43C6F0);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int i = 0; i < iters; ++i) {
+            float x = AtanSample(), y = rng() % 6 ? AtanSample() : (rng() % 2 ? x : -x);
+            EXPECT((oFast(x, y) & 0xFFFF) == bFastATan(x, y), "bFastATan(%.9g, %.9g): %X vs %X", double(x), double(y), oFast(x, y) & 0xFFFF, bFastATan(x, y));
+            int32_t r = FixSample(), a = FixSample(), b = FixSample();
+            EXPECT(oFix(r) == bFixATan(r), "bFixATan(%d): %d vs %d", r, oFix(r), bFixATan(r));
+            EXPECT(oFix2(a, b) == bFixATan(a, b), "bFixATan(%d, %d): %d vs %d", a, b, oFix2(a, b), bFixATan(a, b));
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 static void CheckTrigAndSlerp(int iters)
 {
     auto oSin = ORIG<long double(__cdecl *)(uint32_t)>(0x43C2B0);
@@ -1096,6 +1134,7 @@ static int RunAll()
     CheckInterpLinear(iters);
     CheckTrigAndSlerp(iters);
     CheckSinCos();
+    CheckATan(iters);
     CheckUpdateObjectTracks(iters);
     CheckUpdateObject(iters);
     CheckPackageUpdate(iters);
