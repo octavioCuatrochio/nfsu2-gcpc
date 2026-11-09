@@ -67,7 +67,7 @@ void FEPackage::UpdateObject(FEObject *obj, int32_t delta)
     if (sc->mi32Time < 0) sc->mi32Time = 0;
     const int32_t now = sc->mi32Time;
     auto issue = [&](FEScript *s, int32_t from, int32_t to) {
-        bridge::FEPackage_IssueScriptMessages(this, mpEngine, obj, s, from, to);
+        IssueScriptMessages(mpEngine, obj, s, from, to);
     };
 
     if (now >= len) {                                   // reached the end of the script
@@ -163,4 +163,43 @@ void FEPackage::Update(void *engine, int32_t delta)
     mpEngine = engine;
     mi32ScriptDelta = delta;
     for (FEMinNode *n = mObjects.head; n; n = n->next) UpdateObject(reinterpret_cast<FEObject *>(n), delta);
+}
+
+// PC 534C70. Event times are compared unsigned (like the original). Targets: 0 the object (message 0x1B3909AA:
+// make GUID 0's object the current button), -1 the game (UI callback), -4/-5/-6 passed through as the target,
+// anything else an object GUID (the queue message is only sent when obj is set).
+void FEPackage::IssueScriptMessages(void *engine, FEObject *obj, FEScript *script, int32_t from, int32_t to)
+{
+    constexpr uint32_t kSetButton = 0x1B3909AA;
+    const int32_t count = static_cast<int32_t>(script->mEvents.mu32Count);
+    const FEScriptEvent *ev = script->mEvents.mpEvents;
+    if (to < from) return;
+    if (to == script->mi32Length) ++to;
+    if (count <= 0) return;
+    int32_t i = 0;
+    while (ev[i].mu32Time < static_cast<uint32_t>(from))
+        if (++i >= count) return;
+    for (; i < count && ev[i].mu32Time < static_cast<uint32_t>(to); ++i) {
+        const FEScriptEvent &e = ev[i];
+        auto queue = [&](void *target) { bridge::FEngine_QueueMessage(engine, e.mu32MsgId, obj, this, target, 0); };
+        auto setButton = [&] { bridge::FEPackage_SetCurrentButton(this, engine, bridge::FEPackage_FindObjectByGUID(this, e.mu32Target), true); };
+        switch (e.mu32Target) {
+        case 0xFFFFFFFBu: case 0xFFFFFFFAu: case 0xFFFFFFFCu:
+            queue(reinterpret_cast<void *>(static_cast<uintptr_t>(e.mu32Target)));
+            break;
+        case 0:
+            if (e.mu32MsgId == kSetButton) setButton();
+            else queue(nullptr);
+            break;
+        case 0xFFFFFFFFu:
+            bridge::FEngine_SendMessageToGame(engine, e.mu32MsgId, obj, this);
+            break;
+        default: {
+            void *found = bridge::FEPackage_FindObjectByGUID(this, e.mu32Target);
+            if (e.mu32MsgId == kSetButton) setButton();   // looks the GUID up again, like the original
+            else if (obj) queue(found);
+            break;
+        }
+        }
+    }
 }

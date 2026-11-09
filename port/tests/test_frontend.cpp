@@ -351,12 +351,12 @@ static void TestScriptCopy()
     }
     src.mpTracks[0].mKeys.head = &k[0].node; src.mpTracks[0].mKeys.tail = &k[2].node;
     src.mEvents.SetCount(1);
-    CHECK(src.mEvents.mpEvents[0]._data[0] == 0);
-    src.mEvents.mpEvents[0]._data[1] = 5;
+    CHECK(src.mEvents.mpEvents[0].mu32MsgId == 0);
+    src.mEvents.mpEvents[0].mu32Target = 5;
     src.mEvents.SetCount(3);
-    CHECK(src.mEvents.mpEvents[0]._data[1] == 5 && src.mEvents.mpEvents[2]._data[2] == 0);
+    CHECK(src.mEvents.mpEvents[0].mu32Target == 5 && src.mEvents.mpEvents[2].mu32Time == 0);
     src.mEvents.SetCount(1);
-    CHECK(src.mEvents.mu32Count == 1 && src.mEvents.mpEvents[0]._data[1] == 5);
+    CHECK(src.mEvents.mu32Count == 1 && src.mEvents.mpEvents[0].mu32Target == 5);
 
     teststub::keyNodeNews = 0;
     FEScript deep;
@@ -371,7 +371,7 @@ static void TestScriptCopy()
     }
     CHECK(n == 3 && deep.mpTracks[0].mKeys.tail->next == nullptr);
     CHECK(deep.mpTracks[0].mu8InterpType == 9 && deep.mpTracks[0].mi8DataIndex == -3 && deep.mpTracks[0]._length[1] == 0x56 && deep.mpTracks[0].mBaseKey._data[4] == 77);
-    CHECK(deep.mEvents.mu32Count == 1 && deep.mEvents.mpEvents != src.mEvents.mpEvents && deep.mEvents.mpEvents[0]._data[1] == 5);
+    CHECK(deep.mEvents.mu32Count == 1 && deep.mEvents.mpEvents != src.mEvents.mpEvents && deep.mEvents.mpEvents[0].mu32Target == 5);
 
     FEScript ref;
     FEScript::CopyConstruct(&ref, src, true);
@@ -656,7 +656,8 @@ static void TestTrigAndSlerp()
     CHECK(big.x == 0.f && big.w == 1.f);
 }
 
-// FEPackage::UpdateObject: script clock, end handling and event ranges.
+// FEPackage::UpdateObject + IssueScriptMessages: script clock, end handling and event ranges. Every script has
+// one event per time step (message = base + time, target = the object) so the queued messages show the range.
 static void TestUpdateObject()
 {
     struct ObjWithMovie { FEObject o; int32_t movieTime; };
@@ -664,51 +665,64 @@ static void TestUpdateObject()
     auto *obj = FEObject::Construct(mem);
     uint32_t data[40] = {};
     obj->mpData = data;
-    FEScript a, b;
+    static FEScriptEvent evA[201], evB[201];
+    for (uint32_t t = 0; t <= 200; ++t) { evA[t] = {1000 + t, 0, t}; evB[t] = {2000 + t, 0, t}; }
+    FEScript a = {}, b = {};
     FEScript::Construct(&a); FEScript::Construct(&b);
     a.mi32Length = 100; b.mi32Length = 50;
-    a.mEvents.mu32Count = 1; b.mEvents.mu32Count = 1;          // count only: messages go to the stub
+    a.mEvents = {201, evA}; b.mEvents = {201, evB};
     obj->mpCurrentScript = &a;
     alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
     auto *pkg = reinterpret_cast<FEPackage *>(pm);
     pkg->mbFastInterp = 1; pkg->mi32ScriptDelta = 30;
-    auto &msgs = teststub::messages;
-    msgs.clear();
-    a.mi32Time = 0;
+    auto &q = teststub::queued;
+    auto range = [&](size_t from, size_t n, uint32_t first, uint32_t last) {
+        return q.size() >= from + n && q[from].msg == first && q[from + n - 1].msg == last;
+    };
+    q.clear();
+    pkg->UpdateObject(obj, 16);                                  // 0 -> 30: events 0..29
+    CHECK(a.mi32Time == 30 && q.size() == 30 && range(0, 30, 1000, 1029) && q[0].obj == obj && q[0].target == nullptr);
+    a.mi32Time = 90; q.clear();                                  // stop: events 90..100 (end inclusive), time = 101
     pkg->UpdateObject(obj, 16);
-    CHECK(a.mi32Time == 30 && msgs.size() == 1 && msgs[0].from == 0 && msgs[0].to == 30);
-    a.mi32Time = 90; msgs.clear();                              // stop mode: ends at length + 1
-    pkg->UpdateObject(obj, 16);
-    CHECK(a.mi32Time == 101 && msgs.size() == 1 && msgs[0].from == 90 && msgs[0].to == 100);
-    pkg->mi32ScriptDelta = 0; msgs.clear();                     // finished: tracks skipped, running flags cleared
+    CHECK(a.mi32Time == 101 && q.size() == 11 && range(0, 11, 1090, 1100));
+    pkg->mi32ScriptDelta = 0; q.clear();                         // finished: no events, tracks skipped, flags cleared
     obj->mu32Flags |= 0x1800000;
     pkg->UpdateObject(obj, 16);
-    CHECK(a.mi32Time == 101 && msgs.size() == 1 && msgs[0].from == 101 && msgs[0].to == 100);   // empty range, like the original
-    CHECK((obj->mu32Flags & 0x1800000) == 0);
+    CHECK(a.mi32Time == 101 && q.empty() && (obj->mu32Flags & 0x1800000) == 0);
     pkg->mi32ScriptDelta = 30;
-    a.mu32Flags = 1; a.mi32Time = 90; msgs.clear();             // loop: wraps, two event ranges
+    a.mu32Flags = 1; a.mi32Time = 90; q.clear();                 // loop: 90..100 then 0..19
     pkg->UpdateObject(obj, 16);
-    CHECK(a.mi32Time == 20 && msgs.size() == 2 && msgs[0].to == 100 && msgs[1].from == 0 && msgs[1].to == 20);
-    a.mu32Flags = 2; a.mi32Time = 180; msgs.clear();            // ping-pong past 2*length wraps
+    CHECK(a.mi32Time == 20 && q.size() == 31 && range(0, 11, 1090, 1100) && range(11, 20, 1000, 1019));
+    a.mu32Flags = 2; a.mi32Time = 180; q.clear();                // ping-pong past 2*length wraps
     pkg->UpdateObject(obj, 16);
     CHECK(a.mi32Time == 10);
-    a.mu32Flags = 0; a.mpChainedScript = &b; a.mi32Time = 90; msgs.clear();   // chain: rest carries over
+    a.mu32Flags = 0; a.mpChainedScript = &b; a.mi32Time = 90; q.clear();   // chain: rest carries over
     pkg->UpdateObject(obj, 16);
     CHECK(obj->mpCurrentScript == &b && b.mi32Time == 20 && a.mi32Time == 0);
-    CHECK(msgs.size() == 2 && msgs[0].script == &a && msgs[1].script == &b && msgs[1].to == 20);
-    obj->mu32Type = 7;                                          // movie: playback time += delta (fast mode)
+    CHECK(q.size() == 31 && range(0, 11, 1090, 1100) && range(11, 20, 2000, 2019));
+    obj->mu32Type = 7;                                           // movie: playback time += delta (fast mode)
     reinterpret_cast<ObjWithMovie *>(mem)->movieTime = 5;
     pkg->UpdateObject(obj, 16);
     CHECK(reinterpret_cast<ObjWithMovie *>(mem)->movieTime == 21);
-    obj->mu32Type = 4; teststub::lastTypeUpdate = nullptr;     // list box: bridged update
+    obj->mu32Type = 4; teststub::lastTypeUpdate = nullptr;      // list box: bridged update
     pkg->UpdateObject(obj, 16);
     CHECK(teststub::lastTypeUpdate == obj);
+    // targets: game (-1), special (-5), GUID 7, set-button magic
+    FEScriptEvent ev[4] = {{11, 0xFFFFFFFFu, 0}, {12, 0xFFFFFFFBu, 1}, {13, 7, 2}, {0x1B3909AA, 9, 3}};
+    FEScript c = {};
+    FEScript::Construct(&c);
+    c.mi32Length = 100; c.mEvents = {4, ev};
+    q.clear(); teststub::currentButton = nullptr;
+    pkg->IssueScriptMessages(nullptr, obj, &c, 0, 10);
+    CHECK(q.size() == 3 && q[0].target == reinterpret_cast<void *>(-1) && q[1].target == reinterpret_cast<void *>(uintptr_t(0xFFFFFFFBu)));
+    CHECK(q[2].target == reinterpret_cast<void *>(uintptr_t(0x1000 + 7)) && teststub::currentButton == reinterpret_cast<void *>(uintptr_t(0x1000 + 9)));
+    q.clear();
+    pkg->IssueScriptMessages(nullptr, nullptr, &c, 2, 3);       // GUID target without obj: not queued
+    CHECK(q.empty());
     obj->mpData = nullptr;
     obj->Destruct();
 }
 
-// FEPackage::Update / UpdateGroup: every top-level object and every group child advances; children inherit the
-// group's 0x3C00000 flags.
 static void TestPackageUpdate()
 {
     alignas(8) unsigned char gm[sizeof(FEGroup)] = {}, om[3][sizeof(FEObject)] = {};

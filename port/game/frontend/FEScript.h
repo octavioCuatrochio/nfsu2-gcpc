@@ -53,8 +53,10 @@ void FEInterpLinear(FEKeyTrack *track, int32_t time, void *out);    // GC 801403
 void FEKeyInterpFast(FEKeyTrack *track, int32_t time, void *out);   // GC 80140244 / PC 5354F0
 void FEKeyInterp(FEKeyTrack *track, int32_t time, void *out);       // GC 801401EC (PC: inlined): 0 step, 1/3 linear
 
-struct FEScriptEvent {               // 0xC bytes, copied as raw data
-    uint32_t _data[3];
+struct FEScriptEvent {               // 0xC bytes, sorted by time
+    uint32_t mu32MsgId;              // +0x0 message hash (0x1B3909AA: make the target the current button)
+    uint32_t mu32Target;             // +0x4 0 = the object, -1 = the game, -4/-5/-6 special, else an object GUID
+    uint32_t mu32Time;               // +0x8
 };
 
 // Resizable event array (count + new[] pointer).

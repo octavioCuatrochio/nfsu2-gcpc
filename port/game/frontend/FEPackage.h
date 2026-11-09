@@ -21,6 +21,8 @@ struct FEPackage {
     // GC 8013958C / PC 54CE60: advance the object's current script (events, end handling: chain / stop / loop /
     // ping-pong), evaluate tracks, then type-specific updates (list boxes, groups, movies) with `delta`.
     void UpdateObject(FEObject *obj, int32_t delta);
+    // GC 8013931C / PC 534C70: send the script events with from <= time < to (to + 1 at the script end).
+    void IssueScriptMessages(void *engine, FEObject *obj, FEScript *script, int32_t from, int32_t to);
     void UpdateGroup(struct FEGroup *group, int32_t delta);   // GC 80139520 / PC 504910
     void Update(void *engine, int32_t delta);                 // GC 80139BD0 / PC 54D190: every top-level object
 };

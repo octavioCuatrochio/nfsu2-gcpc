@@ -89,9 +89,20 @@ void *FEKeyNodeVTable() { return reinterpret_cast<void *>(0x79AA34); }
 ::FEMinList *FEKeyNodePool() { return reinterpret_cast<::FEMinList *>(0x839BD0); }
 void *FEKeyNodeBlockVTable() { return reinterpret_cast<void *>(0x79B9EC); }
 const bASinTableEntry *BASinTable() { return reinterpret_cast<const bASinTableEntry *>(0x7EA628); }
-void FEPackage_IssueScriptMessages(void *pkg, void *engine, void *obj, void *script, int32_t from, int32_t to)
+void FEngine_QueueMessage(void *engine, uint32_t msg, void *obj, void *pkg, void *target, uint32_t arg)
 {
-    reinterpret_cast<void(THISCALL *)(void *, void *, void *, void *, int32_t, int32_t)>(0x534C70)(pkg, engine, obj, script, from, to);
+    reinterpret_cast<void(THISCALL *)(void *, uint32_t, void *, void *, void *, uint32_t)>(0x51AA20)(engine, msg, obj, pkg, target, arg);
+}
+void FEngine_SendMessageToGame(void *engine, uint32_t msg, void *obj, void *pkg)
+{
+    void *ui = *reinterpret_cast<void **>(static_cast<uint8_t *>(engine) + 0x10C);
+    auto fn = (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t, void *, uint32_t, void *)>(ui))[6];
+    fn(ui, msg, obj, 0, pkg);
+}
+void *FEPackage_FindObjectByGUID(void *pkg, uint32_t guid) { return reinterpret_cast<void *(THISCALL *)(void *, uint32_t)>(0x517FE0)(pkg, guid); }
+void FEPackage_SetCurrentButton(void *pkg, void *engine, void *obj, bool notify)
+{
+    reinterpret_cast<void(THISCALL *)(void *, void *, void *, int)>(0x52B3A0)(pkg, engine, obj, notify ? 1 : 0);
 }
 void FEListBox_Update(void *lb, float d) { reinterpret_cast<void(THISCALL *)(void *, float)>(0x517230)(lb, d); }
 void FECodeListBox_Update(void *lb, float d) { reinterpret_cast<void(THISCALL *)(void *, float)>(0x504DC0)(lb, d); }

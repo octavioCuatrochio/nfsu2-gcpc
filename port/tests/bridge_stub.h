@@ -20,7 +20,10 @@ extern int feMsgRespVTable, feMsgRespBlockVTable, virtualDtorCalls;
 extern int feScriptBlockVTable, feScriptVTable, feRefListVTable, feKeyNodeVTable, keyNodeNews, feKeyNodeBlockVTable, linearCalls;
 extern uint32_t holdDirtyFlags;
 struct ScriptMessage { void *script; int32_t from, to; };
-extern std::vector<ScriptMessage> messages;
+extern std::vector<ScriptMessage> messages;   // unused since IssueScriptMessages is rewritten
+struct QueuedMessage { uint32_t msg; void *obj; void *target; };
+extern std::vector<QueuedMessage> queued;
+extern void *currentButton;
 extern void *lastTypeUpdate;
 extern FEMinList keyNodePool;
 extern uint32_t nextGUID;

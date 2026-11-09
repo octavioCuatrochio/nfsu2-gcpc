@@ -4,7 +4,8 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 ## Port status / next
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
-- Next: FEPackage::IssueScriptMessages 534C70 (bridged), FEListBox::Update 517230, FECodeListBox::Update 504DC0;
+- Next: FEPackage::FindObjectByGUID 517FE0 + ForAllObjects 504880 (callback objects), SetCurrentButton 52B3A0,
+  FEngine::QueueMessage 51AA20, FEListBox::Update 517230, FECodeListBox::Update 504DC0;
   FEObject subclass copy ctors/Clones; more bWare math (bCos etc. near 43C2B0).
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
 - bWare trig rewritten bit-exact (bSin/bSinF/bASin); bASin table is game data read from the exe (bridge).

@@ -23,6 +23,8 @@ int feMsgRespVTable = 0, feMsgRespBlockVTable = 0, virtualDtorCalls = 0;
 int feScriptBlockVTable = 0, feScriptVTable = 0, feRefListVTable = 0, feKeyNodeVTable = 0, keyNodeNews = 0, feKeyNodeBlockVTable = 0, linearCalls = 0;
 uint32_t holdDirtyFlags = 0;
 std::vector<ScriptMessage> messages;
+std::vector<QueuedMessage> queued;
+void *currentButton = nullptr;
 void *lastTypeUpdate = nullptr;
 FEMinList keyNodePool{&feMinListVTable, 0, nullptr, nullptr};
 FEMinList msgRespPool{&feMinListVTable, 0, nullptr, nullptr}, scriptPool{&feMinListVTable, 0, nullptr, nullptr};
@@ -89,10 +91,13 @@ const bASinTableEntry *BASinTable()
     return t;
 #endif
 }
-void FEPackage_IssueScriptMessages(void *, void *, void *, void *script, int32_t from, int32_t to)
+void FEngine_QueueMessage(void *, uint32_t msg, void *obj, void *, void *target, uint32_t)
 {
-    teststub::messages.push_back({script, from, to});
+    teststub::queued.push_back({msg, obj, target});
 }
+void FEngine_SendMessageToGame(void *, uint32_t msg, void *obj, void *) { teststub::queued.push_back({msg, obj, reinterpret_cast<void *>(-1)}); }
+void *FEPackage_FindObjectByGUID(void *, uint32_t guid) { return reinterpret_cast<void *>(uintptr_t(0x1000) + guid); }
+void FEPackage_SetCurrentButton(void *, void *, void *obj, bool) { teststub::currentButton = obj; }
 void FEListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
 void FECodeListBox_Update(void *lb, float) { teststub::lastTypeUpdate = lb; }
 uint32_t HoldDirtyFlags()
