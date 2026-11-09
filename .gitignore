@@ -1,0 +1,26 @@
+# game binaries and data (not ours to redistribute)
+Speed.elf
+gc_disc/
+pc/SPEED2.EXE
+ext/
+# Ghidra projects and generated outputs (rebuildable, large)
+*.gpr
+*.rep/
+pc/ghidra/
+pc/baseline/
+gc_decomp/
+pc_decomp/
+knowledge/raw/
+knowledge/*.db
+# build outputs
+port/build-*/
+tooling/compiler/bin/
+tooling/compiler/src/
+tooling/compiler/build.log
+tooling/extensions/*/build/
+tooling/extensions/*/dist/
+tooling/logs/
+__pycache__/
+.claude/
+tooling/extensions/dw1-emoose/
+tooling/extensions/gc-loader/

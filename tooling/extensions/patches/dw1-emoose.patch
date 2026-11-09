@@ -1,0 +1,1541 @@
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1Analyzer.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1Analyzer.java
+index 469698b..2dc303e 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1Analyzer.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1Analyzer.java
+@@ -32,14 +32,13 @@ public class DWARF1Analyzer extends AbstractAnalyzer {
+ 
+ 	public DWARF1Analyzer() {
+ 		super("DWARF1", "Analyzer of DWARF debug data in version 1", AnalyzerType.BYTE_ANALYZER);
+-		setDefaultEnablement(false);
++		setDefaultEnablement(true);
+ 		setSupportsOneTimeAnalysis();
+ 	}
+ 
+ 	@Override
+ 	public boolean canAnalyze(Program program) {
+-		var sectionProvider = ElfSectionProvider.createSectionProviderFor(program);
+-		return sectionProvider.hasSection(DWARF1SectionNames.DEBUG);
++		return DebugSection.exists(program);
+ 	}
+ 
+ 	@Override
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1FunctionImporter.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1FunctionImporter.java
+index 94f8db5..d97c6e3 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1FunctionImporter.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1FunctionImporter.java
+@@ -13,6 +13,11 @@ import com.github.rafalh.ghidra.dwarfone.model.RefAttributeValue;
+ import com.github.rafalh.ghidra.dwarfone.model.Tag;
+ 
+ import ghidra.app.util.importer.MessageLog;
++import ghidra.app.util.NamespaceUtils;
++import ghidra.program.model.listing.GhidraClass;
++import ghidra.program.model.listing.Program;
++import ghidra.program.model.symbol.Namespace;
++import ghidra.program.model.listing.CircularDependencyException;
+ import ghidra.program.database.function.OverlappingFunctionException;
+ import ghidra.program.model.address.Address;
+ import ghidra.program.model.address.AddressSetView;
+@@ -68,6 +73,8 @@ public class DWARF1FunctionImporter {
+ 	private final DWARF1TypeManager dwarfTypeManager;
+ 	private final DWARF1TypeExtractor typeExtractor;
+ 	private final FunctionManager functionManager;
++	private final Map<Long, Function> functionsByDie = new java.util.HashMap<>();
++	private int importedCount;
+ 	
+ 	DWARF1FunctionImporter(DWARF1Program dwarfProgram, MessageLog log, DWARF1TypeManager dwarfTypeManager, DWARF1TypeExtractor typeExtractor) {
+ 		this.dwarfProgram = dwarfProgram;
+@@ -78,7 +85,12 @@ public class DWARF1FunctionImporter {
+ 	}
+ 	
+ 	void processSubrountine(DebugInfoEntry die) {
+-		Optional<String> nameOptional = DWARF1ImportUtils.extractName(die);
++		// Out-of-line definitions of class members carry only AT_specification, pointing at the
++		// declaration inside the class, which holds the name, return type and parameters.
++		Optional<DebugInfoEntry> specOpt = die.<RefAttributeValue>getAttribute(AttributeName.SPECIFICATIONREFERENCE)
++				.flatMap(r -> dwarfProgram.getDebugInfoEntry(r.get()));
++		Optional<String> nameOptional = DWARF1ImportUtils.extractName(die)
++				.or(() -> specOpt.flatMap(DWARF1ImportUtils::extractName));
+ 		Optional<AddrAttributeValue> lowPcAttributeOptional = die.getAttribute(AttributeName.LOW_PC);
+ 		Optional<AddrAttributeValue> highPcAttributeOptional = die.getAttribute(AttributeName.HIGH_PC);
+ 		
+@@ -89,8 +101,13 @@ public class DWARF1FunctionImporter {
+ 		String name = nameOptional.get();
+ 		long lowPc = lowPcAttributeOptional.get().get();
+ 		long highPc = highPcAttributeOptional.get().get();
++		// the linker leaves low_pc = 0xFFFFFFFF on functions it dead-stripped
++		if (lowPc == 0xFFFFFFFFL || highPc <= lowPc || !dwarfProgram.getProgram().getMemory().contains(dwarfProgram.toAddr(lowPc))) {
++			return;
++		}
+ 		//log.appendMsg(name + " " + Long.toHexString(lowPc.longValue()));
+-		DataType returnDt = typeExtractor.extractDataType(die);
++		DebugInfoEntry typeDie = (!DWARF1TypeExtractor.hasType(die) && specOpt.isPresent()) ? specOpt.get() : die;
++		DataType returnDt = typeExtractor.extractReturnType(typeDie);
+ 
+ 		String op = OPERATORS.get(name);
+ 		if (op != null) {
+@@ -103,17 +120,20 @@ public class DWARF1FunctionImporter {
+ 			name = "operator_" + returnDt.toString().replace(' ', '_');
+ 		}
+ 		
+-		// Prefix name with the class name if this is a member function
+-		Optional<DataType> classDtOpt = determineMemberClassType(die);
+-		if (classDtOpt.isPresent() && !name.contains(classDtOpt.get().getName())) {
+-			String className = classDtOpt.get().getName();
++		// Member functions go into a class namespace (rather than a "Class::name" string)
++		Optional<DataType> classDtOpt = determineMemberClassType(die)
++				.or(() -> specOpt.flatMap(this::determineMemberClassType));
++		Namespace ns = dwarfProgram.getProgram().getGlobalNamespace();
++		String className = null;
++		if (classDtOpt.isPresent() && classDtOpt.get() != DataType.DEFAULT) {
++			className = classDtOpt.get().getName();
+ 			if (name.equals(CONSTRUCTOR)) {
+ 				name = className;
+ 			} else if (name.equals(DESTRUCTOR)) {
+ 				name = "~" + className;
+ 			}
+-			name = className + "::" + name;
+ 		}
++		name = name.replace(' ', '_');
+ 		
+ 		Address minAddr = dwarfProgram.toAddr(lowPc);
+ 		Address maxAddr = dwarfProgram.toAddr(highPc - 1);
+@@ -122,38 +142,131 @@ public class DWARF1FunctionImporter {
+ 		while (overlappingFunIt.hasNext()) {
+ 			Function overlappingFun = overlappingFunIt.next();
+ 			if (!overlappingFun.getEntryPoint().equals(minAddr)) {
+-				log.appendMsg("Removing overlapping function: " + overlappingFun.getName());
++				log.appendMsg("DWARF1: removing function overlapping " + name + ": " + overlappingFun.getName());
+ 				functionManager.removeFunction(overlappingFun.getEntryPoint());
+ 			}
+ 		}
+ 		Function fun = functionManager.getFunctionAt(minAddr);
++		// DWARF1 class names are unqualified ("RCMP_SYSTEM"); if the demangler already placed the
++		// function in a matching qualified class ("RCMP::RCMP_SYSTEM"), keep that namespace.
++		if (className != null) {
++			if (fun != null && !fun.getParentNamespace().isGlobal() && fun.getParentNamespace().getName().equals(className)) {
++				ns = fun.getParentNamespace();
++			} else {
++				ns = getClassNamespace(className).orElse(ns);
++			}
++		}
+ 		try {
+ 			if (fun == null) {
+-				fun = functionManager.createFunction(name, minAddr, funBody, SourceType.IMPORTED);
++				fun = functionManager.createFunction(name, ns, minAddr, funBody, SourceType.IMPORTED);
+ 			} else {
+-				fun.setName(name, SourceType.IMPORTED);
+ 				fun.setBody(funBody);
++				try {
++					fun.getSymbol().setNameAndNamespace(name, ns, SourceType.IMPORTED);
++				} catch (DuplicateNameException | InvalidInputException | CircularDependencyException e) {
++					// keep the existing (ELF) name, still apply the signature below
++				}
+ 			}
+ 			
+-			Variable returnParam = new ReturnParameterImpl(returnDt, dwarfProgram.getProgram());
+ 			List<Variable> params = new ArrayList<>();
+-			for (DebugInfoEntry childDie : die.getChildren()) {
++			// PowerPC SVR4/EABI returns every struct/union through a hidden pointer passed in r3
++			// (and returned in r3), whatever its size. Make it explicit, otherwise small aggregates
++			// would be modelled as returned in r3:r4 and all real arguments shifted by one register.
++			if (isAggregate(returnDt)) {
++				DataType retPtr = new ghidra.program.model.data.PointerDataType(returnDt, dwarfProgram.getProgram().getDataTypeManager());
++				params.add(new ParameterImpl("__return_ptr", retPtr, dwarfProgram.getProgram()));
++				returnDt = retPtr;
++			}
++			Variable returnParam = new ReturnParameterImpl(returnDt, dwarfProgram.getProgram());
++			boolean varArgs = false;
++			DebugInfoEntry paramDie = die;
++			if (specOpt.isPresent() && die.getChildren().stream().noneMatch(c -> c.getTag() == Tag.FORMAL_PARAMETER)) {
++				paramDie = specOpt.get();
++			}
++			for (DebugInfoEntry childDie : paramDie.getChildren()) {
+ 				if (childDie.getTag() == Tag.FORMAL_PARAMETER) {
+-					String paramName = DWARF1ImportUtils.extractName(childDie).orElse(null);
+-					DataType dt = typeExtractor.extractDataType(childDie);
++					// parameters of out-of-line definitions refer to the declaration's parameter
++					DebugInfoEntry pDie = DWARF1ImportUtils.resolveSpecification(childDie, dwarfProgram);
++					String paramName = DWARF1ImportUtils.extractName(pDie).orElse(null);
++					DataType dt = typeExtractor.toParameterType(typeExtractor.extractDataType(pDie));
++					if (dt.getLength() <= 0) {
++						dt = DataType.DEFAULT;
++					}
+ 					params.add(new ParameterImpl(paramName, dt, dwarfProgram.getProgram()));
++				} else if (childDie.getTag() == Tag.UNSPECIFIED_PARAMETERS) {
++					varArgs = true;
+ 				}
+ 			}
++			uniquifyNames(params);
+ 		
+-			fun.updateFunction(null, returnParam, params, FunctionUpdateType.DYNAMIC_STORAGE_FORMAL_PARAMS, true, SourceType.IMPORTED);
++			String cc = dwarfProgram.getProgram().getCompilerSpec().getDefaultCallingConvention().getName();
++			fun.updateFunction(cc, returnParam, params, FunctionUpdateType.DYNAMIC_STORAGE_FORMAL_PARAMS, true, SourceType.IMPORTED);
++			fun.setVarArgs(varArgs);
++			functionsByDie.put(die.getRef(), fun);
++			importedCount++;
+ 		} catch (DuplicateNameException | InvalidInputException | OverlappingFunctionException e) {
+-			log.appendException(e);
++			log.appendMsg("DWARF1: function " + name + " @ " + minAddr + ": " + e.getMessage());
++		}
++	}
++	
++	private static void uniquifyNames(List<Variable> params) throws InvalidInputException, DuplicateNameException {
++		java.util.Set<String> seen = new java.util.HashSet<>();
++		for (Variable v : params) {
++			String n = v.getName();
++			if (n == null) continue;
++			String u = n;
++			for (int i = 2; !seen.add(u); i++) {
++				u = n + "_" + i;
++			}
++			if (!u.equals(n)) {
++				v.setName(u, SourceType.IMPORTED);
++			}
+ 		}
+ 	}
+ 	
++	private Optional<Namespace> getClassNamespace(String className) {
++		try {
++			Program program = dwarfProgram.getProgram();
++			// reuse a unique existing class of that name (e.g. "RCMP::RCMP_SYSTEM" created by the demangler)
++			List<ghidra.program.model.symbol.Symbol> classes = new ArrayList<>();
++			for (var sym : program.getSymbolTable().getSymbols(className)) {
++				if (sym.getSymbolType() == ghidra.program.model.symbol.SymbolType.CLASS) {
++					classes.add(sym);
++				}
++			}
++			if (classes.size() == 1) {
++				return Optional.of((Namespace) classes.get(0).getObject());
++			}
++			Namespace ns = NamespaceUtils.createNamespaceHierarchy(className, null, program, SourceType.IMPORTED);
++			if (!(ns instanceof GhidraClass)) {
++				ns = NamespaceUtils.convertNamespaceToClass(ns);
++			}
++			return Optional.of(ns);
++		} catch (Exception e) {
++			log.appendMsg("DWARF1: cannot create class namespace " + className + ": " + e.getMessage());
++			return Optional.empty();
++		}
++	}
++	
++	private static boolean isAggregate(DataType dt) {
++		while (dt instanceof ghidra.program.model.data.TypeDef) {
++			dt = ((ghidra.program.model.data.TypeDef) dt).getBaseDataType();
++		}
++		return dt instanceof ghidra.program.model.data.Composite;
++	}
++	
++	Optional<Function> getFunction(long dieRef) {
++		return Optional.ofNullable(functionsByDie.get(dieRef));
++	}
++	
++	int getImportedCount() {
++		return importedCount;
++	}
++	
+ 	private Optional<DataType> determineMemberClassType(DebugInfoEntry die) {
+ 		// Function defined in class body
+-		if (die.getParent().getTag() == Tag.CLASS_TYPE) {
++		Tag parentTag = die.getParent() == null ? null : die.getParent().getTag();
++		if (parentTag == Tag.CLASS_TYPE || parentTag == Tag.STRUCTURE_TYPE || parentTag == Tag.UNION_TYPE) {
+ 			return Optional.of(dwarfTypeManager.getUserDataType(die.getParent().getRef()));
+ 		}
+ 		// Function defined outside of the class body should have AT_member attribute
+@@ -164,8 +277,9 @@ public class DWARF1FunctionImporter {
+ 		// Determine the class based on the "this" parameter because for some compilers (e.g. PS2) normal
+ 		// ways does not work...
+ 		for (DebugInfoEntry childDie : die.getChildren()) {
+-			if (childDie.getTag() == Tag.FORMAL_PARAMETER && Optional.of("this").equals(DWARF1ImportUtils.extractName(childDie))) {
+-				DataType dt = typeExtractor.extractDataType(childDie);
++			DebugInfoEntry pDie = DWARF1ImportUtils.resolveSpecification(childDie, dwarfProgram);
++			if (childDie.getTag() == Tag.FORMAL_PARAMETER && Optional.of("this").equals(DWARF1ImportUtils.extractName(pDie))) {
++				DataType dt = typeExtractor.extractDataType(pDie);
+ 				if (dt instanceof Pointer) {
+ 					dt = ((Pointer) dt).getDataType();
+ 				}
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1ImportUtils.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1ImportUtils.java
+index 224a28d..ddb26b7 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1ImportUtils.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1ImportUtils.java
+@@ -16,6 +16,19 @@ public class DWARF1ImportUtils {
+ 		// empty
+ 	}
+ 	
++	/**
++	 * If the DIE carries no name/type of its own but has AT_specification, returns the referenced
++	 * declaration DIE (whose name and type apply); otherwise returns the DIE itself.
++	 */
++	static DebugInfoEntry resolveSpecification(DebugInfoEntry die, DWARF1Program program) {
++		if (die.getAttribute(AttributeName.NAME).isPresent() && DWARF1TypeExtractor.hasType(die)) {
++			return die;
++		}
++		return die.<com.github.rafalh.ghidra.dwarfone.model.RefAttributeValue>getAttribute(AttributeName.SPECIFICATIONREFERENCE)
++				.flatMap(r -> program.getDebugInfoEntry(r.get()))
++				.orElse(die);
++	}
++
+ 	static Optional<String> extractName(DebugInfoEntry die) {
+ 		return die.<StringAttributeValue>getAttribute(AttributeName.NAME)
+ 				.map(StringAttributeValue::get);
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1Program.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1Program.java
+index 23067a3..4fe441b 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1Program.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1Program.java
+@@ -1,5 +1,10 @@
+ package com.github.rafalh.ghidra.dwarfone;
+ 
++import com.github.rafalh.ghidra.dwarfone.model.AttributeName;
++import com.github.rafalh.ghidra.dwarfone.model.RefAttributeValue;
++import com.github.rafalh.ghidra.dwarfone.model.StringAttributeValue;
++import com.github.rafalh.ghidra.dwarfone.model.Tag;
++
+ import java.util.HashMap;
+ import java.util.Map;
+ import java.util.Optional;
+@@ -16,6 +21,8 @@ public class DWARF1Program {
+ 	private final Program program;
+ 	private final AddressSetView set;
+ 	private final Map<Long, DebugInfoEntry> dieMap = new HashMap<>();
++	private final Map<String, DebugInfoEntry> completeTypesByName = new HashMap<>();
++	private final Map<Long, String> typedefNames = new HashMap<>();
+ 	
+ 	DWARF1Program(Program program, AddressSetView set) {
+ 		this.program = program;
+@@ -40,6 +47,51 @@ public class DWARF1Program {
+ 
+ 	public void addEntry(DebugInfoEntry die) {
+ 		dieMap.put(die.getRef(), die);
++		// Index complete aggregate definitions by name so that forward declarations
++		// (structure_type without byte_size) can be resolved to their real layout.
++		var tag = die.getTag();
++		if (tag == Tag.TYPEDEF) {
++			var name = die.<StringAttributeValue>getAttribute(AttributeName.NAME).map(StringAttributeValue::get);
++			var ref = die.<RefAttributeValue>getAttribute(AttributeName.USER_DEF_TYPE);
++			if (name.isPresent() && ref.isPresent()) {
++				typedefNames.putIfAbsent(ref.get().get(), name.get());
++			}
++		}
++		if (tag == Tag.STRUCTURE_TYPE || tag == Tag.CLASS_TYPE || tag == Tag.UNION_TYPE || tag == Tag.ENUMERATION_TYPE) {
++			var name = die.<StringAttributeValue>getAttribute(AttributeName.NAME).map(StringAttributeValue::get);
++			if (name.isPresent() && die.getAttribute(AttributeName.BYTE_SIZE).isPresent()) {
++				completeTypesByName.putIfAbsent(tag + ":" + name.get(), die);
++			}
++		}
++	}
++
++	public Optional<String> getTypedefNameFor(long typeRef) {
++		return Optional.ofNullable(typedefNames.get(typeRef));
++	}
++
++	public Optional<DebugInfoEntry> findCompleteDefinition(Tag tag, String name) {
++		var t = (tag == Tag.CLASS_TYPE) ? Tag.STRUCTURE_TYPE : tag;
++		var die = completeTypesByName.get(t + ":" + name);
++		if (die == null && t == Tag.STRUCTURE_TYPE) {
++			die = completeTypesByName.get(Tag.CLASS_TYPE + ":" + name);
++		}
++		return Optional.ofNullable(die);
++	}
++
++	/** Base name (without directory / extension) of the compile unit containing the DIE. */
++	public String getCompileUnitName(DebugInfoEntry die) {
++		DebugInfoEntry cur = die;
++		while (cur != null && cur.getTag() != Tag.COMPILE_UNIT) {
++			cur = cur.getParent();
++		}
++		if (cur == null) {
++			return "unknown";
++		}
++		String path = cur.<StringAttributeValue>getAttribute(AttributeName.NAME).map(StringAttributeValue::get).orElse("unknown");
++		path = path.replace('\\', '/');
++		path = path.substring(path.lastIndexOf('/') + 1);
++		int dot = path.lastIndexOf('.');
++		return dot > 0 ? path.substring(0, dot) : path;
+ 	}
+ 	
+ 	public AddressSetView getSet() {
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1ProgramAnalyzer.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1ProgramAnalyzer.java
+index 3037ea4..0659143 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1ProgramAnalyzer.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1ProgramAnalyzer.java
+@@ -38,16 +38,17 @@ public class DWARF1ProgramAnalyzer {
+ 		typeExtractor = new DWARF1TypeExtractor(dwarfProgram, log, dwarfTypeManager);
+ 		dwarfTypeImporter = new DWARF1TypeImporter(dwarfProgram, log, dwarfTypeManager, typeExtractor);
+ 		dwarfFunctionImporter = new DWARF1FunctionImporter(dwarfProgram, log, dwarfTypeManager, typeExtractor);
+-		dwarfVariableImporter = new DWARF1VariableImporter(dwarfProgram, log, typeExtractor);
++		dwarfVariableImporter = new DWARF1VariableImporter(dwarfProgram, log, typeExtractor, dwarfFunctionImporter);
+ 		dwarfTypeManager.setTypeImporter(dwarfTypeImporter);
+ 	}
+ 	
+ 	public boolean process() {
+-		var sectionProvider = ElfSectionProvider.createSectionProviderFor(program);
+-		try {
+-			var debug = sectionProvider.getSectionAsByteProvider(DWARF1SectionNames.DEBUG, monitor);
+-			processDebugSection(debug);
+-			//log.appendMsg("Finished parsing DWARF1");
++		try (DebugSection debug = DebugSection.open(program, monitor)) {
++			if (debug == null) {
++				log.appendMsg("DWARF1: no .debug section found");
++				return false;
++			}
++			processDebugSection(debug.provider());
+ 			return true;
+ 		} catch (IOException e) {
+ 			log.appendException(e);
+@@ -86,9 +87,40 @@ public class DWARF1ProgramAnalyzer {
+ 		}
+ 		
+ 		
++		// Pass 1: types (via the type manager cache so each DIE is converted exactly once)
++		monitor.setMessage("DWARF1: importing types");
+ 		for (DebugInfoEntry die : dieList) {
+-			processDebugInfoEntry(die);
++			if (monitor.isCancelled()) return;
++			switch (die.getTag()) {
++			case CLASS_TYPE:
++			case STRUCTURE_TYPE:
++			case UNION_TYPE:
++			case ENUMERATION_TYPE:
++			case TYPEDEF:
++				dwarfTypeManager.getUserDataType(die.getRef());
++				break;
++			default:
++				break;
++			}
+ 		}
++		// Pass 2: functions, then variables (locals need their function to exist)
++		monitor.setMessage("DWARF1: importing functions");
++		for (DebugInfoEntry die : dieList) {
++			if (monitor.isCancelled()) return;
++			if (die.getTag() == Tag.GLOBAL_SUBROUTINE || die.getTag() == Tag.SUBROUTINE) {
++				processDebugInfoEntry(die);
++			}
++		}
++		monitor.setMessage("DWARF1: importing variables");
++		for (DebugInfoEntry die : dieList) {
++			if (monitor.isCancelled()) return;
++			if (die.getTag() == Tag.GLOBAL_VARIABLE || die.getTag() == Tag.LOCAL_VARIABLE) {
++				processDebugInfoEntry(die);
++			}
++		}
++		log.appendMsg("DWARF1: " + dwarfFunctionImporter.getImportedCount() + " functions, "
++				+ dwarfVariableImporter.getGlobalCount() + " globals, "
++				+ dwarfVariableImporter.getLocalCount() + " stack locals imported");
+ 	}
+ 	
+ 	private void processDebugInfoEntry(DebugInfoEntry die) {
+@@ -103,18 +135,11 @@ public class DWARF1ProgramAnalyzer {
+ 			case SUBROUTINE:
+ 				dwarfFunctionImporter.processSubrountine(die);
+ 				break;
+-			case CLASS_TYPE:
+-			case ENUMERATION_TYPE:
+-				dwarfTypeImporter.processTypeDebugInfoEntry(die);
+-				break;
+-			case TYPEDEF:
+-				// TODO
+-				break;
+ 			default:
+ 				// skip other tags
+ 			}
+ 		} catch (Exception e) {
+-			log.appendMsg("Failed to process debug info entry " + die);
++			log.appendMsg("DWARF1: failed to process " + die + ": " + e);
+ 			//throw new RuntimeException("Failed to process debug info entry " + die, e);
+ 		}
+ 	}
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeExtractor.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeExtractor.java
+index c1fb748..5e0f5a9 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeExtractor.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeExtractor.java
+@@ -33,6 +33,34 @@ public class DWARF1TypeExtractor {
+ 		this.dwarfTypeManager = dwarfTypeManager;
+ 	}
+ 	
++	/** True if the DIE carries any of the four DWARF1 type attributes. */
++	static boolean hasType(DebugInfoEntry die) {
++		return die.getAttribute(AttributeName.FUND_TYPE).isPresent()
++				|| die.getAttribute(AttributeName.MOD_FUND_TYPE).isPresent()
++				|| die.getAttribute(AttributeName.USER_DEF_TYPE).isPresent()
++				|| die.getAttribute(AttributeName.MOD_U_D_TYPE).isPresent();
++	}
++
++	/**
++	 * PowerPC SVR4/EABI passes every struct/union argument by reference (pointer to a caller-made
++	 * copy), whatever its size. Model that explicitly so small aggregates are not split across GPRs.
++	 */
++	DataType toParameterType(DataType dt) {
++		DataType base = dt;
++		while (base instanceof ghidra.program.model.data.TypeDef) {
++			base = ((ghidra.program.model.data.TypeDef) base).getBaseDataType();
++		}
++		if (base instanceof ghidra.program.model.data.Composite) {
++			return new PointerDataType(dt, program.getDataTypeManager());
++		}
++		return dt;
++	}
++
++	/** Return type of a subroutine / subroutine type: no type attribute means void. */
++	DataType extractReturnType(DebugInfoEntry die) {
++		return hasType(die) ? extractDataType(die) : DataType.VOID;
++	}
++
+ 	DataType extractDataType(DebugInfoEntry die) {
+ 		Optional<FundamentalType> fundTypeOpt = die.<ConstAttributeValue>getAttribute(AttributeName.FUND_TYPE)
+ 				.map(ConstAttributeValue::get)
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeImporter.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeImporter.java
+index 17b88f6..f3aa9d7 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeImporter.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeImporter.java
+@@ -2,7 +2,7 @@ package com.github.rafalh.ghidra.dwarfone;
+ 
+ import java.io.IOException;
+ import java.util.ArrayList;
+-import java.util.Collections;
++import java.util.HashMap;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.Optional;
+@@ -15,9 +15,9 @@ import com.github.rafalh.ghidra.dwarfone.model.BlockAttributeValue;
+ import com.github.rafalh.ghidra.dwarfone.model.ConstAttributeValue;
+ import com.github.rafalh.ghidra.dwarfone.model.DebugInfoEntry;
+ import com.github.rafalh.ghidra.dwarfone.model.Format;
+-import com.github.rafalh.ghidra.dwarfone.model.FundamentalType;
+ import com.github.rafalh.ghidra.dwarfone.model.LocationAtomOp;
+ import com.github.rafalh.ghidra.dwarfone.model.LocationDescription;
++import com.github.rafalh.ghidra.dwarfone.model.RefAttributeValue;
+ import com.github.rafalh.ghidra.dwarfone.model.Tag;
+ 
+ import ghidra.app.util.bin.BinaryReader;
+@@ -29,31 +29,47 @@ import ghidra.program.model.data.DataType;
+ import ghidra.program.model.data.DataTypeConflictHandler;
+ import ghidra.program.model.data.DataTypeManager;
+ import ghidra.program.model.data.EnumDataType;
+-import ghidra.program.model.data.FunctionDefinition;
+ import ghidra.program.model.data.FunctionDefinitionDataType;
+ import ghidra.program.model.data.ParameterDefinition;
+ import ghidra.program.model.data.ParameterDefinitionImpl;
++import ghidra.program.model.data.PointerDataType;
+ import ghidra.program.model.data.Structure;
+ import ghidra.program.model.data.StructureDataType;
++import ghidra.program.model.data.TypeDef;
++import ghidra.program.model.data.TypedefDataType;
+ import ghidra.program.model.data.Union;
+ import ghidra.program.model.data.UnionDataType;
+ 
++/**
++ * Converts DWARF1 type DIEs into Ghidra data types.
++ *
++ * Types are deduplicated across compile units by (name, layout fingerprint): the same struct
++ * emitted by many CUs becomes a single Ghidra type, while a struct whose name collides with a
++ * differently laid out one (e.g. two SDK versions of the same header) is placed in a
++ * per-compile-unit category instead of being silently merged.
++ */
+ public class DWARF1TypeImporter {
+-	
++
++	private static final CategoryPath ROOT_CATEGORY = new CategoryPath("/DWARF");
++
+ 	private final DWARF1Program program;
+ 	private final MessageLog log;
+-	private final CategoryPath categoryPath;
+ 	private final DWARF1TypeManager dwarfTypeManager;
+ 	private final DWARF1TypeExtractor typeExtractor;
+-	
+-	public DWARF1TypeImporter(DWARF1Program program, MessageLog log, DWARF1TypeManager dwarfTypeManager, DWARF1TypeExtractor typeExtractor) {
++
++	/** key = kind|name|fingerprint -> imported type */
++	private final Map<String, DataType> byFingerprint = new HashMap<>();
++	/** key = kind|name -> fingerprint of the type occupying the root category slot */
++	private final Map<String, String> rootOwner = new HashMap<>();
++
++	public DWARF1TypeImporter(DWARF1Program program, MessageLog log, DWARF1TypeManager dwarfTypeManager,
++			DWARF1TypeExtractor typeExtractor) {
+ 		this.program = program;
+ 		this.log = log;
+ 		this.dwarfTypeManager = dwarfTypeManager;
+ 		this.typeExtractor = typeExtractor;
+-		this.categoryPath = new CategoryPath("/DWARF");
+ 	}
+-	
++
+ 	DataType processTypeDebugInfoEntry(DebugInfoEntry die) {
+ 		try {
+ 			switch (die.getTag()) {
+@@ -67,236 +83,434 @@ public class DWARF1TypeImporter {
+ 			case ARRAY_TYPE:
+ 				return processArrayType(die);
+ 			case SUBROUTINE_TYPE:
+-				return processSubrountineType(die);
++				return processSubroutineType(die);
+ 			case TYPEDEF:
+-			case STRING_TYPE:
++				return processTypedef(die);
+ 			case POINTER_TYPE:
++			case REFERENCE_TYPE:
++				return register(die, new PointerDataType(typeExtractor.extractDataType(die), dtm()));
+ 			case PTR_TO_MEMBER_TYPE:
+-			case SET_TYPE:
+-			case SUBRANGE_TYPE:
+-				// TODO
+-				throw new IllegalArgumentException("Unsupported debug info entry tag: " + die.getTag());
++				// pointer-to-member: plain pointer is the closest Ghidra equivalent
++				return register(die, new PointerDataType(DataType.DEFAULT, dtm()));
+ 			default:
+-				// skip other tags
+-				throw new IllegalArgumentException("Expected type tag, got " + die.getTag());
++				log.appendMsg("DWARF1: unsupported type tag " + die.getTag() + " at " + Long.toHexString(die.getRef()));
++				return register(die, DataType.DEFAULT);
+ 			}
+ 		} catch (Exception e) {
+ 			throw new RuntimeException("Failed to process type debug info entry " + die, e);
+ 		}
+ 	}
+-	
+-	private DataType processSubrountineType(DebugInfoEntry die) {
+-		// Note: this is a function type, not a pointer to function type
+-		DataType returnDt = typeExtractor.extractDataType(die);
+-		List<ParameterDefinition> params = new ArrayList<>();
+-		for (DebugInfoEntry childDie : die.getChildren()) {
+-			if (childDie.getTag() == Tag.FORMAL_PARAMETER) {
+-				String paramName = DWARF1ImportUtils.extractName(childDie).orElse(null);
+-				DataType dt = typeExtractor.extractDataType(childDie);
+-				params.add(new ParameterDefinitionImpl(paramName, dt, null));
+-			}
++
++	// ---------------------------------------------------------------- helpers
++
++	private DataTypeManager dtm() {
++		return program.getDataTypeManager();
++	}
++
++	private DataType register(DebugInfoEntry die, DataType dt) {
++		dwarfTypeManager.registerType(die.getRef(), dt);
++		return dt;
++	}
++
++	private Optional<Integer> intAttr(DebugInfoEntry die, AttributeName name) {
++		return die.<ConstAttributeValue>getAttribute(name).map(av -> av.get().intValue());
++	}
++
++	/** Name for a type DIE: its own name, else the name of a typedef pointing at it, else empty. */
++	private Optional<String> typeName(DebugInfoEntry die) {
++		Optional<String> n = DWARF1ImportUtils.extractName(die).filter(s -> !s.isEmpty() && !s.startsWith("@"));
++		if (n.isPresent()) {
++			return n;
+ 		}
+-		var paramsStr = params.stream()
+-				.map(ParameterDefinition::toString)
+-				.collect(Collectors.joining(", "));
+-		if (paramsStr.isEmpty()) {
+-			paramsStr = "void";
+-		}
+-		var funDtName = returnDt.toString() + "(" + paramsStr + ")";
+-		// check if type already exists
+-		DataTypeManager dtMgr = program.getDataTypeManager();
+-		DataType funDt = dtMgr.getDataType(categoryPath, funDtName);
+-		if (funDt == null || !(funDt instanceof FunctionDefinition)) {
+-			FunctionDefinitionDataType funDefDt = new FunctionDefinitionDataType(categoryPath, funDtName, dtMgr);
+-			funDefDt.setReturnType(returnDt);
+-			funDefDt.setArguments(params.toArray(new ParameterDefinition[params.size()]));
+-			funDt = dtMgr.addDataType(funDefDt, DataTypeConflictHandler.DEFAULT_HANDLER);
++		return program.getTypedefNameFor(die.getRef());
++	}
++
++	/**
++	 * Picks the category for a named type. The first layout seen for a name owns /DWARF/name;
++	 * other layouts of the same name go to /DWARF/<compile unit>/name.
++	 */
++	private CategoryPath categoryFor(DebugInfoEntry die, String kindName, String fingerprint) {
++		String owner = rootOwner.putIfAbsent(kindName, fingerprint);
++		if (owner == null || owner.equals(fingerprint)) {
++			return ROOT_CATEGORY;
+ 		}
+-		dwarfTypeManager.registerType(die.getRef(), funDt);
+-		return funDt;
++		return new CategoryPath(ROOT_CATEGORY, program.getCompileUnitName(die));
+ 	}
+ 
+-	private DataType processArrayType(DebugInfoEntry die) throws IOException {
+-		byte[] subscrData = die.<BlockAttributeValue>getAttribute(AttributeName.SUBSCR_DATA)
+-				.map(av -> av.get())
+-				.orElseThrow(() -> new IllegalArgumentException("array type without subscr_data " + die));
+-		var bp = new ByteArrayProvider(subscrData);
+-		List<Integer> dims = new ArrayList<>();
+-		DataType baseDt = null;
+-		BinaryReader br = new BinaryReader(bp, program.isLittleEndian());
+-		while (br.getPointerIndex() < bp.length()) {
+-			Format fmt = Format.decode(br.readNextByte());
+-			if (fmt == Format.ET) {
+-				Map.Entry<Integer, AttributeValue> attributeEntry = AttributeUtils.readAttribute(br);
+-				var at = AttributeName.decode(attributeEntry.getKey());
+-				var av = attributeEntry.getValue();
+-				baseDt = typeExtractor.extractDataType(at, av);
+-			} else if (fmt == Format.FT_C_C) {
+-				// type of index - unused
+-				FundamentalType.fromValue(br.readNextUnsignedShort());
+-				int minIndex = br.readNextInt();
+-				int maxIndex = br.readNextInt();
+-				int numElements = maxIndex - minIndex + 1;
+-				dims.add(numElements);
+-			} else {
+-				log.appendMsg("Unsupported format " + fmt + " in " + die);
+-				break;
+-			}
++	private int extractMemberOffset(DebugInfoEntry die) {
++		Optional<LocationDescription> locOpt = DWARF1ImportUtils.extractLocation(die, program);
++		if (locOpt.isEmpty()) {
++			return 0;
+ 		}
+-		if (baseDt == null) {
+-			throw new IllegalArgumentException("Missing array element type information");
++		var atoms = locOpt.get().getAtoms();
++		if (atoms.size() == 2 && atoms.get(0).getOp() == LocationAtomOp.CONST && atoms.get(1).getOp() == LocationAtomOp.ADD) {
++			return atoms.get(0).getArg().intValue();
+ 		}
+-		DataType dt = baseDt;
+-		Collections.reverse(dims);
+-		for (int dim : dims) {
+-			if (dim < 0) {
+-				throw new IllegalArgumentException("Bad array dimension: " + dim);
+-			}
+-			if (dim == 0) {
+-				// Ghidra does not support array data type with length 0 so return it as void type, which has zero size
+-				dt = DataType.VOID;
+-				break;
++		throw new IllegalArgumentException("unparsable member location " + atoms);
++	}
++
++	private String aggregateFingerprint(DebugInfoEntry die) {
++		StringBuilder sb = new StringBuilder();
++		sb.append(intAttr(die, AttributeName.BYTE_SIZE).orElse(-1));
++		for (DebugInfoEntry c : die.getChildren()) {
++			if (c.getTag() == Tag.MEMBER || c.getTag() == Tag.INHERITANCE) {
++				sb.append('|').append(DWARF1ImportUtils.extractName(c).orElse("?"));
++				try {
++					sb.append('@').append(extractMemberOffset(c));
++				} catch (Exception e) {
++					sb.append("@?");
++				}
++				intAttr(c, AttributeName.BIT_OFFSET).ifPresent(v -> sb.append('.').append(v));
++				intAttr(c, AttributeName.BIT_SIZE).ifPresent(v -> sb.append(':').append(v));
+ 			}
+-			dt = new ArrayDataType(dt, dim, -1, program.getDataTypeManager());
+ 		}
+-		dwarfTypeManager.registerType(die.getRef(), dt);
+-		return dt;
++		return sb.toString();
+ 	}
+ 
++	// ---------------------------------------------------------------- struct / class
++
+ 	private DataType processClassType(DebugInfoEntry die) {
+-		Optional<Number> byteSizeOpt = die.<ConstAttributeValue>getAttribute(AttributeName.BYTE_SIZE).map(av -> av.get());
++		Optional<Integer> byteSizeOpt = intAttr(die, AttributeName.BYTE_SIZE);
++		Optional<String> nameOpt = typeName(die);
++
+ 		if (byteSizeOpt.isEmpty()) {
+-			throw new IllegalArgumentException("class type is missing byte size attribute");
+-		}
+-		String name = DWARF1ImportUtils.extractName(die)
+-				// FIXME: anonymous class?
+-				.filter(n -> !n.equals("@class"))
+-				.orElseGet(() -> "anon_" + die.getRef());
+-		int size = byteSizeOpt.get().intValue();
+-		DataTypeManager dataTypeManager = program.getDataTypeManager();
+-		DataType existingDt = dataTypeManager.getDataType(categoryPath, name);
+-		if (existingDt != null) {
+-			// already imported
+-			dwarfTypeManager.registerType(die.getRef(), existingDt);
+-			return existingDt;
+-		}
+-		StructureDataType tempDt = new StructureDataType(categoryPath, name, size, dataTypeManager);
+-		// Register the type before importing fields because field can reference parent type
+-		Structure newDt = (Structure) dataTypeManager.addDataType(tempDt, DataTypeConflictHandler.DEFAULT_HANDLER);
+-		dwarfTypeManager.registerType(die.getRef(), newDt);
+-		//log.appendMsg("Struct " + name);
+-		for (DebugInfoEntry childDie : die.getChildren()) {
+-			switch (childDie.getTag()) {
+-			case MEMBER:
+-				processClassTypeMember(newDt, childDie);
+-				break;
+-			case INHERITANCE:
+-				processClassTypeInheritance(newDt, childDie);
+-				break;
+-			default:
+-				log.appendMsg("Unexpected child of class type: " + childDie.getTag());
++			// Forward declaration: resolve to the complete definition from another CU if there is one.
++			if (nameOpt.isPresent()) {
++				Optional<DebugInfoEntry> def = program.findCompleteDefinition(die.getTag(), nameOpt.get());
++				if (def.isPresent() && def.get() != die) {
++					return register(die, dwarfTypeManager.getUserDataType(def.get().getRef()));
++				}
++				// opaque type: empty placeholder so pointers still carry the name
++				DataType existing = dtm().getDataType(ROOT_CATEGORY, nameOpt.get());
++				if (existing != null) {
++					return register(die, existing);
++				}
++				var placeholder = new StructureDataType(ROOT_CATEGORY, nameOpt.get(), 0, dtm());
++				return register(die, dtm().addDataType(placeholder, DataTypeConflictHandler.KEEP_HANDLER));
++			}
++			return register(die, DataType.DEFAULT);
++		}
++
++		int size = byteSizeOpt.get();
++		String fp = aggregateFingerprint(die);
++		String name = nameOpt.orElseGet(() -> "anon_struct_" + Integer.toHexString(fp.hashCode()));
++		String key = "S|" + name + "|" + fp;
++		DataType cached = byFingerprint.get(key);
++		if (cached != null) {
++			return register(die, cached);
++		}
++
++		CategoryPath cat = categoryFor(die, "S|" + name, fp);
++		DataType existing = dtm().getDataType(cat, name);
++		if (existing instanceof Structure && existing.getLength() == size && !existing.isNotYetDefined()) {
++			// already imported by a previous run of the analyzer
++			byFingerprint.put(key, existing);
++			return register(die, existing);
++		}
++
++		StructureDataType tempDt = new StructureDataType(cat, name, size, dtm());
++		Structure newDt = (Structure) dtm().addDataType(tempDt, DataTypeConflictHandler.REPLACE_HANDLER);
++		// register before members: members may reference the type itself
++		byFingerprint.put(key, newDt);
++		register(die, newDt);
++
++		for (DebugInfoEntry child : die.getChildren()) {
++			try {
++				switch (child.getTag()) {
++				case MEMBER:
++					processClassTypeMember(newDt, child);
++					break;
++				case INHERITANCE:
++					processClassTypeInheritance(newDt, child);
++					break;
++				default:
++					// member function declarations, nested types, etc.
++					break;
++				}
++			} catch (Exception e) {
++				log.appendMsg("DWARF1: " + name + ": failed to add " + child + ": " + e.getMessage());
+ 			}
+ 		}
+ 		return newDt;
+ 	}
+-	
++
+ 	private void processClassTypeInheritance(Structure sdt, DebugInfoEntry die) {
+ 		DataType baseDt = typeExtractor.extractDataType(die);
+-		sdt.replaceAtOffset(0, baseDt, -1, "__base", null);
++		int offset = extractMemberOffset(die);
++		if (baseDt.getLength() <= 0 || offset + baseDt.getLength() > sdt.getLength()) {
++			return;
++		}
++		sdt.replaceAtOffset(offset, baseDt, baseDt.getLength(), "base_" + baseDt.getName(), null);
+ 	}
+ 
+-	private void processClassTypeMember(Structure sdt, DebugInfoEntry die) {
++	private void processClassTypeMember(Structure sdt, DebugInfoEntry die) throws Exception {
+ 		String memberName = DWARF1ImportUtils.extractName(die).orElse(null);
+-		//log.appendMsg("Member " + memberName);
+ 		DataType memberDt = typeExtractor.extractDataType(die);
+ 		int memberOffset = extractMemberOffset(die);
+-		assert memberDt != null;
+-		if (memberOffset >= sdt.getLength()) {
+-			// TODO: memberDt.isDynamicallySized()
++		Optional<Integer> bitSize = intAttr(die, AttributeName.BIT_SIZE);
++
++		if (bitSize.isPresent()) {
++			int storageSize = intAttr(die, AttributeName.BYTE_SIZE).orElse(memberDt.getLength());
++			int bitOffsetFromMsb = intAttr(die, AttributeName.BIT_OFFSET).orElse(0);
++			int bitOffsetFromLsb = storageSize * 8 - bitOffsetFromMsb - bitSize.get();
++			if (memberOffset + storageSize > sdt.getLength() || bitOffsetFromLsb < 0) {
++				return;
++			}
++			sdt.insertBitFieldAt(memberOffset, storageSize, bitOffsetFromLsb, memberDt, bitSize.get(), memberName, null);
++			return;
++		}
++
++		int len = memberDt.getLength();
++		if (len <= 0 || memberOffset + len > sdt.getLength()) {
++			// flexible array / zero-sized member / member past the declared end
++			return;
++		}
++		// Overlapping members (anonymous unions flattened into the struct, e.g. GCC's vtable entry
++		// { __delta; __index; union { __pfn; __delta2; } }): keep the larger one, note the other.
++		var existing = sdt.getComponentContaining(memberOffset);
++		if (existing != null && existing.getDataType() != DataType.DEFAULT && !existing.isBitFieldComponent()
++				&& existing.getOffset() == memberOffset && existing.getLength() >= len) {
++			String c = existing.getComment();
++			existing.setComment((c == null || c.isEmpty() ? "union with: " : c + ", ") + memberName);
+ 			return;
+ 		}
+-		sdt.replaceAtOffset(memberOffset, memberDt, -1, memberName, null);
++		try {
++			sdt.replaceAtOffset(memberOffset, memberDt, len, memberName, null);
++		} catch (IllegalArgumentException e) {
++			// e.g. duplicate field name: keep the field, drop the name
++			sdt.replaceAtOffset(memberOffset, memberDt, len, null, memberName);
++		}
+ 	}
+-	
++
++	// ---------------------------------------------------------------- union
++
+ 	private DataType processUnionType(DebugInfoEntry die) {
+-		String name = DWARF1ImportUtils.extractName(die).orElseGet(() -> "anon_" + die.getRef());
+-		DataTypeManager dataTypeManager = program.getDataTypeManager();
+-		DataType existingDt = dataTypeManager.getDataType(categoryPath, name);
+-		if (existingDt != null) {
+-			// already imported
+-			dwarfTypeManager.registerType(die.getRef(), existingDt);
+-			return existingDt;
+-		}
+-		UnionDataType tempUnionDt = new UnionDataType(categoryPath, name, dataTypeManager);
+-		Union newUnionDt = (Union) dataTypeManager.addDataType(tempUnionDt, DataTypeConflictHandler.DEFAULT_HANDLER);
+-		dwarfTypeManager.registerType(die.getRef(), newUnionDt);
+-		//log.appendMsg("Struct " + name);
+-		for (DebugInfoEntry childDie : die.getChildren()) {
+-			switch (childDie.getTag()) {
+-			case MEMBER:
+-				processUnionTypeMember(newUnionDt, childDie);
+-				break;
+-			default:
+-				log.appendMsg("Unexpected child of union type: " + childDie.getTag());
++		if (intAttr(die, AttributeName.BYTE_SIZE).isEmpty()) {
++			Optional<String> nameOpt = typeName(die);
++			if (nameOpt.isPresent()) {
++				Optional<DebugInfoEntry> def = program.findCompleteDefinition(Tag.UNION_TYPE, nameOpt.get());
++				if (def.isPresent() && def.get() != die) {
++					return register(die, dwarfTypeManager.getUserDataType(def.get().getRef()));
++				}
++			}
++		}
++		String fp = aggregateFingerprint(die);
++		String name = typeName(die).orElseGet(() -> "anon_union_" + Integer.toHexString(fp.hashCode()));
++		String key = "U|" + name + "|" + fp;
++		DataType cached = byFingerprint.get(key);
++		if (cached != null) {
++			return register(die, cached);
++		}
++		CategoryPath cat = categoryFor(die, "U|" + name, fp);
++		DataType existing = dtm().getDataType(cat, name);
++		if (existing instanceof Union && !existing.isNotYetDefined()) {
++			byFingerprint.put(key, existing);
++			return register(die, existing);
++		}
++		Union newDt = (Union) dtm().addDataType(new UnionDataType(cat, name, dtm()), DataTypeConflictHandler.REPLACE_HANDLER);
++		byFingerprint.put(key, newDt);
++		register(die, newDt);
++		for (DebugInfoEntry child : die.getChildren()) {
++			if (child.getTag() != Tag.MEMBER) {
++				continue;
++			}
++			try {
++				String memberName = DWARF1ImportUtils.extractName(child).orElse(null);
++				DataType memberDt = typeExtractor.extractDataType(child);
++				Optional<Integer> bitSize = intAttr(child, AttributeName.BIT_SIZE);
++				if (bitSize.isPresent()) {
++					newDt.addBitField(memberDt, bitSize.get(), memberName, null);
++				} else if (memberDt.getLength() > 0) {
++					newDt.add(memberDt, memberName, null);
++				}
++			} catch (Exception e) {
++				log.appendMsg("DWARF1: union " + name + ": failed to add " + child + ": " + e.getMessage());
+ 			}
+ 		}
+-		return newUnionDt;
++		return newDt;
+ 	}
+ 
+-	private void processUnionTypeMember(Union union, DebugInfoEntry die) {
+-		String memberName = DWARF1ImportUtils.extractName(die).orElse(null);
+-		//log.appendMsg("Member " + childNameOpt);
+-		DataType memberDt = typeExtractor.extractDataType(die);
+-		union.add(memberDt, memberName, null);
+-	}
+-	
++	// ---------------------------------------------------------------- enum
++
+ 	private DataType processEnumType(DebugInfoEntry die) throws IOException {
+-		Optional<Number> byteSizeOpt = die.<ConstAttributeValue>getAttribute(AttributeName.BYTE_SIZE).map(av -> av.get());
++		int size = intAttr(die, AttributeName.BYTE_SIZE).orElse(4);
+ 		Optional<byte[]> elementListOpt = die.<BlockAttributeValue>getAttribute(AttributeName.ELEMENT_LIST).map(av -> av.get());
+-		
+-		String name = DWARF1ImportUtils.extractName(die).orElseGet(() -> "anon_" + die.getRef());
+-		DataTypeManager dataTypeManager = program.getDataTypeManager();
+-		DataType existingDt = dataTypeManager.getDataType(categoryPath, name);
+-		if (existingDt != null) {
+-			// already imported?
+-			dwarfTypeManager.registerType(die.getRef(), existingDt);
+-			return existingDt;
+-		}
+-		
+-		int size = byteSizeOpt.orElse(4).intValue();
+-		var tempEnumDt = new EnumDataType(categoryPath, name, size, dataTypeManager);
++
++		// DWARF1 element list: repeated { 4-byte value (size of 'long'), NUL-terminated name },
++		// in reverse declaration order.
++		List<Map.Entry<String, Long>> elements = new ArrayList<>();
+ 		if (elementListOpt.isPresent()) {
+-			processEnumElementList(tempEnumDt, elementListOpt.get(), size);
++			var bp = new ByteArrayProvider(elementListOpt.get());
++			BinaryReader br = new BinaryReader(bp, program.isLittleEndian());
++			while (br.getPointerIndex() + 4 < bp.length()) {
++				long value = br.readNextInt();
++				elements.add(0, Map.entry(br.readNextAsciiString(), value));
++			}
++		}
++		String fp = size + elements.stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining(","));
++		String name = typeName(die).orElseGet(() -> "anon_enum_" + Integer.toHexString(fp.hashCode()));
++		String key = "E|" + name + "|" + fp;
++		DataType cached = byFingerprint.get(key);
++		if (cached != null) {
++			return register(die, cached);
+ 		}
++		CategoryPath cat = categoryFor(die, "E|" + name, fp);
++		var tempEnumDt = new EnumDataType(cat, name, size, dtm());
++		long mask = size >= 8 ? -1L : (1L << (size * 8)) - 1;
++		for (var e : elements) {
++			try {
++				long v = e.getValue();
++				// Ghidra enums accept signed or unsigned values within the storage size
++				if (size < 8 && (v < -(mask >> 1) - 1 || v > mask)) {
++					v &= mask;
++				}
++				tempEnumDt.add(e.getKey(), v);
++			} catch (IllegalArgumentException ex) {
++				// duplicate name / out of range: skip the element
++			}
++		}
++		DataType enumDt = dtm().addDataType(tempEnumDt, DataTypeConflictHandler.REPLACE_HANDLER);
++		byFingerprint.put(key, enumDt);
++		return register(die, enumDt);
++	}
+ 
+-		DataType enumDt = dataTypeManager.addDataType(tempEnumDt, DataTypeConflictHandler.DEFAULT_HANDLER);
+-		dwarfTypeManager.registerType(die.getRef(), enumDt);
+-		return enumDt;
++	// ---------------------------------------------------------------- typedef
++
++	private DataType processTypedef(DebugInfoEntry die) {
++		Optional<String> nameOpt = DWARF1ImportUtils.extractName(die);
++		DataType baseDt = typeExtractor.extractDataType(die);
++		if (nameOpt.isEmpty()) {
++			return register(die, baseDt);
++		}
++		String name = nameOpt.get();
++		// typedef struct { ... } Name;  -> the anonymous struct already took the typedef's name
++		if (baseDt.getName().equals(name)) {
++			return register(die, baseDt);
++		}
++		String fp = baseDt.getPathName();
++		String key = "T|" + name + "|" + fp;
++		DataType cached = byFingerprint.get(key);
++		if (cached != null) {
++			return register(die, cached);
++		}
++		CategoryPath cat = categoryFor(die, "T|" + name, fp);
++		DataType existing = dtm().getDataType(cat, name);
++		if (existing instanceof TypeDef && ((TypeDef) existing).getDataType().isEquivalent(baseDt)) {
++			byFingerprint.put(key, existing);
++			return register(die, existing);
++		}
++		DataType td = dtm().addDataType(new TypedefDataType(cat, name, baseDt, dtm()), DataTypeConflictHandler.REPLACE_HANDLER);
++		byFingerprint.put(key, td);
++		return register(die, td);
+ 	}
+-	
+-	private void processEnumElementList(EnumDataType edt, byte[] encodedElementList, int size) throws IOException {
+-		var bp = new ByteArrayProvider(encodedElementList);
++
++	// ---------------------------------------------------------------- function type
++
++	private DataType processSubroutineType(DebugInfoEntry die) {
++		// Note: this is a function type, not a pointer to function type
++		DataType returnDt = typeExtractor.extractReturnType(die);
++		List<ParameterDefinition> params = new ArrayList<>();
++		// SVR4/EABI: aggregates are returned through a hidden pointer in r3 (see function importer)
++		DataType retBase = returnDt;
++		while (retBase instanceof TypeDef) {
++			retBase = ((TypeDef) retBase).getBaseDataType();
++		}
++		if (retBase instanceof ghidra.program.model.data.Composite) {
++			returnDt = new PointerDataType(returnDt, dtm());
++			params.add(new ParameterDefinitionImpl("__return_ptr", returnDt, null));
++		}
++		boolean varArgs = false;
++		for (DebugInfoEntry childDie : die.getChildren()) {
++			if (childDie.getTag() == Tag.FORMAL_PARAMETER) {
++				String paramName = DWARF1ImportUtils.extractName(childDie).orElse(null);
++				DataType dt = typeExtractor.toParameterType(typeExtractor.extractDataType(childDie));
++				params.add(new ParameterDefinitionImpl(paramName, dt, null));
++			} else if (childDie.getTag() == Tag.UNSPECIFIED_PARAMETERS) {
++				varArgs = true;
++			}
++		}
++		// same naming scheme as Ghidra's DWARF importer: _func_<ret>_<param>_<param>
++		StringBuilder nb = new StringBuilder("_func_").append(mangleTypeName(returnDt));
++		for (ParameterDefinition p : params) {
++			nb.append('_').append(mangleTypeName(p.getDataType()));
++		}
++		if (params.isEmpty() && !varArgs) {
++			nb.append("_void");
++		}
++		if (varArgs) {
++			nb.append("_varargs");
++		}
++		String funDtName = nb.toString();
++		DataType funDt = dtm().getDataType(ROOT_CATEGORY, funDtName);
++		if (!(funDt instanceof ghidra.program.model.data.FunctionDefinition)) {
++			FunctionDefinitionDataType funDefDt = new FunctionDefinitionDataType(ROOT_CATEGORY, funDtName, dtm());
++			funDefDt.setReturnType(returnDt);
++			funDefDt.setArguments(params.toArray(new ParameterDefinition[0]));
++			funDefDt.setVarArgs(varArgs);
++			funDt = dtm().addDataType(funDefDt, DataTypeConflictHandler.KEEP_HANDLER);
++		}
++		return register(die, funDt);
++	}
++
++	private static String mangleTypeName(DataType dt) {
++		return dt.getDisplayName().replace("*", "_ptr").replace("[", "_").replace("]", "")
++				.replace(' ', '_').replace(",", "_").replace("__", "_");
++	}
++
++	// ---------------------------------------------------------------- array
++
++	private DataType processArrayType(DebugInfoEntry die) throws IOException {
++		byte[] subscrData = die.<BlockAttributeValue>getAttribute(AttributeName.SUBSCR_DATA)
++				.map(av -> av.get())
++				.orElseThrow(() -> new IllegalArgumentException("array type without subscr_data " + die));
++		var bp = new ByteArrayProvider(subscrData);
+ 		BinaryReader br = new BinaryReader(bp, program.isLittleEndian());
++		List<Integer> dims = new ArrayList<>();
++		DataType baseDt = null;
+ 		while (br.getPointerIndex() < bp.length()) {
+-			long value = 0;
+-			if(size == 1)
+-				value = br.readNextByte();
+-			else if(size == 2)
+-				value = br.readNextShort();
+-			else
+-				value = br.readNextInt(); // FIXME: should use machine specific FT_long size
+-			String name = br.readNextAsciiString();
+-			edt.add(name, value);
++			Format fmt = Format.decode(br.readNextByte());
++			if (fmt == Format.ET) {
++				Map.Entry<Integer, AttributeValue> attributeEntry = AttributeUtils.readAttribute(br);
++				var at = AttributeName.decode(attributeEntry.getKey());
++				baseDt = typeExtractor.extractDataType(at, attributeEntry.getValue());
++				break;
++			}
++			// index type: FT_* = 2-byte fundamental type, UT_* = 4-byte reference
++			boolean userIndex = fmt.ordinal() >= Format.UT_C_C.ordinal();
++			if (userIndex) {
++				br.readNextUnsignedInt();
++			} else {
++				br.readNextUnsignedShort();
++			}
++			boolean lowConst = fmt == Format.FT_C_C || fmt == Format.FT_C_X || fmt == Format.UT_C_C || fmt == Format.UT_C_X;
++			boolean highConst = fmt == Format.FT_C_C || fmt == Format.FT_X_C || fmt == Format.UT_C_C || fmt == Format.UT_X_C;
++			Integer low = readBound(br, lowConst);
++			Integer high = readBound(br, highConst);
++			// non-constant bound (location expression): unknown extent
++			dims.add(low != null && high != null ? high - low + 1 : 0);
+ 		}
++		if (baseDt == null) {
++			throw new IllegalArgumentException("Missing array element type information");
++		}
++		DataType dt = baseDt;
++		for (int i = dims.size() - 1; i >= 0; i--) {
++			int dim = dims.get(i);
++			if (dim <= 0 || dt.getLength() <= 0) {
++				// Ghidra has no zero-length / unbounded arrays; void has zero size and is skipped by callers
++				dt = DataType.VOID;
++				break;
++			}
++			dt = new ArrayDataType(dt, dim, dt.getLength(), dtm());
++		}
++		return register(die, dt);
+ 	}
+-	
+-	private int extractMemberOffset(DebugInfoEntry die) {
+-		LocationDescription location = DWARF1ImportUtils.extractLocation(die, program)
+-				.orElseThrow(() -> new IllegalArgumentException("expected location in " + die));
+-		var atoms = location.getAtoms();
+-		if (atoms.size() == 2 && atoms.get(0).getOp() == LocationAtomOp.CONST && atoms.get(1).getOp() == LocationAtomOp.ADD) {
+-			return atoms.get(0).getArg().intValue();
++
++	private Integer readBound(BinaryReader br, boolean isConst) throws IOException {
++		if (isConst) {
++			return br.readNextInt();
+ 		}
+-		throw new IllegalArgumentException("unparsable member location " + atoms);
++		int len = br.readNextUnsignedShort();
++		br.readNextByteArray(len);
++		return null;
+ 	}
+ }
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeManager.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeManager.java
+index ea77e30..d3fdf09 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeManager.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1TypeManager.java
+@@ -73,17 +73,45 @@ public class DWARF1TypeManager {
+ 		case DBL_PREC_FLOAT:
+ 			return dataTypeManager.getDataType(CategoryPath.ROOT, "double");
+ 		case EXT_PREC_FLOAT:
+-			return dataTypeManager.getDataType(CategoryPath.ROOT, "longdouble");
++			// PowerPC EABI (GCC 2.95 / SN, CodeWarrior): long double == double (8 bytes)
++			return dataTypeManager.getDataType(CategoryPath.ROOT, "double");
++		case LONG_LONG:
++			return dataTypeManager.getDataType(CategoryPath.ROOT, "longlong");
++		case UNSIGNED_LONG_LONG:
++			return dataTypeManager.getDataType(CategoryPath.ROOT, "ulonglong");
+ 		case VOID:
+ 			return DataType.VOID;
+ 		case BOOLEAN:
+-			return dataTypeManager.getDataType(CategoryPath.ROOT, "bool");
++			return getBool32();
+ 		default:
+ 			log.appendMsg("Unknown fundamental type: " + ft);
+ 			return DataType.DEFAULT;
+ 		}
+ 	}
+ 
++	private DataType bool32;
++
++	/**
++	 * GCC 2.x on PowerPC (e.g. SN ProDG for GameCube) uses a 4-byte bool: every bool member
++	 * is followed by 4 bytes and the code accesses it with 32-bit loads/stores. Model it as a
++	 * 4-byte enum so the decompiler prints true/false.
++	 */
++	private DataType getBool32() {
++		if (bool32 == null) {
++			var dtm = program.getDataTypeManager();
++			var cat = new CategoryPath("/DWARF");
++			DataType existing = dtm.getDataType(cat, "bool32");
++			if (existing == null) {
++				var e = new ghidra.program.model.data.EnumDataType(cat, "bool32", 4, dtm);
++				e.add("false", 0);
++				e.add("true", 1);
++				existing = dtm.addDataType(e, ghidra.program.model.data.DataTypeConflictHandler.KEEP_HANDLER);
++			}
++			bool32 = existing;
++		}
++		return bool32;
++	}
++
+ 	public void registerType(long ref, DataType dt) {
+ 		userDataTypeMap.put(ref, dt);
+ 	}
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1VariableImporter.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1VariableImporter.java
+index 2ab8601..304cbf4 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1VariableImporter.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/DWARF1VariableImporter.java
+@@ -1,6 +1,10 @@
+ package com.github.rafalh.ghidra.dwarfone;
+ 
++import java.util.HashMap;
++import java.util.HashSet;
++import java.util.Map;
+ import java.util.Optional;
++import java.util.Set;
+ 
+ import com.github.rafalh.ghidra.dwarfone.model.DebugInfoEntry;
+ import com.github.rafalh.ghidra.dwarfone.model.LocationAtomOp;
+@@ -10,71 +14,178 @@ import com.github.rafalh.ghidra.dwarfone.model.Tag;
+ import ghidra.app.util.importer.MessageLog;
+ import ghidra.program.model.address.Address;
+ import ghidra.program.model.data.DataType;
++import ghidra.program.model.listing.Function;
++import ghidra.program.model.listing.LocalVariableImpl;
++import ghidra.program.model.listing.Program;
++import ghidra.program.model.listing.Variable;
++import ghidra.program.model.mem.MemoryBlock;
+ import ghidra.program.model.symbol.SourceType;
+-import ghidra.program.model.util.CodeUnitInsertionException;
+-import ghidra.util.exception.InvalidInputException;
++import ghidra.program.model.symbol.Symbol;
+ 
+ public class DWARF1VariableImporter {
++	/** PowerPC stack pointer */
++	private static final int REG_SP = 1;
++
+ 	private final DWARF1Program dwarfProgram;
+ 	private final MessageLog log;
+ 	private final DWARF1TypeExtractor typeExtractor;
+-	
+-	DWARF1VariableImporter(DWARF1Program dwarfProgram, MessageLog log, DWARF1TypeExtractor typeExtractor) {
++	private final DWARF1FunctionImporter functionImporter;
++	private final Map<Function, Integer> frameSizes = new HashMap<>();
++	private final Map<Function, Set<String>> localNames = new HashMap<>();
++	private DebugInfoEntry typeDie;
++	private final Map<Address, Integer> appliedLengths = new HashMap<>();
++	private int globalCount;
++	private int localCount;
++
++	DWARF1VariableImporter(DWARF1Program dwarfProgram, MessageLog log, DWARF1TypeExtractor typeExtractor,
++			DWARF1FunctionImporter functionImporter) {
+ 		this.dwarfProgram = dwarfProgram;
+ 		this.log = log;
+ 		this.typeExtractor = typeExtractor;
++		this.functionImporter = functionImporter;
++	}
++
++	int getGlobalCount() {
++		return globalCount;
++	}
++
++	int getLocalCount() {
++		return localCount;
+ 	}
+-	
++
+ 	void processVariable(DebugInfoEntry die) {
+-		Optional<String> nameOptional = DWARF1ImportUtils.extractName(die);
++		// locals of out-of-line definitions take name and type from their declaration (AT_specification)
++		Optional<DebugInfoEntry> specOpt = die.<com.github.rafalh.ghidra.dwarfone.model.RefAttributeValue>getAttribute(
++				com.github.rafalh.ghidra.dwarfone.model.AttributeName.SPECIFICATIONREFERENCE)
++				.flatMap(r -> dwarfProgram.getDebugInfoEntry(r.get()));
++		typeDie = (!DWARF1TypeExtractor.hasType(die) && specOpt.isPresent()) ? specOpt.get() : die;
++		Optional<String> nameOptional = DWARF1ImportUtils.extractName(die)
++				.or(() -> specOpt.flatMap(DWARF1ImportUtils::extractName));
+ 		Optional<LocationDescription> locationOptional = DWARF1ImportUtils.extractLocation(die, dwarfProgram);
+ 		if (nameOptional.isEmpty() || locationOptional.isEmpty()) {
+ 			return;
+ 		}
+-		String name = nameOptional.get();
+-		LocationDescription location = locationOptional.get();
+-		Optional<Long> offsetOpt = offsetFromLocation(location);
+-		// Note: local variables may have static address in which case we want to import them
+-		if (offsetOpt.isEmpty()) {
+-			return;
++		var atoms = locationOptional.get().getAtoms();
++		if (atoms.size() == 1 && atoms.get(0).getOp() == LocationAtomOp.ADDR) {
++			processStaticVariable(die, nameOptional.get(), atoms.get(0).getArg());
++		} else if (die.getTag() == Tag.LOCAL_VARIABLE && atoms.size() == 3
++				&& atoms.get(0).getOp() == LocationAtomOp.BASEREG && atoms.get(0).getArg() == REG_SP
++				&& atoms.get(1).getOp() == LocationAtomOp.CONST && atoms.get(2).getOp() == LocationAtomOp.ADD) {
++			processStackVariable(die, nameOptional.get(), atoms.get(1).getArg().intValue());
+ 		}
+-		Long offset = offsetOpt.get();
+-		//log.appendMsg(name + " " + Long.toHexString(offset));
++		// Register-allocated locals are not imported: DWARF1 gives no live ranges, and binding a
++		// register to a name for the whole function misleads the decompiler.
++	}
++
++	private void processStaticVariable(DebugInfoEntry die, String name, long offset) {
+ 		if (offset == 0) {
+-			//log.appendMsg("Skipping variable with null address: " + name);
+ 			return;
+ 		}
+-		// To avoid having static variables with a duplicated name append an offset to the name
+-		// Note: prefixing variable with function name or file name would not be enough - local variables have block scope
+-		if (die.getTag() == Tag.LOCAL_VARIABLE) {
+-			name += "_" + Long.toHexString(offset);
+-		}
+-		// Create symbol
++		Program program = dwarfProgram.getProgram();
+ 		Address addr = dwarfProgram.toAddr(offset);
+-		try {
+-			dwarfProgram.getProgram().getSymbolTable().createLabel(addr, name, SourceType.IMPORTED);
+-		} catch (InvalidInputException e) {
+-			log.appendException(e);
++		MemoryBlock block = program.getMemory().getBlock(addr);
++		if (block == null || block.isExecute()) {
++			return;
+ 		}
+-		// Set data type
+-		DataType dt = typeExtractor.extractDataType(die);
+-		if (dt.getLength() > 0 && dt != DataType.DEFAULT) {
++		// Only label when nothing better is there (the ELF symbol table usually already named it)
++		Symbol primary = program.getSymbolTable().getPrimarySymbol(addr);
++		if (primary == null || primary.getSource() == SourceType.DEFAULT) {
+ 			try {
+-				// a bit brutal... there should be an option for clearing
+-				dwarfProgram.getProgram().getListing().clearCodeUnits(addr, addr.add(dt.getLength() - 1), false);
+-				dwarfProgram.getProgram().getListing().createData(addr, dt);
+-			} catch (CodeUnitInsertionException e) {
+-				log.appendException(e);
++				// function-static variables can share names: qualify with the address
++				String label = die.getTag() == Tag.LOCAL_VARIABLE ? name + "_" + Long.toHexString(offset) : name;
++				program.getSymbolTable().createLabel(addr, label, SourceType.IMPORTED);
++			} catch (Exception e) {
++				log.appendMsg("DWARF1: label " + name + ": " + e.getMessage());
++			}
++		}
++		DataType dt = typeExtractor.extractDataType(typeDie);
++		if (dt.getLength() <= 0 || dt == DataType.DEFAULT) {
++			return;
++		}
++		// The same global is described by every compile unit that references it (extern
++		// declarations included): keep the most complete (largest) type seen for each address.
++		Integer prev = appliedLengths.get(addr);
++		if (prev != null && prev >= dt.getLength()) {
++			return;
++		}
++		try {
++			Address end = addr.add(dt.getLength() - 1);
++			if (program.getListing().getInstructions(new ghidra.program.model.address.AddressSet(addr, end), true).hasNext()) {
++				return;
+ 			}
++			program.getListing().clearCodeUnits(addr, end, false);
++			program.getListing().createData(addr, dt);
++			if (prev == null) {
++				globalCount++;
++			}
++			appliedLengths.put(addr, dt.getLength());
++		} catch (Exception e) {
++			log.appendMsg("DWARF1: data " + name + " @ " + addr + ": " + e.getMessage());
++		}
++	}
++
++	private void processStackVariable(DebugInfoEntry die, String name, int spOffset) {
++		Optional<Function> funOpt = findEnclosingFunction(die);
++		if (funOpt.isEmpty()) {
++			return;
++		}
++		Function fun = funOpt.get();
++		int frameSize = frameSizes.computeIfAbsent(fun, this::findFrameSize);
++		if (frameSize <= 0) {
++			return;
++		}
++		DataType dt = typeExtractor.extractDataType(typeDie);
++		if (dt.getLength() <= 0) {
++			return;
++		}
++		// DWARF offset is relative to r1 after the prologue's "stwu r1,-frameSize(r1)";
++		// Ghidra stack offsets are relative to r1 at function entry.
++		int stackOffset = spOffset - frameSize;
++		Set<String> names = localNames.computeIfAbsent(fun, f -> {
++			Set<String> s = new HashSet<>();
++			for (Variable v : f.getAllVariables()) {
++				s.add(v.getName());
++			}
++			return s;
++		});
++		String unique = name;
++		for (int i = 2; names.contains(unique); i++) {
++			unique = name + "_" + i;
++		}
++		try {
++			var var = new LocalVariableImpl(unique, dt, stackOffset, dwarfProgram.getProgram());
++			fun.addLocalVariable(var, SourceType.IMPORTED);
++			names.add(unique);
++			localCount++;
++		} catch (Exception e) {
++			log.appendMsg("DWARF1: local " + name + " in " + fun.getName() + ": " + e.getMessage());
+ 		}
+ 	}
+-	
+-	private Optional<Long> offsetFromLocation(LocationDescription location) {
+-		var locationAtoms = location.getAtoms();
+-		if (locationAtoms.size() == 1 && locationAtoms.get(0).getOp() == LocationAtomOp.ADDR) {
+-			return Optional.of(locationAtoms.get(0).getArg());
++
++	private Optional<Function> findEnclosingFunction(DebugInfoEntry die) {
++		for (DebugInfoEntry cur = die.getParent(); cur != null; cur = cur.getParent()) {
++			if (cur.getTag() == Tag.GLOBAL_SUBROUTINE || cur.getTag() == Tag.SUBROUTINE) {
++				return functionImporter.getFunction(cur.getRef());
++			}
+ 		}
+-		//log.appendMsg("Complex location not supported: " + locationAtoms);
+ 		return Optional.empty();
+ 	}
++
++	/** Finds "stwu r1,-N(r1)" (0x9421xxxx) in the prologue and returns N, or -1. */
++	private int findFrameSize(Function fun) {
++		var mem = dwarfProgram.getProgram().getMemory();
++		Address a = fun.getEntryPoint();
++		try {
++			for (int i = 0; i < 12; i++) {
++				int insn = mem.getInt(a.add(i * 4L), true);
++				if ((insn & 0xFFFF0000) == 0x94210000) {
++					short d = (short) (insn & 0xFFFF);
++					return d < 0 ? -d : -1;
++				}
++			}
++		} catch (Exception e) {
++			// unreadable
++		}
++		return -1;
++	}
+ }
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/model/AttributeName.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/model/AttributeName.java
+index 2df3864..55faf6f 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/model/AttributeName.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/model/AttributeName.java
+@@ -74,7 +74,8 @@ public enum AttributeName {
+ 		}
+ 		AttributeName at = VALUE_MAP.get(value);
+ 		if (at == null) {
+-			throw new IllegalArgumentException("invalid attribute value " + value);
++			// vendor extension (e.g. GNU AT_sf_names/AT_body_begin at 0x8000+): treat as user-defined
++			return USER;
+ 		}
+ 		return at;
+ 	}
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/model/FundamentalType.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/model/FundamentalType.java
+index 8d7a761..000650b 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/model/FundamentalType.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/model/FundamentalType.java
+@@ -28,6 +28,9 @@ public enum FundamentalType {
+ 	BOOLEAN(0x0015),
+ 	EXT_PREC_COMPLEX(0x0016),
+ 	LABEL(0x0017),
++	// GNU vendor extensions (gcc dwarfout.c: FT_long_long / FT_unsigned_long_long)
++	LONG_LONG(0x8008),
++	UNSIGNED_LONG_LONG(0x8208),
+ 	USER(null);
+ 
+ 	private static final int LO_USER = 0x8000;
+@@ -47,10 +50,13 @@ public enum FundamentalType {
+ 	}
+ 	
+ 	public static FundamentalType fromValue(int value) {
++		FundamentalType ft = VALUE_MAP.get(value);
++		if (ft != null) {
++			return ft;
++		}
+ 		if (value >= LO_USER && value <= HI_USER) {
+ 			return USER;
+ 		}
+-		FundamentalType ft = VALUE_MAP.get(value);
+ 		if (ft == null) {
+ 			throw new IllegalArgumentException("invalid fundamental type " + value);
+ 		}
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/model/LocationDescription.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/model/LocationDescription.java
+index 0dcd77a..c7cf75b 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/model/LocationDescription.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/model/LocationDescription.java
+@@ -26,10 +26,14 @@ public class LocationDescription {
+ 			var op = LocationAtomOp.decode(id);
+ 			Long arg;
+ 			switch (op) {
++			case ADDR:
++				// addresses are unsigned (GameCube RAM is at 0x80000000+)
++				arg = br.readNextUnsignedInt();
++				break;
+ 			case REG:
+ 			case BASEREG:
+-			case ADDR: 
+-			case CONST: 
++			case CONST:
++				// constants are signed (negative stack offsets)
+ 				arg = (long) br.readNextInt();
+ 				break;
+ 			default:
+diff --git a/src/main/java/com/github/rafalh/ghidra/dwarfone/model/Tag.java b/src/main/java/com/github/rafalh/ghidra/dwarfone/model/Tag.java
+index cb0c50c..438b3af 100644
+--- a/src/main/java/com/github/rafalh/ghidra/dwarfone/model/Tag.java
++++ b/src/main/java/com/github/rafalh/ghidra/dwarfone/model/Tag.java
+@@ -64,7 +64,8 @@ public enum Tag {
+ 		}
+ 		Tag tag = VALUE_MAP.get(value);
+ 		if (tag == null) {
+-			throw new IllegalArgumentException("invalid tag value " + value);
++			// unknown vendor extension: treat as user-defined
++			return USER;
+ 		}
+ 		return tag;
+ 	}

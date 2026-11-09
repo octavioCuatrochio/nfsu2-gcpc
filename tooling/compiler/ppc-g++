@@ -1,0 +1,4 @@
+#!/bin/sh
+# GCC 2.95.3 for powerpc-eabi (same compiler family as Speed.elf). Static i386 binary, no Docker needed.
+P=$(cd "$(dirname "$0")" && pwd)/bin/gcc295
+GCC_EXEC_PREFIX=$P/lib/gcc-lib/ exec "$P/bin/powerpc-eabi-g++" -B"$P/powerpc-eabi/bin/" "$@"

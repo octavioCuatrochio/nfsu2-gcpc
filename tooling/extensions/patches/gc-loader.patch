@@ -1,0 +1,76 @@
+diff --git a/build.gradle b/build.gradle
+index 63c0648..63bc7db 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -36,12 +36,9 @@ def DISTRIBUTION_DIR = file("dist")
+ def PATH_IN_ZIP = "${project.name}"
+ 
+ def getGitHash = {
+-    def stdout = new ByteArrayOutputStream()
+-    exec {
++    return providers.exec {
+         commandLine 'git', 'rev-parse', '--short', 'HEAD'
+-        standardOutput = stdout
+-    }
+-    return stdout.toString().trim()
++    }.standardOutput.asText.get().trim()
+ }
+ 
+ wrapper {
+diff --git a/data/languages/ppc_gekko_broadway.cspec b/data/languages/ppc_gekko_broadway.cspec
+index be9f188..2f27b38 100644
+--- a/data/languages/ppc_gekko_broadway.cspec
++++ b/data/languages/ppc_gekko_broadway.cspec
+@@ -94,6 +94,27 @@
+         <register name="r31"/>
+         <register name="r1"/>
+         <register name="cr4"/>
++        <!-- PowerPC EABI non-volatile: cr2-cr4, f14-f31 -->
++        <register name="cr2"/>
++        <register name="cr3"/>
++        <register name="f14"/>
++        <register name="f15"/>
++        <register name="f16"/>
++        <register name="f17"/>
++        <register name="f18"/>
++        <register name="f19"/>
++        <register name="f20"/>
++        <register name="f21"/>
++        <register name="f22"/>
++        <register name="f23"/>
++        <register name="f24"/>
++        <register name="f25"/>
++        <register name="f26"/>
++        <register name="f27"/>
++        <register name="f28"/>
++        <register name="f29"/>
++        <register name="f30"/>
++        <register name="f31"/>
+         <register name="GQR0"/>
+         <register name="GQR1"/>
+         <register name="GQR2"/>
+diff --git a/src/main/java/gamecubeloader/analyzer/CodeWarriorDemanglerAnalyzer.java b/src/main/java/gamecubeloader/analyzer/CodeWarriorDemanglerAnalyzer.java
+index 2087406..81d03b4 100644
+--- a/src/main/java/gamecubeloader/analyzer/CodeWarriorDemanglerAnalyzer.java
++++ b/src/main/java/gamecubeloader/analyzer/CodeWarriorDemanglerAnalyzer.java
+@@ -20,10 +20,10 @@ public class CodeWarriorDemanglerAnalyzer extends AbstractDemanglerAnalyzer {
+         "After a function is created, this analyzer will attempt to demangle " +
+             "the name and apply datatypes to parameters.";
+ 
+-    private CodeWarriorDemangler demangler = new CodeWarriorDemangler();
+ 
+     public CodeWarriorDemanglerAnalyzer() {
+         super(NAME, DESCRIPTION);
++        demangler = new CodeWarriorDemangler(); // Ghidra 12.2: base class owns the field
+         setDefaultEnablement(true);
+     }
+ 
+@@ -35,7 +35,7 @@ public class CodeWarriorDemanglerAnalyzer extends AbstractDemanglerAnalyzer {
+     @Override
+     protected DemangledObject doDemangle(MangledContext context, MessageLog log)
+             throws DemangledException {
+-        DemangledObject demangled = demangler.demangle(context);
++        DemangledObject demangled = ((CodeWarriorDemangler) demangler).demangle(context);
+         return demangled;
+     }
+ 
