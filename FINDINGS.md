@@ -71,7 +71,21 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   slot +0x28), Enable 52EA50 (datum +0x14 = 1, 5276B0), ScrollNext/Prev 54EB40/54EB60 -> 542F50(+-1). Slot (vtable
   at 0, node +4): element list +0xC (element: node +4, FEObject +0xC), backing +0x14; Show 51F1C0 / Hide 51F220.
   AUTO MATCH WRONG: 4AEA60 is not AddData (0x94 object, vtable 0x790F38, text +0xC, list at owner +0xC).
-- Next: finish Scrollerina, then EATraxScreen; FinishedRaceStatsEntry (515DB0), UserProfile ctor.
+  PC layout confirmed from the Scroll/dtor asm: +0x18 slot count (window rows), +0x1C data count, +0x20 first
+  visible data index (1-based), +0x24 selected datum, +0x28 first visible datum, +0x2C selected slot. AddData =
+  0x51F2E0 (ret 4; not 4AEA60, which is ScrollerDatum::AddLine: 0x94 line {vtable 0x790F38, node +4/+8, text
+  +0xC (0x80), langHash +0x8C, style +0x90}). ScrollerDatum 0x18 {vtable 0x795CB0, node +4/+8, line-list
+  sentinel +0xC, enabled byte +0x14}. Element 0x10 {vtable 0x790C2C, node +4/+8, FEString* +0xC}; slot element
+  list sentinel +0xC, backing FEObject +0x14, rect +0x18 left/+0x1C top/+0x20 w/+0x24 h, enabled +0x28,
+  Highlight hash +0x2C, UnHighlight +0x30. Update = 0x538500 (virtual Print = vtable slot 1, then DrawScrollBar
+  0x538490 when +0x9C); DrawScrollBar: +0xA0 ? FEScrollBar(1, dataCount, GetNodeIndex(selected)) :
+  FEScrollBar(slotCount, dataCount, firstIndex), and shows scrollbar +0x40/+0x50/+0x54 images when +0x9F.
+  0x538530 = select slot: requires slot+0x28, FindDatumInSlot, SetScript(old slot+0x30, 0x78F21C), SetScript(new
+  slot+0x2C, 0x78F228), Print, +0x9D = 0. Slot::SetScript 51EE80(slot, typeHash, scriptHash) = FEngSetScript on
+  every element's FEString. 0x51F560 rebuilds +0x8C..+0x98 from the slot rects only when the Scroll_Area image
+  (+0x30) is null -> bridge candidate. Scroll 542DF0, ScrollWrapped 542F50 (choose by +0x9E), Reset 543470,
+  ScrollView 5430C0, MoveSelected 5432A0, Print 5382F0, SyncViewToSelection 538240.
+- Next: Scrollerina unit (layouts above), then EATraxScreen; FinishedRaceStatsEntry (515DB0), UserProfile ctor.
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
 - TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:
