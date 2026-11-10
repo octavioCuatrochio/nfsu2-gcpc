@@ -2455,15 +2455,18 @@ static void TestFEngFontMeasure()
 {
     CHECK(FEngFont::CalculateXOffset(1, 10) == -5 && FEngFont::CalculateXOffset(2, 10) == -10 && FEngFont::CalculateXOffset(4, 10) == 0);
     CHECK(FEngFont::CalculateYOffset(4, 8) == -4 && FEngFont::CalculateYOffset(8, 8) == -8 && FEngFont::CalculateYOffset(3, 8) == 0);
-    // font data: 3 glyphs 'A','B','D' (12-byte entries) at +0x20
-    alignas(8) uint8_t data[0x20 + 3 * 12] = {};
+    // font data: 3 glyphs 'A','B','D' (16-byte entries, flag 0x40000) at +0x200 (control characters index up to
+    // 32 entries before the table, like the original), kerning table at +0x300
+    alignas(8) uint8_t data[0x340] = {};
     auto *fd = reinterpret_cast<FEngFontData *>(data);
     fd->mu16NumGlyphs = 3;
-    fd->mu32GlyphTableOffset = 0x20;
+    fd->mu32Flags = 0x40000;
+    fd->mu32GlyphTableOffset = 0x200;
+    fd->mu32KernTableOffset = 0x300;
     const uint16_t codes[3] = {'A', 'B', 'D'};
-    for (int i = 0; i < 3; ++i) std::memcpy(data + 0x20 + i * 12, &codes[i], 2);
-    CHECK(FEngFindGlyph('B', data + 0x20, 3, 12) == data + 0x20 + 12 && FEngFindGlyph('D', data + 0x20, 3, 12) == data + 0x20 + 24);
-    CHECK(FEngFindGlyph('C', data + 0x20, 3, 12) == nullptr && FEngFindGlyph('A', data + 0x20, 0, 12) == nullptr);
+    for (int i = 0; i < 3; ++i) std::memcpy(data + 0x200 + i * 16, &codes[i], 2);
+    CHECK(FEngFindGlyph('B', data + 0x200, 3, 16) == data + 0x200 + 16 && FEngFindGlyph('D', data + 0x200, 3, 16) == data + 0x200 + 32);
+    CHECK(FEngFindGlyph('C', data + 0x200, 3, 16) == nullptr && FEngFindGlyph('A', data + 0x200, 0, 16) == nullptr);
     alignas(8) uint8_t fm[sizeof(FEngFont)] = {};
     auto *f = reinterpret_cast<FEngFont *>(fm);
     f->mpData = fd;
@@ -2475,11 +2478,34 @@ static void TestFEngFontMeasure()
     const uint16_t t5[] = {0};
     CHECK(f->GetTextHeight(t1, 0) == 20 && f->GetTextHeight(t2, 5) == 45 && f->GetTextHeight(t3, 0) == 20);
     CHECK(f->GetTextHeight(t4, 0) == 20 && f->GetTextHeight(t5, 0) == 20 && f->GetTextHeight(nullptr, 0) == 0);
-    // width: stub GetLineWidth = 10 per char up to a newline; PC measures every suffix
-    const uint16_t w1[] = {'A', 'B', '\n', 'C', 'D', 'E', 0};
-    CHECK(f->GetTextWidth(w1, 0) == 20 && f->GetTextWidth(w1, 0x20) == 30);   // flag 0 never measures "CDE" whole (PC quirk)
-    const uint16_t w2[] = {'A', 'B', 'C', '\n', 'D', 'E', 0};   // second line minus its first char: 10 < 30
-    CHECK(f->GetTextWidth(w2, 0) == 30);
+    // advances 10 / 12 / 14 for 'A' / 'B' / 'D'
+    const int16_t adv[3] = {10, 12, 14};
+    for (int i = 0; i < 3; ++i) std::memcpy(data + 0x200 + i * 16 + 0xE, &adv[i], 2);
+    // kerning: 'D' after 'B' -> -3 (glyph D: 1 entry at index 0)
+    data[0x200 + 32 + 0xB] = 1;
+    const uint16_t kb = 'B';
+    std::memcpy(data + 0x300 + 4, &kb, 2);
+    data[0x300 + 6] = static_cast<uint8_t>(-3);
+    CHECK(fd->GetKerning(fd->FindCharacter('D'), 'B') == -3 && fd->GetKerning(fd->FindCharacter('D'), 'A') == 0 && fd->GetKerning(fd->FindCharacter('A'), 'B') == 0);
+    const uint16_t l1[] = {'A', 'B', 'D', 0};
+    CHECK(f->GetLineWidth(l1, 0, 0, nullptr) == 33 && f->GetLineWidth(nullptr, 0, 0, nullptr) == 0);   // BD kerned -3
+    const uint16_t l2[] = {'A', '\r', 'B', 'C', '\n', 'D', 0};   // CR / unknown C ignored, newline ends the line
+    CHECK(f->GetLineWidth(l2, 0, 0, nullptr) == 22 && f->GetLineWidth(l2, 0x20, 0, nullptr) == 36);
+    const uint16_t l3[] = {'$', 'X', '$', 'A', 0};             // joy token: no width (flags 0x820 disable it)
+    CHECK(f->GetLineWidth(l3, 0, 0, nullptr) == 10);
+    CHECK(FEngIsJoyEventTexture(l3, 0) && !FEngIsJoyEventTexture(l3, 0x20) && FEngSkipJoyEventTexture(l3, 0) == l3 + 3);
+    const uint16_t dd[] = {'$', '$', 0};
+    CHECK(!FEngIsJoyEventTexture(dd, 0) && FEngSkipJoyEventTexture(dd, 0) == dd + 1);
+    // truncation: limit 20 reached after "A B" -> back to the width at the last space
+    const uint16_t l4[] = {'A', ' ', 'B', 'D', 0};
+    bool trunc = false;
+    CHECK(f->GetLineWidth(l4, 0, 20, &trunc) == 10 && trunc);
+    trunc = false;
+    CHECK(f->GetLineWidth(l4, 0x200, 20, &trunc) == 10 && trunc);   // flag 0x200: width before the current char
+    CHECK(f->GetLineWidth(l4, 0, 1000, &trunc) == 33);
+    // GetTextWidth: widest suffix measure (PC quirk: whole later lines are not measured with flag 0)
+    const uint16_t w1[] = {'A', '\n', 'D', 'B', 'B', 0};
+    CHECK(f->GetTextWidth(w1, 0) == 24 && f->GetTextWidth(w1, 0x20) == 38);   // "DBB" = 14+12+12 measured only with 0x20
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.

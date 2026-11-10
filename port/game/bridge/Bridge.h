@@ -118,7 +118,6 @@ void *FEStatWidgetVTable();                      // PC 0x79B378
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04
 void PlayFrontendSound(uint32_t trigger);       // PC: idx = (int8) table 0x8380B8[trigger]; != -1 -> PlayUISoundFX 458520
-long double FEngFont_GetLineWidth(void *font, const uint16_t *text, uint32_t flags, int32_t maxWidth, bool *truncated);   // PC 50BCE0 (ret 0x10)
 bool TextInputFocused();   // PC globals 0x83A9C0 (byte, FocusedTextbox active) && 0x83A9C4 (dword) both nonzero
 void SetHoldDirtyFlags(uint32_t v);                                   // uHoldDirtyFlags, PC 0x7F7C8C
 // constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)

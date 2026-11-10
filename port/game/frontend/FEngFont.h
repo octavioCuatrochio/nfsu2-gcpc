@@ -11,6 +11,19 @@ struct FEngFontData {
     uint32_t mu32Flags;              // +0x0C 0x40000: 16-byte glyph entries
     uint8_t _unknown10[4];
     uint32_t mu32GlyphTableOffset;   // +0x14 from the start of the data
+    uint32_t mu32KernTableOffset;    // +0x18 kerning table (16-byte glyphs: entries per glyph; else count + list)
+
+    const struct FEngGlyph *FindCharacter(uint16_t c) const;          // PC 4FDA70 (thiscall, ret 4)
+    int32_t GetKerning(const struct FEngGlyph *g, uint16_t prev) const;   // PC 6F45F0 (thiscall, ret 8)
+};
+
+// Glyph entry (12 or 16 bytes).
+struct FEngGlyph {
+    uint16_t mu16Code;               // +0x00
+    uint8_t _unknown02[9];
+    uint8_t mu8NumKerns;             // +0x0B
+    uint16_t mu16KernIndex;          // +0x0C (16-byte glyphs)
+    int16_t mi16Advance;             // +0x0E
 };
 
 struct FEngFont {
@@ -24,10 +37,17 @@ struct FEngFont {
     long double GetTextWidth(const uint16_t *text, uint32_t flags);
     // PC 50BF40 (ret 8; GC 8014CD94): per newline: spacing + line height; a final line counts when it has a glyph.
     long double GetTextHeight(const uint16_t *text, int32_t lineSpacing);
+    // PC 50BCE0 (ret 0x10; GC 8014CA0C): width of the first line (advances + kerning; '$name$' joy-event tokens
+    // count 0). maxWidth != 0 (unsigned): once reached before the end, the width falls back to the last space (flag
+    // 0x200: the width before the current character) when > 0, and *truncated = true.
+    long double GetLineWidth(const uint16_t *text, uint32_t flags, uint32_t maxWidth, bool *truncated);
     static long double CalculateXOffset(uint32_t justify, float width);    // PC 50C020: flag 1 -> -w/2, 2 -> -w
     static long double CalculateYOffset(uint32_t justify, float height);   // PC 50C050: flag 4 -> -h/2, 8 -> -h
 };
 
+// PC 50BA70 / 50BAC0 (__cdecl, GC FEngFont members): "$name$" button-icon tokens (not with flags 0x820).
+bool FEngIsJoyEventTexture(const uint16_t *text, uint32_t flags);
+const uint16_t *FEngSkipJoyEventTexture(const uint16_t *text, uint32_t flags);
 // PC 6F45B0 (__cdecl): binary search of `count` entries of `size` bytes (16-bit key first) for `key`; null if none.
 const void *FEngFindGlyph(uint16_t key, const void *table, uint32_t count, uint32_t size);
 

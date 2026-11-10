@@ -334,6 +334,9 @@ void THISCALL FEStatWidget_SetPosY(FEStatWidget *self, float y) { self->SetPosY(
 void THISCALL FEStatWidget_Position(FEStatWidget *self) { self->Position(); }
 long double THISCALL FEngFont_GetTextWidth(FEngFont *self, const uint16_t *t, uint32_t f) { return self->GetTextWidth(t, f); }
 long double THISCALL FEngFont_GetTextHeight(FEngFont *self, const uint16_t *t, int32_t s) { return self->GetTextHeight(t, s); }
+long double THISCALL FEngFont_GetLineWidth(FEngFont *self, const uint16_t *t, uint32_t f, uint32_t m, bool *tr) { return self->GetLineWidth(t, f, m, tr); }
+const FEngGlyph *THISCALL FEngFontData_FindCharacter(const FEngFontData *self, uint32_t c) { return self->FindCharacter(static_cast<uint16_t>(c)); }
+int32_t THISCALL FEngFontData_GetKerning(const FEngFontData *self, const FEngGlyph *g, uint32_t prev) { return self->GetKerning(g, static_cast<uint16_t>(prev)); }
 long double THISCALL FEngFont_CalculateXOffset(void *, uint32_t j, float w) { return FEngFont::CalculateXOffset(j & 0xFF, w); }
 long double THISCALL FEngFont_CalculateYOffset(void *, uint32_t j, float h) { return FEngFont::CalculateYOffset(j & 0xFF, h); }
 FEJoyPad *THISCALL FEJoyPad_Ctor(FEJoyPad *self) { return self->Construct(); }
@@ -735,6 +738,11 @@ const Replacement kReplacements[] = {
     {0x50C020, (const void *)&FEngFont_CalculateXOffset, "FEngFont::CalculateXOffset", {0x8A, 0x44, 0x24, 0x04, 0xA8, 0x01}, 1, 8, 1},   // original SetTopLeft/SetCenter (51D441, 51D575) reuse EDX (justify) for the Y offset
     {0x50C050, (const void *)&FEngFont_CalculateYOffset, "FEngFont::CalculateYOffset", {0x8A, 0x44, 0x24, 0x04, 0xA8, 0x04}},
     {0x6F45B0, (const void *)&FEngFindGlyph, "FEngFindGlyph (bsearch)", {0x55, 0x8B, 0xEC, 0x8B, 0x55, 0x10}},
+    {0x50BCE0, (const void *)&FEngFont_GetLineWidth, "FEngFont::GetLineWidth", {0x83, 0xEC, 0x14, 0x57, 0x8B, 0x7C}},
+    {0x4FDA70, (const void *)&FEngFontData_FindCharacter, "FEngFontData::FindCharacter", {0x8B, 0x51, 0x0C, 0x56, 0x8B, 0x71}},
+    {0x6F45F0, (const void *)&FEngFontData_GetKerning, "FEngFontData::GetKerning", {0x55, 0x8B, 0xEC, 0x56, 0x57, 0x8B}},
+    {0x50BA70, (const void *)&FEngIsJoyEventTexture, "FEngIsJoyEventTexture", {0x8B, 0x4C, 0x24, 0x04, 0x32, 0xC0}},
+    {0x50BAC0, (const void *)&FEngSkipJoyEventTexture, "FEngSkipJoyEventTexture", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x519AE0, (const void *)&FEJoyPad_Ctor, "FEJoyPad::FEJoyPad", {0x8B, 0xD1, 0x57, 0x33, 0xC0, 0x8D}},
     {0x52C430, (const void *)&FEngine_Dtor, "FEngine::~FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
     {0x535870, (const void *)&FETypeNode_Dtor, "FETypeNode::~FETypeNode", {0x6A, 0xFF, 0x68, 0x28, 0x70, 0x77}},

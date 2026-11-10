@@ -1975,6 +1975,71 @@ static void CheckFEngFontMeasure(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEngFont::GetLineWidth + FindCharacter / GetKerning / joy-event tokens on random synthetic fonts and strings.
+static void CheckFEngLineWidth(int iters)
+{
+    auto oLine = ORIG<long double(THISCALL *)(FEngFont *, const uint16_t *, uint32_t, uint32_t, bool *)>(0x50BCE0);
+    auto oKern = ORIG<int32_t(THISCALL *)(const FEngFontData *, const FEngGlyph *, uint32_t)>(0x6F45F0);
+    auto oIs = ORIG<uint32_t(__cdecl *)(const uint16_t *, uint32_t)>(0x50BA70);
+    auto oSkip = ORIG<const uint16_t *(__cdecl *)(const uint16_t *, uint32_t)>(0x50BAC0);
+    alignas(8) static uint8_t data[0x200 + 96 * 16 + 0x400];
+    alignas(8) static uint8_t fm[sizeof(FEngFont)];
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            for (auto &b : data) b = static_cast<uint8_t>(rng());
+            auto *fd = reinterpret_cast<FEngFontData *>(data);
+            const bool wide = rng() % 3 != 0;
+            const uint32_t size = wide ? 16 : 12, n = 1 + rng() % 96;
+            fd->mu16NumGlyphs = static_cast<uint16_t>(n);
+            fd->mu32Flags = wide ? (rng() | 0x40000) : (rng() & ~0x40000u);
+            fd->mu32GlyphTableOffset = 0x200;
+            fd->mu32KernTableOffset = 0x200 + 96 * 16;
+            uint16_t code = 0x20;
+            for (uint32_t i = 0; i < n; ++i) {
+                uint8_t *g = data + 0x200 + i * size;
+                std::memcpy(g, &code, 2);
+                g[0xB] = static_cast<uint8_t>(rng() % 4);
+                const uint16_t ki = static_cast<uint16_t>(rng() % 64);
+                if (wide) std::memcpy(g + 0xC, &ki, 2);
+                code = static_cast<uint16_t>(code + 1 + (rng() % 6 == 0));
+            }
+            uint8_t *kt = data + fd->mu32KernTableOffset;
+            const int32_t kc = static_cast<int32_t>(rng() % 40);
+            if (!wide) std::memcpy(kt, &kc, 4);
+            for (int k = 0; k < 64 * 4 + 4; ++k) {   // kerning entries: previous chars from the same small set
+                uint8_t *e = kt + 4 + k * 4;
+                const uint16_t pch = static_cast<uint16_t>(0x20 + rng() % 40);
+                if (k < 255) std::memcpy(e, &pch, 2);
+            }
+            std::memset(fm, 0, sizeof fm);
+            auto *f = reinterpret_cast<FEngFont *>(fm);
+            f->mpData = fd;
+            uint16_t text[24];
+            const int len = static_cast<int>(rng() % 23);
+            for (int i = 0; i < len; ++i) {
+                const uint32_t r = rng() % 14;
+                text[i] = r == 0 ? '\n' : r == 1 ? '$' : r == 2 ? ' ' : r == 3 ? 0xA0 : r == 4 ? '\r' : r == 5 ? 0xFF41 : static_cast<uint16_t>(0x20 + rng() % 60);
+            }
+            text[len] = 0;
+            const uint32_t flags = rng() & 0xAA0, maxw = rng() % 3 ? 0 : (rng() % 4 ? rng() % 200 : rng());
+            bool ta = false, tb = false;
+            const bool withFlag = rng() % 2;
+            long double a = oLine(f, text, flags, maxw, withFlag ? &ta : nullptr);
+            long double b = f->GetLineWidth(text, flags, maxw, withFlag ? &tb : nullptr);
+            EXPECT(std::memcmp(&a, &b, 10) == 0 && ta == tb, "GetLineWidth len %d flags %x max %u pc=%x: %Lg vs %Lg", len, flags, maxw, pc, a, b);
+            const FEngGlyph *g = fd->FindCharacter(static_cast<uint16_t>(0x20 + rng() % 60));
+            if (g) {
+                const uint16_t prev = static_cast<uint16_t>(0x20 + rng() % 40);
+                EXPECT(oKern(fd, g, prev) == fd->GetKerning(g, prev), "GetKerning");
+            }
+            EXPECT((oIs(text, flags) & 0xFF) == FEngIsJoyEventTexture(text, flags) && oSkip(text, flags) == FEngSkipJoyEventTexture(text, flags), "joy event token");
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2561,6 +2626,7 @@ static int RunAll()
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckFEngFontMeasure(iters * 3));
+    REFEREE_RUN(CheckFEngLineWidth(iters * 3));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));

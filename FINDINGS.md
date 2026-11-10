@@ -46,8 +46,9 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   FEngTestForIntersection 52D020 <- FEngGet2DExtents 51D9F0 <- FEngGetObjBBox 51D8A0 (string bbox, inlined
   localized fetch), then FELabelWidget / FEStatWidget. Options screens are hard to reach by key automation.
 - FEngFont (FEngFont.cpp): +0x0C font data (+0x0A glyph count, +0x0C flags 0x40000 = 16-byte glyphs, +0x14 table
-  offset), +0x24 line height. Done: GetTextWidth/Height, X/YOffset, glyph bsearch 6F45B0. Next: GetLineWidth 50BCE0
-  (needs 50BA70/50BAC0 joy-event textures, 4FDA70 FindCharacter, 6F45F0 kerning), WordWrap 50BC10/50C080, RenderString.
+  offset), +0x24 line height. Done: GetTextWidth/Height, GetLineWidth, X/YOffset, FindCharacter, kerning, joy tokens.
+  Glyph: +0 code, +0xB kern count, +0xC kern index (16-byte), +0xE advance (fonts in use are 16-byte). Control chars
+  index up to 32 entries before the glyph table (PC reads it). Next: WordWrap 50BC10/50C080, RenderString 51C110.
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.
