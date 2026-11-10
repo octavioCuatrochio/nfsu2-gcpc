@@ -20,9 +20,11 @@ struct FELibraryRef {               // 0xC bytes
 
 struct FEMessageTargets {           // 0x10 bytes
     uint32_t mu32MsgId;
-    uint32_t _unknown04;
-    uint32_t mu32Count;
-    FEObject **mpObjects;
+    uint32_t mu32Capacity;           // +0x4
+    uint32_t mu32Count;              // +0x8
+    FEObject **mpObjects;            // +0xC
+
+    void SetCapacity(uint32_t n);    // GC (inlined) / PC 517570 (ret 4): 0 frees and clears all; count kept otherwise
 };
 
 struct FEPackageBufferNode {        // FEPackage::mList9C entries (GC +0xA8 list)
@@ -75,6 +77,9 @@ struct FEPackage {
     // ConnectObjectResources; returns the game's answer.
     bool Startup(void *gameInterface);
     void ConnectObjectResources();                              // GC 8013A0FC / PC 518140
+    // GC 8013A150 / PC 518190 (ret 4): new entries {0, -1, 0}, keeps the first min(n, old); n == 0 frees the array
+    // but (PC) leaves the count.
+    void SetNumLibraryRefs(uint32_t n);
 
     // GC 801399F8 / PC 541DB0: evaluate the script's tracks at its current time into the object's data.
     void UpdateObjectTracks(FEObject *obj, FEScript *script) const;

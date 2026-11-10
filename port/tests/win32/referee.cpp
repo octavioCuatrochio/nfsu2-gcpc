@@ -25,6 +25,7 @@
 #include "frontend/FEScript.h"
 #include "frontend/FEMath.h"
 #include "frontend/FEPackage.h"
+#include "frontend/FEPackageReader.h"
 #include "frontend/FEngine.h"
 #include "frontend/cFEng.h"
 #include "frontend/FEListBox.h"
@@ -1068,6 +1069,33 @@ static void CheckPackageCtor(int iters)
     }
 }
 
+// FEPackageReader::ReadTypeSizes (inlined FindChild) on random chunk lists: the "TypS" chunk anywhere, including the
+// chunk read at the parent's end, or missing.
+static void CheckReaderTypeSizes(int iters)
+{
+    auto oRead = ORIG<bool(THISCALL *)(FEPackageReader *)>(0x5049A0);
+    for (int it = 0; it < iters; ++it) {
+        uint32_t buf[128] = {};
+        const int n = 1 + rng() % 6;
+        uint32_t at = 2;
+        for (int i = 0; i < n && at < 100; ++i) {
+            const uint32_t words = rng() % 4;
+            buf[at] = (rng() % 3 == 0) ? 0x53707954u : rng();
+            buf[at + 1] = words * 4;
+            for (uint32_t k = 0; k < words; ++k) buf[at + 2 + k] = rng();
+            at += 2 + words;
+        }
+        buf[0] = 0xE76E4546u;
+        buf[1] = (at - 2) * 4;   // consistent sizes: the scan always reaches the end chunk
+        if (rng() % 4 == 0 && at < 120) buf[at] = 0x53707954u;   // only reachable as the "end" chunk
+        FEPackageReader a{}, b{};
+        a.mpData = b.mpData = buf;
+        a.mu32NumTypes = b.mu32NumTypes = 0x77;
+        const bool ra = oRead(&a), rb = b.ReadTypeSizes();
+        EXPECT(ra == rb && a.mu32NumTypes == b.mu32NumTypes && a.mpTypes == b.mpTypes, "ReadTypeSizes it %d", it);
+    }
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1567,6 +1595,7 @@ static int RunAll()
     CheckNoise(iters);
     CheckPackageDataCtor(2000);
     CheckPackageCtor(500);
+    CheckReaderTypeSizes(20000);
     CheckPackageManager(iters);
     CheckFENodeFind(iters);
     CheckUpdateObjectTracks(iters);

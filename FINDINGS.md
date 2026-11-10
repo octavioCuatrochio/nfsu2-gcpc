@@ -37,6 +37,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   array; Startup passes them to FEGameInterface vtable slot 1), +0x70 message targets new[] (cookie at -4, elem dtor
   4FF200 frees +0xC), +0x74 list (ctor vtable 0x79B878), +0x98 buffer, +0x9C list of nodes owning +0x10, +0xAC 4x1.
   FENode vtable 0x79AB0C (dtor 505350); 0x79B8FC is another FENode subclass. FEPackageReader::Load = 555720.
+- FEPackageReader (PC 0x50, on FEngine::LoadPackage 555800's stack): Load 555720; chunk ids LibL, TypS, LibR, ResÌ
+  (RsNm+RsRq), PkgR, Targ (+ object chunk 5554A0 still original). FindChild scans up to AND including the chunk at
+  the parent's end. FEngine +0xFC = library FEMinList (FEPackage +0x18 = refcount for libraries), +0x10C game
+  interface (slot 0 GetPackageData(name,&buf,&free), 1 LoadResources, 3 library loaded). FEMessageTargets +4 = capacity.
+- Referee: ~4 min per full run; random chunk tests must keep sizes consistent (the original scan never stops otherwise).
 - Hook host: counters/stubs sized by kMaxHooks (hooks.cpp); >256 hooks overflowed the old 4 KB stub page (DllMain AV).
 - Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
 

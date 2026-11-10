@@ -1,5 +1,6 @@
 #include "frontend/FEPackageManager.h"
 #include "frontend/FEPackage.h"
+#include "frontend/FEHash.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/cFEng.h"
 #include "frontend/FENode.h"
@@ -43,7 +44,8 @@ FEPackage *pushResult = nullptr;
 std::string lastPushName;
 int32_t fengLoadCounter = 0;
 int fePackageDataVTable = 0, fePackageVTable = 0, feNodeVTable = 0, fePackageList74VTable = 0, resourceConnectorVTable = 0;
-bool loadResourcesResult = true;
+bool loadResourcesResult = true, readerChunkResult = true;
+const void *libraryData = nullptr;
 void *screenResult = nullptr;
 bool hotChunking = false;
 ::SlotPool *levelSorterSlots = nullptr;
@@ -75,6 +77,7 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feKeyNodeVTable) static_cast<FEKeyNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feKeyNodeBlockVTable) FEKeyNodeBlock_ScalarDtor(static_cast<FEKeyNodeBlock *>(o), 1);
     else if (vt == &teststub::feScriptBlockVTable) FEScriptBlock_ScalarDtor(static_cast<FEScriptBlock *>(o), 1);
+    else if (vt == &teststub::feNodeVTable) { static_cast<FENode *>(o)->Destruct(); FreeArray(o); }
     else if (vt == &teststub::fePackageVTable) static_cast<FEPackage *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageDataVTable) static_cast<FEPackageData *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageCommandVTable) {   // ~FENode frees the name
@@ -121,6 +124,15 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
 }
 int32_t FEngLoadCounter() { return teststub::fengLoadCounter; }
 int32_t *FEngLoadCounterPtr() { return &teststub::fengLoadCounter; }
+const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, uint8_t *f)
+{
+    teststub::delivered.push_back({"getpkg", gi, nullptr, FEHashUpper(n), 0});
+    *f = teststub::libraryData != nullptr;
+    if (*f) *b = bridge::Alloc(4);
+    return teststub::libraryData;
+}
+void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { teststub::delivered.push_back({"libloaded", gi, p, 0, 0}); }
+bool FEPackageReader_ReadObjectChunk(void *r) { teststub::delivered.push_back({"readobjs", r, nullptr, 0, 0}); return teststub::readerChunkResult; }
 void *FEPackageVTable() { return &teststub::fePackageVTable; }
 void *FENodeVTable() { return &teststub::feNodeVTable; }
 void *FEPackageList74VTable() { return &teststub::fePackageList74VTable; }

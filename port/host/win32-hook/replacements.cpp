@@ -15,6 +15,7 @@
 #include "frontend/FEScript.h"
 #include "frontend/FEMath.h"
 #include "frontend/FEPackage.h"
+#include "frontend/FEPackageReader.h"
 #include "frontend/FEngine.h"
 #include "frontend/FENode.h"
 #include "frontend/FEPackageManager.h"
@@ -227,6 +228,20 @@ void THISCALL FEPackage_SetFilename(FEPackage *self, const char *n) { self->SetF
 bool THISCALL FEPackage_Startup(FEPackage *self, void *gi) { return self->Startup(gi); }
 void THISCALL FEPackage_ConnectObjectResources(FEPackage *self) { self->ConnectObjectResources(); }
 void THISCALL FENode_Dtor(FENode *self) { self->Destruct(); }
+FEPackage *THISCALL FEPackageReader_Load(FEPackageReader *self, const void *d, void *gi, FEngine *e, uint8_t a, uint8_t b, uint8_t c) { return self->Load(d, gi, e, a, b, c); }
+bool THISCALL FEPackageReader_ReadHeaderChunk(FEPackageReader *self) { return self->ReadHeaderChunk(); }
+bool THISCALL FEPackageReader_ReadTypeSizes(FEPackageReader *self) { return self->ReadTypeSizes(); }
+bool THISCALL FEPackageReader_ReadLibraryRefsChunk(FEPackageReader *self) { return self->ReadLibraryRefsChunk(); }
+bool THISCALL FEPackageReader_ReadResourceChunk(FEPackageReader *self) { return self->ReadResourceChunk(); }
+bool THISCALL FEPackageReader_ReadPackageResponseChunk(FEPackageReader *self) { return self->ReadPackageResponseChunk(); }
+bool THISCALL FEPackageReader_ReadMessageResponseTags(FEPackageReader *self, const uint8_t *t, uint32_t n, uint8_t p) { return self->ReadMessageResponseTags(t, n, p != 0); }
+void THISCALL FEPackage_SetNumLibraryRefs(FEPackage *self, uint32_t n) { self->SetNumLibraryRefs(n); }
+bool THISCALL FEPackageReader_ReadMessageTargetListChunk(FEPackageReader *self) { return self->ReadMessageTargetListChunk(); }
+bool THISCALL FEPackageReader_ReadReferencedPackagesChunk(FEPackageReader *self) { return self->ReadReferencedPackagesChunk(); }
+bool THISCALL FEPackageReader_FindReferencedObject(FEPackageReader *self, uint32_t h, FEObject **o, FEPackage **p) { return self->FindReferencedObject(h, o, p); }
+FEPackage *THISCALL FEngine_FindLibraryPackageHook(FEngine *self, uint32_t h) { return FEngine_FindLibraryPackage(self, h); }
+void THISCALL FEMessageTargets_SetCapacity(FEMessageTargets *self, uint32_t n) { self->SetCapacity(n); }
+FEPackage *THISCALL FEngine_LoadPackageHook(FEngine *self, const void *d, uint8_t f) { return FEngine_LoadPackage(self, d, f); }
 void THISCALL cFEng_NotificationMessage(cFEng *self, uint32_t m, FEObject *o, uint32_t a, FEPackage *p) { self->NotificationMessage(m, o, a, p); }
 void THISCALL cFEng_SwitchFEngPackages(cFEng *self, const char *f, const char *t) { self->SwitchFEngPackages(f, t); }
 void THISCALL cFEng_QueuePopPackage(cFEng *self, const char *n) { self->QueuePopPackage(n); }
@@ -514,6 +529,20 @@ const Replacement kReplacements[] = {
     {0x52B370, (const void *)&FEPackage_Startup, "FEPackage::Startup", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x56}},
     {0x518140, (const void *)&FEPackage_ConnectObjectResources, "FEPackage::ConnectObjectResources", {0x6A, 0xFF, 0x68, 0x88, 0x6F, 0x77}},
     {0x505350, (const void *)&FENode_Dtor, "FENode::~FENode", {0x6A, 0xFF, 0x68, 0x68, 0x6F, 0x77}},
+    {0x555720, (const void *)&FEPackageReader_Load, "FEPackageReader::Load", {0x8A, 0x44, 0x24, 0x18, 0x8A, 0x54}},
+    {0x52B4D0, (const void *)&FEPackageReader_ReadHeaderChunk, "FEPackageReader::ReadHeaderChunk", {0x56, 0x8B, 0xF1, 0x57, 0x8B, 0x7E}},
+    {0x5049A0, (const void *)&FEPackageReader_ReadTypeSizes, "FEPackageReader::ReadTypeSizes", {0x8B, 0x41, 0x04, 0x8B, 0x50, 0x04}, 1, 0, 0},
+    {0x5182E0, (const void *)&FEPackageReader_ReadLibraryRefsChunk, "FEPackageReader::ReadLibraryRefsChunk", {0x53, 0x8B, 0xD9, 0x8B, 0x43, 0x04}},
+    {0x518380, (const void *)&FEPackageReader_ReadResourceChunk, "FEPackageReader::ReadResourceChunk", {0x51, 0x53, 0x8B, 0xD9, 0x8B, 0x43}},
+    {0x551580, (const void *)&FEPackageReader_ReadPackageResponseChunk, "FEPackageReader::ReadPackageResponseChunk", {0x8B, 0x41, 0x04, 0x8B, 0x50, 0x04}},
+    {0x54D1D0, (const void *)&FEPackageReader_ReadMessageResponseTags, "FEPackageReader::ReadMessageResponseTags", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x53}},
+    {0x518190, (const void *)&FEPackage_SetNumLibraryRefs, "FEPackage::SetNumLibraryRefs", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x555800, (const void *)&FEngine_LoadPackageHook, "FEngine::LoadPackage", {0x83, 0xEC, 0x50, 0x33, 0xC0, 0x89}},
+    {0x52B550, (const void *)&FEPackageReader_ReadReferencedPackagesChunk, "FEPackageReader::ReadReferencedPackagesChunk", {0x83, 0xEC, 0x10, 0x53, 0x8B, 0xD9}},
+    {0x5184E0, (const void *)&FEPackageReader_ReadMessageTargetListChunk, "FEPackageReader::ReadMessageTargetListChunk", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x5186C0, (const void *)&FEPackageReader_FindReferencedObject, "FEPackageReader::FindReferencedObject", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x8B}},
+    {0x50B240, (const void *)&FEngine_FindLibraryPackageHook, "FEngine::FindLibraryPackage", {0x8B, 0x81, 0x04, 0x01, 0x00, 0x00}},
+    {0x517570, (const void *)&FEMessageTargets_SetCapacity, "FEMessageTargets::SetCapacity", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x0C}},
     {0x55DD50, (const void *)&cFEng_NotificationMessage, "cFEng::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x15}},
     {0x51CB20, (const void *)&cFEng_QueuePushPackage, "cFEng::QueuePushPackage", {0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0}},
     {0x51CB60, (const void *)&cFEng_QueuePushModalPackage, "cFEng::QueuePushModalPackage", {0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0}},

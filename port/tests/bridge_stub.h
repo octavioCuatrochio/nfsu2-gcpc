@@ -34,7 +34,8 @@ extern std::string lastPushName;                            // copy: the command
 extern FEPackage *pushResult;
 extern int32_t fengLoadCounter;
 extern int fePackageDataVTable, fePackageVTable, feNodeVTable, fePackageList74VTable, resourceConnectorVTable;
-extern bool loadResourcesResult;
+extern bool loadResourcesResult, readerChunkResult;
+extern const void *libraryData;   // FEGameInterface_GetPackageData result
 extern void *screenResult;   // ScreenFactory result
 extern bool hotChunking;
 extern int renderDisconnectVTable, renderDisconnects, registerJoys;

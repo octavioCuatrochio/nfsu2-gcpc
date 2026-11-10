@@ -13,6 +13,7 @@
 #include "frontend/cFEng.h"
 #include "bWare/bString.h"
 #include "frontend/FEPackageManager.h"
+#include "frontend/FEPackageReader.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/FEListBox.h"
 #include "bWare/bMath.h"
@@ -1352,6 +1353,150 @@ static void TestPackageLifetime()
     CHECK(teststub::liveAllocations == live0);
 }
 
+// FEPackageReader on a synthetic .fng: header, library list, type sizes, library refs, resources, responses, targets.
+namespace {
+struct FngBuilder {
+    std::vector<uint32_t> w;
+    size_t Open(uint32_t id) { w.push_back(id); w.push_back(0); return w.size(); }   // returns data start
+    void Close(size_t start) { w[start - 1] = static_cast<uint32_t>((w.size() - start) * 4); }
+    void Bytes(const void *p, size_t n) { size_t at = w.size(); w.resize(at + (n + 3) / 4); std::memcpy(&w[at], p, n); }
+    void Tag(uint16_t id, const void *p, uint16_t n) { uint16_t h[2] = {id, static_cast<uint16_t>((n + 3) & ~3)}; uint32_t x; std::memcpy(&x, h, 4); w.push_back(x); Bytes(p, n); }
+    void Tag32(uint16_t id, uint32_t v) { Tag(id, &v, 4); }
+};
+std::vector<uint32_t> BuildFng(bool withLib, uint32_t badLibSize = 0, const char *libRef = nullptr)
+{
+    FngBuilder b;
+    size_t root = b.Open(0xE76E4546u);
+    size_t hd = b.Open(0x64486B50u);
+    const char name[] = "Pkg.fng", file[] = "dir\\pkg.fng";
+    b.w.insert(b.w.end(), {0x20000u, 0, 0x11, 0x22, sizeof name, 0});
+    char nf[sizeof name + sizeof file];
+    std::memcpy(nf, name, sizeof name); std::memcpy(nf + sizeof name, file, sizeof file);
+    b.Bytes(nf, sizeof nf);
+    b.Close(hd);
+    if (libRef) {
+        size_t ll = b.Open(0x4C62694C);
+        b.w.push_back(1);
+        b.w.push_back(8);   // name offset from the chunk data
+        b.Bytes(libRef, std::strlen(libRef) + 1);
+        b.Close(ll);
+    }
+    size_t ty = b.Open(0x53707954); b.w.insert(b.w.end(), {1, 0x40, 5, 0x90}); b.Close(ty);
+    if (withLib) {
+        size_t lib = b.Open(0x5262694C);
+        b.w.insert(b.w.end(), {0xAAAA, 1, 2, 0xBBBB, 3, 4});
+        if (badLibSize) b.w.push_back(badLibSize);
+        b.Close(lib);
+    }
+    size_t res = b.Open(0xCC736552);
+    size_t nm = b.Open(0x6D4E7352); b.Bytes("tex0\0tex1\0\0", 12); b.Close(nm);
+    size_t rq = b.Open(0x71527352); b.w.push_back(2);
+    b.w.insert(b.w.end(), {0x10, 0, 2, 3, 4, 5, 0x20, 5, 6, 7, 8, 9}); b.Close(rq);
+    b.Close(res);
+    size_t pr = b.Open(0x52676B50);
+    b.Tag32(0x694D, 0x1234); b.Tag32(0x434D, 2);
+    b.Tag32(0x6952, 7); b.Tag32(0x7552, 9); b.Tag32(0x7452, 3);
+    b.Tag32(0x6952, 0x201); b.Tag(0x7352, "hello", 6);
+    b.Tag32(0x694D, 0x55);
+    b.Close(pr);
+    size_t tg = b.Open(0x67726154);
+    b.Tag32(0x6354, 2);
+    { uint32_t v[3] = {0x99, 1, 2}; b.Tag(0x744D, v, 12); }
+    { uint32_t v[1] = {0x98}; b.Tag(0x744D, v, 4); }
+    b.Close(tg);
+    b.Close(root);
+    b.w.insert(b.w.end(), 8, 0u);   // FindChild also reads the chunk at the parent's end
+    return b.w;
+}
+}  // namespace
+
+static void TestPackageReader()
+{
+    const int live0 = teststub::liveAllocations;
+    auto &dl = teststub::delivered;
+    auto data = BuildFng(true);
+    FEPackageReader r{};
+    r.mpData = data.data();
+    CHECK(FEPackageReader::FindChild(data.data(), 0x12345678) == nullptr && FEPackageReader::FindChild(data.data(), 0x53707954) != nullptr);
+    CHECK(r.ReadTypeSizes() && r.mu32NumTypes == 2 && r.GetTypeSize(5) == 0x90 && r.GetTypeSize(1) == 0x40 && r.GetTypeSize(9) == 0);
+    alignas(8) static unsigned char eb[sizeof(FEngine)] = {};
+    auto *e = reinterpret_cast<FEngine *>(eb);
+    int ui = 0;
+    e->mpUIData = &ui;
+    e->mLibraries.vtable = bridge::FEMinListVTable();
+    eb[3] = 1; eb[4] = 2;
+    dl.clear();
+    FEPackage *pkg = FEngine_LoadPackage(e, data.data(), 3);
+    CHECK(pkg && std::string(pkg->mpcName) == "Pkg.fng" && std::string(pkg->mpcFilename) == "dir\\pkg.fng" && pkg->_unknown15[1] == 3);
+    CHECK(dl.size() == 2 && std::string(dl[0].kind) == "readobjs");
+    CHECK(std::string(dl[1].kind) == "loadres" && dl[1].a == &ui && dl[1].msg == 2);   // no objects: nothing to connect
+    CHECK(pkg->mu32NumLibraryRefs == 2 && pkg->mpLibraryRefs[1].mu32Hash == 0xBBBB && pkg->mpLibraryRefs[1]._unknown04[1] == 4);
+    auto *res = static_cast<uint32_t *>(pkg->mpResources);
+    CHECK(pkg->mu32NumResources == 2 && res[0] == 0x10 && res[6] == 0x20 && res[11] == 9 && std::memcmp(pkg->mp98, "tex0\0tex1", 10) == 0);
+    CHECK(res[1] == static_cast<uint32_t>(reinterpret_cast<uintptr_t>(pkg->mp98)) && res[7] == static_cast<uint32_t>(reinterpret_cast<uintptr_t>(pkg->mp98)) + 5);
+    CHECK(pkg->mResponses.count == 2);
+    auto *m = reinterpret_cast<FEMessageResponse *>(pkg->mResponses.head);
+    CHECK(m->mu32MsgId == 0x1234 && m->mu32Count == 2 && m->mpResponses[0].mu32Type == 7 && m->mpResponses[0].mParam == 9 && m->mpResponses[0].mu32Extra == 3);
+    CHECK(m->mpResponses[1].mu32Type == 0x201 && std::string(reinterpret_cast<const char *>(m->mpResponses[1].mParam)) == "hello");
+    CHECK(reinterpret_cast<FEMessageResponse *>(m->node.next)->mu32MsgId == 0x55);
+    CHECK(pkg->mu32NumMessageTargets == 2 && reinterpret_cast<uint32_t *>(pkg->mpMessageTargets)[-1] == 2);
+    CHECK(pkg->mpMessageTargets[0].mu32MsgId == 0x99 && pkg->mpMessageTargets[0].mu32Count == 2 && pkg->mpMessageTargets[0].mu32Capacity == 2 && pkg->mpMessageTargets[0].mpObjects[1] == nullptr);
+    CHECK(pkg->mpMessageTargets[1].mu32MsgId == 0x98 && pkg->mpMessageTargets[1].mu32Count == 0 && pkg->mpMessageTargets[1].mpObjects == nullptr);
+    bridge::VirtualScalarDelete(pkg);
+    // object responses: merge reuses (and purges) an existing message id
+    alignas(8) unsigned char ob[sizeof(FEObject)] = {};
+    auto *obj = reinterpret_cast<FEObject *>(ob);
+    obj->mResponses.vtable = bridge::FEMinListVTable();
+    FngBuilder t;
+    t.Tag32(0x694D, 0x77); t.Tag32(0x434D, 1); t.Tag32(0x6952, 1);
+    r.mpCurrentObject = obj;
+    r.mbMergeResponses = 1;
+    const auto *tp = reinterpret_cast<const uint8_t *>(t.w.data());
+    const auto tn = static_cast<uint32_t>(t.w.size() * 4);
+    r.ReadMessageResponseTags(tp, tn, false);
+    r.ReadMessageResponseTags(tp, tn, false);
+    CHECK(obj->mResponses.count == 1);
+    r.mbMergeResponses = 0;
+    r.ReadMessageResponseTags(tp, tn, false);
+    CHECK(obj->mResponses.count == 2);
+    while (FEMinNode *n = obj->mResponses.RemHead()) bridge::VirtualScalarDelete(n);
+    // referenced library: loaded once through the game interface, then reference counted
+    auto lib = BuildFng(true);
+    auto withRef = BuildFng(true, 0, "r\\pkg.fng");      // library filename "dir\\pkg.fng" hashes from +2
+    teststub::libraryData = lib.data();
+    dl.clear();
+    FEPackage *p1 = FEngine_LoadPackage(e, withRef.data(), 0);
+    CHECK(p1 && p1->mList74.count == 1 && e->mLibraries.count == 1 && std::string(dl[0].kind) == "getpkg" && dl[0].msg == FEHashUpper("r\\pkg.fng"));
+    auto *libPkg = reinterpret_cast<FEPackage *>(e->mLibraries.head);
+    CHECK(libPkg && libPkg->mi32Priority == 1 && std::string(libPkg->mpcFilename) == "dir\\pkg.fng");
+    bool announced = false;
+    for (auto &d : dl) announced |= std::string(d.kind) == "libloaded" && d.pkg == libPkg;
+    CHECK(announced);
+    FEPackage *p2 = FEngine_LoadPackage(e, withRef.data(), 0);
+    CHECK(p2 && libPkg->mi32Priority == 2 && e->mLibraries.count == 1);
+    teststub::libraryData = nullptr;
+    e->mLibraries.RemNode(&libPkg->node);
+    CHECK(FEngine_LoadPackage(e, withRef.data(), 0) == nullptr);   // game has no data for it
+    for (FEPackage *p : {p1, p2, libPkg}) bridge::VirtualScalarDelete(p);
+    // failures
+    auto bad = BuildFng(true, 7);
+    CHECK(FEngine_LoadPackage(e, bad.data(), 0) == nullptr);
+    auto nolib = BuildFng(false);
+    pkg = FEngine_LoadPackage(e, nolib.data(), 0);
+    CHECK(pkg && pkg->mu32NumLibraryRefs == 0);
+    bridge::VirtualScalarDelete(pkg);
+    teststub::readerChunkResult = false;
+    CHECK(FEngine_LoadPackage(e, data.data(), 0) == nullptr);
+    teststub::readerChunkResult = true;
+    teststub::loadResourcesResult = false;
+    CHECK(FEngine_LoadPackage(e, data.data(), 0) == nullptr);
+    teststub::loadResourcesResult = true;
+    data[0] = 0;
+    CHECK(FEngine_LoadPackage(e, data.data(), 0) == nullptr);
+    dl.clear();
+    CHECK(teststub::liveAllocations == live0);
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -1513,6 +1658,7 @@ int main()
     TestPackageManager();
     TestPackageDataLifecycle();
     TestPackageLifetime();
+    TestPackageReader();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

@@ -71,6 +71,11 @@ void bWareFree(void *p);
 int32_t FEngLoadCounter();                                                         // PC 0x8384D0 (game global)
 int32_t *FEngLoadCounterPtr();                                                     // same global (GC gInsideScreenConstructor)
 // FEPackageManager callees (game-side screens; PC __cdecl)
+// FEPackageReader chunk readers not rewritten yet (PC __thiscall on the reader, bool in AL)
+// FEGameInterface (engine +0x10C) vtable slot 0: package data by name; *freeBuffer -> caller frees *buffer
+const void *FEGameInterface_GetPackageData(void *gi, const char *name, void **buffer, uint8_t *freeBuffer);
+void FEGameInterface_LibraryLoaded(void *gi, ::FEPackage *pkg);   // vtable slot 3 (+0xC)
+bool FEPackageReader_ReadObjectChunk(void *reader);               // PC 5554A0 (GC 8013AEC8)
 void *FEPackageVTable();                                           // PC 0x79B8F8 (slot 0 = 534C50)
 void *FENodeVTable();                                              // PC 0x79AB0C
 void *FEPackageList74VTable();                                     // PC 0x79B878 (FEPackage +0x74 list)

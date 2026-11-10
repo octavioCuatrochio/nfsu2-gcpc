@@ -106,6 +106,12 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
 }
 int32_t FEngLoadCounter() { return *reinterpret_cast<const int32_t *>(0x8384D0); }
 int32_t *FEngLoadCounterPtr() { return reinterpret_cast<int32_t *>(0x8384D0); }
+const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, uint8_t *f)
+{
+    return (*reinterpret_cast<const void *(THISCALL ***)(void *, const char *, void **, uint8_t *)>(gi))[0](gi, n, b, f);
+}
+void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }
+bool FEPackageReader_ReadObjectChunk(void *r) { return reinterpret_cast<bool(THISCALL *)(void *)>(0x5554A0)(r); }
 void *FEPackageVTable() { return reinterpret_cast<void *>(0x79B8F8); }
 void *FENodeVTable() { return reinterpret_cast<void *>(0x79AB0C); }
 void *FEPackageList74VTable() { return reinterpret_cast<void *>(0x79B878); }

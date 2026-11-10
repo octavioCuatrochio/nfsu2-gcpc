@@ -37,7 +37,7 @@ struct FEngine {
     FEPackage *mpPackages;           // +0xE4 first active package (packages are linked through their FEMinNode)
     FEPackage *mpPackagesTail;       // +0xE8
     FEMinList mIdlePackages;         // +0xEC loaded but inactive packages (cFEng::SetUseIdleList)
-    uint8_t _unknown0FC[0x10];
+    FEMinList mLibraries;            // +0xFC library packages (FEngine::AddToLibraryList; refcount in FEPackage +0x18)
     void *mpUIData;                  // +0x10C game-side handler (vtable: +0x18 SendMessageToGame, +0x54 message hook)
     uint8_t _unknown110[0x4114 - 0x110];
     FEMinList mMessages;             // +0x4114 queued messages

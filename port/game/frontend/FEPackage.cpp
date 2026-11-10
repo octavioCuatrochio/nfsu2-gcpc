@@ -387,3 +387,37 @@ void FEPackage::ConnectObjectResources()
     cb.resources = &mpResources;
     ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb));
 }
+
+void FEPackage::SetNumLibraryRefs(uint32_t n)
+{
+    if (n == 0) {
+        if (mpLibraryRefs) bridge::FreeArray(mpLibraryRefs);
+        mpLibraryRefs = nullptr;
+        return;
+    }
+    auto *refs = static_cast<FELibraryRef *>(bridge::Alloc(n * 0xC));
+    if (refs)
+        for (uint32_t i = 0; i < n; ++i) { refs[i].mu32Hash = 0; refs[i]._unknown04[0] = 0xFFFFFFFFu; refs[i]._unknown04[1] = 0; }
+    const uint32_t keep = n < mu32NumLibraryRefs ? n : mu32NumLibraryRefs;
+    if (keep) std::memcpy(refs, mpLibraryRefs, keep * 0xC);
+    if (mpLibraryRefs) bridge::FreeArray(mpLibraryRefs);
+    mpLibraryRefs = refs;
+    mu32NumLibraryRefs = n;
+}
+
+void FEMessageTargets::SetCapacity(uint32_t n)
+{
+    if (n == 0) {
+        bridge::FreeArray(mpObjects);
+        mu32Capacity = 0;
+        mpObjects = nullptr;
+        mu32Count = 0;
+    } else if (n != mu32Capacity) {
+        auto *objs = static_cast<FEObject **>(bridge::Alloc(n * 4));
+        const uint32_t keep = n < mu32Capacity ? n : mu32Capacity;
+        if (keep) std::memcpy(objs, mpObjects, keep * sizeof(FEObject *));
+        bridge::FreeArray(mpObjects);
+        mpObjects = objs;
+    }
+    mu32Capacity = n;
+}
