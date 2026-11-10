@@ -23,6 +23,7 @@
 #include "frontend/FEWidget.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
+#include "frontend/UIWidgetMenu.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/cFEngRender.h"
 #include "frontend/FEngFont.h"
@@ -364,6 +365,18 @@ void THISCALL TuningSlider_Draw(TuningSlider *self) { self->Draw(); }
 void THISCALL TuningSlider_Act(TuningSlider *self, const char *pkg, uint32_t m) { self->Act(pkg, m); }
 void THISCALL TuningSlider_CheckMouse(TuningSlider *self, const char *pkg, float x, float y) { self->CheckMouse(pkg, x, y); }
 void __cdecl FEngSetLanguageHash_Hook(FEObject *o, uint32_t h) { FEngSetLanguageHash(o, h); }
+UIWidgetMenu *THISCALL UIWidgetMenu_Ctor(UIWidgetMenu *self, const ScreenConstructorData *d) { return self->Construct(d); }
+void THISCALL UIWidgetMenu_DtorBody(UIWidgetMenu *self) { self->DestructBody(); }
+UIWidgetMenu *THISCALL UIWidgetMenu_ScalarDtor(UIWidgetMenu *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL UIWidgetMenu_RefreshWidgets(UIWidgetMenu *self) { self->RefreshWidgets(); }
+void THISCALL UIWidgetMenu_SetInitialPositions(UIWidgetMenu *self) { self->SetInitialPositions(); }
+uint32_t THISCALL UIWidgetMenu_GetWidgetIndex(UIWidgetMenu *self, const FEWidget *w) { return self->GetWidgetIndex(w); }
+void THISCALL UIWidgetMenu_ClearWidgets(UIWidgetMenu *self) { self->ClearWidgets(); }
+void THISCALL UIWidgetMenu_Reposition(UIWidgetMenu *self) { self->Reposition(); }
+void THISCALL UIWidgetMenu_Reset(UIWidgetMenu *self) { self->Reset(); }
+void THISCALL UIWidgetMenu_SyncViewToSelection(UIWidgetMenu *self) { self->SyncViewToSelection(); }
+void THISCALL DeleteAllNodeOwners_Hook(WidgetListNode *head) { DeleteAllNodeOwners(head); }
+WidgetListNode *THISCALL ListGetNode_Hook(WidgetListNode *head, uint32_t i) { return ListGetNode(head, i); }
 MenuScreen *THISCALL MenuScreen_Ctor(MenuScreen *self, const ScreenConstructorData *d) { return self->Construct(d); }
 MenuScreen *THISCALL MenuScreen_ScalarDtor(MenuScreen *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 uint32_t __cdecl IsOverlayPackage_Hook(const char *p) { return IsOverlayPackage(p); }
@@ -896,6 +909,18 @@ const Replacement kReplacements[] = {
     {0x53CD30, (const void *)&TuningSlider_Draw, "TuningSlider::Draw", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
     {0x564F10, (const void *)&TuningSlider_Act, "TuningSlider::Act", {0x55, 0x8B, 0xEC, 0x51, 0x53, 0x57}},
     {0x565050, (const void *)&TuningSlider_CheckMouse, "TuningSlider::CheckMouse", {0x53, 0x8B, 0x5C, 0x24, 0x0C, 0x55}},
+    {0x552780, (const void *)&UIWidgetMenu_Ctor, "UIWidgetMenu::UIWidgetMenu", {0x6A, 0xFF, 0x68, 0xD3, 0x7C, 0x77}},
+    {0x4CBC30, (const void *)&UIWidgetMenu_DtorBody, "UIWidgetMenu::~UIWidgetMenu body", {0x6A, 0xFF, 0x68, 0x18, 0x64, 0x77}},
+    {0x4CBC90, (const void *)&UIWidgetMenu_ScalarDtor, "UIWidgetMenu scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x98, 0xFF}},
+    {0x51FF40, (const void *)&UIWidgetMenu_RefreshWidgets, "UIWidgetMenu::RefreshWidgets", {0x8B, 0x41, 0x4C, 0x85, 0xC0, 0x56}},
+    {0x51FF80, (const void *)&UIWidgetMenu_SetInitialPositions, "UIWidgetMenu::SetInitialPositions", {0x53, 0x55, 0x56, 0x8B, 0xF1, 0x8B}},
+    {0x520020, (const void *)&UIWidgetMenu_GetWidgetIndex, "UIWidgetMenu::GetWidgetIndex", {0x56, 0x8D, 0x71, 0x4C, 0x8B, 0x0E}},
+    {0x52FD40, (const void *)&UIWidgetMenu_ClearWidgets, "UIWidgetMenu::ClearWidgets", {0x53, 0x56, 0x8B, 0xD9, 0x8B, 0x43}},
+    {0x52FDB0, (const void *)&UIWidgetMenu_Reposition, "UIWidgetMenu::Reposition", {0x83, 0xEC, 0x08, 0x53, 0x55, 0x56}},
+    {0x52FE60, (const void *)&UIWidgetMenu_Reset, "UIWidgetMenu::Reset", {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x4C}},
+    {0x52FEA0, (const void *)&UIWidgetMenu_SyncViewToSelection, "UIWidgetMenu::SyncViewToSelection", {0x57, 0x8B, 0xF9, 0x8B, 0x4F, 0x4C}},
+    {0x4358E0, (const void *)&DeleteAllNodeOwners_Hook, "bTList::DeleteAllElements", {0x56, 0x8B, 0xF1, 0x8B, 0x06, 0x3B}},
+    {0x43BE60, (const void *)&ListGetNode_Hook, "bList::GetNode", {0x8B, 0x01, 0x33, 0xD2, 0x3B, 0xC1}},
     {0x551DE0, (const void *)&MenuScreen_Ctor, "MenuScreen::MenuScreen", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x33}},
     {0x51DC60, (const void *)&MenuScreen_ScalarDtor, "MenuScreen::~MenuScreen", {0xF6, 0x44, 0x24, 0x04, 0x01, 0x56}},
     {0x49FFA0, (const void *)&IsOverlayPackage_Hook, "IsOverlayPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x68}},

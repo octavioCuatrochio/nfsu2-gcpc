@@ -148,6 +148,10 @@ void VirtualScalarDelete(void *o)
         FreeArray(static_cast<FENode *>(o)->mpcName);
         FreeArray(o);
     }
+#ifdef NFSU2_REFEREE
+    else if (reinterpret_cast<uintptr_t>(vt) < 0x400000 || reinterpret_cast<uintptr_t>(vt) >= 0x900000)   // check fakes
+        (*reinterpret_cast<void *(__thiscall ***)(void *, uint32_t)>(o))[0](o, 1);
+#endif
     else FreeArray(o);
 }
 void VirtualScalarDtor(void *o, uint32_t flags)
@@ -460,7 +464,29 @@ long double Tuning_GetLower(int32_t) { return teststub::tuningLower; }
 void Tuning_SetValue(float v, int32_t t) { teststub::tuningValue = v; teststub::delivered.push_back({"tuning set", nullptr, nullptr, static_cast<uint32_t>(t), 0}); }
 long double CarTuneManager_GetStep(int32_t) { return 0.25L; }
 bool cSlider_Update(void *s, uint32_t m) { teststub::delivered.push_back({"slider update", s, nullptr, m, 0}); return true; }
+#ifdef NFSU2_REFEREE
+void *UIWidgetMenuVTable() { return reinterpret_cast<void *>(0x795CDC); }
+#else
+void *UIWidgetMenuVTable() { return &teststub::feButtonWidgetVTable; }
+#endif
+#ifdef NFSU2_REFEREE   // widgets in referee checks carry (fake) vtables: call through them like the game
+static void WidgetSlot(void *w, int off) { (*reinterpret_cast<void(__thiscall ***)(void *)>(w))[off / 4](w); }
+void FEWidget_Position(void *w) { WidgetSlot(w, 0x10); }
+void FEWidget_Show(void *w) { WidgetSlot(w, 0x14); }
+void FEWidget_Hide(void *w) { WidgetSlot(w, 0x18); }
+void FEWidget_UnsetFocus(void *w) { WidgetSlot(w, 0x28); }
+void FEWidget_SetFocus(void *w, const char *p) { (*reinterpret_cast<void(__thiscall ***)(void *, const char *)>(w))[0x24 / 4](w, p); }
+void FEWidget_SetPosY(void *w, float y) { (*reinterpret_cast<void(__thiscall ***)(void *, float)>(w))[0x34 / 4](w, y); }
+void FEWidget_Draw(void *w) { WidgetSlot(w, 0x0C); }
+#else
+void FEWidget_Position(void *w) { teststub::delivered.push_back({"position", w, nullptr, 0, 0}); }
+void FEWidget_Show(void *w) { teststub::delivered.push_back({"show", w, nullptr, 0, 0}); }
+void FEWidget_Hide(void *w) { teststub::delivered.push_back({"hide", w, nullptr, 0, 0}); }
+void FEWidget_UnsetFocus(void *w) { teststub::delivered.push_back({"unsetfocus", w, nullptr, 0, 0}); }
+void FEWidget_SetFocus(void *w, const char *) { teststub::delivered.push_back({"setfocus", w, nullptr, 0, 0}); }
+void FEWidget_SetPosY(void *w, float y) { teststub::delivered.push_back({"setposy", w, nullptr, static_cast<uint32_t>(y), 0}); }
 void FEWidget_Draw(void *w) { teststub::delivered.push_back({"draw", w, nullptr, 0, 0}); }
+#endif
 uint32_t FEWidget_DetermineSpecialSound(void *w, uint32_t m, uint32_t e) { teststub::delivered.push_back({"specialsound", w, nullptr, m, e}); return e + 10; }
 void FEWidget_BlinkArrows(void *w, uint32_t m) { teststub::delivered.push_back({"blink", w, nullptr, m, 0}); }
 void MakeFrontendSound(uint32_t e, uint32_t t) { teststub::delivered.push_back({"makesound", nullptr, nullptr, e, t}); }

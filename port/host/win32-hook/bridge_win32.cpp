@@ -184,6 +184,14 @@ long double Tuning_GetLower(int32_t t) { return TuningGet(0x5B2BA0, t); }
 void Tuning_SetValue(float v, int32_t t) { reinterpret_cast<void(THISCALL *)(void *, float, int32_t, int32_t, int32_t)>(0x5B4670)(TuningObject(), v, t, 0, 1); }
 long double CarTuneManager_GetStep(int32_t t) { return reinterpret_cast<long double(THISCALL *)(void *, int32_t)>(0x522560)(reinterpret_cast<void *>(0x839C40), t); }
 bool cSlider_Update(void *s, uint32_t m) { return ((*reinterpret_cast<uint32_t(THISCALL ***)(void *, uint32_t)>(s))[0x04 / 4](s, m) & 0xFF) != 0; }
+void *UIWidgetMenuVTable() { return reinterpret_cast<void *>(0x795CDC); }
+static void WidgetSlot(void *w, int off) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[off / 4](w); }
+void FEWidget_Position(void *w) { WidgetSlot(w, 0x10); }
+void FEWidget_Show(void *w) { WidgetSlot(w, 0x14); }
+void FEWidget_Hide(void *w) { WidgetSlot(w, 0x18); }
+void FEWidget_UnsetFocus(void *w) { WidgetSlot(w, 0x28); }
+void FEWidget_SetFocus(void *w, const char *p) { (*reinterpret_cast<void(THISCALL ***)(void *, const char *)>(w))[0x24 / 4](w, p); }
+void FEWidget_SetPosY(void *w, float y) { (*reinterpret_cast<void(THISCALL ***)(void *, float)>(w))[0x34 / 4](w, y); }
 void FEWidget_Draw(void *w) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[0x0C / 4](w); }
 void FEPrintfInt(FEObject *o, const char *f, int32_t v) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v); }
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { return (*reinterpret_cast<uint32_t(THISCALL ***)(void *)>(w))[0x3C / 4](w); }

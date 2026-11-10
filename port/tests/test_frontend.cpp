@@ -12,6 +12,7 @@
 #include "frontend/FEWidget.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
+#include "frontend/UIWidgetMenu.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
@@ -3094,6 +3095,63 @@ static void TestMenuScreen()
     teststub::callingScreenFrozen = false; teststub::profileState = 0;
 }
 
+static void TestUIWidgetMenu()
+{
+    alignas(8) static unsigned char mm[sizeof(UIWidgetMenu)];
+    std::memset(mm, 0x5A, sizeof mm);
+    auto *m = reinterpret_cast<UIWidgetMenu *>(mm);
+    ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};   // no package: no masters found
+    teststub::profileState = 0;
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();     // object lookups fall back to an empty engine
+    CHECK(m->Construct(&d) == m);
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+    CHECK(m->base.vtable == &teststub::feButtonWidgetVTable && m->mWidgets.next == &m->mWidgets && m->mVisibleCount == 7);
+    CHECK(m->mTitleW == 175.0f && m->_unknown124 == 4.0f && m->_unknown146 == 1 && m->_unknown149 == 1 && m->base._unknown2C == 1);
+    CHECK(std::string(m->mSliderEnd) == "SLIDER_END_" && m->mpTitleMaster == nullptr);
+    // 10 widgets appended (node at FEWidget::_unknown04)
+    FEWidget *w[10];
+    const int live = teststub::liveAllocations;
+    for (int i = 0; i < 10; ++i) {
+        w[i] = static_cast<FEWidget *>(bridge::Alloc(sizeof(FEButtonWidget)));
+        std::memset(w[i], 0, sizeof(FEButtonWidget));
+        auto *n = reinterpret_cast<WidgetListNode *>(&w[i]->_unknown04);
+        n->next = &m->mWidgets; n->prev = m->mWidgets.prev;
+        m->mWidgets.prev->next = n; m->mWidgets.prev = n;
+    }
+    CHECK(m->GetWidgetIndex(w[0]) == 1 && m->GetWidgetIndex(w[9]) == 10 && m->GetWidgetIndex(nullptr) == 0);
+    CHECK(m->GetWidget(0) == nullptr && m->GetWidget(3) == w[2]);
+    CHECK(ListGetNode(&m->mWidgets, 99) == &m->mWidgets);   // past the end: the head itself
+    teststub::delivered.clear();
+    m->mTitleY = 100; m->mRowHeight = 20;
+    m->Reset();   // view top = first: widgets 1..7 shown at 100, 120, ...; 8..10 parked
+    CHECK(m->mpCurrent == w[0] && m->mpViewTop == w[0] && m->mbViewDirty == 0);
+    int shown = 0, parked = 0;
+    for (auto &e : teststub::delivered) {
+        if (std::string(e.kind) == "setposy" && e.msg == 6969) ++parked;
+        if (std::string(e.kind) == "show") ++shown;
+    }
+    CHECK(shown == 7 && parked == 3 && std::string(teststub::delivered[0].kind) == "setfocus");
+    CHECK(std::string(teststub::delivered[2].kind) == "setposy" && teststub::delivered[2].msg == 100 && teststub::delivered[5].msg == 120);
+    // selection 9 of 10: index 9 - 1 > 7 and widget index 9 > 9 - 7 -> top = node 9 - 7 - 1 = 1 (second widget)
+    m->mpCurrent = w[8]; m->mCurrentIndex = 9;
+    m->SyncViewToSelection();
+    CHECK(m->mpViewTop == w[1]);
+    m->mpCurrent = w[1]; m->mCurrentIndex = 9;   // widget index 2 <= 2 -> top = current
+    m->SyncViewToSelection();
+    CHECK(m->mpViewTop == w[1]);
+    m->mCurrentIndex = 3;   // 2 > 7 false -> top = max(3 - 7 - 1, 0) = node 0
+    m->SyncViewToSelection();
+    CHECK(m->mpViewTop == w[0]);
+    teststub::delivered.clear();
+    m->RefreshWidgets();
+    CHECK(teststub::delivered.size() == 10 && std::string(teststub::delivered[0].kind) == "draw");
+    m->ClearWidgets();
+    CHECK(m->mWidgets.next == &m->mWidgets && teststub::liveAllocations == live);
+    m->DestructBody();
+    CHECK(m->base.vtable == &teststub::feWidgetVTable);
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -3456,6 +3514,7 @@ int main()
     TestLocalizeAndTuning();
     TestTuningSliderValues();
     TestMenuScreen();
+    TestUIWidgetMenu();
     TestCSlider();
     TestStageSliders();
     TestFEngExtents();

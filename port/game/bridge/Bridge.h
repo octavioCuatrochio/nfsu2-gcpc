@@ -223,6 +223,13 @@ void Tuning_SetValue(float v, int32_t type);                    // 5B4670 (v, ty
 long double CarTuneManager_GetStep(int32_t type);               // 522560 (__thiscall on 0x839C40)
 bool cSlider_Update(void *slider, uint32_t msg);                // slider vtable +0x04
 void FEWidget_Draw(void *widget);                               // widget vtable +0x0C
+void FEWidget_Position(void *widget);                           // widget vtable +0x10
+void FEWidget_Show(void *widget);                               // widget vtable +0x14
+void FEWidget_Hide(void *widget);                               // widget vtable +0x18
+void FEWidget_SetFocus(void *widget, const char *pkg);          // widget vtable +0x24
+void FEWidget_UnsetFocus(void *widget);                         // widget vtable +0x28
+void FEWidget_SetPosY(void *widget, float y);                   // widget vtable +0x34
+void *UIWidgetMenuVTable();                                     // PC 0x795CDC
 void FEPrintfInt(FEObject *str, const char *fmt, int32_t v);   // PC 537BE0 (__cdecl varargs): format into a string object
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04

@@ -12,6 +12,7 @@
 #include <cstring>
 #include <random>
 #include <vector>
+#include <array>
 #include <initializer_list>
 #include <utility>
 #include "bWare/bCrc32.h"
@@ -47,6 +48,7 @@
 #include "frontend/FENode.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
+#include "frontend/UIWidgetMenu.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/FEString.h"
 #include "bWare/bMath.h"
@@ -2559,6 +2561,112 @@ static void CheckMenuScreen(int iters)
     }
 }
 
+// UIWidgetMenu: list members on fake widgets whose vtable logs calls as
+// (slot, widget index, arg), SetInitialPositions on synthetic master boxes, dtor body (deletes go to the fake slot 0).
+namespace uiw_fake {
+struct Arena;
+uint8_t *base = nullptr;   // widget array of the arena being run
+size_t stride = 0;
+std::vector<std::array<uint32_t, 3>> log;
+uint32_t Idx(void *w) { return static_cast<uint32_t>((static_cast<uint8_t *>(w) - base) / stride); }
+void *__thiscall S0(void *w, uint32_t f) { log.push_back({0, Idx(w), f}); return w; }
+template <int K> void __thiscall S(void *w) { log.push_back({K, Idx(w), 0}); }
+void __thiscall S9(void *w, const char *p) { log.push_back({9, Idx(w), p ? static_cast<uint32_t>(p[0]) : 0u}); }
+void __thiscall S13(void *w, float y) { uint32_t b; std::memcpy(&b, &y, 4); log.push_back({13, Idx(w), b}); }
+void *vtable[16] = {(void *)&S0, nullptr, nullptr, (void *)&S<3>, (void *)&S<4>, (void *)&S<5>, (void *)&S<6>, nullptr, nullptr,
+                    (void *)&S9, (void *)&S<10>, nullptr, nullptr, (void *)&S13, nullptr, nullptr};
+}
+static void CheckUIWidgetMenu(int iters)
+{
+    using M0 = void(THISCALL *)(UIWidgetMenu *);
+    const M0 o0[7] = {ORIG<M0>(0x51FF40), ORIG<M0>(0x51FF80), ORIG<M0>(0x52FD40), ORIG<M0>(0x52FDB0), ORIG<M0>(0x52FE60),
+                      ORIG<M0>(0x52FEA0), ORIG<M0>(0x4CBC30)};
+    auto oIndex = ORIG<uint32_t(THISCALL *)(UIWidgetMenu *, const FEWidget *)>(0x520020);
+    auto oGetNode = ORIG<WidgetListNode *(THISCALL *)(WidgetListNode *, uint32_t)>(0x43BE60);
+    struct Arena { UIWidgetMenu m; FEButtonWidget w[12]; unsigned char om[2][sizeof(FEObject)]; float d[2][20]; };
+    static Arena A, B;
+    uiw_fake::stride = sizeof(FEButtonWidget);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&B, &A, sizeof A);
+            // (no ctor compare: the original's package lookups need cFEng, which doesn't exist in DllMain)
+            const bool trace = std::getenv("REFEREE_TRACE") != nullptr;
+            // build the same list in both arenas
+            const int n = static_cast<int>(rng() % 12);
+            for (Arena *R : {&A, &B}) {
+                R->m.mWidgets.next = R->m.mWidgets.prev = &R->m.mWidgets;
+                for (int i = 0; i < n; ++i) {
+                    R->w[i].base.vtable = uiw_fake::vtable;
+                    auto *nd = reinterpret_cast<WidgetListNode *>(&R->w[i].base._unknown04);
+                    nd->next = &R->m.mWidgets; nd->prev = R->m.mWidgets.prev;
+                    R->m.mWidgets.prev->next = nd; R->m.mWidgets.prev = nd;
+                }
+                for (int k = 0; k < 2; ++k) {
+                    auto *o = reinterpret_cast<FEObject *>(R->om[k]);
+                    std::memset(R->om[k], 0, sizeof R->om[k]);
+                    o->mpData = R->d[k]; o->mu32Type = 1;
+                }
+                R->m.mpTitleMaster = reinterpret_cast<FEObject *>(R->om[0]);
+                R->m.mpDataMaster = reinterpret_cast<FEObject *>(R->om[1]);
+            }
+            for (int k = 0; k < 2; ++k) for (int j = 0; j < 20; ++j) A.d[k][j] = B.d[k][j] = RefCoord();
+            const int pick = n ? static_cast<int>(rng() % (n + 1)) : 0;   // n: not in the list
+            const uint32_t cnt = 1 + rng() % 9, idx = rng() % 14;
+            const bool cur = rng() % 4 != 0, done = rng() % 2;
+            for (Arena *R : {&A, &B}) {
+                R->m.mpCurrent = cur && pick < n ? &R->w[pick].base : (cur ? &R->w[0].base : nullptr);
+                R->m.mpViewTop = pick < n ? &R->w[pick].base : nullptr;
+                R->m.mpDoneButton = done ? reinterpret_cast<FEObject *>(R->om[0]) : nullptr;
+                R->m.mVisibleCount = cnt; R->m.mCurrentIndex = idx;
+                R->m.base.mpPackageName = "Pkg";
+            }
+            const int op = static_cast<int>(rng() % 9);
+            uiw_fake::log.clear(); uiw_fake::base = reinterpret_cast<uint8_t *>(A.w);
+            uint32_t ia = 0, ib = 0;
+            if (trace) { std::printf("uiw op %d n %d pick %d cnt %u idx %u\n", op, n, pick, cnt, idx); std::fflush(stdout); }
+            const bool target = rng() % 3 != 0;
+            if (op < 7) o0[op](&A.m);
+            else if (op == 7) ia = oIndex(&A.m, target ? &A.w[pick].base : nullptr);
+            else ia = static_cast<uint32_t>(reinterpret_cast<uint8_t *>(oGetNode(&A.m.mWidgets, pick)) - reinterpret_cast<uint8_t *>(&A));
+            auto la = uiw_fake::log;
+            uiw_fake::log.clear(); uiw_fake::base = reinterpret_cast<uint8_t *>(B.w);
+            switch (op) {
+            case 0: B.m.RefreshWidgets(); break;      case 1: B.m.SetInitialPositions(); break;
+            case 2: B.m.ClearWidgets(); break;        case 3: B.m.Reposition(); break;
+            case 4: B.m.Reset(); break;               case 5: B.m.SyncViewToSelection(); break;
+            case 6: B.m.DestructBody(); break;
+            case 7: ib = B.m.GetWidgetIndex(target ? &B.w[pick].base : nullptr); break;
+            default: ib = static_cast<uint32_t>(reinterpret_cast<uint8_t *>(ListGetNode(&B.m.mWidgets, pick)) - reinterpret_cast<uint8_t *>(&B)); break;
+            }
+            auto lb = uiw_fake::log;
+            // map B-arena pointers back into A for the byte compare (known pointer fields only: random bytes elsewhere
+            // may happen to look like B addresses)
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            auto unmap = [&](void *field) {
+                uintptr_t v; std::memcpy(&v, field, 4);
+                if (v >= reinterpret_cast<uintptr_t>(&B) && v < reinterpret_cast<uintptr_t>(&B) + sizeof B) { v -= delta; std::memcpy(field, &v, 4); }
+            };
+            unmap(&B.m.mWidgets.next); unmap(&B.m.mWidgets.prev); unmap(&B.m.mpCurrent); unmap(&B.m.mpViewTop);
+            unmap(&B.m.mpTitleMaster); unmap(&B.m.mpDataMaster); unmap(&B.m.mpDoneButton);
+            for (int i = 0; i < n; ++i) { unmap(&B.w[i].base._unknown04); unmap(&B.w[i].base._unknown08); }
+            for (int k = 0; k < 2; ++k) reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
+            if (trace && !(ia == ib && la == lb && std::memcmp(&A, &B, sizeof A) == 0)) {
+                size_t off = 0;
+                while (off < sizeof A && reinterpret_cast<uint8_t *>(&A)[off] == reinterpret_cast<uint8_t *>(&B)[off]) ++off;
+                std::printf("  ia %u ib %u log %u/%u first diff +0x%x (m %u)\n", ia, ib, unsigned(la.size()), unsigned(lb.size()), unsigned(off), unsigned(sizeof A.m));
+                for (size_t i = 0; i < la.size() && i < 4; ++i) std::printf("  a %u %u %08x\n", la[i][0], la[i][1], la[i][2]);
+                for (size_t i = 0; i < lb.size() && i < 4; ++i) std::printf("  b %u %u %08x\n", lb[i][0], lb[i][1], lb[i][2]);
+            }
+            EXPECT(ia == ib && la == lb && std::memcmp(&A, &B, sizeof A) == 0, "UIWidgetMenu op %d n=%d pick=%d pc=%x", op, n, pick, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -3441,6 +3549,7 @@ static int RunAll()
     REFEREE_RUN(CheckTuningSlider(iters));
     REFEREE_RUN(CheckLocalize(iters));
     REFEREE_RUN(CheckMenuScreen(iters));
+    REFEREE_RUN(CheckUIWidgetMenu(iters));
     REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckCFEngInterface(iters));
