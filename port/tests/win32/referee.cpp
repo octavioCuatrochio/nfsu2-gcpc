@@ -2911,6 +2911,94 @@ static void CheckWidgetSmall(int iters)
     }
 }
 
+// FEInputWidget / FEDateWidget: constructors, CheckMouse (fake vtable records Act), Enable/Disable/focus scripts on
+// non-string objects (SetDate needs real strings: in-game only).
+namespace inputw_fake {
+static int acts; static uintptr_t actThis; static uint32_t actMsg;
+static void THISCALL Act(void *self, const char *, uint32_t msg) { ++acts; actThis = reinterpret_cast<uintptr_t>(self); actMsg = msg; }
+static void *vtable[18] = {nullptr, reinterpret_cast<void *>(&Act)};
+}
+static void CheckInputWidget(int iters)
+{
+    auto oCtor = ORIG<FEInputWidget *(THISCALL *)(FEInputWidget *, uint32_t, const float *, const float *, const float *, const float *, const char *, uint32_t, uint32_t)>(0x51E9E0);
+    auto oDCtor = ORIG<FEDateWidget *(THISCALL *)(FEDateWidget *, const float *, const float *, const float *, const float *, uint32_t)>(0x51EBD0);
+    auto oMouse = ORIG<void(THISCALL *)(void *, const char *, float, float)>(0x51EC10);
+    using M0 = void(THISCALL *)(void *);
+    // 0 Enable 1 Disable 2 UnsetFocus 3 SetInputFocus 4 SetFocus 5 CheckMouse
+    const uintptr_t addr[5] = {0x51EC90, 0x51EA90, 0x51ED60, 0x51EB60, 0x52E120};
+    struct Arena { FEInputWidget w; unsigned char om[3][sizeof(FEObject)]; float d[3][20]; };
+    static Arena A, B;
+    static const char *texts[] = {nullptr, "", "Name", "A very long string that is longer than nothing at all, repeated: "
+        "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+        "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"};
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&B, &A, sizeof A);
+            const float pos[2] = {RefCoord(), RefCoord()}, size[2] = {RefCoord(), RefCoord()};
+            const float vs[2] = {RefCoord(), RefCoord()}, vp[2] = {RefCoord(), RefCoord()};
+            const uint32_t en = (rng() & ~0xFFu) | (rng() & 1), a0 = rng(), a6 = rng();
+            const char *t = texts[rng() % 4];
+            if (rng() % 4 == 0) {
+                auto *da = reinterpret_cast<FEDateWidget *>(&A.w), *db = reinterpret_cast<FEDateWidget *>(&B.w);
+                EXPECT(oDCtor(da, pos, size, vs, vp, en) == da && db->Construct(pos, size, vs, vp, en & 0xFF) == db &&
+                       std::memcmp(&A.w, &B.w, sizeof A.w) == 0, "FEDateWidget ctor");
+            } else {
+                EXPECT(oCtor(&A.w, a0, pos, size, vs, vp, t, a6, en) == &A.w && B.w.Construct(a0, pos, size, vs, vp, t, a6, en & 0xFF) == &B.w &&
+                       std::memcmp(&A.w, &B.w, sizeof A.w) == 0, "FEInputWidget ctor");
+            }
+            A.w.base.base.vtable = inputw_fake::vtable;
+            FEObject **slots[] = {&A.w.base.mpObject, &A.w.base.mpValue, &A.w.base.base.mpLabel};
+            for (int k = 0; k < 3; ++k) {
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 3 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+                *slots[k] = rng() % 5 ? o : nullptr;
+            }
+            std::memcpy(&B, &A, sizeof A);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            FEObject **bslots[] = {&B.w.base.mpObject, &B.w.base.mpValue, &B.w.base.base.mpLabel};
+            for (int k = 0; k < 3; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) + delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            }
+            const int op = A.w.base.mpValue ? static_cast<int>(rng() % 6) : static_cast<int>(rng() % 5);   // null value: undefined corner
+            int actsA = 0, actsB = 0; uint32_t msgA = 0, msgB = 0;
+            if (op == 5) {
+                // a point inside the value's box half the time
+                float x = RefCoord(), y = RefCoord();
+                if (A.w.base.mpValue && rng() % 2) {
+                    x = A.w.base.base.mPosX + (A.d[1][7] - A.w.base.base.mPosX) * static_cast<float>(rng() % 100) / 100.0f;
+                    y = A.w.base.base.mPosY + (A.d[1][8] - A.w.base.base.mPosY) * static_cast<float>(rng() % 100) / 100.0f;
+                }
+                inputw_fake::acts = 0; oMouse(&A.w, "Pkg", x, y); actsA = inputw_fake::acts; msgA = inputw_fake::actMsg;
+                EXPECT(actsA == 0 || inputw_fake::actThis == reinterpret_cast<uintptr_t>(&A.w), "FEInputWidget act this");
+                inputw_fake::acts = 0; B.w.CheckMouse("Pkg", x, y); actsB = inputw_fake::acts; msgB = inputw_fake::actMsg;
+                EXPECT(actsB == 0 || inputw_fake::actThis == reinterpret_cast<uintptr_t>(&B.w), "FEInputWidget act this B");
+            } else {
+                if (op == 4) ORIG<void(THISCALL *)(void *, const char *)>(addr[op])(&A.w, "Pkg"); else ORIG<M0>(addr[op])(&A.w);
+                switch (op) {
+                case 0: B.w.Enable(); break; case 1: B.w.Disable(); break; case 2: B.w.UnsetFocus(); break;
+                case 3: B.w.SetInputFocus(); break; default: B.w.SetFocus("Pkg"); break;
+                }
+            }
+            for (int k = 0; k < 3; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) - delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
+            }
+            EXPECT(actsA == actsB && (actsA == 0 || msgA == msgB) && std::memcmp(&A, &B, offsetof(Arena, d)) == 0 &&
+                   std::memcmp(A.d, B.d, sizeof A.d) == 0, "FEInputWidget op %d acts %d/%d pc=%x null %d type %u", op, actsA, actsB, pc, A.w.base.mpValue == nullptr, A.w.base.mpValue ? A.w.base.mpValue->mu32Type : 0u);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 static void CheckButtonWidget(int iters)
 {
     auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
@@ -3787,6 +3875,7 @@ static int RunAll()
     REFEREE_RUN(CheckFEngPosition(iters * 3));
     REFEREE_RUN(CheckButtonWidget(iters));
     REFEREE_RUN(CheckWidgetSmall(iters));
+    REFEREE_RUN(CheckInputWidget(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));

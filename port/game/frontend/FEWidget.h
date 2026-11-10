@@ -30,7 +30,7 @@ struct FEWidget {
     void SetTopLeft(const float *v) { mPosX = v[0]; mPosY = v[1]; }  // GC 8018BA58 (PC: no vtable slot, inlined)
     void SetTopLeftX(float x) { mPosX = x; }                         // GC 8018BA6C (PC inlined)
     void SetTopLeftY(float y) { mPosY = y; }                         // GC 8018BA74 (PC inlined)
-    // GC 8018BAB0 (FEButtonWidget / FEStatWidget::SetPos, identical) / PC 4AE9C0 (ret 4; slot 12 of every widget
+    // GC 8018BAB0 (FEButtonWidget / FEStatWidget::SetPos, identical) / PC 4AE9C0 (ret 4; slot 11 (+0x2C) of every widget
     // but the base): virtual SetPosX (+0x30) then SetPosY (+0x34).
     void SetPosVirtual(const float *v);
     // Trivial slots (PC folded): Act 402350 (ret 8) / CheckMouse 50D520 (ret 0xC) no-ops, base DetermineSpecialSound
@@ -281,4 +281,46 @@ static_assert(sizeof(FELabelWidget) == 0x38 && sizeof(FEStatWidget) == 0x4C && o
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FEWidget) == 0x2C && offsetof(FEWidget, mpLabel) == 0x24 && offsetof(FEWidget, mbHidden) == 0x29);
 static_assert(sizeof(FEButtonWidget) == 0x38 && offsetof(FEButtonWidget, mWidth) == 0x30);
+#endif
+
+// GC FEInputWidget (zFe2.cpp; PC 0x254, vtable 0x79B450, 16 slots): FEStatWidget + text buffers. PC slots: Position/
+// Show/Hide/SetPos*/ = FEStatWidget's, DetermineSpecialSound = FEButtonWidget's 50D800, trigger 40CA50 (3).
+struct FEInputWidget {
+    FEStatWidget base;               // +0x000
+    char mText[256];                 // +0x04C initial text (bStrNCpy 0xFF)
+    char mBuffer[256];               // +0x14C zeroed
+    uint32_t mCtorArg0;              // +0x24C first ctor arg (career menus pass 0xC)
+    uint32_t mCtorArg6;              // +0x250 seventh ctor arg (e.g. 5)
+
+    // GC 80154D40 / PC 51E9E0 (ret 0x20)
+    FEInputWidget *Construct(uint32_t arg0, const float *pos, const float *size, const float *valueSize,
+                             const float *valuePos, const char *text, uint32_t arg6, bool enabled);
+    // GC 80154DE0 / PC 55E120 (ret 8): message 0x0C407210 -> FEngSendMessageToPackage(0x81017864, pkg) (inlined)
+    static void Act(const char *pkg, uint32_t msg);
+    void CheckMouse(const char *pkg, float x, float y);   // GC 80154E18 / PC 51EC10 (ret 0xC)
+    void Enable();                   // GC 80154EC4 / PC 51EC90: "UnHighlight" on object, value, label
+    void Disable();                  // GC 80154F30 / PC 51EA90: "Disable"
+    void SetFocus(const char *pkg);  // GC 8015502C / PC 52E120 (ret 4): current button + "Highlight"
+    void UnsetFocus();               // GC 8015509C / PC 51ED60: "UnHighlight" (enabled flag untouched)
+    void SetInputFocus();            // GC 80155100 / PC 51EB60: "UnDim" on value and label
+    static uint32_t DetermineSoundTrigger() { return 3; }   // GC 8018BD60 / PC 40CA50 (folded)
+};
+
+// GC FEDateWidget (zFe2.cpp; PC vtable 0x79B490, 18 slots; one PC subclass, vtable 0x794958). PC shares every
+// FEInputWidget member (CheckMouse/Enable/Disable/SetFocus/UnsetFocus are the same code; GC duplicates them).
+struct FEDateWidget {
+    FEStatWidget base;               // +0x00
+    int32_t mDate[3];                // +0x4C (GC +0x50) printed "%d/%d/%d" as [1], [0], [2]
+
+    FEDateWidget *Construct(const float *pos, const float *size, const float *valueSize, const float *valuePos,
+                            bool enabled);   // PC 51EBD0 (ret 0x14; GC inlined): FEStatWidget ctor + vtable
+    void SetDate();                  // GC 80155458 / PC 538060: FEPrintf(value, "%d/%d/%d", [1], [0], [2])
+    static const char *GetHeaderText() { return ""; }   // GC 8018BDA4 / PC 423560 (0x783FE5; folded)
+    static int32_t GetMaxYear() { return 2015; }        // GC 8018BDB0 / PC 51EC00
+    static uint32_t DetermineSoundTrigger() { return 6; }   // GC 8018BD9C / PC 4BA370 (folded)
+};
+
+#if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(FEInputWidget) == 0x254 && offsetof(FEInputWidget, mBuffer) == 0x14C && offsetof(FEInputWidget, mCtorArg6) == 0x250);
+static_assert(sizeof(FEDateWidget) == 0x58);
 #endif

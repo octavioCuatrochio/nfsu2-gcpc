@@ -525,6 +525,16 @@ FEWidget *THISCALL FEWidget_ScalarDtor(FEWidget *self, uint32_t f) { return self
 void THISCALL FESliderWidget_Destruct(FESliderWidget *self) { self->Destruct(); }
 FESliderWidget *THISCALL FESliderWidget_ScalarDtor(FESliderWidget *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 uint32_t THISCALL FEButtonWidget_DetermineSpecialSound(void *, uint32_t m, uint32_t e) { return FEButtonWidget::DetermineSpecialSound(m, e); }
+FEInputWidget *THISCALL FEInputWidget_Ctor(FEInputWidget *self, uint32_t a0, const float *p, const float *sz, const float *vs, const float *vp, const char *t, uint32_t a6, uint32_t en) { return self->Construct(a0, p, sz, vs, vp, t, a6, (en & 0xFF) != 0); }
+void THISCALL FEInputWidget_Act(void *, const char *pkg, uint32_t msg) { FEInputWidget::Act(pkg, msg); }
+void THISCALL FEInputWidget_CheckMouse(FEInputWidget *self, const char *pkg, float x, float y) { self->CheckMouse(pkg, x, y); }
+void THISCALL FEInputWidget_Enable(FEInputWidget *self) { self->Enable(); }
+void THISCALL FEInputWidget_Disable(FEInputWidget *self) { self->Disable(); }
+void THISCALL FEInputWidget_SetFocus(FEInputWidget *self, const char *pkg) { self->SetFocus(pkg); }
+void THISCALL FEInputWidget_UnsetFocus(FEInputWidget *self) { self->UnsetFocus(); }
+void THISCALL FEInputWidget_SetInputFocus(FEInputWidget *self) { self->SetInputFocus(); }
+FEDateWidget *THISCALL FEDateWidget_Ctor(FEDateWidget *self, const float *p, const float *sz, const float *vs, const float *vp, uint32_t en) { return self->Construct(p, sz, vs, vp, (en & 0xFF) != 0); }
+void THISCALL FEDateWidget_SetDate(FEDateWidget *self) { self->SetDate(); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1120,6 +1130,16 @@ const Replacement kReplacements[] = {
     {0x4CF640, (const void *)&FESliderWidget_Destruct, "FESliderWidget::~FESliderWidget", {0xC7, 0x41, 0x54, 0x44, 0xF5, 0x78}},
     {0x4CF620, (const void *)&FESliderWidget_ScalarDtor, "FESliderWidget scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
     {0x50D800, (const void *)&FEButtonWidget_DetermineSpecialSound, "FEButtonWidget::DetermineSpecialSound", {0x8B, 0x4C, 0x24, 0x04, 0x33, 0xC0}},
+    {0x51E9E0, (const void *)&FEInputWidget_Ctor, "FEInputWidget::FEInputWidget", {0x6A, 0xFF, 0x68, 0x68, 0x71, 0x77}},
+    {0x55E120, (const void *)&FEInputWidget_Act, "FEInputWidget::Act", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x51EC10, (const void *)&FEInputWidget_CheckMouse, "FEInputWidget::CheckMouse", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0xF1}},
+    {0x51EC90, (const void *)&FEInputWidget_Enable, "FEInputWidget::Enable", {0x53, 0x55, 0x56, 0x8B, 0xD9, 0x57}},
+    {0x51EA90, (const void *)&FEInputWidget_Disable, "FEInputWidget::Disable", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x52E120, (const void *)&FEInputWidget_SetFocus, "FEInputWidget::SetFocus", {0x53, 0x55, 0x8B, 0xE9, 0x8B, 0x0D}},
+    {0x51ED60, (const void *)&FEInputWidget_UnsetFocus, "FEInputWidget::UnsetFocus", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x51EB60, (const void *)&FEInputWidget_SetInputFocus, "FEInputWidget::SetInputFocus", {0x53, 0x8B, 0xD9, 0x57, 0x8B, 0x7B}},
+    {0x51EBD0, (const void *)&FEDateWidget_Ctor, "FEDateWidget::FEDateWidget", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
+    {0x538060, (const void *)&FEDateWidget_SetDate, "FEDateWidget::SetDate", {0x8B, 0x41, 0x54, 0x8B, 0x51, 0x4C}},
     {0x51D8A0, (const void *)&FEngGetObjBBox, "FEngGetObjBBox", {0x81, 0xEC, 0x10, 0x08, 0x00, 0x00}},
     {0x51D9F0, (const void *)&FEngGet2DExtents, "FEngGet2DExtents", {0x83, 0xEC, 0x18, 0x53, 0x55, 0x8B}},
     {0x52D020, (const void *)static_cast<bool (*)(float, float, const FEObject *)>(&FEngTestForIntersection), "FEngTestForIntersection", {0x8B, 0x44, 0x24, 0x0C, 0x83, 0xEC}},

@@ -143,6 +143,8 @@ void *FEWidgetVTable() { return reinterpret_cast<void *>(0x790B98); }
 void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
 void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
 void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
+void *FEInputWidgetVTable() { return reinterpret_cast<void *>(0x79B450); }
+void *FEDateWidgetVTable() { return reinterpret_cast<void *>(0x79B490); }
 void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
 void *FEToggleWidgetVTable() { return reinterpret_cast<void *>(0x79B3B8); }
 void *MenuScreenVTable() { return reinterpret_cast<void *>(0x79AC00); }
@@ -254,6 +256,7 @@ void FEWidget_SetFocus(void *w, const char *p) { (*reinterpret_cast<void(THISCAL
 void FEWidget_SetPosX(void *w, float x) { (*reinterpret_cast<void(THISCALL ***)(void *, float)>(w))[0x30 / 4](w, x); }
 void FEWidget_SetPosY(void *w, float y) { (*reinterpret_cast<void(THISCALL ***)(void *, float)>(w))[0x34 / 4](w, y); }
 void FEWidget_Draw(void *w) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[0x0C / 4](w); }
+void FEPrintfInts3(FEObject *o, const char *f, int32_t a, int32_t b, int32_t c) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, a, b, c); }
 void FEPrintfInt(FEObject *o, const char *f, int32_t v) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v); }
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { return (*reinterpret_cast<uint32_t(THISCALL ***)(void *)>(w))[0x3C / 4](w); }
 void FEWidget_Act(void *w, const char *p, uint32_t m) { (*reinterpret_cast<void(THISCALL ***)(void *, const char *, uint32_t)>(w))[0x04 / 4](w, p, m); }

@@ -393,6 +393,8 @@ void *FEWidgetVTable() { return reinterpret_cast<void *>(0x790B98); }
 void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
 void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
 void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
+void *FEInputWidgetVTable() { return reinterpret_cast<void *>(0x79B450); }
+void *FEDateWidgetVTable() { return reinterpret_cast<void *>(0x79B490); }
 void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
 void *FEToggleWidgetVTable() { return reinterpret_cast<void *>(0x79B3B8); }
 void *TuningSliderVTable() { return reinterpret_cast<void *>(0x79B7B0); }
@@ -414,12 +416,15 @@ void cSlider_UnHighlight(void *s) { (*reinterpret_cast<void(__thiscall ***)(void
 void cSlider_Draw(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x18 / 4](s); }
 void cSlider_DrawVertical(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x1C / 4](s); }
 void cSlider_DrawHorizontal(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x20 / 4](s); }
+void FEPrintfInts3(FEObject *o, const char *f, int32_t a, int32_t b, int32_t c) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, a, b, c); }
 void FEPrintfInt(FEObject *o, const char *f, int32_t v) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v); }
 #else
 void *FEWidgetVTable() { return &teststub::feWidgetVTable; }
 void *FEButtonWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FELabelWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FEStatWidgetVTable() { return &teststub::feWidgetVTable; }
+void *FEInputWidgetVTable() { return &teststub::feButtonWidgetVTable; }
+void *FEDateWidgetVTable() { return &teststub::fakeFont; }
 void *FESliderWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FEToggleWidgetVTable() { return &teststub::feWidgetVTable; }
 void *TuningSliderVTable() { return &teststub::feButtonWidgetVTable; }
@@ -441,6 +446,7 @@ void cSlider_UnHighlight(void *s) { teststub::delivered.push_back({"slider unhig
 void cSlider_Draw(void *s) { teststub::delivered.push_back({"slider draw", s, nullptr, 0, 0}); }
 void cSlider_DrawVertical(void *s) { teststub::delivered.push_back({"slider drawv", s, nullptr, 0, 0}); }
 void cSlider_DrawHorizontal(void *s) { teststub::delivered.push_back({"slider drawh", s, nullptr, 0, 0}); }
+void FEPrintfInts3(FEObject *o, const char *, int32_t a, int32_t b, int32_t c) { teststub::delivered.push_back({"printf3", o, nullptr, static_cast<uint32_t>(a * 10000 + b * 100), static_cast<uint32_t>(c)}); }
 void FEPrintfInt(FEObject *o, const char *, int32_t v) { teststub::delivered.push_back({"printf", o, nullptr, static_cast<uint32_t>(v), 0}); }
 #endif
 void FEPrintfStrings(FEObject *o, const char *, const char *a, const char *b) { teststub::delivered.push_back({"printf2", o, nullptr, a ? static_cast<uint32_t>(a[0]) : 0u, b ? static_cast<uint32_t>(b[0]) : 0u}); }

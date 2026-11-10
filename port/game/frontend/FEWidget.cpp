@@ -10,6 +10,7 @@
 #include "FELocalize.h"
 #include "TuningUtil.h"
 #include "FEPackageManager.h"
+#include "bWare/bString.h"
 #include <cstring>
 #include <initializer_list>
 #include <cmath>
@@ -914,4 +915,83 @@ FESliderWidget *FESliderWidget::ScalarDeletingDestructor(uint32_t flags)
     Destruct();
     if (flags & 1) bridge::FreeArray(this);
     return this;
+}
+
+// ---- FEInputWidget / FEDateWidget (PC: FEngSetScript inlined with restart; same as the 51CF70 call) ----
+namespace {
+void StatScript(const FEStatWidget &w, const char *script)
+{
+    FEngSetScript(w.mpObject, script, true);
+    FEngSetScript(w.mpValue, script, true);
+    if (w.base.mpLabel) FEngSetScript(w.base.mpLabel, script, true);
+}
+}  // namespace
+
+FEInputWidget *FEInputWidget::Construct(uint32_t arg0, const float *pos, const float *size, const float *valueSize,
+                                        const float *valuePos, const char *text, uint32_t arg6, bool enabled)
+{
+    base.Construct(pos, size, valueSize, valuePos, enabled);
+    mCtorArg6 = arg6;
+    mCtorArg0 = arg0;
+    base.base.vtable = bridge::FEInputWidgetVTable();
+    std::memset(mBuffer, 0, sizeof mBuffer);
+    std::memset(mText, 0, sizeof mText);
+    if (text) bStrNCpy(mText, text, 0xFF);
+    return this;
+}
+
+void FEInputWidget::Act(const char *pkg, uint32_t msg)
+{
+    if (msg == 0x0C407210u) bridge::TheFEPackageManager()->SendMessageToPackage(pkg, 0x81017864u);
+}
+
+void FEInputWidget::CheckMouse(const char *pkg, float x, float y)
+{
+    // PC: the value object's rectangle from the widget position to its bottom-right corner (GC passes the corner
+    // itself as the size). A null value object leaves the corner as uninitialized stack in the original: 0 here.
+    const float pos[2] = {base.base.mPosX, base.base.mPosY};
+    float br[2] = {0.0f, 0.0f};
+    FEngGetBottomRight(base.mpValue, &br[0], &br[1]);
+    const float size[2] = {br[0] - pos[0], br[1] - pos[1]};
+    if (FEngTestForIntersection(x, y, pos, size)) bridge::FEWidget_Act(this, pkg, 0x0C407210u);   // vtable +0x04
+}
+
+void FEInputWidget::Enable()
+{
+    base.base.mbEnabled = 1;
+    StatScript(base, "UnHighlight");
+}
+
+void FEInputWidget::Disable()
+{
+    base.base.mbEnabled = 0;
+    StatScript(base, "Disable");
+}
+
+void FEInputWidget::SetFocus(const char *pkg)
+{
+    if (cFEng *fe = bridge::cFEngInstance())
+        if (base.mpObject) fe->SetCurrentButton(pkg, base.mpObject->mu32NameHash);
+    StatScript(base, "Highlight");
+}
+
+void FEInputWidget::UnsetFocus() { StatScript(base, "UnHighlight"); }
+
+void FEInputWidget::SetInputFocus()
+{
+    FEngSetScript(base.mpValue, "UnDim", true);
+    if (base.base.mpLabel) FEngSetScript(base.base.mpLabel, "UnDim", true);
+}
+
+FEDateWidget *FEDateWidget::Construct(const float *pos, const float *size, const float *valueSize,
+                                      const float *valuePos, bool enabled)
+{
+    base.Construct(pos, size, valueSize, valuePos, enabled);
+    base.base.vtable = bridge::FEDateWidgetVTable();
+    return this;
+}
+
+void FEDateWidget::SetDate()
+{
+    bridge::FEPrintfInts3(base.mpValue, "%d/%d/%d", mDate[1], mDate[0], mDate[2]);
 }

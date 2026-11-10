@@ -184,6 +184,8 @@ void *FEWidgetVTable();                          // PC 0x790B98
 void *FEButtonWidgetVTable();                    // PC 0x79B2F8
 void *FELabelWidgetVTable();                     // PC 0x79B338
 void *FEStatWidgetVTable();                      // PC 0x79B378
+void *FEInputWidgetVTable();                     // PC 0x79B450
+void *FEDateWidgetVTable();                      // PC 0x79B490
 void *FESliderWidgetVTable();                    // PC 0x79B400
 void *FEToggleWidgetVTable();                    // PC 0x79B3B8
 void *MenuScreenVTable();                        // PC 0x79AC00
@@ -286,6 +288,7 @@ char *OnlineField8500A9();                      // PC 0x8500A9
 uint8_t *OnlineFlag85009B();                    // PC byte 0x85009B
 uint32_t *OnlineLoginHandle();                  // PC 0x83852C
 void *UIWidgetMenuVTable();                                     // PC 0x795CDC
+void FEPrintfInts3(FEObject *str, const char *fmt, int32_t a, int32_t b, int32_t c);   // PC 537BE0 (varargs)
 void FEPrintfInt(FEObject *str, const char *fmt, int32_t v);   // PC 537BE0 (__cdecl varargs): format into a string object
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04

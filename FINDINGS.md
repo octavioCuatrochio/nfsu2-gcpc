@@ -63,8 +63,13 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   SetPosX/SetPosY, folded for every widget), dtors 4CF650 / scalar 4AEA10 (all widgets but the slider) and slider 4CF640 /
   4CF620, button/label DetermineSpecialSound 50D800 (PC tests the *message* == 0x406415E3 -> 8; GC tests the event).
   FELabelWidget Show/Hide/UnsetFocus are folded with the button's. Trivial slots: Act 402350, CheckMouse 50D520,
-  trigger 50D510 0 / 40CBB0 4 / 4BF980 5 / 408CD0 2 / 40CB20 1. Next (whole files): FEInputWidget + FEDateWidget
-  (exist on PC: 51E9E0?, 51EB60, 51EC10, 51EC90, 51EA90, 51ED60, 538060; verify), then TuningSlidersMenu.
+  trigger 50D510 0 / 40CBB0 4 / 4BF980 5 / 408CD0 2 / 40CB20 1. FEInputWidget (PC 0x254, vtable 79B450:
+  +0x4C text[256], +0x14C buffer[256], +0x24C/+0x250 ctor args 1/7) + FEDateWidget (vtable 79B490, +0x4C date[3] printed
+  [1]/[0]/[2], max year 2015; one subclass 794958) done: they share CheckMouse 51EC10 / Enable 51EC90 / Disable 51EA90 /
+  SetFocus 52E120 / UnsetFocus 51ED60 (FEngSetScript inlined), Show/Hide = FEStatWidget's. PC CheckMouse box = widget pos
+  to value bottom-right (GC passes the corner as size); null value reads stack garbage. Only online screens use them
+  (BoilerPlateOnline 4B41C0...): referee only. FE*Widget namespace complete except GC-only FEMemWidget.
+  Next (whole files): TuningSlidersMenu.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

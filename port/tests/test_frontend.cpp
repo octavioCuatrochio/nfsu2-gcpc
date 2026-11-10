@@ -2742,6 +2742,49 @@ static void TestFEngPosition()
     CHECK(gd[7] == 7);
 }
 
+// FEInputWidget / FEDateWidget: ctor buffers, mouse box (value bottom-right), enable flags, SetDate argument order.
+static void TestInputWidget()
+{
+    alignas(8) static unsigned char wm[sizeof(FEInputWidget)];
+    std::memset(wm, 0x5A, sizeof wm);
+    auto *w = reinterpret_cast<FEInputWidget *>(wm);
+    const float pos[2] = {100, 200}, size[2] = {300, 30}, vsize[2] = {80, 20}, vpos[2] = {150, 210};
+    std::string longText(300, 'x');
+    CHECK(w->Construct(12, pos, size, vsize, vpos, longText.c_str(), 5, true) == w);
+    CHECK(w->mCtorArg0 == 12 && w->mCtorArg6 == 5 && w->base.base.mbEnabled == 1 && w->base.mValuePosY == 210);
+    CHECK(std::strlen(w->mText) == 255 && w->mBuffer[0] == 0 && w->mBuffer[255] == 0);
+    CHECK(w->Construct(0, pos, size, vsize, vpos, nullptr, 0, false) == w && w->mText[0] == 0 && w->base.base.mbEnabled == 0);
+    alignas(8) unsigned char om[3][sizeof(FEObject)] = {};
+    float od[3][20] = {};
+    FEObject *o[3];
+    for (int i = 0; i < 3; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mu32Type = 1; o[i]->mpData = od[i]; }
+    w->base.mpObject = o[0]; w->base.mpValue = o[1]; w->base.base.mpLabel = o[2];
+    od[1][7] = 190; od[1][8] = 220; od[1][14] = 20; od[1][15] = 10;   // value bottom-right (200, 225)
+    teststub::delivered.clear();
+    w->CheckMouse("Pkg", 99, 210);
+    CHECK(teststub::delivered.empty());
+    w->CheckMouse("Pkg", 200, 225);   // edges included
+    CHECK(teststub::delivered.size() == 1 && std::string(teststub::delivered[0].kind) == "act" && teststub::delivered[0].msg == 0x0C407210u);
+    w->Enable();
+    CHECK(w->base.base.mbEnabled == 1);
+    w->UnsetFocus();
+    CHECK(w->base.base.mbEnabled == 1);
+    w->Disable();
+    CHECK(w->base.base.mbEnabled == 0);
+    w->SetInputFocus();
+    CHECK(FEInputWidget::DetermineSoundTrigger() == 3);
+    alignas(8) unsigned char dm[sizeof(FEDateWidget)];
+    std::memset(dm, 0x5A, sizeof dm);
+    auto *d = reinterpret_cast<FEDateWidget *>(dm);
+    CHECK(d->Construct(pos, size, vsize, vpos, true) == d && d->base.base.vtable == bridge::FEDateWidgetVTable());
+    d->base.mpValue = o[1];
+    d->mDate[0] = 7; d->mDate[1] = 11; d->mDate[2] = 2004;
+    teststub::delivered.clear();
+    d->SetDate();
+    CHECK(teststub::delivered.size() == 1 && teststub::delivered[0].msg == 11 * 10000 + 7 * 100 && teststub::delivered[0].arg == 2004);
+    CHECK(FEDateWidget::GetMaxYear() == 2015 && FEDateWidget::GetHeaderText()[0] == 0 && FEDateWidget::DetermineSoundTrigger() == 6);
+}
+
 // FEWidget file leftovers: SetPos (virtual through the vtable), dtors, button special sound, trivial slots.
 static void TestWidgetSmall()
 {
@@ -3736,6 +3779,7 @@ int main()
     TestButtonWidget();
     TestScrollBar();
     TestWidgetSmall();
+    TestInputWidget();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();
