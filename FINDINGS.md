@@ -44,7 +44,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FEObject factory (CreateObject 534DF0) types: 0 none, 1 image 0x60 (532640), 2 FEString 0x78, 3/8/>11 FEObject 0x5C,
   4 list box 0xAC (5349C0), 5 group 0x6C (52B080), 6 code list box 0xC8 (52B9E0, +0x5C = game interface), 7 0x60
   (52B0B0), 9 0x60 (534B90), 10 0x60 (534DB0), 11 0x5C (52B480). Image types 1/9/10 take tag "If" -> +0x5C.
-- FEPackageReader done except ProcessCodeListBoxTag 535060 (do with FECodeListBox).
+- FEPackageReader done (all tags).
+- FECodeListBox (0xC8, vtable 0x79B904) data side done: Initialize, totals (offset = clamped selection, or centered
+  with flag 8), string pool, range setters (virtual -> visible via FEPositiveMod 504790, which can yield index n).
+  Left: FillAllCells 504C40, Update 504DC0, CheckMovement 518E70, ScrollSelection 518F20/52BD70, MakeMove,
+  CalculateCurrentFromTarget, CopyProperties/Clone 554710/554830, DefaultSelectCallback (*0x7F7CC4 = 518E20).
 - FEListBox (vtable 0x79BAE4) done. Cells 0x30 (FEListBoxCell, +0x90). SetNumColumns/Rows copy min(old,new) BYTES (GC
   too); Terminate frees columns/rows first so CleanupCells frees nothing (leak, original). Not reached in menus/race.
   Script chunk: one script per Scrp; "Kd" first key overwrites the base key; "Ti" inserts tracks via the type library.

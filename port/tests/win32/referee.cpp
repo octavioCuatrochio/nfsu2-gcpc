@@ -30,6 +30,7 @@
 #include "frontend/FEngine.h"
 #include "frontend/cFEng.h"
 #include "frontend/FEListBox.h"
+#include "frontend/FECodeListBox.h"
 #include "bWare/bSlotPool.h"
 #include "camera/CameraNoise.h"
 #include "camera/Camera.h"
@@ -1168,6 +1169,58 @@ static void CheckListBoxCells(int iters)
     }
 }
 
+// FECodeListBox: virtual sizes / centered offsets, range setters over the visible grid, FEPositiveMod.
+static void CheckCodeListBox(int iters)
+{
+    auto oCols = ORIG<void(THISCALL *)(FECodeListBox *, uint32_t)>(0x518BB0);
+    auto oRows = ORIG<void(THISCALL *)(FECodeListBox *, uint32_t)>(0x518C00);
+    auto oColor = ORIG<void(THISCALL *)(FECodeListBox *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x5196B0);
+    auto oScale = ORIG<void(THISCALL *)(FECodeListBox *, uint32_t, uint32_t, const float *, uint32_t, uint32_t)>(0x5197D0);
+    auto oJust = ORIG<void(THISCALL *)(FECodeListBox *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x5198F0);
+    auto oMod = ORIG<int32_t(__cdecl *)(int32_t, int32_t)>(0x504790);
+    for (int it = 0; it < iters; ++it) {
+        struct Arena { FECodeListBox lb; FEListBoxCell cells[32]; } A, B;   // index can reach numColumns * (numRows + 1)
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        A.lb.mu32NumColumns = 1 + rng() % 4;
+        A.lb.mu32NumRows = 1 + rng() % 4;
+        A.lb.mu32TotalColumns = 1 + rng() % 12;
+        A.lb.mu32TotalRows = 1 + rng() % 12;
+        A.lb.mi32ColumnOffset = static_cast<int32_t>(rng() % 12);
+        A.lb.mi32RowOffset = static_cast<int32_t>(rng() % 12);
+        A.lb.mu32SelColumn = rng() % 20;
+        A.lb.mu32SelRow = rng() % 20;
+        A.lb.mu32Flags = rng() & 0xF;
+        std::memcpy(&B, &A, sizeof A);
+        A.lb.mpCells = A.cells; B.lb.mpCells = B.cells;
+        const int op = rng() % 6;
+        const uint32_t c0 = rng() % 8, r0 = rng() % 8, nc = rng() % 4, nr = rng() % 4, v = rng();
+        float xy[2] = {static_cast<float>(v % 50), 1.5f};
+        const uint32_t n = 1 + rng() % 12;
+        switch (op) {
+        case 0: if ((A.lb.mu32Flags & 8) && A.lb.mu32NumColumns < 2 && n == 0) break; oCols(&A.lb, n); B.lb.SetTotalNumColumns(n); break;
+        case 1: oRows(&A.lb, n); B.lb.SetTotalNumRows(n); break;
+        case 2: oColor(&A.lb, c0, r0, v, nc, nr); B.lb.SetCellColor(c0, r0, v, nc, nr); break;
+        case 3: oScale(&A.lb, c0, r0, xy, nc, nr); B.lb.SetCellScale(c0, r0, xy, nc, nr); break;
+        case 4: oJust(&A.lb, c0, r0, v, nc, nr); B.lb.SetCellJustification(c0, r0, v, nc, nr); break;
+        case 5: {
+            const int32_t a = static_cast<int32_t>(v % 41) - 20, m = static_cast<int32_t>(1 + rng() % 6) - (rng() % 4 == 0 ? 1 : 0);
+            if (m == 0 && a >= 0) break;
+            EXPECT(oMod(a, m) == FEPositiveMod(a, m), "FEPositiveMod(%d, %d)", a, m);
+            break;
+        }
+        }
+        A.lb.mpCells = B.lb.mpCells = nullptr;
+        if (std::memcmp(&A, &B, sizeof A) != 0 && failures < 6) {
+            const uint8_t *x = reinterpret_cast<const uint8_t *>(&A), *y = reinterpret_cast<const uint8_t *>(&B);
+            for (size_t i = 0; i < sizeof A; i += 4)
+                if (std::memcmp(x + i, y + i, 4)) std::printf("  op %d n %u off %zx orig %08x rewrite %08x (sel %u vis %u flags %x)\n", op, n, i,
+                    *reinterpret_cast<const uint32_t *>(x + i), *reinterpret_cast<const uint32_t *>(y + i), A.lb.mu32SelColumn, A.lb.mu32NumColumns, A.lb.mu32Flags);
+        }
+        EXPECT(std::memcmp(&A, &B, sizeof A) == 0, "FECodeListBox op %d", op);
+    }
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1688,6 +1741,7 @@ static int RunAll()
     REFEREE_RUN(CheckReaderTypeSizes(iters));
     REFEREE_RUN(CheckReaderStringTags(iters / 4 + 1));
     REFEREE_RUN(CheckListBoxCells(iters));
+    REFEREE_RUN(CheckCodeListBox(iters * 5));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));
     REFEREE_RUN(CheckUpdateObjectTracks(iters));

@@ -16,6 +16,7 @@
 #include "frontend/FEPackageReader.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/FEListBox.h"
+#include "frontend/FECodeListBox.h"
 #include "bWare/bMath.h"
 #include <algorithm>
 #include "bridge/Bridge.h"
@@ -1683,6 +1684,50 @@ static void TestListBoxCells()
     teststub::liveAllocations = live0;
 }
 
+// FECodeListBox data side: grid (re)initialization, string pool, virtual -> visible mapping, range setters.
+static void TestCodeListBox()
+{
+    const int live0 = teststub::liveAllocations;
+    auto *lb = FECodeListBox::Construct(bridge::Alloc(sizeof(FECodeListBox)));
+    CHECK(lb->obj.mu32Type == 6 && lb->mu32Flags == 2 && lb->mColor.c[3] == 0xFF && lb->mfPulse == 1.0f && lb->mpCells == nullptr);
+    CHECK(FEPositiveMod(7, 3) == 1 && FEPositiveMod(-1, 3) == 2 && FEPositiveMod(-3, 3) == 3 && FEPositiveMod(-5, 1) == 0);
+    lb->AllocateStrings(4, 8);
+    lb->Initialize(2, 2);
+    CHECK((lb->mu32Flags & 1) && lb->mu32TotalColumns == 2 && lb->mu32TotalRows == 2 && lb->mpCells[3].mu32Color == 0xFFFFFFFFu);
+    // two text cells from the pool
+    for (int i : {1, 3}) {
+        uint16_t *s = lb->mppStrings[lb->mu32StringsUsed++];
+        const uint16_t w[] = {'a', uint16_t('0' + i), 'x', 'y', 'z', 0};
+        std::memcpy(s, w, sizeof w);
+        lb->mpCells[i].mu32Type = 2;
+        lb->mpCells[i].mpText = s;
+    }
+    lb->AllocateStrings(4, 3);   // moves the texts, truncated to 2 chars
+    CHECK(lb->mu32StringsUsed == 2 && lb->mpCells[1].mpText == lb->mppStrings[0] && lb->mpCells[3].mpText[1] == '3' && lb->mpCells[3].mpText[2] == 0);
+    lb->Initialize(1, 1);        // drops cells 1..3: the two texts go back to the pool
+    CHECK(lb->mu32StringsUsed == 0 && lb->mu32NumColumns == 1 && lb->mpCells[0].mu32Color == 0xFFFFFFFFu);
+    lb->Initialize(3, 2);
+    lb->SetTotalNumColumns(10);
+    lb->SetTotalNumRows(5);
+    CHECK(lb->mi32ColumnOffset == 0 && lb->GetRealColumn(4) == 1 && lb->GetRealColumn(12) == 2 && lb->GetRealRow(3) == 1);
+    lb->mu32Flags |= 8;          // centered
+    lb->mu32SelColumn = 0;
+    lb->SetTotalNumColumns(10);
+    CHECK(lb->mi32ColumnOffset == 9);   // 0 - 3/2 = -1 -> 10 - 1
+    lb->mu32SelColumn = 40;      // clamped to 9 first
+    lb->SetTotalNumColumns(10);
+    CHECK(lb->mi32ColumnOffset == 8);
+    lb->mi32ColumnOffset = 0; lb->mi32RowOffset = 0;
+    lb->SetCellColor(1, 0, 0x11223344u, 2, 2);
+    CHECK(lb->mpCells[0].mu32Color == 0xFFFFFFFFu && lb->mpCells[1].mu32Color == 0x11223344u && lb->mpCells[5].mu32Color == 0x11223344u);
+    const float xy[2] = {2.0f, 3.0f};
+    lb->SetCellScale(0, 1, xy, 1, 1);
+    lb->SetCellJustification(2, 1, 7, 1, 1);
+    CHECK(lb->mpCells[3].mfScaleY == 3.0f && lb->mpCells[5]._unknown1C == 7);
+    bridge::VirtualScalarDelete(lb);
+    CHECK(teststub::liveAllocations == live0);
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -1848,6 +1893,7 @@ int main()
     TestReaderStringTags();
     TestReaderInsertTrack();
     TestListBoxCells();
+    TestCodeListBox();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

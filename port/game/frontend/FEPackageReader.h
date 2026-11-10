@@ -71,6 +71,9 @@ struct FEPackageReader {
     // GC 8013BCAC / PC 52B740 (ret 4): Ld dimensions, Lc/Lr column/row sizes, Ls speeds, Lv view size, Lw auto wrap,
     // CT cell type, Cc next cell + color, Cs scale, Cr justification, Ci data, Ct text.
     void ProcessListBoxTag(const uint8_t *tag);
+    // GC 8013C1C8 / PC 535060 (ret 4): Cc color, Lj justification, Cs scale (all visible cells), SI string pool,
+    // LD dimensions (Initialize), Lt flags (bit 0 kept), Lv view size.
+    void ProcessCodeListBoxTag(const uint8_t *tag);
     // GC 8013C44C / PC 5515E0 (ret 8): one script per chunk. Sn new (name only with mbFlag0A), Sh header (id,
     // length, flags, track count), SI existing script by id, Sl/Sf/Sc length/flags/chained id, EV events; per track:
     // FI header, Ti track by data index (missing ones are inserted from the type library, ordered by data offset),

@@ -21,6 +21,7 @@
 #include "frontend/FEPackageManager.h"
 #include "frontend/cFEng.h"
 #include "frontend/FEListBox.h"
+#include "frontend/FECodeListBox.h"
 #include "bWare/bMath.h"
 #include "bWare/bSlotPool.h"
 #include "camera/CameraNoise.h"
@@ -262,6 +263,17 @@ void THISCALL FEListBox_SetCellJustification(FEListBox *self, uint32_t a, uint32
 void THISCALL FEListBox_SetCellData(FEListBox *self, const uint32_t *d) { self->SetCellData(d); }
 void THISCALL FEListBox_SetCellString(FEListBox *self, const uint16_t *t) { self->SetCellString(t); }
 void THISCALL FEPackageReader_ProcessListBoxTag(FEPackageReader *self, const uint8_t *t) { self->ProcessListBoxTag(t); }
+FECodeListBox *THISCALL FECodeListBox_Ctor(FECodeListBox *self) { return FECodeListBox::Construct(self); }
+void THISCALL FECodeListBox_Dtor(FECodeListBox *self) { self->Destruct(); }
+FECodeListBox *THISCALL FECodeListBox_ScalarDtor(FECodeListBox *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL FECodeListBox_Initialize(FECodeListBox *self, uint32_t c, uint32_t r) { self->Initialize(c, r); }
+void THISCALL FECodeListBox_SetTotalNumColumns(FECodeListBox *self, uint32_t n) { self->SetTotalNumColumns(n); }
+void THISCALL FECodeListBox_SetTotalNumRows(FECodeListBox *self, uint32_t n) { self->SetTotalNumRows(n); }
+void THISCALL FECodeListBox_AllocateStrings(FECodeListBox *self, uint32_t c, uint32_t l) { self->AllocateStrings(c, l); }
+void THISCALL FECodeListBox_SetCellColor(FECodeListBox *self, uint32_t c0, uint32_t r0, uint32_t v, uint32_t nc, uint32_t nr) { self->SetCellColor(c0, r0, v, nc, nr); }
+void THISCALL FECodeListBox_SetCellScale(FECodeListBox *self, uint32_t c0, uint32_t r0, const float *xy, uint32_t nc, uint32_t nr) { self->SetCellScale(c0, r0, xy, nc, nr); }
+void THISCALL FECodeListBox_SetCellJustification(FECodeListBox *self, uint32_t c0, uint32_t r0, uint32_t v, uint32_t nc, uint32_t nr) { self->SetCellJustification(c0, r0, v, nc, nr); }
+void THISCALL FEPackageReader_ProcessCodeListBoxTag(FEPackageReader *self, const uint8_t *t) { self->ProcessCodeListBoxTag(t); }
 void THISCALL FEString_SetLabelHash(FEString *self, uint32_t h) { self->SetLabelHash(h); }
 bool THISCALL FEPackageReader_FindReferencedObject(FEPackageReader *self, uint32_t h, FEObject **o, FEPackage **p) { return self->FindReferencedObject(h, o, p); }
 FEPackage *THISCALL FEngine_FindLibraryPackageHook(FEngine *self, uint32_t h) { return FEngine_FindLibraryPackage(self, h); }
@@ -563,6 +575,18 @@ const Replacement kReplacements[] = {
     {0x54D1D0, (const void *)&FEPackageReader_ReadMessageResponseTags, "FEPackageReader::ReadMessageResponseTags", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x53}},
     {0x518190, (const void *)&FEPackage_SetNumLibraryRefs, "FEPackage::SetNumLibraryRefs", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
     {0x555800, (const void *)&FEngine_LoadPackageHook, "FEngine::LoadPackage", {0x83, 0xEC, 0x50, 0x33, 0xC0, 0x89}},
+    {0x52B9E0, (const void *)&FECodeListBox_Ctor, "FECodeListBox::FECodeListBox", {0x56, 0x8B, 0xF1, 0xE8, 0x38, 0xF5}},
+    {0x52BAA0, (const void *)&FECodeListBox_Dtor, "FECodeListBox::~FECodeListBox", {0x6A, 0xFF, 0x68, 0xD8, 0x74, 0x77}},
+    {0x5352B0, (const void *)&FECodeListBox_ScalarDtor, "FECodeListBox scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xE8, 0x67}},
+    {0x52BB30, (const void *)&FECodeListBox_Initialize, "FECodeListBox::Initialize", {0x83, 0xEC, 0x18, 0x53, 0x55, 0x8B}},
+    {0x518BB0, (const void *)&FECodeListBox_SetTotalNumColumns, "FECodeListBox::SetTotalNumColumns", {0x8B, 0x41, 0x7C, 0x56, 0x8B, 0x74}},
+    {0x518C00, (const void *)&FECodeListBox_SetTotalNumRows, "FECodeListBox::SetTotalNumRows", {0x8B, 0x81, 0x80, 0x00, 0x00, 0x00}},
+    {0x518C60, (const void *)&FECodeListBox_AllocateStrings, "FECodeListBox::AllocateStrings", {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C}},
+    {0x5196B0, (const void *)&FECodeListBox_SetCellColor, "FECodeListBox::SetCellColor", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x8B}},
+    {0x5197D0, (const void *)&FECodeListBox_SetCellScale, "FECodeListBox::SetCellScale", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x8B}},
+    {0x5198F0, (const void *)&FECodeListBox_SetCellJustification, "FECodeListBox::SetCellJustification", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x8B}},
+    {0x504790, (const void *)&FEPositiveMod, "FEPositiveMod", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x535060, (const void *)&FEPackageReader_ProcessCodeListBoxTag, "FEPackageReader::ProcessCodeListBoxTag", {0x8B, 0x44, 0x24, 0x04, 0x0F, 0xB7}},
     {0x5349C0, (const void *)&FEListBox_Ctor, "FEListBox::FEListBox", {0x56, 0x8B, 0xF1, 0xE8, 0x58, 0x65}},
     {0x534A50, (const void *)&FEListBox_Dtor, "FEListBox::~FEListBox", {0x6A, 0xFF, 0x68, 0xD8, 0x74, 0x77}},
     {0x541D90, (const void *)&FEListBox_ScalarDtor, "FEListBox scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0x2C}},
