@@ -69,12 +69,17 @@ void MagazineViewer::GetImageNameFromShowcaseDataIndex(int32_t index, char *buf,
 void MagazineViewer::GetImageNameFromFileName(const char *file, char *buf, int32_t len)
 {
     bStrLen(file);   // PC: result unused
-    const int32_t c = static_cast<signed char>(file[7]);
-    int32_t index = 0;
-    if (c >= '0' && c <= '9') index = c - '0';
-    else if (c >= 'A' && c <= 'Z') index = c - 0x37;
-    GetImageNameFromShowcaseDataIndex(index, buf, len);
+    GetImageNameFromShowcaseDataIndex(GetImageIndexFromImageCharacter(static_cast<signed char>(file[7])), buf, len);
 }
+
+int32_t MagazineViewer::GetImageIndexFromImageCharacter(int32_t c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'Z') return c - 0x37;
+    return 0;
+}
+
+void MagazineViewer::SetMagSetupHash(uint32_t hash) { CurrentHash() = hash; }
 
 const char *MagazineViewer::MakeProfileImageName(int32_t index)
 {

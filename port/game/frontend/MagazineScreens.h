@@ -21,6 +21,8 @@ struct MagazineTextureHandler {
     void UnloadTextures();                          // PC 510A70
     void Close();                                   // PC 523B40: textures, pack, user memory
     void LoadTextures(uint32_t a, uint32_t b, uint32_t c, uint32_t d);   // PC 523BC0 (ret 0x10)
+    // GC 801860AC ctor (PC: the global is zero-initialised .bss, no ctor): clears pack, flags and textures.
+    void Construct() { mPack = 0; mbAllocMemory = 0; mbLoaded = 0; for (uint32_t &t : mTextures) t = 0; }
 };
 void MagazineTextureHandler_LoadedCallback(void *handler);   // PC 523B30 (__cdecl)
 

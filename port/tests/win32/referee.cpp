@@ -48,6 +48,7 @@
 #include "frontend/FEListBox.h"
 #include "frontend/FECodeListBox.h"
 #include "bWare/bSlotPool.h"
+#include "bWare/bList.h"
 #include "camera/CameraNoise.h"
 #include "camera/Camera.h"
 #include "frontend/FEPackageManager.h"
@@ -67,6 +68,17 @@
 #include "frontend/ThumbnailScroller.h"
 #include "frontend/QRTrackSelect.h"
 #include "frontend/QuickRaceSettings.h"
+#include "frontend/FrontendDatabase.h"
+#include "frontend/FinishedRaceStats.h"
+#include "frontend/FEPlayerCarDB.h"
+#include "frontend/CarViewer.h"
+#include "frontend/QRCarSelect.h"
+#include "frontend/PostRaceResults.h"
+#include "frontend/PostRaceScreenManager.h"
+#include "frontend/PostRaceTournament.h"
+#include "frontend/TextScroller.h"
+#include "frontend/QRTrackSelectScreenManager.h"
+#include "frontend/DialogInterface.h"
 #include "frontend/CarTunePause.h"
 #include "frontend/MagazineSelect.h"
 #include "frontend/MagazineScreens.h"
@@ -1060,14 +1072,108 @@ static void CheckNoise(int iters)
             {
                 auto oFov = ORIG<uint32_t(THISCALL *)(const Camera *, uint32_t)>(0x4412E0);
                 alignas(4) static Camera cam;
-                cam.mu16Fov = static_cast<uint16_t>(rng());
+                cam.mCurrent.mu16Fov = static_cast<uint16_t>(rng());
                 uint32_t ang = rng();
-                EXPECT((oFov(&cam, ang) & 0xFFFF) == cam.FovRelativeAngle(static_cast<uint16_t>(ang)), "FovRelativeAngle fov=%04X a=%04X", cam.mu16Fov, ang & 0xFFFF);
+                EXPECT((oFov(&cam, ang) & 0xFFFF) == cam.FovRelativeAngle(static_cast<uint16_t>(ang)), "FovRelativeAngle fov=%04X a=%04X", cam.mCurrent.mu16Fov, ang & 0xFFFF);
             }
             if (i % 4 == 0) { a = oN(x); b = Noise(x); EXPECT(std::memcmp(&a, &b, 10) == 0, "Noise(%.9g) pc=%x", double(x), pc); }
         }
     }
     _controlfp(saved, _MCW_PC);
+}
+
+// Camera (GC zCamera.cpp): ctor, SetCameraMatrix (incl. Jolly Rancher override / StopUpdating / clear-velocity
+// paths via the real .bss globals, restored afterwards), ApplyNoise, and the debug no-ops; whole object compared.
+static void CheckCamera(int iters)
+{
+    auto oCtor = ORIG<Camera *(THISCALL *)(Camera *)>(0x44F5A0);
+    auto oSet = ORIG<void(THISCALL *)(Camera *, const bMatrix4 *, float)>(0x447280);
+    auto oNoise = ORIG<void(THISCALL *)(const Camera *, bMatrix4 *, float, float)>(0x441340);
+    auto oJR = ORIG<void(THISCALL *)(const Camera *, const char *)>(0x441070);
+    auto oSee = ORIG<void(THISCALL *)(const Camera *)>(0x441120);
+    auto *stopUpdating = reinterpret_cast<int32_t *>(0x828640);
+    auto *disableComm = reinterpret_cast<int32_t *>(0x865094);
+    auto *seeulator = reinterpret_cast<int32_t *>(0x883DE0);
+    auto *jr = reinterpret_cast<JollyRancherResponseData *>(0x82A480);
+    const int32_t savedStop = *stopUpdating, savedDisable = *disableComm, savedSee = *seeulator;
+    const JollyRancherResponseData savedJr = *jr;
+    // D3DX dispatch (transpose / matrix multiply jump through 0x803E68): its lazy resolver (641713) reads the
+    // registry through the CRT heap, unusable in DllMain. Install the generic (non-PSGP) table like its arg-0 path.
+    std::memcpy(reinterpret_cast<void *>(0x803E68), reinterpret_cast<const void *>(0x803F90), 0x4A * 4);
+    alignas(16) static Camera a, b;
+    auto rf = [](float lo, float hi) { return lo + (hi - lo) * static_cast<float>(rng() % 1000001) / 1000000.0f; };
+    auto fill = [&](Camera &c) {
+        auto *f = reinterpret_cast<float *>(&c);
+        for (size_t i = 0; i < sizeof(Camera) / 4; ++i) f[i] = rng() % 8 ? rf(-500.0f, 500.0f) : static_cast<float>(static_cast<int32_t>(rng() % 21) - 10);
+        c.mbClearVelocity = rng() % 3 == 0;
+        c.mCurrent.mu16Fov = static_cast<uint16_t>(rng());
+        c.mPrevious.mu16Fov = static_cast<uint16_t>(rng());
+    };
+    auto randMatrix = [&](bMatrix4 &m) {
+        for (float &x : m.m) x = rng() % 6 ? rf(-1.0f, 1.0f) : rf(-3000.0f, 3000.0f);
+        if (rng() % 8 == 0) m.m[2] = m.m[6] = m.m[10] = 0.0f;   // zero direction column (bNormalize special case)
+    };
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters / 2; ++it) {
+            fill(a);
+            std::memcpy(&b, &a, sizeof a);
+            if (it % 16 == 0) {
+                Camera *r1 = oCtor(&a), *r2 = b.Construct();
+                EXPECT(r1 == &a && r2 == &b && std::memcmp(&a, &b, sizeof a) == 0, "Camera::Camera pc=%x", pc);
+                continue;
+            }
+            bMatrix4 m;
+            randMatrix(m);
+            const int mode = rng() % 10;
+            *stopUpdating = mode == 0;
+            jr->mValid = mode == 1 || mode == 2;
+            *disableComm = mode == 2;
+            if (jr->mValid) randMatrix(jr->mMatrix);
+            float elapsed = rng() % 6 ? rf(0.001f, 0.1f) : (rng() % 3 == 0 ? 0.0f : (rng() % 2 ? -rf(0.0f, 1.0f) : std::numeric_limits<float>::quiet_NaN()));
+            const int alias = rng() % 8;   // 0: current matrix, 1: previous matrix, else separate
+            const bMatrix4 *ma = alias == 0 ? &a.mCurrent.mMatrix : alias == 1 ? &a.mPrevious.mMatrix : &m;
+            const bMatrix4 *mb = alias == 0 ? &b.mCurrent.mMatrix : alias == 1 ? &b.mPrevious.mMatrix : &m;
+            oSet(&a, ma, elapsed);
+            b.SetCameraMatrix(mb, elapsed);
+            int k = 0;
+            while (k < static_cast<int>(sizeof a) && reinterpret_cast<uint8_t *>(&a)[k] == reinterpret_cast<uint8_t *>(&b)[k]) ++k;
+            EXPECT(k == static_cast<int>(sizeof a), "SetCameraMatrix mode %d alias %d pc=%x: first diff at +0x%X", mode, alias, pc, k);
+            *stopUpdating = 0; jr->mValid = 0; *disableComm = 0;
+
+            // ApplyNoise on a (now identical) camera with sensible noise parameters
+            std::memcpy(&b, &a, sizeof a);
+            bVector4 *nv[4] = {&a.mCurrent.mNoiseFrequency1, &a.mCurrent.mNoiseAmplitude1, &a.mCurrent.mNoiseFrequency2, &a.mCurrent.mNoiseAmplitude2};
+            for (int q = 0; q < 4; ++q) {
+                const bool amp = q & 1;
+                nv[q]->x = amp ? rf(0.0f, 30.0f) : rf(0.0f, 12.0f);
+                nv[q]->y = amp ? rf(0.0f, 30.0f) : rf(0.0f, 12.0f);
+                nv[q]->z = amp ? rf(0.0f, 30.0f) : rf(0.0f, 12.0f);
+                nv[q]->w = amp ? rf(0.0f, 30.0f) : rf(0.0f, 12.0f);
+            }
+            std::memcpy(&b, &a, sizeof a);
+            bMatrix4 n1, n2;
+            randMatrix(n1);
+            n2 = n1;
+            const float t = rng() % 4 ? rf(0.0f, 1000.0f) : rf(-50.0f, 50.0f), inten = rng() % 4 ? rf(0.0f, 2.0f) : rf(-20.0f, 20.0f);
+            oNoise(&a, &n1, t, inten);
+            b.ApplyNoise(&n2, t, inten);
+            EXPECT(std::memcmp(&n1, &n2, sizeof n1) == 0, "ApplyNoise t=%.9g i=%.9g pc=%x", double(t), double(inten), pc);
+
+            // debug no-ops (bFunkCallASync is a bare ret on PC): object untouched either way
+            *seeulator = rng() % 2;
+            *disableComm = rng() % 2;
+            oJR(&a, "SpeedCam");
+            oSee(&a);
+            b.CommunicateWithJollyRancher("SpeedCam");
+            b.UpdateSeeulatorTool();
+            EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "Camera debug no-ops pc=%x", pc);
+            *seeulator = 0; *disableComm = 0;
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+    *stopUpdating = savedStop; *disableComm = savedDisable; *seeulator = savedSee; *jr = savedJr;
 }
 
 // FEPackageData ctor / non-deleting dtor on raw (0x30203) and LZ (0x30210, dtor only with null data) chunks.
@@ -4532,6 +4638,393 @@ static void CheckWholeFileLeftovers(int iters)
     }
 }
 
+// HighScoresDatabase (synthetic DB + stats), UserProfile::SetProfileName (named path), dialog package names (no font
+// lookups), cFrontendDatabase small members on a static copy.
+static void CheckProfileDB(int iters)
+{
+    auto oFind = ORIG<TrackHighScore *(THISCALL *)(HighScoresDatabase *, int32_t, int32_t, int32_t)>(0x502A50);
+    auto oLap = ORIG<int32_t(THISCALL *)(HighScoresDatabase *, int32_t, int32_t)>(0x502AA0);
+    auto oDrift = ORIG<int32_t(THISCALL *)(HighScoresDatabase *, int32_t, int32_t)>(0x502C50);
+    auto oBroke = ORIG<uint8_t(__stdcall *)(int32_t, const TrackHighScore *, const uint8_t *)>(0x502DA0);
+    auto oMaybe = ORIG<uint8_t(THISCALL *)(HighScoresDatabase *, int32_t, int32_t, int32_t, int32_t, const uint8_t *)>(0x502DF0);
+    auto oName = ORIG<void(THISCALL *)(UserProfile *, const char *, uint32_t)>(0x502F40);
+    auto oCalc = ORIG<const char *(__cdecl *)(const feDialogConfig *)>(0x526C40);
+    auto oFirst = ORIG<const char *(THISCALL *)(cFrontendDatabase *, int32_t)>(0x502FF0);
+    auto oExit = ORIG<void(THISCALL *)(cFrontendDatabase *, int32_t)>(0x503040);
+    auto oCareer = ORIG<uint8_t(THISCALL *)(cFrontendDatabase *)>(0x5030C0);
+    static HighScoresDatabase A, B;
+    static uint8_t stats[0x230];
+    static UserProfile pa, pb;
+    static cFrontendDatabase da, db;
+    static feDialogConfig cfg;
+    auto key = [&] { return static_cast<int32_t>(rng() % 4); };
+    for (int it = 0; it < iters; ++it) {
+        auto *ar = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) ar[i] = static_cast<uint8_t>(rng());
+        for (auto &h : A.mScores) { h.mTrack = static_cast<int16_t>(rng() % 5); h.mDirection = static_cast<int8_t>(key()); h.mKey2 = static_cast<int8_t>(key()); }
+        for (auto &x : stats) x = static_cast<uint8_t>(rng());
+        const int32_t lapPick = static_cast<int32_t>(rng() % 4);
+        const int32_t lap = lapPick == 0 ? 0 : lapPick == 1 ? 0x7FFFFFFF : static_cast<int32_t>(rng() % 100000) - 10;
+        std::memcpy(stats + 0x10, &lap, 4);
+        float f = (static_cast<int32_t>(rng() % 20000) - 2000) * 0.37f;
+        std::memcpy(stats + 0x104, &f, 4);
+        std::memcpy(&B, &A, sizeof A);
+        const int32_t t = static_cast<int32_t>(rng() % 5), d = key(), k = key(), type = static_cast<int32_t>(rng() % 3);
+        EXPECT(oFind(&A, t, d, k) == reinterpret_cast<TrackHighScore *>(reinterpret_cast<uint8_t *>(B.FindHighScore(t, d, k)) - reinterpret_cast<uint8_t *>(&B) + reinterpret_cast<uint8_t *>(&A)) ||
+               (oFind(&A, t, d, k) == nullptr && B.FindHighScore(t, d, k) == nullptr), "FindHighScore");
+        bool any = false, anyPos = false;   // without a match both fall back to TrackInfo (not loaded in DllMain)
+        for (const auto &h : B.mScores) if (h.mTrack == t && h.mDirection == d) { any = true; anyPos |= h.mValue > 0; }
+        if (any) EXPECT(oLap(&A, t, d) == B.FindBestLapTime(t, d), "FindBestLapTime");
+        if (anyPos) EXPECT(oDrift(&A, t, d) == B.FindBestDriftScore(t, d), "FindBestDriftScore");
+        const TrackHighScore *rec = &A.mScores[rng() % 0x140];
+        EXPECT((oBroke(type, rec, stats) & 1) == (HighScoresDatabase::DidPlayerBreakRecord(type, rec, stats) ? 1 : 0), "DidPlayerBreakRecord %d", type);
+        if (rng() & 1) for (auto &h : A.mScores) if (rng() % 3 == 0) h.mTrack = 0;
+        std::memcpy(&B, &A, sizeof A);
+        const uint8_t ra = oMaybe(&A, type, t, d, k, stats) & 1;
+        const uint8_t rb = B.MaybeAddTrackHighScore(type, t, d, k, stats) ? 1 : 0;
+        EXPECT(ra == rb && std::memcmp(&A, &B, sizeof A) == 0, "MaybeAddTrackHighScore %d", type);
+
+        char name[0x30];
+        const int len = static_cast<int>(rng() % 0x28) + 1;
+        for (int i = 0; i < len; ++i) name[i] = static_cast<char>('A' + rng() % 26);
+        name[len] = 0;
+        std::memset(&pa, static_cast<int>(rng() & 0xFF), 0x30);
+        std::memcpy(&pb, &pa, 0x30);
+        oName(&pa, name, rng() & 1);
+        pb.SetProfileName(name, true);
+        EXPECT(std::memcmp(&pa, &pb, 0x30) == 0, "SetProfileName");
+
+        cfg.Construct();
+        cfg.mbHelp = static_cast<uint8_t>(rng() & 1);
+        const int tl = static_cast<int>(rng() % 60);
+        for (int i = 0; i < tl; ++i) cfg.mText[i] = "ab\n^"[rng() % 4];
+        static const char *names[] = {"MyDialog.fng", "x"};
+        cfg.mpDialogPkg = names[rng() & 1];
+        if (cfg.mbHelp || cfg.mpDialogPkg) EXPECT(std::strcmp(oCalc(&cfg), DialogInterface::CalcFEngDialogPackageName(&cfg)) == 0, "CalcFEngDialogPackageName");
+
+        static const int32_t modes[] = {1, 2, 4, 8, 0x200, 3};
+        da.mGameMode = db.mGameMode = modes[rng() % 6];
+        const int32_t q = static_cast<int32_t>(rng() % 3);
+        EXPECT(std::strcmp(oFirst(&da, q), db.CalculateFirstFrontendScreenToSeeAfterQuitRace(q)) == 0, "FirstScreen %d %d", da.mGameMode, q);
+        EXPECT((oCareer(&da) & 1) == (db.IsCurrentRaceEventInCareerMode() ? 1 : 0), "IsCurrentRaceEventInCareerMode");
+        for (int pl = 0; pl < 2; ++pl) da.mProfiles[pl].mHighScores.mRacesLost = db.mProfiles[pl].mHighScores.mRacesLost = static_cast<int32_t>(rng());
+        da.mExitRaceState = db.mExitRaceState = 0;
+        const int32_t place = static_cast<int32_t>(rng() % 2);
+        oExit(&da, place);
+        db.NotifyExitRaceToFrontend(place);
+        EXPECT(da.mExitRaceState == db.mExitRaceState && da.mProfiles[0].mHighScores.mRacesLost == db.mProfiles[0].mHighScores.mRacesLost &&
+               da.mProfiles[1].mHighScores.mRacesLost == db.mProfiles[1].mHighScores.mRacesLost, "NotifyExitRaceToFrontend");
+    }
+}
+
+// bList: random lists of keyed nodes, both builds of Sort / MergeSort / AddSorted / AddTail / TraversebList.
+namespace blistref {
+struct KNode { bNode n; int32_t key, id; };
+int32_t sOrder;   // 0: ascending-first comparator, 1: descending, 2: "a before b" iff a.key < b.key (strict)
+int32_t __cdecl Cmp(bNode *a, bNode *b)
+{
+    const int32_t x = reinterpret_cast<KNode *>(a)->key, y = reinterpret_cast<KNode *>(b)->key;
+    switch (sOrder) { case 0: return x <= y; case 1: return x > y ? 2 : 0; default: return x < y ? -1 : 0; }
+}
+void Build(bList &l, KNode *k, int n, const int32_t *keys)
+{
+    l.mHead.next = l.mHead.prev = &l.mHead;
+    for (int i = 0; i < n; ++i) {
+        k[i].key = keys[i]; k[i].id = i;
+        bNode *t = l.mHead.prev;
+        t->next = &k[i].n; k[i].n.prev = t; k[i].n.next = &l.mHead; l.mHead.prev = &k[i].n;
+    }
+}
+bool Same(bList &a, KNode *, bList &b, KNode *, int n)
+{
+    bNode *x = a.mHead.next, *y = b.mHead.next;
+    for (int i = 0; i <= n + 1; ++i) {
+        if (x == &a.mHead || y == &b.mHead)
+            return x == &a.mHead && y == &b.mHead && (a.mHead.prev == &a.mHead ? b.mHead.prev == &b.mHead : reinterpret_cast<KNode *>(a.mHead.prev)->id == reinterpret_cast<KNode *>(b.mHead.prev)->id);
+        if (reinterpret_cast<KNode *>(x)->id != reinterpret_cast<KNode *>(y)->id) return false;
+        if ((x->prev == &a.mHead) != (y->prev == &b.mHead)) return false;
+        x = x->next; y = y->next;
+    }
+    return false;
+}
+}  // namespace blistref
+
+static void CheckBList(int iters)
+{
+    using namespace blistref;
+    auto oSort = ORIG<void(THISCALL *)(bList *, bListCompare)>(0x43E650);
+    auto oMerge = ORIG<void(THISCALL *)(bList *, bListCompare)>(0x43BF40);
+    auto oSorted = ORIG<bNode *(THISCALL *)(bList *, bListCompare, bNode *)>(0x43BEE0);
+    auto oTail = ORIG<void(THISCALL *)(bList *, bList *)>(0x43BEB0);
+    auto oTrav = ORIG<int32_t(THISCALL *)(bList *, const bNode *)>(0x43BE80);
+    static KNode ka[70], kb[70], xa[10], xb[10];
+    static bList la, lb, ma, mb;
+    int32_t keys[70], k2[10];
+    for (int it = 0; it < iters; ++it) {
+        const int n = static_cast<int>(rng() % 66), m = static_cast<int>(rng() % 9);
+        const int range = 1 + static_cast<int>(rng() % 40);
+        for (int i = 0; i < n; ++i) keys[i] = static_cast<int32_t>(rng() % range);
+        for (int i = 0; i < m; ++i) k2[i] = static_cast<int32_t>(rng() % range);
+        sOrder = static_cast<int32_t>(rng() % 3);
+        Build(la, ka, n, keys); Build(lb, kb, n, keys);
+        const int op = static_cast<int>(rng() % 5);
+        switch (op) {
+        case 0: oSort(&la, Cmp); lb.Sort(Cmp); break;
+        case 1: oMerge(&la, Cmp); lb.MergeSort(Cmp); break;
+        case 2:
+            oSort(&la, Cmp); lb.Sort(Cmp);
+            for (int i = 0; i < m; ++i) { xa[i].key = xb[i].key = k2[i]; xa[i].id = xb[i].id = 100 + i;
+                EXPECT(oSorted(&la, Cmp, &xa[i].n) == &xa[i].n && lb.AddSorted(Cmp, &xb[i].n) == &xb[i].n, "AddSorted ret"); }
+            break;
+        case 3:
+            Build(ma, xa, m, k2); Build(mb, xb, m, k2);
+            for (int i = 0; i < m; ++i) xa[i].id = xb[i].id = 100 + i;
+            oTail(&la, &ma); lb.AddTail(&mb);
+            EXPECT(ma.mHead.next == &ma.mHead && mb.mHead.next == &mb.mHead, "AddTail empties");
+            break;
+        default: {
+            const int pick = static_cast<int>(rng() % (n + 2));
+            const bNode *na = pick < n ? &ka[pick].n : pick == n ? nullptr : &xa[0].n;
+            const bNode *nb = pick < n ? &kb[pick].n : pick == n ? nullptr : &xb[0].n;
+            EXPECT(oTrav(&la, na) == lb.TraversebList(nb), "TraversebList");
+            break;
+        }
+        }
+        EXPECT(Same(la, ka, lb, kb, n + m), "bList op %d order %d n %d", op, sOrder, n);
+    }
+}
+
+// cFinishedRaceStats: lap comparators on synthetic entries (globals CurLap 0x83846C / laps 0x89E7BC saved and
+// restored), GetStatsForDriver.
+static void CheckFinishedRaceStats(int iters)
+{
+    auto oTime = ORIG<int32_t(__cdecl *)(bNode *, bNode *)>(0x503360);
+    auto oDrift = ORIG<int32_t(__cdecl *)(bNode *, bNode *)>(0x5033F0);
+    auto oPoints = ORIG<int32_t(__cdecl *)(bNode *, bNode *)>(0x5032F0);
+    auto oStats = ORIG<uint8_t *(THISCALL *)(cFinishedRaceStats *, int32_t)>(0x503320);
+    int32_t *curLap = reinterpret_cast<int32_t *>(0x83846C), *laps = reinterpret_cast<int32_t *>(0x89E7BC);
+    const int32_t savedLap = *curLap, savedLaps = *laps;
+    static uint8_t ea[0x224], eb[0x224];
+    static cFinishedRaceStats frs;
+    struct PN { bNode n; uint8_t *d; } na{{nullptr, nullptr}, ea}, nb{{nullptr, nullptr}, eb};
+    for (int it = 0; it < iters; ++it) {
+        for (size_t i = 0; i < sizeof ea; ++i) { ea[i] = static_cast<uint8_t>(rng() % 3 ? 0 : rng()); eb[i] = static_cast<uint8_t>(rng() % 3 ? 0 : rng()); }
+        *curLap = static_cast<int32_t>(rng() % 22);
+        *laps = static_cast<int32_t>(rng() % 22);
+        if (rng() & 1) std::memcpy(eb + 0x70 + *curLap * 4, ea + 0x70 + *curLap * 4, 4);
+        EXPECT(oTime(&na.n, &nb.n) == SortRacingCarByTime(&na.n, &nb.n), "SortRacingCarByTime");
+        EXPECT(oDrift(&na.n, &nb.n) == SortRacingCarByDrift(&na.n, &nb.n), "SortRacingCarByDrift");
+        EXPECT(oPoints(&na.n, &nb.n) == SortResultsByDriftPoints(&na.n, &nb.n), "SortResultsByDriftPoints");
+        frs.mCount = static_cast<int32_t>(rng() % 7);
+        for (auto &e : frs.mEntries) { const int32_t d = static_cast<int32_t>(rng() % 8); std::memcpy(e + 4, &d, 4); }
+        const int32_t want = static_cast<int32_t>(rng() % 8);
+        EXPECT(oStats(&frs, want) == frs.GetStatsForDriver(want), "GetStatsForDriver");
+    }
+    *curLap = savedLap;
+    *laps = savedLaps;
+}
+
+// FEPlayerCarDB container functions on a synthetic DB (records: handle +8, active +0x10, filter +0x14).
+static void CheckPlayerCarDB(int iters)
+{
+    using CDB = FEPlayerCarDB;
+    auto oReset = ORIG<void(THISCALL *)(CDB *)>(0x5036F0);
+    auto oByHandle = ORIG<uint8_t *(THISCALL *)(CDB *, uint32_t)>(0x503510);
+    auto oSponsor = ORIG<uint8_t(THISCALL *)(CDB *, uint32_t)>(0x503590);
+    auto oTuned = ORIG<uint8_t *(THISCALL *)(CDB *, uint32_t)>(0x5035C0);
+    auto oOnline = ORIG<uint8_t *(THISCALL *)(CDB *, uint32_t)>(0x503640);
+    auto oCareer = ORIG<uint8_t *(THISCALL *)(CDB *, uint32_t)>(0x503680);
+    auto oEmpty = ORIG<uint8_t *(THISCALL *)(CDB *)>(0x5036C0);
+    auto oFilt = ORIG<uint8_t *(THISCALL *)(CDB *, uint32_t, const uint8_t *)>(0x5162D0);
+    auto oStock = ORIG<uint8_t(THISCALL *)(CDB *, uint32_t)>(0x516360);
+    static CDB A, B;
+    auto rec = [](uint8_t *r, uint32_t h, uint32_t act, uint32_t f) { std::memcpy(r + 8, &h, 4); std::memcpy(r + 0x10, &act, 4); std::memcpy(r + 0x14, &f, 4); };
+    for (int it = 0; it < iters; ++it) {
+        std::memset(&A, 0, sizeof A);
+        auto h = [&] { return rng() % 3 ? static_cast<uint32_t>(rng() % 40) : 0u; };
+        auto bits = [&] { return static_cast<uint32_t>(rng() % 16); };
+        for (auto &r : A.mStock) rec(r, h(), rng() & 1, bits());
+        for (auto &r : A.mTuned) rec(r, h(), rng() & 1, bits());
+        for (auto &r : A.mCareer) rec(r, h(), rng() & 1, bits());
+        for (auto &r : A.mOnline) rec(r, h(), rng() & 1, bits());
+        for (auto &r : A.mSponsor) rec(r, h(), rng() & 1, bits());
+        A.mNumStock = static_cast<int32_t>(rng() % 49);
+        A.mNumCareer = static_cast<int32_t>(rng() % 6);
+        std::memcpy(&B, &A, sizeof A);
+        oReset(&A);
+        B.ResetPointers();
+        for (int i = 0; i < 0x5B; ++i)
+            EXPECT(A.mRecords[i] - reinterpret_cast<uint8_t *>(&A) == B.mRecords[i] - reinterpret_cast<uint8_t *>(&B), "ResetPointers %d", i);
+        auto same = [&](const uint8_t *a, const uint8_t *b) { return (a == nullptr && b == nullptr) || (a && b && a - reinterpret_cast<uint8_t *>(&A) == b - reinterpret_cast<uint8_t *>(&B)); };
+        const uint32_t q = static_cast<uint32_t>(rng() % 42);
+        EXPECT(same(oByHandle(&A, q), B.GetCarRecordByHandle(q)), "GetCarRecordByHandle");
+        EXPECT((oSponsor(&A, q) & 1) == B.IsCarSponsorCar(q), "IsCarSponsorCar");
+        EXPECT(same(oTuned(&A, q), B.GetTunedCarByHandle(q)), "GetTunedCarByHandle");
+        EXPECT(same(oOnline(&A, q), B.GetOnlineCarByHandle(q)), "GetOnlineCarByHandle");
+        EXPECT(same(oCareer(&A, q), B.GetCareerCarByHandle(q)), "GetCareerCarByHandle");
+        EXPECT((oStock(&A, q) & 1) == B.IsCarStock(q), "IsCarStock");
+        EXPECT(same(oEmpty(&A), B.FindEmptyTunedCarSlot()), "FindEmptyTunedCarSlot");
+        const int k = static_cast<int>(rng() % 0x5C);
+        const uint8_t *afterA = k < 0x5B ? A.mRecords[k] : nullptr, *afterB = k < 0x5B ? B.mRecords[k] : nullptr;
+        const uint32_t f = bits();
+        EXPECT(same(oFilt(&A, f, afterA), B.GetCarFiltered(f, afterB)), "GetCarFiltered");
+        if (it % 64 == 0) {   // ctor: element ctors (game) + counts / table
+            static auto oCtor = ORIG<CDB *(THISCALL *)(CDB *)>(0x52A5D0);
+            static CDB C, D;
+            auto *cr = reinterpret_cast<uint8_t *>(&C);
+            for (size_t i = 0; i < sizeof C; ++i) cr[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&D, &C, sizeof C);
+            EXPECT(oCtor(&C) == &C, "FEPlayerCarDB ctor ret");
+            D.Construct();
+            EXPECT(std::memcmp(&C, &D, sizeof C) == 0, "FEPlayerCarDB ctor");
+        }
+        static auto oDel = ORIG<void(THISCALL *)(CDB *, uint32_t)>(0x52A6C0);
+        static auto oStockH = ORIG<uint8_t *(THISCALL *)(CDB *, uint32_t)>(0x503550);
+        EXPECT(same(oStockH(&A, q), B.GetStockCarByHandle(q)), "GetStockCarByHandle");
+        oDel(&A, q);
+        B.DeleteTunedCar(q);
+        EXPECT(std::memcmp(&A, &B, offsetof(CDB, mRecords)) == 0, "DeleteTunedCar");
+    }
+}
+
+// CarViewer ride lookup (FindWhichScreenToUpdate needs the package manager: not in DllMain).
+static void CheckCarViewer(int iters)
+{
+    auto oRide = ORIG<void *(__cdecl *)(int32_t)>(0x4A7890);
+    for (int it = 0; it < iters; ++it) {
+        const int32_t w = static_cast<int32_t>(rng() % 4) - 1;
+        EXPECT(oRide(w) == CarViewer::FindWhichRideInfoToUpdate(w), "FindWhichRideInfoToUpdate %d", w);
+    }
+}
+
+// UIQRCarSelect: GetUnlockFilter over game modes, InitSlider on a synthetic screen (sliders only).
+static void CheckQRCarSelect(int iters)
+{
+    auto oUnlock = ORIG<uint32_t(__cdecl *)()>(0x497DA0);
+    int32_t *mode = reinterpret_cast<int32_t *>(0x850078);
+    const int32_t saved = *mode;
+    static const int32_t modes[] = {0, 1, 2, 4, 8, 0x20, 0x100, 0x200, 3};
+    for (int it = 0; it < iters; ++it) {
+        *mode = modes[rng() % 9];
+        EXPECT(oUnlock() == UIQRCarSelect::GetUnlockFilter(), "GetUnlockFilter %d", *mode);
+        static auto oSound = ORIG<uint32_t(THISCALL *)(UIQRCarSelect *, uint32_t, void *, uint32_t, uint32_t, uint32_t)>(0x4E2280);
+        alignas(8) static uint8_t scr[sizeof(UIQRCarSelect)];
+        auto *sc = reinterpret_cast<UIQRCarSelect *>(scr);
+        sc->mPlayer = static_cast<int32_t>(rng() % 2);
+        static const uint32_t msgs[] = {0x5073EF13u, 0xD9FEEC59u, 0x0C407210u, 0x406415E3u, 0x9120409Eu, 0xB5971BF1u, 0x911AB364u};
+        const uint32_t m = rng() % 4 ? msgs[rng() % 7] : static_cast<uint32_t>(rng());
+        const uint32_t arg = static_cast<uint32_t>(rng() % 3), ev = static_cast<uint32_t>(rng() % 12);
+        EXPECT(oSound(sc, m, nullptr, arg, 0, ev) == sc->NotifySoundMessage(m, arg, ev), "QRCarSelect sound %08X", m);
+    }
+    *mode = saved;
+}
+
+// PostRaceResultsScreen sounds + FilterSoundForBrowser (pure)
+static void CheckPostRaceSound(int iters)
+{
+    auto oB = ORIG<uint32_t(__cdecl *)(uint32_t, uint32_t)>(0x50D230);
+    auto oS = ORIG<uint32_t(THISCALL *)(void *, uint32_t, void *, uint32_t, uint32_t, uint32_t)>(0x4A3F00);
+    static const uint32_t msgs[] = {0x911AB364u, 0xC519BFC0u, 0x9120409Eu, 0x406415E3u};
+    for (int it = 0; it < iters; ++it) {
+        const uint32_t m = rng() % 2 ? msgs[rng() % 4] : static_cast<uint32_t>(rng());
+        const uint32_t e = rng() % 4 ? rng() % 12 : static_cast<uint32_t>(rng());
+        EXPECT(oB(m, e) == FilterSoundForBrowser(m, e), "FilterSoundForBrowser %u", e);
+        EXPECT(oS(nullptr, m, nullptr, 0, 0, e) == PostRaceResultsScreen().NotifySoundMessage(m, e), "PostRaceResults sound %08X %u", m, e);
+    }
+}
+
+// QRTrackSelectScreenManager next / prev screen functions over modes / race modes (no getaway: 0x850088 != 8)
+static void CheckQRScreenCalcs(int iters)
+{
+    using F = const char *(THISCALL *)(QRTrackSelectScreenManager *);
+    F o[5] = {ORIG<F>(0x4B2A80), ORIG<F>(0x498290), ORIG<F>(0x498220), ORIG<F>(0x4B2AF0), ORIG<F>(0x498240)};
+    const char *(QRTrackSelectScreenManager::*r[5])() = {&QRTrackSelectScreenManager::CalcNextScreenFromModeSelect,
+        &QRTrackSelectScreenManager::CalcPrevScreenFromModeSelect, &QRTrackSelectScreenManager::CalcNextScreenFromModeOptions,
+        &QRTrackSelectScreenManager::CalcPrevScreenFromModeOptions, &QRTrackSelectScreenManager::CalcNextScreenFromTrackSelect};
+    int32_t *mode = reinterpret_cast<int32_t *>(0x850078), *race = reinterpret_cast<int32_t *>(0x83AAB4);
+    int32_t *kind = reinterpret_cast<int32_t *>(0x850088);
+    const int32_t sm = *mode, sr = *race, sk = *kind;
+    static const int32_t modes[] = {1, 2, 4, 8, 0x20, 0x100, 0x200};
+    QRTrackSelectScreenManager m{};
+    m.mpFront = "front";
+    m.mpBack = "back";
+    for (int it = 0; it < iters; ++it) {
+        *mode = modes[rng() % 7];
+        *race = static_cast<int32_t>(rng() % 14) - 1;
+        *kind = static_cast<int32_t>(rng() % 10);
+        if (*kind == 8) *kind = 7;
+        const int f = static_cast<int>(rng() % 5);
+        EXPECT(o[f](&m) == (m.*r[f])(), "QR screen calc %d mode %X race %d", f, *mode, *race);
+    }
+    *mode = sm;
+    *race = sr;
+    *kind = sk;
+}
+
+// cPostRaceScreenManager predicates over the globals they read (restored afterwards)
+static void CheckPostRacePredicates(int iters)
+{
+    using B = uint32_t(__cdecl *)();
+    auto oTR = ORIG<B>(0x4C0050), oTS = ORIG<B>(0x4C00C0), oSp = ORIG<B>(0x4A4610), oRm = ORIG<B>(0x4A45E0);
+    int32_t *ints[] = {reinterpret_cast<int32_t *>(0x850078), reinterpret_cast<int32_t *>(0x863470), reinterpret_cast<int32_t *>(0x85EF4C),
+                       reinterpret_cast<int32_t *>(0x850088), reinterpret_cast<int32_t *>(0x850098), reinterpret_cast<int32_t *>(0x83AAB4),
+                       reinterpret_cast<int32_t *>(0x862838)};
+    int32_t saved[7];
+    for (int i = 0; i < 7; ++i) saved[i] = *ints[i];
+    uint8_t *drag = reinterpret_cast<uint8_t *>(0x89E7E6);
+    const uint8_t savedDrag = *drag;
+    static const int32_t modes[] = {1, 2, 4, 8, 0x20, 0x200};
+    for (int it = 0; it < iters; ++it) {
+        *ints[0] = modes[rng() % 6];
+        *ints[1] = static_cast<int32_t>(rng() % 2);
+        *ints[2] = static_cast<int32_t>(rng() % 4);
+        *ints[3] = static_cast<int32_t>(rng() % 10);
+        *ints[4] = static_cast<int32_t>(rng() % 3);
+        *ints[5] = static_cast<int32_t>(rng() % 12);
+        *ints[6] = static_cast<int32_t>(rng() % 4);
+        *drag = static_cast<uint8_t>(rng() % 4 == 0);
+        EXPECT((oTR() & 0xFF) == cPostRaceScreenManager::NeedToSeePostRaceTournamentResults(), "TournResults mode %X", *ints[0]);
+        EXPECT((oTS() & 0xFF) == cPostRaceScreenManager::NeedToSeePostRaceTournamentStandings(), "TournStandings mode %X", *ints[0]);
+        EXPECT((oSp() & 0xFF) == cPostRaceScreenManager::NeedToAskForSponsor(), "AskForSponsor stage %d", *ints[6]);
+        EXPECT((oRm() & 0xFF) == cPostRaceScreenManager::NeedToRemoveTheSponsorScreens(), "RemoveSponsor stage %d", *ints[6]);
+    }
+    for (int i = 0; i < 7; ++i) *ints[i] = saved[i];
+    *drag = savedDrag;
+}
+
+static void CheckTournSort(int iters)
+{
+    auto o = ORIG<int32_t(__cdecl *)(bNode *, bNode *)>(0x4A4710);
+    struct N { bNode l; const uint8_t *e; int32_t d[3]; } a{}, b{};
+    int32_t ea[2], eb[2];
+    a.e = reinterpret_cast<const uint8_t *>(ea);
+    b.e = reinterpret_cast<const uint8_t *>(eb);
+    for (int it = 0; it < iters; ++it) {
+        ea[0] = static_cast<int32_t>(rng() % 8) - 1;
+        eb[0] = static_cast<int32_t>(rng() % 8) - 1;
+        EXPECT(o(&a.l, &b.l) == SortTournamentResults(&a.l, &b.l), "SortTournamentResults %d %d", ea[0], eb[0]);
+        static auto oS = ORIG<int32_t(__cdecl *)(bNode *, bNode *)>(0x4A4730);
+        a.d[2] = static_cast<int32_t>(rng() % 20) - 2;
+        b.d[2] = static_cast<int32_t>(rng() % 20) - 2;
+        EXPECT(oS(&a.l, &b.l) == SortTournamentStandings(&a.l, &b.l), "SortTournamentStandings %d %d", a.d[2], b.d[2]);
+    }
+}
+
+static void CheckTextScrollerScan(int iters)
+{
+    using F = const uint16_t *(__thiscall *)(void *, const uint16_t *);
+    auto oCR = ORIG<F>(0x50DC70), oEnd = ORIG<F>(0x50DCB0);
+    static const uint16_t chars[] = {'a', ' ', '\n', '^', '$', 'x', 0};
+    uint16_t buf[24];
+    for (int it = 0; it < iters; ++it) {
+        const int n = static_cast<int>(rng() % 23);
+        for (int i = 0; i < n; ++i) buf[i] = chars[rng() % 6];
+        buf[n] = 0;
+        EXPECT(oCR(nullptr, buf) == CTextScroller::FindCR(buf), "FindCR len %d", n);
+        EXPECT(oEnd(nullptr, buf) == CTextScroller::FindEND(buf), "FindEND len %d", n);
+    }
+}
+
 static void CheckCarTunePauseSound(int iters)
 {
     auto o = ORIG<uint32_t(THISCALL *)(void *, uint32_t, void *, uint32_t, uint32_t, uint32_t)>(0x510EB0);
@@ -4907,6 +5400,7 @@ static int RunAll()
     REFEREE_RUN(CheckBoxes(iters));
     REFEREE_RUN(CheckSlotPoolB(iters));
     REFEREE_RUN(CheckNoise(iters));
+    REFEREE_RUN(CheckCamera(iters));
     REFEREE_RUN(CheckPackageDataCtor(iters / 10 + 1));
     REFEREE_RUN(CheckPackageCtor(iters / 40 + 1));
     REFEREE_RUN(CheckReaderTypeSizes(iters));
@@ -4940,7 +5434,18 @@ static int RunAll()
     REFEREE_RUN(CheckQRTrackSelect(iters));
     REFEREE_RUN(CheckQuickRaceSettings(iters));
     REFEREE_RUN(CheckCarTunePauseSound(iters));
+    REFEREE_RUN(CheckPostRaceSound(iters));
+    REFEREE_RUN(CheckQRScreenCalcs(iters));
+    REFEREE_RUN(CheckPostRacePredicates(iters));
+    REFEREE_RUN(CheckTournSort(iters));
+    REFEREE_RUN(CheckTextScrollerScan(iters));
     REFEREE_RUN(CheckWholeFileLeftovers(iters));
+    REFEREE_RUN(CheckProfileDB(iters));
+    REFEREE_RUN(CheckBList(iters));
+    REFEREE_RUN(CheckFinishedRaceStats(iters));
+    REFEREE_RUN(CheckPlayerCarDB(iters));
+    REFEREE_RUN(CheckCarViewer(iters));
+    REFEREE_RUN(CheckQRCarSelect(iters));
     REFEREE_RUN(CheckMagazine(iters));
     REFEREE_RUN(CheckMagazineSetups(iters));
     REFEREE_RUN(CheckOptionsMain(iters));

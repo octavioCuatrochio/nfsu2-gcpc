@@ -1,11 +1,13 @@
 #include <cstring>
 #include "frontend/QuickRaceSettings.h"
+#include "frontend/DialogInterface.h"
 #include "frontend/FERender.h"
 #include "frontend/FEPackageManager.h"
 #include "bWare/bSlotPool.h"
 #include "bWare/bMath.h"
 // Bridge implementation for the hooked build: calls into the original SPEED2.EXE (PC v1.2).
 #include "bridge/Bridge.h"
+#include "frontend/CarViewer.h"
 #include "frontend/FELocalize.h"
 
 #define THISCALL __attribute__((thiscall))
@@ -402,6 +404,13 @@ void cFEngRender_AddToRenderList(void *r, FEObject *o) { reinterpret_cast<void(T
 void cFEngRender_PackageFinished(void *r, FEPackage *p) { reinterpret_cast<void(THISCALL *)(void *, FEPackage *)>(0x5371F0)(r, p); }
 void bWareFree(void *p) { reinterpret_cast<void(__cdecl *)(void *)>(0x440540)(p); }
 uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }
+int32_t CameraStopUpdating() { return *reinterpret_cast<const int32_t *>(0x828640); }
+int32_t DisableCommunication() { return *reinterpret_cast<const int32_t *>(0x865094); }
+int32_t SeeulatorToolActive() { return *reinterpret_cast<const int32_t *>(0x883DE0); }
+uint32_t RealTimeFrames() { return *reinterpret_cast<const uint32_t *>(0x7FB708); }
+const JollyRancherResponseData *JollyRancherResponse() { return reinterpret_cast<const JollyRancherResponseData *>(0x82A480); }
+void eRotateX(bMatrix4 *o, const bMatrix4 *i, uint16_t a) { reinterpret_cast<void(__cdecl *)(bMatrix4 *, const bMatrix4 *, uint32_t)>(0x5BACF0)(o, i, a); }
+void eRotateY(bMatrix4 *o, const bMatrix4 *i, uint16_t a) { reinterpret_cast<void(__cdecl *)(bMatrix4 *, const bMatrix4 *, uint32_t)>(0x5BADA0)(o, i, a); }
 uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }
 const uint8_t *BFastATanTable() { return reinterpret_cast<const uint8_t *>(0x7EACB0); }
 const uint16_t *BFixATanTable1() { return reinterpret_cast<const uint16_t *>(0x7EB1C0); }
@@ -618,6 +627,7 @@ void OptionsDB_AllocBackup() { reinterpret_cast<void(THISCALL *)(void *, int32_t
 void SetMenuJoyPort(int32_t p) { *reinterpret_cast<int32_t *>(0x83A9D8) = p; }
 // ---- UIQRModeSelect ----
 void *UIQRModeSelectVTable() { return reinterpret_cast<void *>(0x797734); }
+void **GamePtrSlot(uint32_t a) { return reinterpret_cast<void **>(static_cast<uintptr_t>(a)); }
 int32_t *GameInt(uint32_t a) { return reinterpret_cast<int32_t *>(static_cast<uintptr_t>(a)); }
 uint8_t *QR_CurrentTrackSettings() { return reinterpret_cast<uint8_t *(THISCALL *)(void *)>(0x502910)(reinterpret_cast<void *>(0x83AAB4)); }
 void QR_SetNumOpponents(int32_t n) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x502960)(reinterpret_cast<void *>(0x83AAB4), n); }
@@ -701,6 +711,268 @@ void Timer_PrintToString(const int32_t *t, char *b, int32_t f) { reinterpret_cas
 void GetLocalizedStringBuf(char *b, int32_t n, uint32_t h) { reinterpret_cast<void(__cdecl *)(char *, int32_t, uint32_t)>(0x4FFA50)(b, n, h); }
 void FEngPrintfFloatString(const char *p, uint32_t h, const char *f, double v, const char *s) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f, v, s); }
 // ---- QuickRaceSettings / UIQRModeOptions ----
+uint8_t *PlayerCareer_SaveToBuffer(uint8_t *b, int32_t n) { return reinterpret_cast<uint8_t *(THISCALL *)(void *, uint8_t *, int32_t)>(0x514530)(reinterpret_cast<void *>(0x85AD40), b, n); }
+const uint8_t *PlayerCareer_LoadFromBuffer(const uint8_t *b, int32_t n) { return reinterpret_cast<const uint8_t *(THISCALL *)(void *, const uint8_t *, int32_t)>(0x529230)(reinterpret_cast<void *>(0x85AD40), b, n); }
+void PlayerCareer_Default(bool all) { reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x532830)(reinterpret_cast<void *>(0x85AD40), all); }
+uint8_t *OnlineSettings_Save(uint8_t *p)
+{
+    uint8_t *r = reinterpret_cast<uint8_t *(THISCALL *)(void *, uint8_t *)>(0x515BF0)(reinterpret_cast<void *>(0x850080), p);
+    return reinterpret_cast<uint8_t *(__cdecl *)(uint8_t *)>(0x5B9420)(r);
+}
+void OnlineSettings_Load(const uint8_t *p)
+{
+    const uint8_t *r = reinterpret_cast<const uint8_t *(THISCALL *)(void *, const uint8_t *)>(0x515C90)(reinterpret_cast<void *>(0x850080), p);
+    reinterpret_cast<void(__cdecl *)(const uint8_t *)>(0x5B9570)(r);
+}
+int32_t EAXSound_SetAudioModeFromMemoryCard(int32_t m) { return reinterpret_cast<int32_t(THISCALL *)(void *, int32_t)>(0x4792B0)(EAXSoundInstance(), m); }
+void EAXSound_UpdateVolumes(void *a) { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x469050)(EAXSoundInstance(), a); }
+void Sound_5BE690() { reinterpret_cast<void(__cdecl *)()>(0x5BE690)(); }
+void ApplyJoystickConfig(int32_t port)
+{
+    int32_t list[9];
+    const uint32_t type = reinterpret_cast<uint8_t(__cdecl *)(int32_t)>(0x571AC0)(port);
+    reinterpret_cast<void(__cdecl *)(int32_t *, int32_t, uint32_t)>(0x571FD0)(list, 9, type);
+    const int32_t choice = *reinterpret_cast<const int32_t *>(0x83AA6C + port * 0x28);
+    reinterpret_cast<void(__cdecl *)(int32_t, int32_t)>(0x571FB0)(port, list[choice]);
+}
+const char *OnlineLobbyScreenName() { return reinterpret_cast<const char *>(0x78F320); }
+void PlayerCareer_NotifyRestartCurrentRace()
+{
+    reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x5287A0)(reinterpret_cast<void *>(0x85BA64), 0);
+    *reinterpret_cast<int32_t *>(*reinterpret_cast<uint8_t **>(0x85EF48) + 0x14) = 2;
+}
+void PlayerCareer_NotifyBeginNewRace() { reinterpret_cast<void(THISCALL *)(void *)>(0x533310)(reinterpret_cast<void *>(0x85AD40)); }
+bool EventInProgress_IsThereANextRace()
+{
+    const uint32_t cur = *reinterpret_cast<const uint32_t *>(0x85EF48);
+    if (!cur) return false;
+    const uint32_t next = cur + 0xD24, end = 0x85BAB8 + *reinterpret_cast<const uint32_t *>(0x85EF4C) * 0xD24;
+    return next < end && next != 0;
+}
+int32_t OnlineSettingsSaveSize() { return reinterpret_cast<int32_t(__cdecl *)()>(0x5B9680)(); }
+uint8_t *FinishedRaceStatsGlobal() { return reinterpret_cast<uint8_t *>(0x85036C); }
+int32_t RaceNumRacers(void *r) { return *reinterpret_cast<int32_t *>(static_cast<uint8_t *>(r) + 0x24); }
+void *RaceRacer(void *r, int32_t i) { return reinterpret_cast<void **>(static_cast<uint8_t *>(r) + 0xBD0)[i]; }
+void *CurrentRace() { return *reinterpret_cast<void **>(0x890118); }
+void FinishedRaceStatsEntry_Construct(uint8_t *e, void *car, bool b) { reinterpret_cast<void(THISCALL *)(uint8_t *, void *, uint32_t)>(0x515DB0)(e, car, b); }
+int32_t RaceParameters_GetDriverNumber(int32_t p) { return reinterpret_cast<int32_t(THISCALL *)(void *, int32_t)>(0x5ED980)(reinterpret_cast<void *>(0x89E7A0), p); }
+void PlayerCareer_NotifyCurrentRaceFinished(void *r) { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x54CA60)(reinterpret_cast<void *>(0x85AD40), r); }
+uint32_t CarRecord_GetType(const void *car) { void *c = const_cast<void *>(car); return (*reinterpret_cast<uint32_t(THISCALL ***)(void *)>(c))[1](c); }
+void CarConfig_Init(uint8_t *r, uint32_t h, const uint8_t *s) { reinterpret_cast<void(THISCALL *)(uint8_t *, uint32_t, const uint8_t *)>(0x516B90)(r, h, s); }
+const uint32_t *OnlineCareerCarEntry(int32_t i) { return reinterpret_cast<const uint32_t *>(0x8641A8 + i * 0xC); }
+void CarRecord_BuildRide(void *car, int32_t p, void *ride, int32_t t) { (*reinterpret_cast<void(THISCALL ***)(void *, int32_t, void *, int32_t)>(car))[3](car, p, ride, t); }
+uint8_t *CareerCarData_Save(uint8_t *d, uint8_t *p, int32_t *r) { return reinterpret_cast<uint8_t *(THISCALL *)(uint8_t *, uint8_t *, int32_t *)>(0x503F00)(d, p, r); }
+const uint8_t *CareerCarData_Load(uint8_t *d, const uint8_t *p, uint32_t *s) { return reinterpret_cast<const uint8_t *(THISCALL *)(uint8_t *, const uint8_t *, uint32_t *)>(0x504040)(d, p, s); }
+void CarRecord_Construct(CarRecordKind k, uint8_t *r)
+{
+    static const uint32_t ctor[] = {0x503A00, 0x516B30, 0x525CF0, 0x525CF0, 0x5118E0};
+    reinterpret_cast<void(THISCALL *)(uint8_t *)>(ctor[static_cast<int>(k)])(r);
+}
+bool UnlockSystem_IsCarUnlocked(int32_t a, uint32_t h, bool p2) { return reinterpret_cast<uint8_t(__cdecl *)(int32_t, uint32_t, uint32_t)>(0x534180)(a, h, p2) != 0; }
+const void *ProfileCarDB(int32_t p) { return reinterpret_cast<const void *>(0x83AD90 + p * 0xAB4C); }
+void *TopOrFullScreenRide() { return reinterpret_cast<void *>(0x8371B0); }
+void *BottomScreenRide() { return reinterpret_cast<void *>(0x836750); }
+void GarageMain_StopLookingAtParts(void *s, bool f) { reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x4C1FA0)(s, f); }
+void GarageMain_SetLookatPart(void *s, void *p, int32_t a, bool f, bool b) { reinterpret_cast<void(THISCALL *)(void *, void *, int32_t, uint32_t, uint32_t)>(0x4C1D40)(s, p, a, f, b); }
+void GarageMain_SetCameraParams(void *s, const float c[10])
+{
+    reinterpret_cast<void(THISCALL *)(void *, float, float, float, float, float, float, float, float, float, float)>(0x4A5B70)(
+        s, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9]);
+}
+void GarageMain_SetRideInfo(void *s, void *r, int32_t reason) { reinterpret_cast<void(THISCALL *)(void *, void *, int32_t)>(0x4D8C70)(s, r, reason); }
+void GarageMain_ChangePlatform(void *s, int32_t a, int32_t b) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x4A7180)(s, a, b); }
+void RideInfo_Assign(void *d, const void *s) { reinterpret_cast<void(THISCALL *)(void *, const void *)>(0x413440)(d, s); }
+uint32_t ShaperLightsValue(uint32_t h) { return reinterpret_cast<uint32_t(__cdecl *)(uint32_t)>(0x48A2D0)(h); }
+::cFrontendDatabase *FrontendDatabase() { return reinterpret_cast<::cFrontendDatabase *>(0x83A9D0); }
+void *SelectableCar_GetRide(void *c) { return reinterpret_cast<void *(THISCALL *)(void *)>(0x511E00)(c); }
+long double RideRating(void *ride, int32_t k)
+{
+    static const uint32_t fn[] = {0x5B53A0, 0x5B6A20, 0x5B5490};
+    return reinterpret_cast<long double(THISCALL *)(void *)>(fn[k])(static_cast<uint8_t *>(ride) + 0x10);
+}
+void QRCarSelect_BuildCarList(void *s, uint32_t f) { reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x4E22E0)(s, f); }
+void QRCarSelect_RefreshHeader(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x4B2310)(s); }
+bool CarTypeCheck840(int32_t v) { return reinterpret_cast<uint8_t(__cdecl *)(int32_t)>(0x5022C0)(v) != 0; }
+bool CarTypeInfo_610180(const uint8_t *ct) { return reinterpret_cast<uint8_t(THISCALL *)(const uint8_t *)>(0x610180)(ct) != 0; }
+void *SelectableCar_New(const uint8_t *ct, uint32_t c, uint32_t h, int32_t p, int32_t f)
+{
+    void *m = reinterpret_cast<void *(__cdecl *)(uint32_t)>(0x575620)(0x930);
+    return m ? reinterpret_cast<void *(THISCALL *)(void *, const uint8_t *, uint32_t, uint32_t, int32_t, int32_t)>(0x511DB0)(m, ct, c, h, p, f) : nullptr;
+}
+void QRCarSelect_SortCars(void *l) { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x43E650)(l, reinterpret_cast<void *>(0x40CB20)); }
+uint32_t GetCarTypeLogoHash(int32_t t, bool p) { return reinterpret_cast<uint32_t(__cdecl *)(int32_t, uint32_t)>(0x511E60)(t, p ? 1u : 0u); }
+void QRCarSelect_SetOnlineSlotInfo(void *s, void *r) { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x497F20)(s, r); }
+void QRCarSelect_ConfirmOnline(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x497FC0)(s); }
+void QRCarSelect_ConfirmOnlineUnranked(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x498040)(s); }
+void QRCarSelect_ConfirmLAN(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x498000)(s); }
+void QRCarSelect_OnlineExitRide(uint32_t handle)
+{
+    alignas(16) uint8_t ride[0x900];
+    reinterpret_cast<void(THISCALL *)(void *)>(0x40C910)(ride);
+    void *rec = reinterpret_cast<void *(THISCALL *)(void *, uint32_t)>(0x503510)(reinterpret_cast<void *>(0x83AD90), handle);
+    void **vt = *static_cast<void ***>(rec);
+    reinterpret_cast<void(THISCALL *)(void *, int32_t, void *, int32_t)>(vt[3])(rec, 0, ride, 0);
+    reinterpret_cast<void(THISCALL *)(void *, uint32_t, int32_t)>(0x502A40)(reinterpret_cast<void *>(0x83AAB4), handle, 0);
+    CarViewer::SetRideInfo(ride, 1, 0);
+    if (!*reinterpret_cast<uint8_t *>(0x8500CC)) {
+        void *a = reinterpret_cast<void *(__cdecl *)()>(0x58B9A0)();   // audio singleton
+        reinterpret_cast<void(THISCALL *)(void *, void *)>(0x587630)(a, ride);
+        void *b = reinterpret_cast<void *(__cdecl *)()>(0x58B9A0)();
+        reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x58E080)(b, 0, 0);
+    }
+    reinterpret_cast<void(THISCALL *)(void *)>(0x4022C0)(ride + 0x384);
+}
+void GarageMain_SetCarType(void *s, int32_t t) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x4A5EE0)(s, t); }
+void WithRandomRide(int32_t type, void (*fn)(void *))
+{
+    alignas(16) uint8_t ride[0x900];
+    reinterpret_cast<void(THISCALL *)(void *)>(0x40C910)(ride);
+    reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t, int32_t, int32_t)>(0x610270)(ride, type, 1, 0, 0);
+    reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x61C280)(ride, 1);
+    reinterpret_cast<void(THISCALL *)(void *)>(0x637190)(ride);
+    reinterpret_cast<void(THISCALL *)(void *)>(0x6371E0)(ride);
+    fn(ride);
+    reinterpret_cast<void(THISCALL *)(void *)>(0x4022C0)(ride + 0x384);
+}
+void RaceStarter_StartRace() { reinterpret_cast<void(__cdecl *)()>(0x53FC20)(); }
+void *QRManager_CalcFn(int32_t i)
+{
+    static const uint32_t fns[6] = {0x4B2A80, 0x498290, 0x498220, 0x4B2AF0, 0x498240, 0x4982B0};
+    return reinterpret_cast<void *>(static_cast<uintptr_t>(fns[i]));
+}
+const char *QRManager_CallCalc(void *fn, void *m) { return reinterpret_cast<const char *(THISCALL *)(void *)>(fn)(m); }
+int32_t bRandomInt(int32_t r) { return reinterpret_cast<int32_t(__cdecl *)(int32_t)>(0x43C1C0)(r); }
+int32_t GetRandomGetAwayTrack(int32_t r) { return reinterpret_cast<int32_t(__cdecl *)(int32_t)>(0x4FEF50)(r); }
+const char **PostRaceManager_CurrentScreen() { return reinterpret_cast<const char **>(*reinterpret_cast<uint8_t **>(0x8363DC) + 0x1C); }
+void PostRaceManager_ChangeToNextScreen() { reinterpret_cast<void(THISCALL *)(void *)>(0x4BFF80)(*reinterpret_cast<void **>(0x8363DC)); }
+::bNode *bList_GetNode(::bList *l, int32_t i) { return reinterpret_cast<::bNode *(THISCALL *)(void *, int32_t)>(0x43BE60)(l, i); }
+::bList *DriftScoreList() { return reinterpret_cast<::bList *>(0x864630); }
+int32_t CurrentRaceDriverCount() { return *reinterpret_cast<int32_t *>(*reinterpret_cast<uint8_t **>(0x890118) + 0x24); }
+const uint8_t *RacerInfo(int32_t i) { return reinterpret_cast<const uint8_t *(THISCALL *)(void *, int32_t)>(0x5F0E30)(*reinterpret_cast<void **>(0x890080), i); }
+const char *DriverName(void *p) { return reinterpret_cast<const char *(THISCALL *)(void *)>(0x5F41B0)(p); }
+const char *OnlinePlayerName(int32_t i) { return reinterpret_cast<const char *(THISCALL *)(void *, int32_t)>(0x5F0220)(reinterpret_cast<void *>(0x89CF48), i) + 0x12; }
+void Timer_PrintToString(int32_t t, char *buf, int32_t mode) { reinterpret_cast<void(THISCALL *)(int32_t *, char *, int32_t)>(0x577240)(&t, buf, mode); }
+void FEngPrintfDouble(const char *p, uint32_t h, const char *f, double v) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f, v); }
+void PostRace_ManageOnlineUpdates(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x4E97E0)(s); }
+bool Online_5FE500() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x5FE500)(reinterpret_cast<void *>(0x89CF48)) != 0; }
+void Online_601D00() { reinterpret_cast<void(THISCALL *)(void *)>(0x601D00)(reinterpret_cast<void *>(0x89CF48)); }
+void Online_609750() { reinterpret_cast<void(THISCALL *)(void *)>(0x609750)(reinterpret_cast<void *>(0x89CF48)); }
+void Profile_5100B0() { reinterpret_cast<void(__cdecl *)()>(0x5100B0)(); }
+float FrameSeconds() { return *reinterpret_cast<const float *>(0x865154); }
+bool Career_5287A0(bool a) { return reinterpret_cast<uint8_t(THISCALL *)(void *, uint32_t)>(0x5287A0)(reinterpret_cast<void *>(0x85BA64), a ? 1u : 0u) != 0; }
+bool Career_500DB0() { return (reinterpret_cast<uint32_t(THISCALL *)(void *)>(0x500DB0)(reinterpret_cast<void *>(0x85BA64)) & 0xFF) != 0; }
+bool Career_500DD0() { return (reinterpret_cast<uint32_t(THISCALL *)(void *)>(0x500DD0)(reinterpret_cast<void *>(0x85BA64)) & 0xFF) != 0; }
+bool CareerStage_500610(int32_t s) { return (reinterpret_cast<uint32_t(THISCALL *)(void *)>(0x500610)(reinterpret_cast<void *>(0x862018 + s * 0x104)) & 0xFF) != 0; }
+float CareerStage_5005E0(int32_t s) { return reinterpret_cast<float(THISCALL *)(void *)>(0x5005E0)(reinterpret_cast<void *>(0x861F14 + s * 0x104)); }
+int32_t CareerStage_500670(int32_t s, float v) { return reinterpret_cast<int32_t(THISCALL *)(void *, float)>(0x500670)(reinterpret_cast<void *>(0x862018 + s * 0x104), v); }
+void Call526830(int32_t a) { reinterpret_cast<void(__cdecl *)(int32_t)>(0x526830)(a); }
+bool Online_5FE4C0() { return (reinterpret_cast<uint32_t(THISCALL *)(void *)>(0x5FE4C0)(reinterpret_cast<void *>(0x89CF48)) & 0xFF) != 0; }
+void PostRaceMessageCenter_Destruct(void *p) { reinterpret_cast<void(THISCALL *)(void *)>(0x4E9180)(p); }
+void FEPrintfInts2(FEObject *o, const char *f, int32_t a, int32_t b) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, a, b); }
+void FEPrintfDoubleString(FEObject *o, const char *f, double v, const char *t) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v, t); }
+void FEngPrintfIntStrings(const char *p, uint32_t h, const char *f, int32_t v, const char *a, const char *b) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f, v, a, b); }
+const char *CarTypeDisplayName(int32_t t) { return reinterpret_cast<const char *(__cdecl *)(int32_t)>(0x5120B0)(t); }
+namespace {
+void *OnlineObj() { return reinterpret_cast<void *>(0x89CF48); }
+bool OnlineBusyRaw() { return (reinterpret_cast<uint32_t(THISCALL *)(void *)>(0x5F00F0)(OnlineObj()) & 0xFF) != 0; }
+void Dismiss(int32_t *h) { if (*h) { reinterpret_cast<void(__cdecl *)(int32_t)>(0x540A60)(*h); *h = 0; } }
+void OnlineState3(int32_t a)
+{
+    const int32_t st = *reinterpret_cast<int32_t *>(0x8500D0);
+    reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x5031B0)(reinterpret_cast<void *>(0x850080), 3);
+    reinterpret_cast<void(__cdecl *)(int32_t)>(0x58FD50)(a);
+    (void)st;
+}
+}  // namespace
+void TournResults_OnlineRegister(void *s, bool on)
+{
+    void *o = reinterpret_cast<void *(__cdecl *)(int32_t)>(0x58F740)(0);
+    reinterpret_cast<void(THISCALL *)(void *, void *, void *)>(0x582910)(o, on ? reinterpret_cast<void *>(0x4C0430) : nullptr, on ? s : nullptr);
+}
+void TournResults_OnlineHelperInit(void *h, void *s) { reinterpret_cast<void(THISCALL *)(void *, void *, int32_t)>(0x4CFD80)(h, s, 1); }
+void TournResults_OnlineTeardown(void *s)
+{
+    auto *p = static_cast<uint8_t *>(s);
+    const int32_t st = *reinterpret_cast<int32_t *>(0x8500D0);
+    if (st != 3 && st != 0) OnlineState3(1);
+    if (OnlineBusyRaw() && *reinterpret_cast<int32_t *>(0x850098) == 1) {
+        TournResults_OnlineRegister(s, false);
+        Dismiss(reinterpret_cast<int32_t *>(p + 0x54));
+        Dismiss(reinterpret_cast<int32_t *>(p + 0x58));
+    }
+}
+void TournResults_OnlineLeave(void *s)
+{
+    auto *p = static_cast<uint8_t *>(s);
+    if (*reinterpret_cast<int32_t *>(0x8500D0) != 3) OnlineState3(0);
+    Dismiss(reinterpret_cast<int32_t *>(p + 0x54));
+    Dismiss(reinterpret_cast<int32_t *>(p + 0x58));
+}
+void TournResults_OnlineTick(void *s)
+{
+    auto *p = static_cast<uint8_t *>(s);
+    reinterpret_cast<void(THISCALL *)(void *)>(0x4A3DA0)(*reinterpret_cast<uint8_t **>(0x8363DC) + 4);
+    if (*reinterpret_cast<int32_t *>(p + 0x54) > 0) Dismiss(reinterpret_cast<int32_t *>(p + 0x54));
+    Dismiss(reinterpret_cast<int32_t *>(p + 0x58));
+}
+void TournResults_OnlineMessages(void *s, uint32_t msg, void *obj, uint32_t arg, uint32_t pkg)
+{
+    if (!OnlineBusyRaw() || *reinterpret_cast<int32_t *>(0x850098) != 1) return;
+    auto *p = static_cast<uint8_t *>(s);
+    const int32_t r = reinterpret_cast<int32_t(THISCALL *)(void *, uint32_t, void *, uint32_t, uint32_t, int32_t)>(0x4EFE40)(p + 0x70, msg, obj, arg, pkg, 0xE);
+    auto lobby = [] { return reinterpret_cast<uint8_t *(__cdecl *)()>(0x58A0E0)(); };
+    uint8_t *flag = reinterpret_cast<uint8_t *>(0x837B72);
+    const char *pk = *reinterpret_cast<const char **>(p + 4);
+    if (r > 0) {
+        if (!lobby()[0xA1] && !*flag) {
+            *flag = 1;
+            if (!*reinterpret_cast<int32_t *>(p + 0x58)) {
+                const char *t = reinterpret_cast<const char *(__cdecl *)(uint32_t)>(0x4FFA80)(0xD9DD2A50u);
+                *reinterpret_cast<int32_t *>(p + 0x58) = reinterpret_cast<int32_t(__cdecl *)(const char *, const char *, uint32_t, uint32_t, uint32_t, const char *)>(0x558540)(pk, "", 0x639, 0x406415E3u, 0x406415E3u, t);
+            }
+        } else {
+            uint8_t *c = *reinterpret_cast<uint8_t **>(0x8363DC) + 4;
+            std::memcpy(c + 0x24, p + 0x60, 4);
+            c[0x28] = p[0x5C];
+            if (p[0x5C] == 1)
+                reinterpret_cast<void(__cdecl *)(const char *, const char *, const char *)>(0x542600)(pk, "Header_Text", reinterpret_cast<const char *(__cdecl *)(uint32_t)>(0x4FFA80)(0x8668DC07u));
+        }
+    } else if (r == -1) {
+        reinterpret_cast<void(THISCALL *)(void *, uint32_t, uint32_t, int32_t)>(0x4B8FA0)(p + 0x70, 0x5A6F817Fu, 0x2C0E485Au, 1);
+    } else if (r == 0) {
+        *flag = 0;
+    }
+    if (msg == 0xC98356BAu) reinterpret_cast<void(THISCALL *)(void *)>(0x586760)(lobby());
+}
+void PostRaceMessageCenter_4A3DA0() { reinterpret_cast<void(THISCALL *)(void *)>(0x4A3DA0)(*reinterpret_cast<uint8_t **>(0x8363DC) + 4); }
+void Call5B7C40() { reinterpret_cast<void(__cdecl *)()>(0x5B7C40)(); }
+void PostRaceMessageCenter_Update(void *c, int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x4E9210)(c, v); }
+int32_t OnlineRacerCount() { return reinterpret_cast<int32_t(THISCALL *)(void *)>(0x5F01E0)(reinterpret_cast<void *>(0x89CF48)); }
+int32_t CareerRacerDriver(int32_t i)
+{
+    const uint8_t *rec = reinterpret_cast<const uint8_t *(THISCALL *)(void *, int32_t)>(0x500D90)(reinterpret_cast<void *>(0x85BA64), i);
+    return *reinterpret_cast<const int32_t *>(rec + 4);
+}
+int32_t Career_GetPointsThisRace(int32_t i) { return reinterpret_cast<int32_t(THISCALL *)(void *, int32_t)>(0x513E70)(reinterpret_cast<void *>(0x85BA64), i); }
+int32_t Career_GetPointsTotal(int32_t i) { return reinterpret_cast<int32_t(THISCALL *)(void *, int32_t)>(0x513EB0)(reinterpret_cast<void *>(0x85BA64), i); }
+float Career_GetSponsorPointsEarned() { return reinterpret_cast<float(THISCALL *)(void *)>(0x5330D0)(reinterpret_cast<void *>(0x85BA64)); }
+int32_t Career_GetLastPurse() { return reinterpret_cast<int32_t(THISCALL *)(void *)>(0x532E50)(reinterpret_cast<void *>(0x85AD40)); }
+void HelpBar_Off() { reinterpret_cast<void(THISCALL *)(void *)>(0x54E6B0)(*reinterpret_cast<void **>(0x8384D8)); }
+void FEngStopInteraction(const char *p) { reinterpret_cast<void(__cdecl *)(const char *)>(0x558F00)(p); }
+uint32_t BeginCarCustomize(int32_t k, const char *p, int32_t pl, uint32_t h) { return reinterpret_cast<uint32_t(__cdecl *)(int32_t, const char *, int32_t, uint32_t)>(0x552CC0)(k, p, pl, h); }
+uint32_t BeginCarCustomizeOnline(int32_t k, const char *p, int32_t pl, void *r) { return reinterpret_cast<uint32_t(__cdecl *)(int32_t, const char *, int32_t, void *)>(0x552E30)(k, p, pl, r); }
+const char *SponsorName(int32_t i) { return reinterpret_cast<const char *const *>(0x7F7C6C)[i]; }
+void CareerCarData_Clear(uint8_t *d) { reinterpret_cast<void(THISCALL *)(uint8_t *)>(0x503E70)(d); }
+const uint8_t *CarTypeInfo(int32_t i) { const uint8_t *t = *reinterpret_cast<const uint8_t *const *>(0x8A1CCC); return t ? t + i * 0x890 : nullptr; }
+void *EAXSoundInstance() { return *reinterpret_cast<void **>(0x82B884); }
+int32_t EAXSound_GetDefaultPlatformAudioMode() { return reinterpret_cast<int32_t(THISCALL *)(void *)>(0x40CB20)(EAXSoundInstance()); }
+void EAXSound_InitEATRAX() { reinterpret_cast<void(THISCALL *)(void *)>(0x479220)(EAXSoundInstance()); }
+const char *EATraxPlayIn(int32_t i) { return *reinterpret_cast<const char *const *>(0x7ECD8C + i * 0x10); }
+::feDialogConfig *SecretDialogInfo() { return reinterpret_cast<::feDialogConfig *>(0x838640); }
+int32_t bVSPrintf(char *buf, const char *fmt, va_list va) { return reinterpret_cast<int32_t(__cdecl *)(char *, const char *, va_list)>(0x43FBC0)(buf, fmt, va); }
+const char *FEngGetTopPackage(const uint32_t *h, int32_t n) { return reinterpret_cast<const char *(__cdecl *)(const uint32_t *, int32_t)>(0x50CE30)(h, n); }
+void FEngSetCreateCallback(const char *pkg, void *cb) { reinterpret_cast<void(__cdecl *)(const char *, void *)>(0x50B8E0)(pkg, cb); }
+void *DialogCreaterCallback() { return reinterpret_cast<void *>(0x5542A0); }
 ::QuickRaceSettings *QuickRaceSettingsInstance() { return reinterpret_cast<::QuickRaceSettings *>(0x83AAB4); }
 uint32_t StockCarIdByType(int32_t player, uint32_t type)
 {

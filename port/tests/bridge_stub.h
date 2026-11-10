@@ -5,7 +5,12 @@
 #include "frontend/FERender.h"
 #include "frontend/cFEng.h"
 struct LanguageStringRecord;
+struct JollyRancherResponseData;
 namespace teststub {
+extern int32_t cameraStopUpdating, disableCommunication, seeulatorToolActive;   // camera globals (native tests)
+extern uint32_t realTimeFrames;
+extern JollyRancherResponseData *jollyRancherResponse;
+extern int eRotateCalls;
 extern bool useOldDirtyFlag;   // value returned by bridge::UseOldFEngDirtyFlag()
 extern int liveAllocations;    // bridge::Alloc minus bridge::FreeArray
 extern int feStringVTable;     // its address stands in for the FEString vtable
@@ -74,6 +79,10 @@ extern int iconOptionVTable, thumbnailNodeVTable, iconPanelVTable, iconScrollerV
 extern int splineSeeks, iconScrollTime;
 extern bool optionsDirty;
 extern int32_t raceType;
+extern const char *topPackage;
+extern void *eaxSound;
+extern bool nextRace;
+extern void *currentRace;
 extern bool rcAltQuit, replayAvailable;
 extern uint32_t playerField50;
 extern int32_t menuJoyPort;
@@ -126,6 +135,9 @@ extern int renderDisconnectVTable, renderDisconnects, registerJoys;   // registe
 extern FEngJoyMapEntry joyMap[];
 extern uint32_t joyRegistered;
 extern bool joyPlugged;
+extern int32_t raceDrivers;                 // CurrentRaceDriverCount
+extern const uint8_t *racerInfo[8];         // RacerInfo(i & 7)
+extern float frameSeconds;                  // FrameSeconds
 extern ::SlotPool *levelSorterSlots;                               // FEngine_PushPackage return value
 extern void *currentButton;
 struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback

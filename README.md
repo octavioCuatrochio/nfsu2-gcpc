@@ -4,10 +4,85 @@
 Verified knowledge (addresses, ABI, layouts, game internals): `FINDINGS.md`.
 Agents: follow its *Token economy* rules (terse replies, never read whole decomp files, filter all output).
 
-Goal: a platform-agnostic native port of Need for Speed: Underground 2, rewritten function by function
-from the decompiled game. Behavior must match; byte-for-byte matching is not a goal.
+## What is it
+A function-by-function rewrite of *Need for Speed: Underground 2* (EA Black Box, 2004) in portable C++17,
+heading for a platform-agnostic native port. The PC v1.2 executable defines the behavior; the GameCube build,
+which shipped with full debug symbols, provides the original names, classes and types.
 
-## Inputs
+Until the port is complete, the rewritten code runs **inside the original PC game**. A `dinput8.dll` proxy
+replaces each rewritten function with its new version. As a result the game stays playable at every step, and
+each function can be compared against the original.
+
+No game code, binaries or assets are in this repository. You need your own copy of the game (see *Disclaimer*).
+
+## Progress
+| | Done | Total | |
+|---|---|---|---|
+| Functions (GC symbols) | 1,706 | 14,666 | 11.6 % |
+| — verified (referee: original vs rewrite) | 560 | | |
+| — hooked into the running game | 898 | | |
+| — rewritten (inlined on PC / not hooked) | 248 | | |
+| Source files complete (every function done) | 207 | 1,363 | 15 % |
+| GameCube ↔ PC function matches | 6,708 | 17,891 PC | |
+
+Areas so far: `bWare` (containers, slot pools, lists), front-end (FEng renderer/objects, menus, magazines,
+post-race, quick race, user profile, frontend database) and the camera. Not started: rendering back end,
+physics, AI, audio, world/streaming. Live numbers: `SELECT status, COUNT(*) FROM rewrite GROUP BY 1;`.
+The online, LAN and EA Messenger code is out of scope: it is never rewritten, and the native build stubs it.
+
+## How it's made
+**Goal: behavior match, not byte match.** Unlike matching decompilations, there is no requirement to
+recompile to identical bytes. The goal is for the rewrite to behave the same as the PC exe: same results,
+side effects, call order and float precision (x87 evaluation order is mirrored where it matters). When the
+GameCube and PC builds differ, PC wins, and the difference is commented in the code.
+
+Pipeline:
+1. **Two decompilations in Ghidra.** The GameCube `Speed.elf` (DWARF1 symbols; GCC 2.95, PowerPC) and the
+   PC `SPEED2.EXE` (MSVC, x86, no symbols).
+2. **Matching.** `tooling/knowledge/match.py` pairs GC and PC functions using strings, call graph, call order,
+   globals, vtables and constants. GC names, types and class layouts (converted to the MSVC layout) are then
+   transferred onto the PC project.
+3. **Knowledge base.** Everything learned goes into `knowledge/knowledge.db` and `FINDINGS.md`, always with a source.
+4. **Rewrite loop, one whole class or source file at a time** (details in `AGENTS.md`):
+   generate a work packet (`packet.py`) → verify the match by reading both decompilations and the x86 disassembly
+   (calling convention, stack cleanup, signedness, ABI) → write C++ in `port/game/` (no Windows/D3D headers, no
+   absolute addresses; code that isn't rewritten yet is reached through `game/bridge/Bridge.h`) → hook it into the exe.
+5. **Verification, in order:**
+   - native unit tests (Linux, 64-bit);
+   - the **referee**: inside the real exe, the original and the rewrite run on the same synthetic inputs and
+     their outputs are compared (must report `0 mismatches`);
+   - an in-game run with call counts from `nfsu2port.log`, with A/B tests via `NFSU2PORT_DISABLE`.
+6. **Record:** add a `rewrite` row (`rewritten` → `hooked` → `verified`), then commit.
+
+## knowledge.db is in the repo
+`Speed.elf`, the disc, `SPEED2.EXE` and the Ghidra decompilation exports (`gc_decomp/`, `pc_decomp/`) are
+**not** distributed: they are EA's code. `knowledge/knowledge.db` (SQLite, ~22 MB) **is** included. It holds
+the *information* extracted from them, but no code:
+function names, addresses, signatures, class/type layouts, call graphs, referenced strings and constants,
+GC ↔ PC matches, curated facts and the rewrite status. This means you can read the code in `port/` and see
+what each function is, where it lives, and what it is matched to, without the symbol file. To regenerate the
+decompilations yourself, supply your own `main.dol` (= `Speed.elf`, US `GUGE69` rev 0) and PC v1.2 exe, then
+follow *Rebuilding* in `AGENTS.md`. Curated rows (`facts`, manual `matches`, `rewrite`) are never deleted by rebuilds.
+
+## License
+Decompilation/re-implementation projects mostly pick one of two options. Matching decomps (e.g. zeldaret's
+*Ocarina of Time*) commonly use **CC0** or ship with no license at all. Engine re-implementations (OpenRCT2,
+OpenMW) commonly use the **GPL**.
+
+This project uses **CC0 1.0** for the code and tooling written here (`port/`, `tooling/` except third-party parts,
+docs, `knowledge.db`'s curated content). Third-party parts keep their own licenses: the Ghidra extension
+patches in `tooling/extensions/patches/` (see their upstream projects); GCC (GPL, not included, built locally);
+yugecin/nfsu2-re (reference only, not included). The license covers only the original work in this repository.
+It grants no rights to *Need for Speed: Underground 2*, which belongs to Electronic Arts.
+
+## Disclaimer
+This is an unofficial fan project for preservation, education and interoperability. It is not affiliated with,
+endorsed by or sponsored by Electronic Arts or EA Black Box. "Need for Speed" and "Underground" are trademarks
+of Electronic Arts Inc. The repository contains no game executables, assets or decompiled game code. To use it you
+must own a legitimate copy of the game; the project does not and will not include disc-check bypasses or piracy
+aids. The online features are not reimplemented.
+
+## Setup (local inputs, not in the repo)
 | Path | What |
 |---|---|
 | `Speed.elf` | GameCube build with symbols. Byte-identical to retail US `GUGE69` rev 0 `main.dol` (verified). GCC 2.95.3 (SN Systems), PowerPC. |

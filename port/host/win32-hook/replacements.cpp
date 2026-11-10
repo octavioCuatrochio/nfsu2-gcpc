@@ -36,6 +36,16 @@
 #include "frontend/MagazineSelect.h"
 #include "frontend/MagazineScreens.h"
 #include "frontend/QuickRaceSettings.h"
+#include "frontend/DialogInterface.h"
+#include "frontend/CarViewer.h"
+#include "frontend/QRTrackSelectScreenManager.h"
+#include "frontend/PostRaceResults.h"
+#include "frontend/PostRaceScreenManager.h"
+#include "frontend/PostRaceStats.h"
+#include "frontend/PostRaceTournament.h"
+#include "frontend/TextScroller.h"
+#include "frontend/QRCarSelect.h"
+#include "frontend/FrontendDatabase.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
 #include "frontend/MainMenu.h"
@@ -57,6 +67,7 @@
 #include "frontend/FECodeListBox.h"
 #include "bWare/bMath.h"
 #include "bWare/bSlotPool.h"
+#include "bWare/bList.h"
 #include "camera/CameraNoise.h"
 #include "camera/Camera.h"
 #include "frontend/FEString.h"
@@ -175,6 +186,11 @@ long double __cdecl bCos_Hook(uint32_t angle) { return bCos(static_cast<uint16_t
 long double __cdecl NoiseInterpolated_Hook(float x) { return NoiseInterpolated(x); }
 long double __cdecl Noise_Hook(float x) { return Noise(x); }
 uint32_t THISCALL Camera_FovRelativeAngle(const Camera *self, uint32_t a) { return self->FovRelativeAngle(static_cast<uint16_t>(a)); }
+Camera *THISCALL Camera_Construct(Camera *self) { return self->Construct(); }
+void THISCALL Camera_SetCameraMatrix(Camera *self, const bMatrix4 *m, float elapsed) { self->SetCameraMatrix(m, elapsed); }
+void THISCALL Camera_CommunicateWithJollyRancher(const Camera *self, const char *name) { self->CommunicateWithJollyRancher(name); }
+void THISCALL Camera_UpdateSeeulatorTool(const Camera *self) { self->UpdateSeeulatorTool(); }
+void THISCALL Camera_ApplyNoise(const Camera *self, bMatrix4 *m, float time, float intensity) { self->ApplyNoise(m, time, intensity); }
 long double __cdecl bTan_Hook(uint32_t angle) { return bTan(static_cast<uint16_t>(angle)); }
 long double __cdecl bLength_Hook(const bVector3 *v) { return bLength(v); }
 uint16_t __cdecl bFastATan_Hook(float x, float y) { return bFastATan(x, y); }
@@ -184,6 +200,11 @@ void *THISCALL SlotPool_FastMalloc(SlotPool *self) { return self->FastMalloc(); 
 void THISCALL SlotPool_Free(SlotPool *self, void *p) { self->Free(p); }
 void *THISCALL SlotPool_Malloc(SlotPool *self) { return self->Malloc(); }
 void THISCALL SlotPoolManager_Delete(SlotPoolManager *self, SlotPool *p) { self->DeleteSlotPool(p); }
+int32_t THISCALL bList_Traverse(bList *l, const bNode *n) { return l->TraversebList(n); }
+void THISCALL bList_AddTail(bList *l, bList *o) { l->AddTail(o); }
+bNode *THISCALL bList_AddSorted(bList *l, bListCompare c, bNode *n) { return l->AddSorted(c, n); }
+void THISCALL bList_MergeSort(bList *l, bListCompare c) { l->MergeSort(c); }
+void THISCALL bList_Sort(bList *l, bListCompare c) { l->Sort(c); }
 SlotPoolManager *THISCALL SlotPoolManager_Ctor(SlotPoolManager *self) { self->Construct(); return self; }
 void THISCALL SlotPoolManager_Dtor(SlotPoolManager *self) { self->Destruct(); }
 void THISCALL SlotPoolManager_Cleanup(SlotPoolManager *self) { self->CleanupExpandedSlotPools(); }
@@ -771,6 +792,280 @@ void THISCALL QTS_RefreshHeader(UIQRTrackSelect *s) { s->RefreshHeader(); }
 void THISCALL QTS_DisplayRaceType(UIQRTrackSelect *s) { s->DisplayRaceType(); }
 
 // ---- QuickRaceSettings / QR toggles / UIQRModeOptions ----
+// ---- DialogInterface (PC 526C40, 540A60, 558020..558AC0) ----
+namespace dlgx {
+using namespace DialogInterface;
+using C = const char *;
+int32_t __cdecl MsgV(C p, C d, C f, va_list v) { return ShowMessageV(p, d, f, v); }
+int32_t __cdecl Msg(C p, C d, C f, ...) { va_list v; va_start(v, f); int32_t r = ShowMessageV(p, d, f, v); va_end(v); return r; }
+int32_t __cdecl MsgH(C p, C d, uint32_t h, ...) { char b[0x200]; LocalizedFormat(b, h); va_list v; va_start(v, h); int32_t r = ShowMessageV(p, d, b, v); va_end(v); return r; }
+int32_t __cdecl OkV(C p, C d, C f, va_list v) { return ShowOkV(p, d, f, v); }
+int32_t __cdecl OkH(C p, C d, uint32_t h, ...) { char b[0x200]; LocalizedFormat(b, h); va_list v; va_start(v, h); int32_t r = ShowOkV(p, d, b, v); va_end(v); return r; }
+int32_t __cdecl OneV(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t fl, C f, va_list v) { return ShowOneButtonV(p, d, a, b, c, static_cast<uint8_t>(fl), f, v); }
+int32_t __cdecl One3(C p, C d, uint32_t a, uint32_t b, uint32_t c, C f, ...) { va_list v; va_start(v, f); int32_t r = ShowOneButtonV(p, d, a, b, c, 1, f, v); va_end(v); return r; }
+int32_t __cdecl One3H(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t h, ...) { char t[0x200]; LocalizedFormat(t, h); va_list v; va_start(v, h); int32_t r = ShowOneButtonV(p, d, a, b, c, 1, t, v); va_end(v); return r; }
+int32_t __cdecl One2(C p, C d, uint32_t a, uint32_t b, C f, ...) { va_list v; va_start(v, f); int32_t r = ShowOneButtonV(p, d, a, b, 0, 0, f, v); va_end(v); return r; }
+int32_t __cdecl One2H(C p, C d, uint32_t a, uint32_t b, uint32_t h, ...) { char t[0x200]; LocalizedFormat(t, h); va_list v; va_start(v, h); int32_t r = ShowOneButtonV(p, d, a, b, 0, 0, t, v); va_end(v); return r; }
+int32_t __cdecl TwoV(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t e4, uint32_t e5, uint32_t fl, uint32_t f8, C f, va_list v) { return ShowTwoButtonsV(p, d, a, b, c, e4, e5, static_cast<uint8_t>(fl), f8, f, v); }
+int32_t __cdecl Two6(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t e4, uint32_t e5, uint32_t f8, C f, ...) { va_list v; va_start(v, f); int32_t r = ShowTwoButtonsV(p, d, a, b, c, e4, e5, 1, f8, f, v); va_end(v); return r; }
+int32_t __cdecl Two6H(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t e4, uint32_t e5, uint32_t f8, uint32_t h, ...) { char t[0x200]; LocalizedFormat(t, h); va_list v; va_start(v, h); int32_t r = ShowTwoButtonsV(p, d, a, b, c, e4, e5, 1, f8, t, v); va_end(v); return r; }
+int32_t __cdecl Two5(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t e4, uint32_t f8, C f, ...) { va_list v; va_start(v, f); int32_t r = ShowTwoButtonsV(p, d, a, b, c, e4, 0, 0, f8, f, v); va_end(v); return r; }
+int32_t __cdecl Two5H(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t e4, uint32_t f8, uint32_t h, ...) { char t[0x200]; LocalizedFormat(t, h); va_list v; va_start(v, h); int32_t r = ShowTwoButtonsV(p, d, a, b, c, e4, 0, 0, f8, t, v); va_end(v); return r; }
+int32_t __cdecl ThreeV(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t e, uint32_t g, uint32_t h, uint32_t i, uint32_t j, C f, va_list v) { return ShowThreeButtonsV(p, d, a, b, c, e, g, h, i, j, f, v); }
+int32_t __cdecl Three(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t e, uint32_t g, uint32_t h, uint32_t i, uint32_t j, C f, ...) { va_list v; va_start(v, f); int32_t r = ShowThreeButtonsV(p, d, a, b, c, e, g, h, i, j, f, v); va_end(v); return r; }
+int32_t __cdecl ThreeH(C p, C d, uint32_t a, uint32_t b, uint32_t c, uint32_t e, uint32_t g, uint32_t h, uint32_t i, uint32_t j, uint32_t hh, ...) { char t[0x200]; LocalizedFormat(t, hh); va_list v; va_start(v, hh); int32_t r = ShowThreeButtonsV(p, d, a, b, c, e, g, h, i, j, t, v); va_end(v); return r; }
+int32_t __cdecl Help(C p, C d, uint32_t h) { return ShowHelpMessage(p, d, h); }
+int32_t __cdecl Show(feDialogConfig *c) { return ShowDialog(c); }
+void __cdecl Dismiss(int32_t h) { DismissDialog(h); }
+const char *__cdecl Calc(const feDialogConfig *c) { return CalcFEngDialogPackageName(c); }
+}  // namespace dlgx
+// ---- CarViewer ----
+namespace carview {
+uint8_t *__cdecl Find(int32_t w) { return CarViewer::FindWhichScreenToUpdate(w); }
+void *__cdecl Ride(int32_t w) { return CarViewer::FindWhichRideInfoToUpdate(w); }
+void __cdecl Show() { CarViewer::ShowCarScreen(); }
+void __cdecl Unshow() { CarViewer::UnshowCarScreen(); }
+void __cdecl Scroll(int32_t w, uint32_t m) { CarViewer::SendScrollDirectionToGarageScreen(w, m); }
+void __cdecl Lock(uint32_t m) { CarViewer::Show3DLock(m); }
+void __cdecl Spin(uint32_t m) { CarViewer::SpinPlatforms(m); }
+void __cdecl Lights(int32_t w, uint32_t h) { CarViewer::SetShaperLights(w, h); }
+void __cdecl Camera(int32_t w, float z, float t, float c0, float c1, float c2, float c3, float c4, float c5, float c6, float c7, float c8, float c9)
+{
+    const float c[10] = {c0, c1, c2, c3, c4, c5, c6, c7, c8, c9};
+    CarViewer::SetCameraParams(w, z, t, c);
+}
+void __cdecl LookAt(int32_t a, void *part, int32_t w, uint32_t f) { CarViewer::SetLookAtPart(a, part, w, (f & 0xFF) != 0); }
+void __cdecl StopLook(int32_t w, uint32_t f) { CarViewer::StopLookingAtParts(w, (f & 0xFF) != 0); }
+}  // namespace carview
+// ---- UIQRCarSelect ----
+namespace qrcar {
+using S = UIQRCarSelect;
+void THISCALL InitSlider(S *s) { s->InitSlider(); }
+void THISCALL UpdateSliders(S *s) { s->UpdateSliders(); }
+void THISCALL ChooseTransmission(S *s) { s->ChooseTransmission(); }
+uint32_t THISCALL UnlockFilter(void *) { return S::GetUnlockFilter(); }
+void THISCALL Setup(S *s) { s->Setup(); }
+void THISCALL Rebuild(S *s) { s->RebuildCarListFromFilter(); }
+void THISCALL Clear(S *s) { s->ClearCarList(); }
+void THISCALL BuildCarList(S *s, uint32_t f) { s->BuildCarList(f); }
+uint32_t THISCALL Sound(S *s, uint32_t m, void *, uint32_t a, uint32_t, uint32_t e) { return s->NotifySoundMessage(m, a, e); }
+S *THISCALL Ctor(S *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL Dtor(S *s) { s->Destruct(); }
+S *THISCALL SDtor(S *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL Notify(S *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL Header(S *s) { s->RefreshHeader(); }
+void THISCALL ForPlayer(S *s, int32_t p) { s->SetupScreenForPlayer(p); }
+void THISCALL Cars(S *s, uint32_t m) { s->ScrollCars(m); }
+void THISCALL Lists(S *s, uint32_t m) { s->ScrollCarLists(m); }
+void THISCALL Delete(S *s) { s->DeleteCurrentCar(); }
+void __cdecl ExitMain(const char *p) { S::ExitToMain(p); }
+int32_t THISCALL Count(S *s, uint32_t f) { return s->GetNumberOfCarsForFilter(f); }
+void __cdecl SetRide(const void *r, int32_t reason, int32_t w) { CarViewer::SetRideInfo(r, reason, w); }
+}  // namespace qrcar
+// ---- QRTrackSelectScreenManager ----
+namespace qrmgr {
+using M = QRTrackSelectScreenManager;
+M *THISCALL Ctor(M *m, const char *f, const char *b) { return m->Construct(f, b); }
+void THISCALL Dtor(M *m) { m->Destruct(); }
+M *THISCALL SDtor(M *m, uint32_t f) { return m->ScalarDeletingDestructor(f); }
+QRScreenNode *THISCALL Find(M *m, const char *n) { return m->FindScreen(n); }
+void THISCALL Start(M *m, const char *f, const char *t) { m->Start(f, t); }
+void THISCALL Next(M *m) { m->ChangeToNextScreen(); }
+void THISCALL Prev(M *m) { m->ChangeToPrevScreen(); }
+void __cdecl Suicide() { M::CommitSuicide(); }
+void __cdecl Middle() { M::EnterMiddle(); }
+void __cdecl Back(const char *p) { M::EnterBack(p); }
+const char *THISCALL NextMS(M *m) { return m->CalcNextScreenFromModeSelect(); }
+const char *THISCALL PrevMS(M *m) { return m->CalcPrevScreenFromModeSelect(); }
+const char *THISCALL NextMO(M *m) { return m->CalcNextScreenFromModeOptions(); }
+const char *THISCALL PrevMO(M *m) { return m->CalcPrevScreenFromModeOptions(); }
+const char *THISCALL NextTS(M *m) { return m->CalcNextScreenFromTrackSelect(); }
+}  // namespace qrmgr
+// ---- PostRaceResultsScreen ----
+namespace prres {
+using P = PostRaceResultsScreen;
+P *THISCALL Ctor(P *p, const ScreenConstructorData *d) { return p->Construct(d); }
+void THISCALL Dtor(P *p) { p->Destruct(); }
+P *THISCALL SDtor(P *p, uint32_t f) { return p->ScalarDeletingDestructor(f); }
+void THISCALL Dismiss(P *p) { p->dismissDialog(); }
+uint32_t THISCALL Sound(P *p, uint32_t m, void *, uint32_t, uint32_t, uint32_t e) { return p->NotifySoundMessage(m, e); }
+void THISCALL Setup(P *p) { p->Setup(); }
+void THISCALL Update(P *p) { p->ResultsUpdate(); }
+void THISCALL Header(P *p) { p->SetRaceSpecificHeader(); }
+void THISCALL Organize(P *p) { p->OrganizeResults(); }
+void THISCALL Downhill(P *p) { p->PrintDownhillResults(); }
+void THISCALL Results(P *p) { p->PrintResults(); }
+void THISCALL Finish(P *p, const uint8_t *e, int32_t r) { p->PrintFinishTime(e, r); }
+void THISCALL Split(P *p, const uint8_t *e, int32_t r) { p->PrintSplitTime(e, r); }
+void THISCALL Drag(P *p) { p->PrintDragDynoResults(); }
+void THISCALL Unused(P *p, int32_t m, int32_t u) { p->SetUnusedEntriesInvisible(m, u); }
+void THISCALL Notify(P *p, uint32_t m, void *o, uint32_t a, uint32_t k) { p->NotificationMessage(m, o, a, k); }
+uint32_t __cdecl Browser(uint32_t m, uint32_t e) { return ::FilterSoundForBrowser(m, e); }
+}  // namespace prres
+// ---- cPostRaceScreenManager ----
+namespace prmgr {
+using M = cPostRaceScreenManager;
+M *THISCALL Ctor(M *m) { return m->Construct(); }
+void THISCALL Dtor(M *m) { m->Destruct(); }
+M *THISCALL SDtor(M *m, uint32_t f) { return m->ScalarDeletingDestructor(f); }
+void THISCALL Next(M *m) { m->ChangeToNextScreen(); }
+void THISCALL Prev(M *m) { m->ChangeToPrevScreen(); }
+uint32_t __cdecl TournResults() { return M::NeedToSeePostRaceTournamentResults(); }
+uint32_t __cdecl TournStandings() { return M::NeedToSeePostRaceTournamentStandings(); }
+uint32_t __cdecl Sponsor() { return M::NeedToAskForSponsor(); }
+uint32_t __cdecl RemoveSponsor() { return M::NeedToRemoveTheSponsorScreens(); }
+void __cdecl Destroy() { M::DestroyInstance(); }
+}  // namespace prmgr
+// ---- PostRaceStatsScreen + PR* rows ----
+namespace prstats {
+using P = PostRaceStatsScreen;
+using W = PRStatWidget;
+P *THISCALL Ctor(P *p, const ScreenConstructorData *d) { return p->Construct(d); }
+void THISCALL Dtor(P *p) { p->Destruct(); }
+P *THISCALL SDtor(P *p, uint32_t f) { return p->ScalarDeletingDestructor(f); }
+void THISCALL Notify(P *p, uint32_t m, FEObject *o, uint32_t a, uint32_t k) { p->NotificationMessage(m, o, a, k); }
+uint32_t THISCALL Sound(P *, uint32_t m, void *, uint32_t, uint32_t, uint32_t e) { return ::FilterSoundForBrowser(m, e); }
+void THISCALL Init(P *p) { p->Init(); }
+void THISCALL LapList(P *p, int32_t a, int32_t b) { p->SetLapList(a, b); }
+void THISCALL AddLap(P *p, int32_t l, int32_t t, int32_t q) { p->AddLapResult(l, t, q); }
+void THISCALL ClearLaps(P *p) { p->ClearLapResultWidgets(); }
+void THISCALL Setup(P *p, int32_t r) { p->Setup(r); }
+void THISCALL Arrows(P *p, int32_t r, uint32_t m) { p->SetNavigationArrows(r, m); }
+void THISCALL Scroll(P *p, uint32_t m) { p->Scroll(m); }
+void THISCALL Position(W *w) { w->Position(); }
+void THISCALL Finish(W *w) { w->DrawFinishTime(); }
+void THISCALL Behind(W *w) { w->DrawTimeBehind(); }
+void THISCALL Top(W *w) { w->DrawTopSpeed(); }
+void THISCALL Avg(W *w) { w->DrawAverageSpeed(); }
+void THISCALL Shifts(W *w) { w->DrawPerfectShifts(); }
+void THISCALL BestLap(W *w) { w->DrawBestLapTime(); }
+void THISCALL LapsLed(W *w) { w->DrawLapsLed(); }
+void THISCALL BestDrift(W *w) { w->DrawBestDriftScore(); }
+void THISCALL Longest(W *w) { w->DrawLongestDrift(); }
+void THISCALL Score(W *w) { w->DrawScore(); }
+void THISCALL Lap(PRLapResult *w) { w->Draw(); }
+W *THISCALL CtorBestLap(W *w, const uint8_t *e, const float *p, const float *s, const float *vs, const float *vp, uint32_t en) { return w->Construct(0x795280, e, p, s, vs, vp, (en & 0xFF) != 0); }
+W *THISCALL CtorLapsLed(W *w, const uint8_t *e, const float *p, const float *s, const float *vs, const float *vp, uint32_t en) { return w->Construct(0x7952C0, e, p, s, vs, vp, (en & 0xFF) != 0); }
+}  // namespace prstats
+// ---- cPostRaceTournamentResults ----
+namespace prtourn {
+using T = cPostRaceTournamentResults;
+T *THISCALL Ctor(T *t, const ScreenConstructorData *d) { return t->Construct(d); }
+void THISCALL Dtor(T *t) { t->Destruct(); }
+T *THISCALL SDtor(T *t, uint32_t f) { return t->ScalarDeletingDestructor(f); }
+void THISCALL Notify(T *t, uint32_t m, void *o, uint32_t a, uint32_t k) { t->NotificationMessage(m, o, a, k); }
+void THISCALL Unused(T *t, int32_t m, int32_t u) { t->SetUnusedEntriesInvisible(m, u); }
+void THISCALL Setup(T *t) { t->Setup(); }
+void THISCALL Organize(T *t) { t->OrganizeRaceResults(); }
+void THISCALL Print(T *t) { t->PrintRaceResults(); }
+void THISCALL Header(T *t) { t->SetRaceSpecificHeader(); }
+void THISCALL Position(T *t, int32_t r, const uint8_t *e) { t->PrintRacePosition(r, e); }
+void THISCALL Name(T *t, int32_t r, const uint8_t *e) { t->PrintDriverName(r, e); }
+void THISCALL Leader(T *t, int32_t r, const uint8_t *e) { t->PrintOutrunLeaderTime(r, e); }
+int32_t __cdecl Sort(bNode *a, bNode *b) { return SortTournamentResults(a, b); }
+}  // namespace prtourn
+namespace prreward {
+using R = PostRaceRewardsScreen;
+void *THISCALL IfaceCtor(void *self) { return cPostRaceScreenMgrInterface::Construct(self); }
+void __cdecl Suspend() { cPostRaceScreenMgrInterface::Suspend(); }
+void __cdecl Resume() { cPostRaceScreenMgrInterface::Resume(); }
+R *THISCALL Ctor(R *r, const ScreenConstructorData *d) { return r->Construct(d); }
+void THISCALL Dtor(R *r) { r->Destruct(); }
+R *THISCALL SDtor(R *r, uint32_t f) { return r->ScalarDeletingDestructor(f); }
+void THISCALL Setup(R *r) { r->Setup(); }
+void THISCALL Notify(R *r, uint32_t m, void *o, uint32_t a, uint32_t k) { r->NotificationMessage(m, o, a, k); }
+}  // namespace prreward
+namespace prstand {
+using S = cPostRaceTournamentStandings;
+S *THISCALL Ctor(S *t, const ScreenConstructorData *d) { return t->Construct(d); }
+void THISCALL Dtor(S *t) { t->Destruct(); }
+S *THISCALL SDtor(S *t, uint32_t f) { return t->ScalarDeletingDestructor(f); }
+void THISCALL Notify(S *t, uint32_t m, void *o, uint32_t a, uint32_t k) { t->NotificationMessage(m, o, a, k); }
+void THISCALL Setup(S *t) { t->Setup(); }
+void THISCALL Organize(S *t) { t->OrganizeStandings(); }
+void THISCALL Print(S *t) { t->PrintRaceStandings(); }
+void THISCALL Ordinal(S *t, int32_t r, const uint8_t *e, int32_t k) { t->PrintOrdinalPlacing(r, e, k); }
+int32_t __cdecl Sort(bNode *a, bNode *b) { return SortTournamentStandings(a, b); }
+}  // namespace prstand
+namespace txtscr {
+using T = CTextScroller;
+T *THISCALL Ctor(T *t) { return t->Construct(); }
+void THISCALL Dtor(T *t) { t->Destruct(); }
+uint32_t THISCALL Pre(T *t, uint32_t n) { return t->PreAllocate(n); }
+void THISCALL Init(T *t, void *o, int32_t w, int32_t v, const char *n, FEngFont *f) { t->Initialise(o, w, v, n, f); }
+void THISCALL Set(T *t, const uint16_t *s) { t->SetText(s); }
+void THISCALL Scroll(T *t, int32_t d) { t->Scroll(d); }
+uint32_t THISCALL Notify(T *t, uint32_t m) { return t->HandleNotificationMessage(m); }
+void THISCALL Display(T *t, int32_t p) { t->Display(p); }
+void THISCALL AddLine(T *t, const uint16_t *s, int32_t n) { t->AddLine(s, n); }
+int32_t THISCALL Wrap(T *t, const uint16_t *a, const uint16_t *b, uint32_t c, int32_t *n) { return t->WordWrap(a, b, (c & 0xFF) != 0, n); }
+const uint16_t *THISCALL CR(T *, const uint16_t *s) { return T::FindCR(s); }
+const uint16_t *THISCALL End(T *, const uint16_t *s) { return T::FindEND(s); }
+void THISCALL Bar(T *t) { t->UpdateScrollBar(); }
+void __cdecl SetStr(const char *p, uint32_t h, const uint16_t *s) { FESetString(p, h, s); }
+}  // namespace txtscr
+// ---- HighScoresDatabase / UserProfile / cFrontendDatabase ----
+namespace fedb {
+using HS = HighScoresDatabase;
+using UP = UserProfile;
+using DB = cFrontendDatabase;
+TrackHighScore *THISCALL Find(HS *h, int32_t t, int32_t d, int32_t k) { return h->FindHighScore(t, d, k); }
+int32_t THISCALL BestLap(HS *h, int32_t t, int32_t d) { return h->FindBestLapTime(t, d); }
+int32_t THISCALL BestDrift(HS *h, int32_t t, int32_t d) { return h->FindBestDriftScore(t, d); }
+uint32_t __stdcall Broke(int32_t type, const TrackHighScore *r, const uint8_t *st) { return HS::DidPlayerBreakRecord(type, r, st); }
+uint32_t THISCALL MaybeAdd(HS *h, int32_t type, int32_t t, int32_t d, int32_t k, const uint8_t *st) { return h->MaybeAddTrackHighScore(type, t, d, k, st); }
+void THISCALL Debug(HS *h) { h->DebugPrint(); }
+void THISCALL PostRace(HS *h, int32_t type, int32_t t, int32_t d, int32_t k, int32_t last, uint8_t *st) { h->CommitHighScoresPostRace(type, t, d, k, last, st); }
+void THISCALL SetName(UP *u, const char *n, uint32_t primary) { u->SetProfileName(n, (primary & 0xFF) != 0); }
+uint32_t THISCALL IsNamed(UP *u) { return u->IsProfileNamed(); }
+void THISCALL Default(UP *u, uint32_t secondary, uint32_t) { u->Default(secondary != 0); }
+uint8_t *THISCALL Save(UP *u, uint8_t *b, int32_t n) { return u->SaveToBuffer(b, n); }
+void THISCALL Load(UP *u, const uint8_t *b, int32_t n, uint32_t apply) { u->LoadFromBuffer(b, n, (apply & 0xFF) != 0); }
+void THISCALL DbDefault(DB *d) { d->Default(); }
+const char *THISCALL FirstScreen(DB *d, int32_t q) { return d->CalculateFirstFrontendScreenToSeeAfterQuitRace(q); }
+void THISCALL Restart(DB *d) { d->NotifyRestartRace(); }
+void THISCALL StartNew(DB *d) { d->NotifyStartNewRace(); }
+void THISCALL ExitRace(DB *d, int32_t p) { d->NotifyExitRaceToFrontend(p); }
+uint32_t THISCALL NextRace(DB *d) { return d->IsThereANextRace(); }
+uint32_t THISCALL CareerEvent(DB *d) { return d->IsCurrentRaceEventInCareerMode(); }
+void THISCALL LoadProfile(DB *d, const uint8_t *b, int32_t n) { d->LoadUserProfileFromBuffer(b, n); }
+void THISCALL AllocBackup(DB *d, uint32_t f) { d->AllocBackupDB((f & 0xFF) != 0); }
+void THISCALL DeallocBackup(DB *d) { d->DeallocBackupDB(); }
+uint32_t THISCALL Dirty(DB *d) { return d->IsDirty(); }
+void THISCALL RaceOver(DB *d, void *race) { d->NotifyTheRaceIsOver(race); }
+using CDB = FEPlayerCarDB;
+uint8_t *THISCALL CdbByHandle(CDB *d, uint32_t h) { return d->GetCarRecordByHandle(h); }
+uint32_t THISCALL CdbSponsor(CDB *d, uint32_t h) { return d->IsCarSponsorCar(h); }
+uint8_t *THISCALL CdbTuned(CDB *d, uint32_t h) { return d->GetTunedCarByHandle(h); }
+uint8_t *THISCALL CdbOnline(CDB *d, uint32_t h) { return d->GetOnlineCarByHandle(h); }
+uint8_t *THISCALL CdbCareer(CDB *d, uint32_t h) { return d->GetCareerCarByHandle(h); }
+uint8_t *THISCALL CdbEmpty(CDB *d) { return d->FindEmptyTunedCarSlot(); }
+void THISCALL CdbReset(CDB *d) { d->ResetPointers(); }
+uint8_t *THISCALL CdbFiltered(CDB *d, uint32_t f, const uint8_t *a) { return d->GetCarFiltered(f, a); }
+uint32_t THISCALL CdbIsCareer(CDB *d, uint32_t h) { return d->IsCarCareerCar(h); }
+uint32_t THISCALL CdbIsStock(CDB *d, uint32_t h) { return d->IsCarStock(h); }
+uint32_t THISCALL CdbIsTuned(CDB *d, uint32_t h) { return d->IsCarATunedCar(h); }
+void THISCALL CdbSponsors(CDB *d) { d->DefaultSponsorCars(); }
+void THISCALL CdbCareers(CDB *d) { d->DefaultCareerCars(); }
+void THISCALL CdbStocks(CDB *d, int32_t u) { d->DefaultStockCars(u); }
+uint32_t THISCALL CdbAble(CDB *d) { return d->AbleToAddNewTunedCar(); }
+void THISCALL CdbDelete(CDB *d, uint32_t h) { d->DeleteTunedCar(h); }
+uint8_t *THISCALL CdbAddTuned(CDB *d, uint32_t h) { return d->AddNewTunedCar(h); }
+void THISCALL CdbOnlineDefaults(CDB *d) { d->DefaultOnlineCareerCars(); }
+void THISCALL CdbDefault(CDB *d, int32_t t) { d->Default(t); }
+uint8_t *THISCALL CdbStockByHandle(CDB *d, uint32_t h) { return d->GetStockCarByHandle(h); }
+uint8_t *THISCALL CdbSave(CDB *d, uint8_t *b, int32_t n) { return d->SaveToBuffer(b, n); }
+void THISCALL CdbChosen(CDB *d, int32_t s, uint32_t h) { d->CareerCarChosen(s, h); }
+CDB *THISCALL CdbCtor(CDB *d) { d->Construct(); return d; }
+int32_t THISCALL CdbNumFilter(CDB *d, uint32_t f, int32_t u) { return d->GetNumCarsForFilter(f, u); }
+void THISCALL CdbTrade(CDB *d, uint32_t c, uint32_t h) { d->CareerCarTrade(c, h); }
+const uint8_t *THISCALL CdbLoad(CDB *d, const uint8_t *b, int32_t n) { return d->LoadFromBuffer(b, n); }
+void THISCALL BuildRide(DB *d, int32_t p, void *r, int32_t t) { d->BuildCurrentRideForPlayer(p, r, t); }
+void THISCALL RestoreStable(DB *d) { d->RestorePreviousStable(); }
+void THISCALL FrsConstruct(cFinishedRaceStats *f, void *race) { f->Construct(race); }
+uint8_t *THISCALL FrsStats(cFinishedRaceStats *f, int32_t drv) { return f->GetStatsForDriver(drv); }
+void __cdecl FrsPositions() { cFinishedRaceStats::CalculatePositionsForEachLap(); }
+}  // namespace fedb
 int32_t THISCALL QRS_GetNumPlayers(QuickRaceSettings *s) { return s->GetNumPlayers(); }
 void THISCALL QRS_Default(QuickRaceSettings *s) { s->Default(); }
 void THISCALL QRS_TourneyDefault(void *t) { TournamentSettingsDefault(t); }
@@ -1237,6 +1532,11 @@ const Replacement kReplacements[] = {
     {0x43CDD0, (const void *)&SlotPool_FastMalloc, "SlotPool::FastMalloc", {0x8B, 0x51, 0x18, 0x8B, 0x41, 0x10}},
     {0x43CDF0, (const void *)&SlotPool_Free, "SlotPool::Free", {0x8B, 0x41, 0x18, 0x8B, 0x54, 0x24}},
     {0x440C30, (const void *)&SlotPool_GetAllocatedSlot, "SlotPool::GetAllocatedSlot", {0x51, 0x53, 0x55, 0x56, 0x57, 0x6A}},
+    {0x43BE80, (const void *)&bList_Traverse, "bList::TraversebList", {0x8B, 0x11, 0x33, 0xC0, 0x3B, 0xD1}},
+    {0x43BEB0, (const void *)&bList_AddTail, "bList::AddTail(list)", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x10}},
+    {0x43BEE0, (const void *)&bList_AddSorted, "bList::AddSorted", {0x53, 0x55, 0x56, 0x8B, 0x74, 0x24}},
+    {0x43BF40, (const void *)&bList_MergeSort, "bList::MergeSort", {0x83, 0xEC, 0x18, 0x8B, 0x01, 0x3B}},
+    {0x43E650, (const void *)&bList_Sort, "bList::Sort", {0x53, 0x55, 0x56, 0x8B, 0xD9, 0x57}},
     {0x440DA0, (const void *)&SlotPoolManager_Delete, "SlotPoolManager::DeleteSlotPool", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
     {0x4407B0, (const void *)&SlotPoolManager_Ctor, "SlotPoolManager::SlotPoolManager", {0x8B, 0xC1, 0x8D, 0x50, 0x04, 0x89}},
     {0x4407D0, (const void *)&SlotPoolManager_Dtor, "SlotPoolManager::~SlotPoolManager", {0x56, 0x8D, 0x71, 0x04, 0x8B, 0xC6}},
@@ -1259,6 +1559,11 @@ const Replacement kReplacements[] = {
     {0x440F50, (const void *)&bTan_Hook, "bTan (PC-only)", {0x51, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
     {0x440F70, (const void *)&bLength_Hook, "bLength(bVector3) (PC-only)", {0x8B, 0x44, 0x24, 0x04, 0xD9, 0x40}},
     {0x4412E0, (const void *)&Camera_FovRelativeAngle, "Camera::FovRelativeAngle", {0x51, 0x33, 0xC0, 0x66, 0x8B, 0x81}},
+    {0x44F5A0, (const void *)&Camera_Construct, "Camera::Camera", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x447280, (const void *)&Camera_SetCameraMatrix, "Camera::SetCameraMatrix", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x441070, (const void *)&Camera_CommunicateWithJollyRancher, "Camera::CommunicateWithJollyRancher", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x441120, (const void *)&Camera_UpdateSeeulatorTool, "Camera::UpdateSeeulatorTool", {0xA1, 0xE0, 0x3D, 0x88, 0x00, 0x85}},
+    {0x441340, (const void *)&Camera_ApplyNoise, "Camera::ApplyNoise", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
     {0x4411B0, (const void *)&NoiseInterpolated_Hook, "NoiseInterpolated", {0x51, 0xD9, 0x44, 0x24, 0x08, 0xE8}},
     {0x441270, (const void *)&Noise_Hook, "Noise", {0x83, 0xEC, 0x0C, 0x56, 0xC7, 0x44}},
     {0x43C370, (const void *)&bCos_Hook, "bCos", {0x8B, 0x44, 0x24, 0x04, 0x05, 0x00}},
@@ -1744,6 +2049,230 @@ const Replacement kReplacements[] = {
     {0x4CE170, (const void *)&QTS_RefreshHeader, "UIQRTrackSelect::RefreshHeader", {0x81, 0xEC, 0x24, 0x02, 0x00, 0x00}},
     {0x4988C0, (const void *)&QTS_DisplayRaceType, "UIQRTrackSelect::DisplayRaceType", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
     {0x5026F0, (const void *)&QRS_GetNumPlayers, "QuickRaceSettings::GetNumPlayers", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x558020, (const void *)&dlgx::Show, "DialogInterface::ShowDialog", {0x83, 0xEC, 0x10, 0x55, 0x68, 0x60}},
+    {0x540A60, (const void *)&dlgx::Dismiss, "DialogInterface::DismissDialog", {0xA1, 0x74, 0x89, 0x83, 0x00, 0x8B}},
+    {0x526C40, (const void *)&dlgx::Calc, "DialogInterface::CalcFEngDialogPackageName", {0x51, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
+    {0x5582A0, (const void *)&dlgx::MsgV, "DialogInterface::ShowMessage(va_list)", {0x81, 0xEC, 0x38, 0x03, 0x00, 0x00}},
+    {0x558310, (const void *)&dlgx::Msg, "DialogInterface::ShowMessage(fmt)", {0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0x54}},
+    {0x558330, (const void *)&dlgx::MsgH, "DialogInterface::ShowMessage(hash)", {0x8B, 0x54, 0x24, 0x0C, 0x81, 0xEC}},
+    {0x558390, (const void *)&dlgx::OkV, "DialogInterface::ShowOk(va_list)", {0x81, 0xEC, 0x38, 0x03, 0x00, 0x00}},
+    {0x558430, (const void *)&dlgx::OkH, "DialogInterface::ShowOk(hash)", {0x8B, 0x54, 0x24, 0x0C, 0x81, 0xEC}},
+    {0x558490, (const void *)&dlgx::OneV, "DialogInterface::ShowOneButton(va_list)", {0x81, 0xEC, 0x38, 0x03, 0x00, 0x00}},
+    {0x558540, (const void *)&dlgx::One3, "DialogInterface::ShowOneButton(3, fmt)", {0x8B, 0x4C, 0x24, 0x18, 0x8B, 0x54}},
+    {0x558570, (const void *)&dlgx::One3H, "DialogInterface::ShowOneButton(3, hash)", {0x8B, 0x54, 0x24, 0x18, 0x81, 0xEC}},
+    {0x5585E0, (const void *)&dlgx::One2, "DialogInterface::ShowOneButton(2, fmt)", {0x8B, 0x4C, 0x24, 0x14, 0x8B, 0x54}},
+    {0x558610, (const void *)&dlgx::One2H, "DialogInterface::ShowOneButton(2, hash)", {0x8B, 0x54, 0x24, 0x14, 0x81, 0xEC}},
+    {0x558680, (const void *)&dlgx::TwoV, "DialogInterface::ShowTwoButtons(va_list)", {0x81, 0xEC, 0x38, 0x03, 0x00, 0x00}},
+    {0x558750, (const void *)&dlgx::Two6, "DialogInterface::ShowTwoButtons(6, fmt)", {0x8B, 0x4C, 0x24, 0x24, 0x8B, 0x54}},
+    {0x558790, (const void *)&dlgx::Two6H, "DialogInterface::ShowTwoButtons(6, hash)", {0x8B, 0x54, 0x24, 0x24, 0x81, 0xEC}},
+    {0x558820, (const void *)&dlgx::Two5, "DialogInterface::ShowTwoButtons(5, fmt)", {0x8B, 0x4C, 0x24, 0x20, 0x8B, 0x54}},
+    {0x558860, (const void *)&dlgx::Two5H, "DialogInterface::ShowTwoButtons(5, hash)", {0x8B, 0x54, 0x24, 0x20, 0x81, 0xEC}},
+    {0x5588F0, (const void *)&dlgx::ThreeV, "DialogInterface::ShowThreeButtons(va_list)", {0x81, 0xEC, 0x38, 0x03, 0x00, 0x00}},
+    {0x5589D0, (const void *)&dlgx::Three, "DialogInterface::ShowThreeButtons(fmt)", {0x8B, 0x4C, 0x24, 0x2C, 0x8B, 0x54}},
+    {0x558A20, (const void *)&dlgx::ThreeH, "DialogInterface::ShowThreeButtons(hash)", {0x8B, 0x54, 0x24, 0x2C, 0x81, 0xEC}},
+    {0x558AC0, (const void *)&dlgx::Help, "DialogInterface::ShowHelpMessage", {0x81, 0xEC, 0x38, 0x03, 0x00, 0x00}},
+    {0x502A50, (const void *)&fedb::Find, "HighScoresDatabase::FindHighScore", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x55}},
+    {0x502AA0, (const void *)&fedb::BestLap, "HighScoresDatabase::FindBestLapTime", {0x53, 0x8B, 0x5C, 0x24, 0x0C, 0x55}},
+    {0x502C50, (const void *)&fedb::BestDrift, "HighScoresDatabase::FindBestDriftScore", {0x8B, 0x54, 0x24, 0x04, 0x53, 0x56}},
+    {0x502DA0, (const void *)&fedb::Broke, "HighScoresDatabase::DidPlayerBreakRecord", {0x83, 0x7C, 0x24, 0x04, 0x02, 0x8B}},
+    {0x502DF0, (const void *)&fedb::MaybeAdd, "HighScoresDatabase::MaybeAddTrackHighScore", {0x8B, 0x44, 0x24, 0x0C, 0x8B, 0x54}},
+    {0x502F00, (const void *)&fedb::Debug, "HighScoresDatabase::DebugPrint", {0x83, 0xEC, 0x14, 0x56, 0x57, 0x8B}},
+    {0x515990, (const void *)&fedb::PostRace, "HighScoresDatabase::CommitHighScoresPostRace", {0x51, 0x53, 0x8B, 0x5C, 0x24, 0x20}},
+    {0x502F40, (const void *)&fedb::SetName, "UserProfile::SetProfileName", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x0C}},
+    {0x502FE0, (const void *)&fedb::IsNamed, "UserProfile::IsProfileNamed", {0x8A, 0x41, 0x20, 0xC3, 0x90, 0x90}},
+    {0x515AA0, (const void *)&fedb::Default, "UserProfile::Default", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x55}},
+    {0x52A280, (const void *)&fedb::Save, "UserProfile::SaveToBuffer", {0x55, 0x8B, 0xEC, 0x51, 0x8B, 0x45}},
+    {0x5344D0, (const void *)&fedb::Load, "UserProfile::LoadFromBuffer", {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x24}},
+    {0x5346F0, (const void *)&fedb::DbDefault, "cFrontendDatabase::Default", {0x53, 0x56, 0x8B, 0xF1, 0x33, 0xDB}},
+    {0x502FF0, (const void *)&fedb::FirstScreen, "cFrontendDatabase::CalculateFirstFrontendScreenToSeeAfterQuitRace", {0x8B, 0x54, 0x24, 0x04, 0x85, 0xD2}},
+    {0x541A10, (const void *)&fedb::Restart, "cFrontendDatabase::NotifyRestartRace", {0x83, 0xB9, 0xA8, 0x56, 0x01, 0x00}},
+    {0x541A50, (const void *)&fedb::StartNew, "cFrontendDatabase::NotifyStartNewRace", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x0E}},
+    {0x503040, (const void *)&fedb::ExitRace, "cFrontendDatabase::NotifyExitRaceToFrontend", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x503080, (const void *)&fedb::NextRace, "cFrontendDatabase::IsThereANextRace", {0x83, 0xB9, 0xA8, 0x56, 0x01, 0x00}},
+    {0x5030C0, (const void *)&fedb::CareerEvent, "cFrontendDatabase::IsCurrentRaceEventInCareerMode", {0x8B, 0x91, 0xA8, 0x56, 0x01, 0x00}},
+    {0x534770, (const void *)&fedb::LoadProfile, "cFrontendDatabase::LoadUserProfileFromBuffer", {0x83, 0xB9, 0xA8, 0x56, 0x01, 0x00}},
+    {0x52A460, (const void *)&fedb::AllocBackup, "cFrontendDatabase::AllocBackupDB", {0x55, 0x8B, 0xEC, 0x56, 0x8B, 0xF1}},
+    {0x5032C0, (const void *)&fedb::DeallocBackup, "cFrontendDatabase::DeallocBackupDB", {0x56, 0x8B, 0xF1, 0x8B, 0x86, 0x78}},
+    {0x52A4C0, (const void *)&fedb::Dirty, "cFrontendDatabase::IsDirty", {0x83, 0xEC, 0x0C, 0x56, 0x8B, 0xF1}},
+    {0x515D00, (const void *)&fedb::BuildRide, "cFrontendDatabase::BuildCurrentRideForPlayer", {0x55, 0x8B, 0xEC, 0x56, 0x57, 0x8B}},
+    {0x515D70, (const void *)&fedb::RestoreStable, "cFrontendDatabase::RestorePreviousStable", {0x53, 0x8B, 0xD9, 0x55, 0x56, 0x8D}},
+    {0x503510, (const void *)&fedb::CdbByHandle, "FEPlayerCarDB::GetCarRecordByHandle", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}, 1, 4, 4},
+    {0x503590, (const void *)&fedb::CdbSponsor, "FEPlayerCarDB::IsCarSponsorCar", {0x8B, 0x54, 0x24, 0x04, 0x33, 0xC0}},
+    {0x5035C0, (const void *)&fedb::CdbTuned, "FEPlayerCarDB::GetTunedCarByHandle", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}},
+    {0x503640, (const void *)&fedb::CdbOnline, "FEPlayerCarDB::GetOnlineCarByHandle", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}},
+    {0x503680, (const void *)&fedb::CdbCareer, "FEPlayerCarDB::GetCareerCarByHandle", {0x56, 0x8B, 0xB1, 0x2C, 0x81, 0x00}},
+    {0x5036C0, (const void *)&fedb::CdbEmpty, "FEPlayerCarDB::FindEmptyTunedCarSlot", {0x33, 0xC0, 0x8D, 0x91, 0x4C, 0x05}},
+    {0x5036F0, (const void *)&fedb::CdbReset, "FEPlayerCarDB::ResetPointers", {0x8B, 0xD1, 0x56, 0x8D, 0xB2, 0xD8}},
+    {0x5162D0, (const void *)&fedb::CdbFiltered, "FEPlayerCarDB::GetCarFiltered", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
+    {0x516340, (const void *)&fedb::CdbIsCareer, "FEPlayerCarDB::IsCarCareerCar", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
+    {0x516360, (const void *)&fedb::CdbIsStock, "FEPlayerCarDB::IsCarStock", {0x56, 0x8B, 0xB1, 0x40, 0x05, 0x00}},
+    {0x5163A0, (const void *)&fedb::CdbIsTuned, "FEPlayerCarDB::IsCarATunedCar", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
+    {0x5163C0, (const void *)&fedb::CdbSponsors, "FEPlayerCarDB::DefaultSponsorCars", {0x53, 0x55, 0x56, 0x8B, 0xF1, 0x33}},
+    {0x516480, (const void *)&fedb::CdbCareers, "FEPlayerCarDB::DefaultCareerCars", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x33}},
+    {0x516500, (const void *)&fedb::CdbStocks, "FEPlayerCarDB::DefaultStockCars", {0x51, 0x53, 0x55, 0x56, 0x57, 0x8B}},
+    {0x5165E0, (const void *)&fedb::CdbAble, "FEPlayerCarDB::AbleToAddNewTunedCar", {0x33, 0xC0, 0x8D, 0x91, 0x4C, 0x05}},
+    {0x52A6C0, (const void *)&fedb::CdbDelete, "FEPlayerCarDB::DeleteTunedCar", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
+    {0x52A710, (const void *)&fedb::CdbAddTuned, "FEPlayerCarDB::AddNewTunedCar", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x57}},
+    {0x52A7F0, (const void *)&fedb::CdbOnlineDefaults, "FEPlayerCarDB::DefaultOnlineCareerCars", {0x83, 0xEC, 0x08, 0x53, 0x55, 0x56}},
+    {0x52A8A0, (const void *)&fedb::CdbDefault, "FEPlayerCarDB::Default", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x50}},
+    {0x503550, (const void *)&fedb::CdbStockByHandle, "FEPlayerCarDB::GetStockCarByHandle", {0x56, 0x8B, 0xB1, 0x40, 0x05, 0x00}},
+    {0x5166B0, (const void *)&fedb::CdbSave, "FEPlayerCarDB::SaveToBuffer", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x55}},
+    {0x516850, (const void *)&fedb::CdbLoad, "FEPlayerCarDB::LoadFromBuffer", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x55}},
+    {0x5348E0, (const void *)&fedb::CdbChosen, "FEPlayerCarDB::CareerCarChosen", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x56}},
+    {0x534950, (const void *)&fedb::CdbTrade, "FEPlayerCarDB::CareerCarTrade", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x56}},
+    {0x52A5D0, (const void *)&fedb::CdbCtor, "FEPlayerCarDB::FEPlayerCarDB", {0x6A, 0xFF, 0x68, 0x04, 0x74, 0x77}},
+    {0x534850, (const void *)&fedb::CdbNumFilter, "FEPlayerCarDB::GetNumCarsForFilter", {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C}},
+    {0x551430, (const void *)&fedb::RaceOver, "cFrontendDatabase::NotifyTheRaceIsOver", {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x14}},
+    {0x54CCA0, (const void *)&fedb::FrsConstruct, "cFinishedRaceStats::Construct", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 1, 4, 4},
+    {0x503320, (const void *)&fedb::FrsStats, "cFinishedRaceStats::GetStatsForDriver", {0x56, 0x8B, 0xB1, 0xF0, 0x0C, 0x00}},
+    {0x541B40, (const void *)&fedb::FrsPositions, "cFinishedRaceStats::CalculatePositionsForEachLap", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
+    {0x503360, (const void *)&SortRacingCarByTime, "SortRacingCarByTime", {0x8B, 0x4C, 0x24, 0x08, 0x8B, 0x44}},
+    {0x5033F0, (const void *)&SortRacingCarByDrift, "SortRacingCarByDrift", {0x8B, 0x4C, 0x24, 0x08, 0x8B, 0x44}},
+    {0x5032F0, (const void *)&SortResultsByDriftPoints, "SortResultsByDriftPoints", {0x8B, 0x4C, 0x24, 0x04, 0x8B, 0x51}},
+    {0x4A7830, (const void *)&carview::Find, "CarViewer::FindWhichScreenToUpdate", {0x68, 0xD8, 0xFC, 0x78, 0x00, 0xE8}},
+    {0x4A7890, (const void *)&carview::Ride, "CarViewer::FindWhichRideInfoToUpdate", {0x55, 0x8B, 0xEC, 0x83, 0x7D, 0x08}},
+    {0x4A78B0, (const void *)&carview::Show, "CarViewer::ShowCarScreen", {0x68, 0xD8, 0xFC, 0x78, 0x00, 0xE8}},
+    {0x4A78E0, (const void *)&carview::Unshow, "CarViewer::UnshowCarScreen", {0x68, 0xD8, 0xFC, 0x78, 0x00, 0xE8}},
+    {0x4A7900, (const void *)&carview::Scroll, "CarViewer::SendScrollDirectionToGarageScreen", {0x8B, 0x44, 0x24, 0x08, 0x53, 0x33}},
+    {0x4A7930, (const void *)&carview::Lock, "CarViewer::Show3DLock", {0x6A, 0x00, 0xE8, 0xF9, 0xFE, 0xFF}},
+    {0x4A7960, (const void *)&carview::Spin, "CarViewer::SpinPlatforms", {0x53, 0x68, 0xD8, 0xFC, 0x78, 0x00}},
+    {0x4A7990, (const void *)&carview::Lights, "CarViewer::SetShaperLights", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x50}},
+    {0x4C2070, (const void *)&carview::Camera, "CarViewer::SetCameraParams", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x50}},
+    {0x4C2100, (const void *)&carview::LookAt, "CarViewer::SetLookAtPart", {0x8B, 0x44, 0x24, 0x0C, 0x50, 0xE8}},
+    {0x4C2140, (const void *)&carview::StopLook, "CarViewer::StopLookingAtParts", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
+    {0x497BF0, (const void *)&qrcar::InitSlider, "UIQRCarSelect::InitSlider", {0x83, 0xEC, 0x30, 0x56, 0x57, 0x8B}},
+    {0x497CD0, (const void *)&qrcar::UpdateSliders, "UIQRCarSelect::UpdateSliders", {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x58}},
+    {0x497D50, (const void *)&qrcar::ChooseTransmission, "UIQRCarSelect::ChooseTransmission", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x5C}},
+    {0x497DA0, (const void *)&qrcar::UnlockFilter, "UIQRCarSelect::GetUnlockFilter", {0x8B, 0x0D, 0x78, 0x00, 0x85, 0x00}, 1, 0, 0},
+    {0x4EEB90, (const void *)&qrcar::Setup, "UIQRCarSelect::Setup", {0x56, 0x8B, 0xF1, 0xE8, 0x08, 0x92}},
+    {0x4EEC90, (const void *)&qrcar::Rebuild, "UIQRCarSelect::RebuildCarListFromFilter", {0x56, 0x8B, 0xF1, 0xE8, 0xC8, 0x3B}},
+    {0x4B2860, (const void *)&qrcar::Clear, "UIQRCarSelect::ClearCarList", {0x8B, 0x41, 0x50, 0x56, 0x8D, 0x71}},
+    {0x4E22E0, (const void *)&qrcar::BuildCarList, "UIQRCarSelect::BuildCarList", {0x55, 0x8B, 0xEC, 0x6A, 0xFF, 0x68}},
+    {0x4E2280, (const void *)&qrcar::Sound, "UIQRCarSelect::NotifySoundMessage", {0x83, 0x3D, 0x78, 0x00, 0x85, 0x00}},
+    {0x4F9D90, (const void *)&qrcar::Ctor, "UIQRCarSelect::UIQRCarSelect", {0x6A, 0xFF, 0x68, 0xED, 0x6C, 0x77}},
+    {0x4E20B0, (const void *)&qrcar::Dtor, "UIQRCarSelect::~UIQRCarSelect", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x4EEB70, (const void *)&qrcar::SDtor, "UIQRCarSelect::scalar_deleting_dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x38, 0x35}},
+    {0x4FC1F0, (const void *)&qrcar::Notify, "UIQRCarSelect::NotificationMessage", {0x55, 0x8B, 0x6C, 0x24, 0x10, 0x56}},
+    {0x4B2310, (const void *)&qrcar::Header, "UIQRCarSelect::RefreshHeader", {0x51, 0x56, 0x57, 0x8B, 0xF1, 0x8B}},
+    {0x4FA2A0, (const void *)&qrcar::ForPlayer, "UIQRCarSelect::SetupScreenForPlayer", {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x08}},
+    {0x4E2590, (const void *)&qrcar::Cars, "UIQRCarSelect::ScrollCars", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x4EED10, (const void *)&qrcar::Lists, "UIQRCarSelect::ScrollCarLists", {0xA1, 0x4C, 0x44, 0x7F, 0x00, 0x56}},
+    {0x4EF090, (const void *)&qrcar::Delete, "UIQRCarSelect::DeleteCurrentCar", {0x53, 0x55, 0x8B, 0xE9, 0x8B, 0x45}},
+    {0x4B22C0, (const void *)&qrcar::ExitMain, "ExitToMain", {0xE8, 0xFB, 0xBF, 0x05, 0x00, 0x84}},
+    {0x497EE0, (const void *)&qrcar::Count, "UIQRCarSelect::GetNumberOfCarsForFilter", {0x8B, 0xD1, 0xE8, 0xB9, 0xFE, 0xFF}},
+    {0x4E2900, (const void *)&qrmgr::Ctor, "QRTrackSelectScreenManager::QRTrackSelectScreenManager", {0x6A, 0xFF, 0x68, 0x1B, 0x5A, 0x77}},
+    {0x4E2A20, (const void *)&qrmgr::Dtor, "QRTrackSelectScreenManager::~QRTrackSelectScreenManager", {0x56, 0x8D, 0x71, 0x04, 0xC7, 0x01}},
+    {0x4EF260, (const void *)&qrmgr::SDtor, "QRTrackSelectScreenManager::scalar_deleting_dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0x37}},
+    {0x4B2960, (const void *)&qrmgr::Find, "QRTrackSelectScreenManager::FindScreen", {0x53, 0x56, 0x8B, 0x71, 0x04, 0x57}},
+    {0x4CCF30, (const void *)&qrmgr::Start, "QRTrackSelectScreenManager::Start", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x4B29A0, (const void *)&qrmgr::Next, "QRTrackSelectScreenManager::ChangeToNextScreen", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4B2A00, (const void *)&qrmgr::Prev, "QRTrackSelectScreenManager::ChangeToPrevScreen", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4B2940, (const void *)&qrmgr::Suicide, "QRTrackSelectScreenManager::CommitSuicide", {0x8B, 0x0D, 0x40, 0x63, 0x83, 0x00}},
+    {0x4EF1B0, (const void *)&qrmgr::Middle, "QRTrackSelectScreenManager::EnterMiddle", {0x6A, 0xFF, 0x68, 0x64, 0x64, 0x77}},
+    {0x4FA470, (const void *)&qrmgr::Back, "QRTrackSelectScreenManager::EnterBack", {0xA1, 0x40, 0x63, 0x83, 0x00, 0x85}},
+    {0x4B2A80, (const void *)&qrmgr::NextMS, "QRTrackSelectScreenManager::CalcNextScreenFromModeSelect", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x498290, (const void *)&qrmgr::PrevMS, "QRTrackSelectScreenManager::CalcPrevScreenFromModeSelect", {0x83, 0x3D, 0x78, 0x00, 0x85, 0x00}},
+    {0x498220, (const void *)&qrmgr::NextMO, "QRTrackSelectScreenManager::CalcNextScreenFromModeOptions", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x4B2AF0, (const void *)&qrmgr::PrevMO, "QRTrackSelectScreenManager::CalcPrevScreenFromModeOptions", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x498240, (const void *)&qrmgr::NextTS, "QRTrackSelectScreenManager::CalcNextScreenFromTrackSelect", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x4F3BE0, (const void *)&prres::Ctor, "PostRaceResultsScreen::PostRaceResultsScreen", {0x6A, 0xFF, 0x68, 0xC3, 0x67, 0x77}},
+    {0x4E95A0, (const void *)&prres::Dtor, "PostRaceResultsScreen::~PostRaceResultsScreen", {0x6A, 0xFF, 0x68, 0xC3, 0x67, 0x77}},
+    {0x4F3C80, (const void *)&prres::SDtor, "PostRaceResultsScreen::scalar_deleting_dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x59}},
+    {0x4A3EE0, (const void *)&prres::Dismiss, "PostRaceResultsScreen::dismissDialog", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x58}},
+    {0x4A3F00, (const void *)&prres::Sound, "PostRaceResultsScreen::NotifySoundMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x64}},
+    {0x4E9640, (const void *)&prres::Setup, "PostRaceResultsScreen::Setup", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x04}},
+    {0x4BF0A0, (const void *)&prres::Update, "PostRaceResultsScreen::ResultsUpdate", {0x53, 0x56, 0x57, 0x8B, 0xF9, 0x8A}},
+    {0x4A3F30, (const void *)&prres::Header, "PostRaceResultsScreen::SetRaceSpecificHeader", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x4D7240, (const void *)&prres::Organize, "PostRaceResultsScreen::OrganizeResults", {0xA1, 0xA0, 0xE7, 0x89, 0x00, 0x3D}},
+    {0x4BF140, (const void *)&prres::Downhill, "PostRaceResultsScreen::PrintDownhillResults", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
+    {0x4BF290, (const void *)&prres::Results, "PostRaceResultsScreen::PrintResults", {0xA1, 0xCC, 0xE7, 0x89, 0x00, 0x8B}},
+    {0x4A4020, (const void *)&prres::Finish, "PostRaceResultsScreen::PrintFinishTime", {0x83, 0xEC, 0x20, 0x56, 0x8B, 0xF1}},
+    {0x4A4110, (const void *)&prres::Split, "PostRaceResultsScreen::PrintSplitTime", {0x83, 0xEC, 0x20, 0x56, 0x57, 0x8B}},
+    {0x4BF4D0, (const void *)&prres::Drag, "PostRaceResultsScreen::PrintDragDynoResults", {0x83, 0xEC, 0x64, 0x53, 0x55, 0x56}},
+    {0x4A41A0, (const void *)&prres::Unused, "PostRaceResultsScreen::SetUnusedEntriesInvisible", {0x8B, 0x44, 0x24, 0x08, 0x55, 0x8B}},
+    {0x4E9A20, (const void *)&prres::Notify, "PostRaceResultsScreen::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0xC0}},
+    {0x50D230, (const void *)&prres::Browser, "FilterSoundForBrowser", {0x8B, 0x44, 0x24, 0x08, 0x8D, 0x48}},
+    {0x4F3EA0, (const void *)&prmgr::Ctor, "cPostRaceScreenManager::cPostRaceScreenManager", {0x6A, 0xFF, 0x68, 0xE6, 0x67, 0x77}},
+    {0x4EA290, (const void *)&prmgr::Dtor, "cPostRaceScreenManager::~cPostRaceScreenManager", {0x6A, 0xFF, 0x68, 0xE6, 0x67, 0x77}},
+    {0x4F4170, (const void *)&prmgr::SDtor, "cPostRaceScreenManager::scalar_deleting_dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x61}},
+    {0x4BFF80, (const void *)&prmgr::Next, "cPostRaceScreenManager::ChangeToNextScreen", {0x8B, 0x41, 0x38, 0x39, 0x41, 0x34}},
+    {0x4C0020, (const void *)&prmgr::Prev, "cPostRaceScreenManager::ChangeToPrevScreen", {0x8B, 0x41, 0x38, 0x39, 0x41, 0x30}},
+    {0x4C0050, (const void *)&prmgr::TournResults, "cPostRaceScreenManager::NeedToSeePostRaceTournamentResults", {0xA0, 0xE6, 0xE7, 0x89, 0x00, 0x84}},
+    {0x4C00C0, (const void *)&prmgr::TournStandings, "cPostRaceScreenManager::NeedToSeePostRaceTournamentStandings", {0xA0, 0xE6, 0xE7, 0x89, 0x00, 0x84}},
+    {0x4A4610, (const void *)&prmgr::Sponsor, "cPostRaceScreenManager::NeedToAskForSponsor", {0x51, 0x83, 0x3D, 0x78, 0x00, 0x85}},
+    {0x4A45E0, (const void *)&prmgr::RemoveSponsor, "cPostRaceScreenManager::NeedToRemoveTheSponsorScreens", {0x8B, 0x0D, 0x78, 0x00, 0x85, 0x00}},
+    {0x4A4690, (const void *)&prmgr::Destroy, "cPostRaceScreenManager::DestroyInstance", {0x8B, 0x0D, 0xDC, 0x63, 0x83, 0x00}},
+    {0x4FBBC0, (const void *)&prstats::Ctor, "PostRaceStatsScreen::PostRaceStatsScreen", {0x6A, 0xFF, 0x68, 0x16, 0x6E, 0x77}},
+    {0x4FBDC0, (const void *)&prstats::Dtor, "PostRaceStatsScreen::~PostRaceStatsScreen", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
+    {0x4FBDA0, (const void *)&prstats::SDtor, "PostRaceStatsScreen::scalar_deleting_dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4FBE20, (const void *)&prstats::Notify, "PostRaceStatsScreen::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0xE2}},
+    {0x4A4750, (const void *)&prstats::Sound, "PostRaceStatsScreen::NotifySoundMessage", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x4C}},
+    {0x4F3CA0, (const void *)&prstats::Init, "PostRaceStatsScreen::Init", {0x83, 0xEC, 0x08, 0x53, 0x56, 0x57}},
+    {0x4D73B0, (const void *)&prstats::LapList, "PostRaceStatsScreen::SetLapList", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x10}},
+    {0x4BFD40, (const void *)&prstats::AddLap, "PostRaceStatsScreen::AddLapResult", {0x6A, 0xFF, 0x68, 0x1E, 0x3A, 0x77}},
+    {0x4BFF00, (const void *)&prstats::ClearLaps, "PostRaceStatsScreen::ClearLapResultWidgets", {0x53, 0x56, 0x8B, 0xD9, 0x8B, 0x83}},
+    {0x4E9C00, (const void *)&prstats::Setup, "PostRaceStatsScreen::Setup", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x4A4480, (const void *)&prstats::Arrows, "PostRaceStatsScreen::SetNavigationArrows", {0xA1, 0x18, 0x01, 0x89, 0x00, 0x55}},
+    {0x4F3DE0, (const void *)&prstats::Scroll, "PostRaceStatsScreen::Scroll", {0xA1, 0x18, 0x01, 0x89, 0x00, 0x8B}},
+    {0x4A4300, (const void *)&prstats::Position, "PRStatWidget::Position", {0x83, 0xEC, 0x10, 0x56, 0x57, 0x8B}},
+    {0x4BF9E0, (const void *)&prstats::Finish, "PRFinishTime::Draw", {0x83, 0xEC, 0x24, 0x56, 0x8B, 0xF1}},
+    {0x4A4380, (const void *)&prstats::Behind, "PRTimeBehind::Draw", {0x83, 0xEC, 0x24, 0x56, 0x8B, 0xF1}},
+    {0x4BFA30, (const void *)&prstats::Top, "PRTopSpeed::Draw", {0x51, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4BFAA0, (const void *)&prstats::Avg, "PRAverageSpeed::Draw", {0x51, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4BFB10, (const void *)&prstats::Shifts, "PRPerfectShifts::Draw", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4BFB90, (const void *)&prstats::BestLap, "PRBestLapTime::Draw", {0x83, 0xEC, 0x24, 0x56, 0x8B, 0xF1}},
+    {0x4BFC20, (const void *)&prstats::LapsLed, "PRLapsLed::Draw", {0x53, 0x8B, 0x1D, 0xBC, 0xE7, 0x89}},
+    {0x4BFC60, (const void *)&prstats::BestDrift, "PRBestDriftScore::Draw", {0x56, 0x57, 0x8B, 0xF1, 0x8B, 0x4E}},
+    {0x4BFC90, (const void *)&prstats::Longest, "PRLongestDrift::Draw", {0x83, 0xEC, 0x28, 0x56, 0x8B, 0xF1}},
+    {0x4BFD00, (const void *)&prstats::Score, "PRScore::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x4C}},
+    {0x4BF990, (const void *)&prstats::Lap, "PRLapResult::Draw", {0x83, 0xEC, 0x20, 0x56, 0x8B, 0xF1}},
+    {0x4BFB50, (const void *)&prstats::CtorBestLap, "PRBestLapTime::PRBestLapTime", {0x8B, 0x44, 0x24, 0x18, 0x8B, 0x54}},
+    {0x4BFBE0, (const void *)&prstats::CtorLapsLed, "PRLapsLed::PRLapsLed", {0x8B, 0x44, 0x24, 0x18, 0x8B, 0x54}},
+    {0x4F41F0, (const void *)&prtourn::Ctor, "cPostRaceTournamentResults::cPostRaceTournamentResults", {0x6A, 0xFF, 0x68, 0x5E, 0x60, 0x77}},
+    {0x4EA360, (const void *)&prtourn::Dtor, "cPostRaceTournamentResults::~cPostRaceTournamentResults", {0x6A, 0xFF, 0x68, 0x5E, 0x60, 0x77}},
+    {0x4F4350, (const void *)&prtourn::SDtor, "cPostRaceTournamentResults::scalar_deleting_dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x08, 0x60}},
+    {0x4F4370, (const void *)&prtourn::Notify, "cPostRaceTournamentResults::NotificationMessage", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x0C}},
+    {0x4A4770, (const void *)&prtourn::Unused, "cPostRaceTournamentResults::SetUnusedEntriesInvisible", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x10}},
+    {0x4EA490, (const void *)&prtourn::Setup, "cPostRaceTournamentResults::Setup", {0x56, 0x8B, 0xF1, 0xE8, 0xD8, 0x5D}},
+    {0x4C0110, (const void *)&prtourn::Organize, "cPostRaceTournamentResults::OrganizeRaceResults", {0x83, 0xEC, 0x0C, 0xA1, 0x78, 0x00}},
+    {0x4D7400, (const void *)&prtourn::Print, "cPostRaceTournamentResults::PrintRaceResults", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x4C0270, (const void *)&prtourn::Header, "cPostRaceTournamentResults::SetRaceSpecificHeader", {0x56, 0x57, 0x8B, 0xF9, 0xB9, 0x48}},
+    {0x4C0300, (const void *)&prtourn::Position, "cPostRaceTournamentResults::PrintRacePosition", {0x55, 0x8B, 0x6C, 0x24, 0x0C, 0x8B}},
+    {0x4C03A0, (const void *)&prtourn::Name, "cPostRaceTournamentResults::PrintDriverName", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x0C}},
+    {0x4A48D0, (const void *)&prtourn::Leader, "cPostRaceTournamentResults::PrintOutrunLeaderTime", {0x83, 0xEC, 0x20, 0x8B, 0x44, 0x24}},
+    {0x4A4710, (const void *)&prtourn::Sort, "SortTournamentResults", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x48}},
+    {0x4F4190, (const void *)&prreward::IfaceCtor, "cPostRaceScreenMgrInterface::cPostRaceScreenMgrInterface", {0x6A, 0xFF, 0x68, 0x04, 0x68, 0x77}},
+    {0x4A46B0, (const void *)&prreward::Suspend, "cPostRaceScreenMgrInterface::Suspend", {0x56, 0x8B, 0x35, 0xDC, 0x63, 0x83}},
+    {0x4A46E0, (const void *)&prreward::Resume, "cPostRaceScreenMgrInterface::Resume", {0xA1, 0xDC, 0x63, 0x83, 0x00, 0x85}},
+    {0x4BF8E0, (const void *)&prreward::Ctor, "PostRaceRewardsScreen::PostRaceRewardsScreen", {0x6A, 0xFF, 0x68, 0x18, 0x64, 0x77}},
+    {0x4BF970, (const void *)&prreward::Dtor, "PostRaceRewardsScreen::~PostRaceRewardsScreen", {0xC7, 0x01, 0xD8, 0x50, 0x79, 0x00}},
+    {0x4BF950, (const void *)&prreward::SDtor, "PostRaceRewardsScreen::scalar_deleting_dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4A4240, (const void *)&prreward::Setup, "PostRaceRewardsScreen::Setup", {0x53, 0x56, 0x8B, 0xF1, 0x57, 0x8B}},
+    {0x4D7350, (const void *)&prreward::Notify, "PostRaceRewardsScreen::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0xE3}},
+    {0x4F4610, (const void *)&prstand::Ctor, "cPostRaceTournamentStandings::cPostRaceTournamentStandings", {0x6A, 0xFF, 0x68, 0x26, 0x68, 0x77}},
+    {0x4F4690, (const void *)&prstand::Dtor, "cPostRaceTournamentStandings::~cPostRaceTournamentStandings", {0x6A, 0xFF, 0x68, 0x26, 0x68, 0x77}},
+    {0x4F4670, (const void *)&prstand::SDtor, "cPostRaceTournamentStandings::scalar_deleting_dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4EA6A0, (const void *)&prstand::Notify, "cPostRaceTournamentStandings::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0xBA}},
+    {0x4EA570, (const void *)&prstand::Setup, "cPostRaceTournamentStandings::Setup", {0x56, 0x57, 0x8B, 0xF1, 0xE8, 0x27}},
+    {0x4C07A0, (const void *)&prstand::Organize, "cPostRaceTournamentStandings::OrganizeStandings", {0x83, 0xEC, 0x0C, 0xA1, 0x78, 0x00}},
+    {0x4D77A0, (const void *)&prstand::Print, "cPostRaceTournamentStandings::PrintRaceStandings", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x4C0A00, (const void *)&prstand::Ordinal, "cPostRaceTournamentStandings::PrintOrdinalPlacing", {0x8B, 0x44, 0x24, 0x08, 0x56, 0x8B}},
+    {0x4A4730, (const void *)&prstand::Sort, "SortTournamentStandings", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x48}},
+    {0x50DB40, (const void *)&txtscr::Ctor, "CTextScroller::CTextScroller", {0x8B, 0xC1, 0x33, 0xC9, 0x89, 0x08}},
+    {0x50DB70, (const void *)&txtscr::Dtor, "CTextScroller::~CTextScroller", {0x8B, 0x41, 0x3C, 0x85, 0xC0, 0x74}},
+    {0x50DB80, (const void *)&txtscr::Pre, "CTextScroller::PreAllocate", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x3C}},
+    {0x50DBB0, (const void *)&txtscr::Init, "CTextScroller::Initialise", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x54}, 1, 20, 1},
+    {0x5446F0, (const void *)&txtscr::Set, "CTextScroller::SetText", {0x83, 0xEC, 0x08, 0x53, 0x55, 0x56}},
+    {0x544880, (const void *)&txtscr::Scroll, "CTextScroller::Scroll", {0x57, 0x8B, 0xF9, 0x8B, 0x47, 0x34}},
+    {0x5448F0, (const void *)&txtscr::Notify, "CTextScroller::HandleNotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x8B}},
+    {0x5397E0, (const void *)&txtscr::Display, "CTextScroller::Display", {0x83, 0xEC, 0x28, 0x56, 0x57, 0x8B}},
+    {0x50DBF0, (const void *)&txtscr::AddLine, "CTextScroller::AddLine", {0x8B, 0x54, 0x24, 0x08, 0x56, 0x8B}},
+    {0x520070, (const void *)&txtscr::Wrap, "CTextScroller::WordWrapAddLines", {0x83, 0xEC, 0x1C, 0x89, 0x4C, 0x24}},
+    {0x50DC70, (const void *)&txtscr::CR, "CTextScroller::FindCR", {0x8B, 0x54, 0x24, 0x04, 0x66, 0x8B}},
+    {0x50DCB0, (const void *)&txtscr::End, "CTextScroller::FindEND", {0x8B, 0x44, 0x24, 0x04, 0x66, 0x83}},
+    {0x5398C0, (const void *)&txtscr::Bar, "CTextScroller::UpdateScrollBar", {0x8B, 0xC1, 0x8B, 0x48, 0x08, 0x85}},
+    {0x537AD0, (const void *)&txtscr::SetStr, "FESetString", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x4D8EC0, (const void *)&qrcar::SetRide, "CarViewer::SetRideInfo", {0x55, 0x8B, 0xEC, 0x56, 0x8B, 0x75}},
     {0x515800, (const void *)&QRS_Default, "QuickRaceSettings::Default", {0x83, 0xEC, 0x08, 0x53, 0x55, 0x8B}},
     {0x515750, (const void *)&QRS_TourneyDefault, "TournamentSettings::Default", {0xBA, 0x03, 0x00, 0x00, 0x00, 0x88}, 1, 0, 0},
     {0x502710, (const void *)&QRS_GetNumOpponents, "QuickRaceSettings::GetNumOpponents", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},

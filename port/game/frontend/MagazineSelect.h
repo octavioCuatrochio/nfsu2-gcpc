@@ -36,6 +36,13 @@ void EnterFrontendDvdReward(const char *from);        // PC 53DD70: mode 2, same
 void EnterFrontendMagazineSelect(const char *from);   // PC 53DDB0: mode 1, -> UI_MagazineSelect.fng (no null check)
 void EnterFrontendDvdSelect(const char *from);        // PC 53DDF0: mode 2, same
 void ReturnToFrontend(const char *pkg);               // PC 53DE30: mode 0, back to the remembered package
+// GC 801864E4 (PC: inlined in 523CB0): '0'..'9' -> 0..9, 'A'..'Z' -> 10..35, else 0.
+int32_t GetImageIndexFromImageCharacter(int32_t c);
+void SetMagSetupHash(uint32_t hash);                  // GC 80186668 (PC: inlined store to 0x837FD8)
+// GC-only stubs (no PC code): no screen override, no debug browser.
+inline bool IsScreenOverrideActive() { return false; }   // GC 8018664C
+inline void LaunchScreenOverride(const char *) {}        // GC 80186654
+inline bool IsDebugBrowserOn() { return false; }         // GC 80186660
 }
 
 // PC 0x4C, vtable 0x79B840: IconOption + the showcase record index; React 53DE60.

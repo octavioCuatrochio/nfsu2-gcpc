@@ -7,7 +7,10 @@
 //   (later) the native port          -> rewritten implementations
 // When the code behind an entry gets rewritten, the entry is removed and callers use the rewrite directly.
 #pragma once
+#include <cstdarg>
 #include <cstdint>
+struct feDialogConfig;
+struct cFrontendDatabase;
 
 struct FEMultiPool;   // frontend/FEMultiPool.h
 struct FEMinList;     // frontend/FEMinList.h
@@ -31,7 +34,10 @@ struct cFEngRender;
 struct cFEngRenderContext;
 struct FERenderObject;
 struct bMatrix4;
+struct JollyRancherResponseData;   // camera/Camera.h
 struct FEngJoyMapEntry;
+struct bList;
+struct bNode;
 namespace bridge {
 
 // --- memory: buffers are shared with original game code, so they must come from the game's heap ---
@@ -336,6 +342,14 @@ void *bMalloc(uint32_t size, uint32_t flags);                                   
 void LZDecompress(const uint8_t *src, uint8_t *dst);                               // PC 0x574670 (__cdecl)
 ::FEPackageManager *TheFEPackageManager();                                         // PC 0x8637B0 (game global)                                                       // PC 0x440540 (__cdecl)
 uint16_t BaselineFovNoise();           // PC 0x7EC1F0 aBaselineFovNoise (game global)
+// Camera (camera/Camera.cpp) game globals and engine matrix helpers not rewritten yet
+int32_t CameraStopUpdating();          // PC 0x828640 Camera::StopUpdating (game global)
+int32_t DisableCommunication();        // PC 0x865094 (game global)
+int32_t SeeulatorToolActive();         // PC 0x883DE0 (game global)
+uint32_t RealTimeFrames();             // PC 0x7FB708 (game global)
+const ::JollyRancherResponseData *JollyRancherResponse();   // PC 0x82A480 Camera::JollyRancherResponse (.bss)
+void eRotateX(::bMatrix4 *out, const ::bMatrix4 *in, uint16_t angle);   // PC 5BACF0 (__cdecl; D3DX multiply)
+void eRotateY(::bMatrix4 *out, const ::bMatrix4 *in, uint16_t angle);   // PC 5BADA0 (__cdecl; D3DX multiply)
 uint32_t *BRandomSeed();              // PC 0x7EA624 (game global)
 const uint8_t *BFastATanTable();      // PC 0x7EACB0 (game data, 257 bytes)
 const uint16_t *BFixATanTable1();     // PC 0x7EB1C0 (game data, 129 entries: atan(i / 32))
@@ -560,6 +574,149 @@ void QRModeOptions_Online495220(const char *text);               // PC 495220 (_
 uint16_t OnlineNumLaps_MinLaps(void *widget);                    // PC 498400 (__thiscall) network
 void *DialogShowOk(const char *pkg, const char *dialog, uint32_t hash);   // PC DialogInterface::ShowOk 558430 (varargs)
 void *DialogShowOk(const char *pkg, const char *dialog, uint32_t hash, int32_t a, int32_t b);
+// DialogInterface support (DialogInterface.cpp)
+// UserProfile support
+uint8_t *PlayerCareer_SaveToBuffer(uint8_t *buf, int32_t size);         // PC 514530 (__thiscall on 0x85AD40)
+const uint8_t *PlayerCareer_LoadFromBuffer(const uint8_t *buf, int32_t size);   // PC 529230 (on 0x85AD40)
+void PlayerCareer_Default(bool all);                                    // PC 532830 (on 0x85AD40, ret 4)
+uint8_t *OnlineSettings_Save(uint8_t *p);       // PC 515BF0 (__thiscall on 0x850080) then 5B9420(result) (network)
+void OnlineSettings_Load(const uint8_t *p);     // PC 515C90 (on 0x850080) then 5B9570(result) (network)
+int32_t EAXSound_SetAudioModeFromMemoryCard(int32_t mode);   // PC 4792B0 (on *(0x82B884))
+void EAXSound_UpdateVolumes(void *audioSettings);            // PC 469050 (on *(0x82B884))
+void Sound_5BE690();                                         // PC 5BE690 (__cdecl, no args)
+// PC (inlined in 5344D0): GetJoystickType 571AC0(port), DetermineAvailableJoystickConfigurations 571FD0(list, 9,
+// type), SetJoystickUserConfiguration 571FB0(port, list[*(0x83AA6C + port * 0x28)]).
+void ApplyJoystickConfig(int32_t port);
+// cFrontendDatabase support
+const char *OnlineLobbyScreenName();             // PC 0x78F320 (network screen)
+void PlayerCareer_NotifyRestartCurrentRace();    // PC 5287A0(0x85BA64, 0) then *(*(0x85EF48) + 0x14) = 2
+void PlayerCareer_NotifyBeginNewRace();          // PC 533310 (__thiscall on 0x85AD40)
+// EventInProgressState::IsThereANextRace (inlined in 503080): cur = *(0x85EF48); cur && cur + 0xD24 (non-null) <
+// 0x85BAB8 + *(0x85EF4C) * 0xD24.
+bool EventInProgress_IsThereANextRace();
+int32_t OnlineSettingsSaveSize();                // PC 5B9680 (returns 0x43E)
+// cFinishedRaceStats support
+uint8_t *FinishedRaceStatsGlobal();              // PC 0x85036C (FEDatabase +0x1599C entries, 0x224 each)
+int32_t RaceNumRacers(void *race);               // Race +0x24
+void *RaceRacer(void *race, int32_t i);          // Race +0xBD0 + i * 4 (RacingCar)
+void *CurrentRace();                             // pCurrentRace, PC *(0x890118)
+void FinishedRaceStatsEntry_Construct(uint8_t *entry, void *car, bool b);   // PC 515DB0 (__thiscall, ret 8)
+int32_t RaceParameters_GetDriverNumber(int32_t player);   // PC 5ED980 (__thiscall on 0x89E7A0, ret 4)
+void PlayerCareer_NotifyCurrentRaceFinished(void *race);  // PC 54CA60 (__thiscall on 0x85AD40, ret 4)
+uint32_t CarRecord_GetType(const void *car);                      // car record vtable slot 1 (car type)
+void CarConfig_Init(uint8_t *rec, uint32_t handle, const uint8_t *stock);   // PC 516B90 (__thiscall, ret 8)
+const uint32_t *OnlineCareerCarEntry(int32_t i);   // PC 0x8641A8 + i * 0xC
+void CarRecord_BuildRide(void *car, int32_t player, void *ride, int32_t tuning);   // vtable slot 3 (ret 0xC)
+uint8_t *CareerCarData_Save(uint8_t *data, uint8_t *p, int32_t *remaining);       // PC 503F00 (__thiscall, ret 8)
+const uint8_t *CareerCarData_Load(uint8_t *data, const uint8_t *p, uint32_t *slot); // PC 504040 (__thiscall, ret 8)
+enum class CarRecordKind { Stock, Tuned, Career, Online, Sponsor };
+// Game record ctors (PC: stock 503A00, tuned 516B30, career / online 525CF0, sponsor 5118E0; __thiscall).
+void CarRecord_Construct(CarRecordKind kind, uint8_t *rec);
+bool UnlockSystem_IsCarUnlocked(int32_t arg, uint32_t handle, bool player2);   // PC 534180 (__cdecl, AL)
+const void *ProfileCarDB(int32_t player);        // PC 0x83AD90 + player * 0xAB4C (FEDatabase profiles' car DBs)
+// CarViewer support (GarageMainScreen is the game's)
+void *TopOrFullScreenRide();                     // PC 0x8371B0
+void *BottomScreenRide();                        // PC 0x836750
+void GarageMain_StopLookingAtParts(void *screen, bool flag);                   // PC 4C1FA0 (__thiscall, ret 4)
+void GarageMain_SetLookatPart(void *screen, void *part, int32_t a, bool flag, bool b);   // PC 4C1D40 (ret 0x10)
+void GarageMain_SetCameraParams(void *screen, const float cam[10]);            // PC 4A5B70 (__thiscall, 10 floats)
+void GarageMain_SetRideInfo(void *screen, void *ride, int32_t reason);          // PC 4D8C70 (ret 8)
+void GarageMain_ChangePlatform(void *screen, int32_t a, int32_t b);             // PC 4A7180 (ret 8)
+void RideInfo_Assign(void *dst, const void *src);                              // PC 413440 (__thiscall)
+uint32_t ShaperLightsValue(uint32_t hash);                                     // PC 48A2D0 (__cdecl)
+// UIQRCarSelect support
+::cFrontendDatabase *FrontendDatabase();         // FEDatabase, PC 0x83A9D0
+void *SelectableCar_GetRide(void *car);          // PC 511E00 (__thiscall): RideInfo
+long double RideRating(void *ride, int32_t kind);   // RidePhysicsInfo (ride +0x10) accel 5B53A0 / top 5B6A20 / handling 5B5490
+void QRCarSelect_BuildCarList(void *screen, uint32_t filter);   // PC 4E22E0 (__thiscall, ret 4)
+void QRCarSelect_RefreshHeader(void *screen);                    // PC 4B2310 (__thiscall)
+bool CarTypeCheck840(int32_t v);                 // PC 5022C0 (__cdecl, AL) on car type +0x840
+bool CarTypeInfo_610180(const uint8_t *ct);      // PC 610180 (__thiscall on the car type, AL)
+void *SelectableCar_New(const uint8_t *ct, uint32_t c, uint32_t handle, int32_t player, int32_t flag);   // new 0x930 + ctor 511DB0
+void QRCarSelect_SortCars(void *list);           // PC bList::Sort 43E650 with comparator 40CB20 (always 1)
+uint32_t GetCarTypeLogoHash(int32_t type, bool primary);   // PC 511E60 (__cdecl): manufacturer / secondary logo texture
+// network (not ported): online slot info 497F20 (__thiscall, ret 4), confirm online 497FC0 / unranked 498040 / LAN 498000
+void QRCarSelect_SetOnlineSlotInfo(void *screen, void *carRecord);
+void QRCarSelect_ConfirmOnline(void *screen);
+void QRCarSelect_ConfirmOnlineUnranked(void *screen);
+void QRCarSelect_ConfirmLAN(void *screen);
+// network: UIQRCarSelect dtor 4E2131..4E2225 (online / LAN): the kept car's ride into the top garage view + audio
+void QRCarSelect_OnlineExitRide(uint32_t handle);
+void GarageMain_SetCarType(void *screen, int32_t type);   // PC 4A5EE0 (__thiscall, ret 4)
+// PC 4E2804..4E28DC: stack RideInfo (40C910), Init(type, 1, 0, 0) 610270, SetCompositeNameHash(1) 61C280, random
+// parts 637190 + paint 6371E0, fn(ride), dtor (4022C0 on ride +0x384).
+void WithRandomRide(int32_t type, void (*fn)(void *ride));
+void RaceStarter_StartRace();                              // PC 53FC20 (__cdecl)
+// QRTrackSelectScreenManager node functions: idx 0..5 = mode select next / prev, mode options next / prev, track
+// select next / prev (PC 4B2A80, 498290, 498220, 4B2AF0, 498240, 4982B0: __thiscall on the manager)
+void *QRManager_CalcFn(int32_t idx);
+const char *QRManager_CallCalc(void *fn, void *manager);
+int32_t bRandomInt(int32_t range);                         // PC 43C1C0 (__cdecl)
+int32_t GetRandomGetAwayTrack(int32_t r);                  // PC 4FEF50 (__cdecl)
+// PostRaceResultsScreen support
+const char **PostRaceManager_CurrentScreen();    // cPostRaceScreenManager (PC *0x8363DC) +0x1C
+void PostRaceManager_ChangeToNextScreen();       // PC 4BFF80 (__thiscall on *0x8363DC)
+::bNode *bList_GetNode(::bList *list, int32_t i);   // PC 43BE60 (__thiscall, ret 4): past the end -> the head
+::bList *DriftScoreList();                       // DriftManager::ScoreList (PC 0x864630)
+int32_t CurrentRaceDriverCount();                // PC *(*0x890118 + 0x24)
+const uint8_t *RacerInfo(int32_t index);         // PC 5F0E30 (__thiscall on *0x890080, ret 4): +0xC car type, +0x14 car, +0x18 player
+const char *DriverName(void *player);            // PC 5F41B0 (__thiscall on the player; online: the online name)
+const char *OnlinePlayerName(int32_t index);     // network: PC 5F0220(0x89CF48, index) + 0x12
+void Timer_PrintToString(int32_t ticks, char *buf, int32_t mode);   // PC 577240 (__thiscall on the ticks, ret 8)
+void FEngPrintfDouble(const char *pkg, uint32_t objHash, const char *fmt, double v);   // PC 537B80
+void PostRace_ManageOnlineUpdates(void *screen); // network: PC 4E97E0 (__thiscall)
+bool Online_5FE500();                            // network: PC 5FE500 (__thiscall on 0x89CF48, AL)
+void Online_601D00();                            // network: PC 601D00 (__thiscall on 0x89CF48)
+void Online_609750();                            // network: PC 609750 (__thiscall on 0x89CF48)
+void Profile_5100B0();                           // PC 5100B0 (__cdecl): 0x83A611 reset / copy from *0x83A540 + 0x14
+float FrameSeconds();                            // PC *(float*)0x865154 (frame time)
+// cPostRaceScreenManager support
+bool Career_5287A0(bool a);                      // PC 5287A0 (__thiscall on 0x85BA64, ret 4, AL): reward available
+bool Career_500DB0();                            // PC 500DB0 (__thiscall on 0x85BA64): +2 && !+3
+bool Career_500DD0();                            // PC 500DD0 (__thiscall on 0x85BA64): byte +4
+bool CareerStage_500610(int32_t stage);          // PC 500610 (__thiscall on 0x862018 + stage * 0x104, AL)
+float CareerStage_5005E0(int32_t stage);         // PC 5005E0 (__thiscall on 0x861F14 + stage * 0x104 = previous stage; ST0)
+int32_t CareerStage_500670(int32_t stage, float v);   // PC 500670 (__thiscall on 0x862018 + stage * 0x104, ret 4)
+void Call526830(int32_t a);                      // PC 526830 (__cdecl): next split-screen race setup
+bool Online_5FE4C0();                            // network: PC 5FE4C0 (__thiscall on 0x89CF48, AL)
+void PostRaceMessageCenter_Destruct(void *p);    // network: PC 4E9180 (__thiscall on cPostRaceScreenManager +4)
+// PostRaceStatsScreen support
+void FEPrintfInts2(FEObject *str, const char *fmt, int32_t a, int32_t b);                  // PC 537BE0
+void FEPrintfDoubleString(FEObject *str, const char *fmt, double v, const char *s);        // PC 537BE0
+void FEngPrintfIntStrings(const char *pkg, uint32_t objHash, const char *fmt, int32_t v, const char *a, const char *b);   // PC 537B80
+const char *CarTypeDisplayName(int32_t type);   // PC 5120B0 (__cdecl): the car type's full name
+// cPostRaceTournamentResults support (network parts: game calls in the hooked build, no-ops natively)
+void TournResults_OnlineRegister(void *screen, bool on);   // 58F740(0)->582910(on ? 4C0430 : 0, on ? screen : 0)
+void TournResults_OnlineHelperInit(void *helper, void *screen);   // 4CFD80(helper = screen +0x70, screen, 1)
+void TournResults_OnlineTeardown(void *screen);  // dtor 4EA385..4EA402: online state 3, callback off, dialogs +0x54/+0x58
+void TournResults_OnlineLeave(void *screen);     // 0x2C0E485A: online state 3 (58FD50(0)), dialogs +0x54/+0x58
+void TournResults_OnlineTick(void *screen);      // tick with +0x64: 4A3DA0(manager +4), dialogs (+0x54 if > 0, +0x58)
+void TournResults_OnlineMessages(void *screen, uint32_t msg, void *obj, uint32_t arg, uint32_t pkg);   // 4F44F2..4F45FC
+void Call5B7C40();                               // PC 5B7C40 (__cdecl)
+void PostRaceMessageCenter_4A3DA0();             // network: PC 4A3DA0 (__thiscall on cPostRaceScreenManager +4)
+void PostRaceMessageCenter_Update(void *center, int32_t v);   // PC 4E9210 (__thiscall on cPostRaceScreenManager +4, ret 4)
+int32_t OnlineRacerCount();                      // network: PC 5F01E0 (__thiscall on 0x89CF48)
+int32_t CareerRacerDriver(int32_t i);            // PC 500D90(0x85BA64, i) record +4 (driver number)
+int32_t Career_GetPointsThisRace(int32_t i);     // PC 513E70 (__thiscall on 0x85BA64, ret 4)
+int32_t Career_GetPointsTotal(int32_t i);        // PC 513EB0 (__thiscall on 0x85BA64, ret 4)
+float Career_GetSponsorPointsEarned();          // PC 5330D0 (__thiscall on 0x85BA64; ST0)
+int32_t Career_GetLastPurse();                   // PC 532E50 (__thiscall on 0x85AD40)
+void HelpBar_Off();                              // PC 54E6B0 (__thiscall on *0x8384D8): flag 0, 542990(0), hide 0x2BAC0CEE
+void FEngStopInteraction(const char *pkg);       // PC 558F00 (__cdecl)
+uint32_t BeginCarCustomize(int32_t kind, const char *pkg, int32_t player, uint32_t handle);   // PC 552CC0 (__cdecl)
+uint32_t BeginCarCustomizeOnline(int32_t kind, const char *pkg, int32_t player, void *rec);   // PC 552E30 (__cdecl, network)
+const char *SponsorName(int32_t i);              // PC *(0x7F7C6C + i * 4) (8 names)
+void CareerCarData_Clear(uint8_t *data);         // PC 503E70 (__thiscall on career record +0x434)
+const uint8_t *CarTypeInfo(int32_t i);           // PC *(0x8A1CCC) + i * 0x890 (null table -> null)
+void *EAXSoundInstance();                        // g_pEAXSound, PC *(0x82B884)
+int32_t EAXSound_GetDefaultPlatformAudioMode();  // PC 40CB20 (__thiscall on it; returns 1)
+void EAXSound_InitEATRAX();                      // PC 479220 (__thiscall on *(0x82B884), even when null)
+const char *EATraxPlayIn(int32_t i);             // PC *(0x7ECD8C + i * 0x10): "FE" / "IG" / "AL" / ...
+::feDialogConfig *SecretDialogInfo();            // PC 0x838640 (0x338)
+int32_t bVSPrintf(char *buf, const char *fmt, va_list va);   // PC 43FBC0 (__cdecl; bWare formatter, no length)
+const char *FEngGetTopPackage(const uint32_t *skipHashes, int32_t count);   // PC 50CE30 (__cdecl)
+void FEngSetCreateCallback(const char *pkg, void *callback);   // PC 50B8E0 (__cdecl)
+void *DialogCreaterCallback();                   // PC 5542A0 (DialogCreater, game code)
 void DialogDismiss(void *dialog);                                // PC DialogInterface::DismissDialog 540A60 (__cdecl)
 // ---- PostRaceMenu ----
 bool CareerState_5287A0();                       // PC 5287A0 (__thiscall on 0x85BA64, arg 0, AL): result accepted for autosave
@@ -577,6 +734,7 @@ void PlayerCareerState_MarkCurrentEventComplete();   // PC 54CA30 (__thiscall on
 void PostRaceManager_Back();
 // ---- CarTunePauseScreen (CarTuneManager 0x839C40 not rewritten) ----
 const char *GameStringPointer(uint32_t addr);    // a game `const char *` global (e.g. 0x7FA218 tuning setting package)
+void **GamePtrSlot(uint32_t addr);              // a game pointer global (tests: pointer-sized slots)
 const char **GameStringSlot(uint32_t addr);      // a game `const char *` global to write (0x83A650, 0x8384C8)
 int32_t RaceCoordinatorState();                  // PC *(int*)*(0x8900D8)
 void RaceCoordinator_RequestPause(int32_t player);   // PC 5F4230 (__thiscall on *(0x8900D8), ret 4)

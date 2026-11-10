@@ -11,7 +11,7 @@ pc/baseline/
 gc_decomp/
 pc_decomp/
 knowledge/raw/
-knowledge/*.db
+knowledge/*.db-journal
 # build outputs
 port/build-*/
 tooling/compiler/bin/

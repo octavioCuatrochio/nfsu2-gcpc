@@ -78,7 +78,9 @@ void FEngSetPackageVisibility(const char *pkg, uint8_t visible);         // GC 8
 // when no package name). GC 8014FA3C / PC 5379C0; FEngFindImage GC 8014FAE4 / PC 537A60 (only type 1).
 FEObject *FEngFindObject(const char *pkg, uint32_t objHash);
 FEObject *FEngFindImage(const char *pkg, uint32_t objHash);
-FEObject *FEngFindString(const char *pkg, uint32_t objHash);   // GC 8014FAAC / PC 537A10 (only type 2)
+FEObject *FEngFindString(const char *pkg, uint32_t objHash);
+// PC 537AD0 (__cdecl, FESetString): string object (type 2) by hash gets `text` (FEString::SetString), flag 2 set.
+void FESetString(const char *pkg, uint32_t objHash, const uint16_t *text);   // GC 8014FAAC / PC 537A10 (only type 2)
 // GC 801503E8 (name variant) / PC 542630: position track of the named object (types < 0x100; dirty on change).
 void FEngSetPosition(const char *pkg, const char *obj, const struct FEVector3 *pos);
 // FEngSetScript lookups: PC 5426C0 (object name, script name), 537C00 (object hash, script name), 537C60

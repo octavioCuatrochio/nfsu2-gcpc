@@ -351,6 +351,14 @@ FEObject *FEngFindString(const char *pkg, uint32_t objHash)
     return o && o->mu32Type == 2 ? o : nullptr;
 }
 
+void FESetString(const char *pkg, uint32_t objHash, const uint16_t *text)
+{
+    FEObject *o = FEngFindObject(pkg, objHash);
+    if (!o || o->mu32Type != 2) return;
+    reinterpret_cast<FEString *>(o)->SetString(text);
+    o->mu32Flags |= 2;
+}
+
 void FEngSetPosition(const char *pkg, const char *obj, const FEVector3 *pos)
 {
     FEObject *o = FEngFindObject(pkg, FEHashUpper(obj));

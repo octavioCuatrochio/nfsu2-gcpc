@@ -21,6 +21,57 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FEColor PC: unpack 5054A0, operator= 505560 (thiscall, ret 4). cSlider scalar dtor 4957B0, Preview/ThreeStage 512220,
   TuningSlider 531010. UIMagazineSelect::RefreshHeader 510E40 = jmp 50DA50 (not hooked).
 - PC FEObject::SetScript (inlined): restart on the same script only rewinds (GC redoes SetCurrentScript too).
+- Batch 2 (committed; native + referee 1.67M checks, in-game pending): DialogInterface (whole), HighScoresDatabase (whole), UserProfile
+  (all but the ctor), cFrontendDatabase (whole), cFinishedRaceStats (whole), bList (whole), Camera.c (agent), Magazine
+  leftovers. FEDatabase PC 0x83A9D0 (cFrontendDatabase): +0 players, +0x10 UserProfile[2] (0xAB4C: name +0, named
+  +0x20, audio +0x70, QuickRaceSettings +0xD4, career +0x250, EA Trax +0x2D8, FEPlayerCarDB +0x3B0, high scores
+  +0xA0FC), +0x156A8 game mode (= 0x850078), +0x156B0 online settings, +0x1599C cFinishedRaceStats (6 x 0x224 +
+  finishers +0xCD8, count +0xCF0), +0x16774 exit state, +0x16778 memcard backup, +0x1677C car DB backup (0x9BD8) +
+  selected car +0x20354, +0x20358 split-screen reload player. Profile save size = 5B9680() (0x43E) + 0xD254.
+- UserProfile save (52A280) skips a block that doesn't fit WITHOUT advancing; load (5344D0) always advances.
+- DialogInterface PC: feDialogConfig 0x338 (text 0x300, params +0x300..+0x31C, parent +0x320, dialog +0x324,
+  buttons +0x328, flags +0x32C/+0x32D help, dismiss msg +0x330, handle +0x334); SecretDialogInfo 0x838640, handle
+  counter 0x7F6DE0, dialogs blocked byte 0x8383B4. Every Show* = va_list core (5582A0 / 558390 / 558490 / 558680 /
+  5588F0) + fmt and hash (bStrNCpy 0x200) varargs wrappers; text via bVSPrintf 43FBC0. Pushed with cFEng::Pusher(0x16).
+- bList PC: TraversebList 43BE80, AddTail(list) 43BEB0, AddSorted 43BEE0, MergeSort 43BF40 (takes a when cmp(a, b) > 0),
+  Sort 43E650, GetNode 43BE60. bPNode pool slot = 3 pointers (PC 0xC; native uses 3 * sizeof(void *)).
+- Race results: lap positions use +0x70 + lap * 4 as a TOTAL TIME (lower first); CurLap 0x83846C; laps 0x89E7BC;
+  driver count = sum of 0x89E7C0..0x89E7CC; drift race = byte 0x89E7D9 || *0x890104.
+- FEPlayerCarDB done (PC 52A5D0 ctor, 503510.. lookups, 5162D0 filter, 534850 count, 5163C0/516480/516500 defaults,
+  52A6C0/52A710 tuned delete/add, 52A7F0 online, 52A8A0 Default, 5166B0/516850 save/load = records minus vtable, 5348E0/
+  534950 career choose/trade). Not located: dtor (static), UnlockACareerCarSlot (inlined). Record init 516B90(handle,
+  stock), OwnedPartInventory::Default 503E70, career data save/load 503F00/504040.
+- CarViewer done (4A7830.. / 4C2070..); garage screen +0x148 scroll dir, +0x161 3D lock, 2P children +0x4C/+0x50;
+  TopOrFullScreenRide 0x8371B0 (reason 0x83623C), BottomScreenRide 0x836750. HackSetCarType not located on PC.
+- Batch 3 (committed; native + referee, in-game pending): UIQRCarSelect whole (0x1B8: arrows +0x1A5/6, active
+  +0x1A7 via 0x35F8620B, online handle +0x1A8, memcard +0x1B4; GetNumberOfCarsForFilter is 497EE0 on PC, not inlined),
+  CarViewer::SetRideInfo = PC 4D8EC0 (also bottom reason 0x836234), QRTrackSelectScreenManager whole (PC 0x18 vtable
+  0x79771C; nodes 0x14 {next, prev, name, next fn, prev fn} with game fn addresses 4B2A80/498290 mode select,
+  498220/4B2AF0 mode options, 498240/4982B0 track select; instance 0x836340; names 0x7F445C..0x7F4478),
+  PostRaceResultsScreen whole (0x78, vtable 0x797A8C; FilterSoundForBrowser 50D230). cPostRaceScreenManager
+  instance *0x8363DC (+0x1C current results package). LoadingControllerScreen: GC-only.
+- Bridges: GamePtrSlot (pointer-sized game globals; native stub slots), referee stub uses real string/pointer slots.
+- cPostRaceScreenManager done (0x3C, vtable 0x797B7C, created 4F4190, destroyed 4A4690; screens 0x7F4570..0x7F4590;
+  4C0050 = tournament results, 4C00C0 = standings (auto matches were wrong); +4 online countdown object = game's).
+- Post-race group done: PostRaceStatsScreen (0x190, UIWidgetMenu base; PR* rows = FEStatWidget + entry, Draw per
+  vtable 0x795130.., Position 4A4300; PRLapResult 0x7950E8), cPostRaceTournamentResults (0x8C, vtable 0x797B80;
+  online helper +0x70 and lobby callbacks bridged), cPostRaceTournamentStandings (0x94, vtable 0x798390),
+  PostRaceRewardsScreen (0x50, 0x7950D8), cPostRaceScreenMgrInterface (ctor 4F4190, Suspend 4A46B0, Resume 4A46E0).
+  Racer info 5F0E30(index): +0xC car type info (name first), +0x14 car (+4 == 1 && !+0x900: local human, name
+  +0x90C), +0x18 player (5F41B0 name). Points table PC 0x78DAA7 {_, 10, 6, 3, 0..}.
+- PostRaceMessageCenter = online countdown (not ported). CTextScroller done (0x54; PC 50DB40.., WordWrap 520070
+  merges GC count/add; FESetString 537AD0 in FEngUtil).
+- IN PROGRESS Scrollerina (17 PC users, none ported; EATraxScreen needs it). PC 0xAC?: +0 vtable 0x795CB4 (0 sdtor
+  4CBC00 -> dtor 4CBBA0, 1 Print 5382F0, 2 543BF0, 3 538910), +4 pkg, +8 slot list (node = slot +4), +0x10 data
+  list, +0x18 slot count, +0x2C selected slot, +0x30 "Scroll_Area" image (+0x8C/+0x90 top-left, +0x94/+0x98 size;
+  none: +0x9C = 0), +0x34 FEScrollBar (pkg, arg3, arg4, arg5, false), +0x9E wrap (arg6), +0x9F arg7, +0xA0/+0xA4/+0xA8.
+  ctor 542CA0 (ret 0x1C) hides scroll bar +0x78/+0x7C/+0x80. AddSlot 52E770 (slot->FindSize 51EFD0, this 51F560,
+  first slot selected), FindDatumInSlot 52E7D0, FindSlotWithDatum 52E850, ScrollSelection 52E8C0 (scripts
+  0x78F21C off / 0x78F228 on via slot SetScript 51EE80(name, ?)), SetDisabledScripts 52E9C0 (0x79B8C4 / 0x78F570,
+  slot +0x28), Enable 52EA50 (datum +0x14 = 1, 5276B0), ScrollNext/Prev 54EB40/54EB60 -> 542F50(+-1). Slot (vtable
+  at 0, node +4): element list +0xC (element: node +4, FEObject +0xC), backing +0x14; Show 51F1C0 / Hide 51F220.
+  AUTO MATCH WRONG: 4AEA60 is not AddData (0x94 object, vtable 0x790F38, text +0xC, list at owner +0xC).
+- Next: finish Scrollerina, then EATraxScreen; FinishedRaceStatsEntry (515DB0), UserProfile ctor.
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
 - TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:

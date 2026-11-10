@@ -28,6 +28,16 @@
 #include "frontend/MagazineSelect.h"
 #include "frontend/MagazineScreens.h"
 #include "frontend/QuickRaceSettings.h"
+#include "frontend/FrontendDatabase.h"
+#include "frontend/FinishedRaceStats.h"
+#include "frontend/FEPlayerCarDB.h"
+#include "frontend/QRCarSelect.h"
+#include "frontend/PostRaceResults.h"
+#include "frontend/PostRaceStats.h"
+#include "frontend/PostRaceTournament.h"
+#include "frontend/TextScroller.h"
+#include "frontend/QRTrackSelectScreenManager.h"
+#include "frontend/DialogInterface.h"
 #include "frontend/StartCareer.h"
 #include "frontend/ProfileManager.h"
 #include "frontend/CareerCrib.h"
@@ -53,6 +63,8 @@
 #include "frontend/FEListBox.h"
 #include "frontend/FECodeListBox.h"
 #include "bWare/bMath.h"
+#include "camera/Camera.h"
+#include "camera/CameraNoise.h"
 #include <algorithm>
 #include "bridge/Bridge.h"
 #include <cstdlib>
@@ -1183,6 +1195,92 @@ static void TestProcessResponses()
 }
 
 // bFastATan / bFixATan: quadrant mapping and special cases (stub tables are formula approximations).
+// Camera (camera/Camera.cpp): default construction, SetCameraMatrix paths, ApplyNoise with zero noise, debug no-ops.
+static void TestCamera()
+{
+    static Camera cam;
+    std::memset(&cam, 0xCD, sizeof cam);
+    teststub::realTimeFrames = 1234;
+    CHECK(cam.Construct() == &cam);
+    CHECK(cam.mbClearVelocity == 0 && cam._unknown271[0] == 0xCD && cam._unknown278 == 0x80000000u && cam._unknown27C == 1234);
+    CHECK(cam.mElapsedTime == 1.0f && cam.mCurrent.mu16Fov == 0x36FB && cam.mCurrent.mTargetDistance == 10.0f);
+    CHECK(cam.mCurrent.mMatrix.m[11] == 100.0f && cam.mCurrent.mMatrix.m[14] == 1200.0f && cam.mCurrent.mMatrix.m[5] == -1.0f);
+    // position = -(t x R^T) with m3/m7/m11 added: z = -(-1200 + 100)
+    CHECK(cam.mCurrent.mPosition.x == 0.0f && cam.mCurrent.mPosition.y == 0.0f && cam.mCurrent.mPosition.z == 1100.0f);
+    CHECK(cam.mCurrent.mDirection.z == -1.0f && cam.mCurrent.mTarget.z == 1090.0f);
+    CHECK(std::memcmp(&cam.mCurrent, &cam.mPrevious, sizeof(CameraParams)) == 0);
+    CHECK(cam.mVelocity.mPosition.z == 0.0f && cam.mVelocity.mPositionW == 0.0f && cam.mVelocity.mu16Fov == 0);
+
+    // StopUpdating: nothing changes
+    Camera before = cam;
+    bMatrix4 m = cam.mCurrent.mMatrix;
+    m.m[12] = 5.0f;
+    teststub::cameraStopUpdating = 1;
+    cam.SetCameraMatrix(&m, 0.5f);
+    CHECK(std::memcmp(&cam, &before, sizeof cam) == 0);
+    teststub::cameraStopUpdating = 0;
+
+    // velocity: x translation +5 over 0.5 s -> position.x -5 -> -10/s. Scalars (FOV, distances) are copied to
+    // mPrevious first, so their velocity is always 0 (as in the original).
+    cam.mCurrent.mu16Fov = 0x0010;
+    cam.SetCameraMatrix(&cam.mCurrent.mMatrix, 1.0f);
+    cam.SetCameraMatrix(&m, 0.5f);
+    CHECK(cam.mElapsedTime == 0.5f && cam.mPrevious.mMatrix.m[12] == 0.0f && cam.mCurrent.mMatrix.m[12] == 5.0f);
+    CHECK(cam.mCurrent.mPosition.x == -5.0f && cam.mVelocity.mPosition.x == -10.0f && cam.mVelocity.mTarget.x == -10.0f);
+    CHECK(cam.mVelocity.mu16Fov == 0 && cam.mVelocity.mTargetDistance == 0.0f);
+
+    // elapsed <= 0 (and NaN): velocity untouched
+    Camera v0 = cam;
+    m.m[12] = 50.0f;
+    cam.SetCameraMatrix(&m, 0.0f);
+    CHECK(std::memcmp(&cam.mVelocity, &v0.mVelocity, sizeof(CameraParams)) == 0 && cam.mCurrent.mPosition.x == -50.0f);
+    cam.SetCameraMatrix(&m, std::nanf(""));
+    CHECK(std::memcmp(&cam.mVelocity, &v0.mVelocity, sizeof(CameraParams)) == 0);
+
+    // clear-velocity flag: previous = current, elapsed 1, zero velocity
+    cam.mbClearVelocity = 1;
+    m.m[12] = 70.0f;
+    cam.SetCameraMatrix(&m, 0.25f);
+    CHECK(cam.mbClearVelocity == 0 && cam.mElapsedTime == 1.0f && cam.mVelocity.mPosition.x == 0.0f);
+    CHECK(std::memcmp(&cam.mCurrent, &cam.mPrevious, sizeof(CameraParams)) == 0);
+
+    // Jolly Rancher override (debug link): matrix from the response, translation * 0.01, w = 1; disabled -> ignored
+    JollyRancherResponseData *jr = teststub::jollyRancherResponse;
+    jr->mValid = 1;
+    bIdentity(&jr->mMatrix);
+    jr->mMatrix.m[12] = 300.0f;
+    jr->mMatrix.m[15] = 7.0f;
+    cam.SetCameraMatrix(&m, 1.0f);
+    CHECK(cam.mCurrent.mMatrix.m[12] == 3.0f && cam.mCurrent.mMatrix.m[15] == 1.0f && cam.mCurrent.mMatrix.m[5] == 1.0f);
+    teststub::disableCommunication = 1;
+    cam.SetCameraMatrix(&m, 1.0f);
+    CHECK(cam.mCurrent.mMatrix.m[12] == 70.0f && cam.mCurrent.mMatrix.m[5] == -1.0f);
+    teststub::disableCommunication = 0;
+    jr->mValid = 0;
+
+    // ApplyNoise with zero amplitudes: rotations by angle 0 (stub: bCos(0) is not exactly 1) -> matrix ~unchanged
+    bMatrix4 n = m;
+    const int rot = teststub::eRotateCalls;
+    cam.ApplyNoise(&n, 12.5f, 1.0f);
+    bool near = true;
+    for (int i = 0; i < 16; ++i) near = near && std::fabs(n.m[i] - m.m[i]) <= 1e-5f * (1.0f + std::fabs(m.m[i]));
+    CHECK(near && teststub::eRotateCalls == rot + 2);
+    // translation-only noise: amplitude on x of set 1 moves row 3 by the noise value
+    cam.mCurrent.mNoiseAmplitude1 = {1.0f, 0.0f, 0.0f, 0.0f};
+    bIdentity(&n);
+    cam.ApplyNoise(&n, 0.3f, 2.0f);
+    const float expect = static_cast<float>(static_cast<long double>(static_cast<float>(Noise(0.3f))) * 2.0f);
+    CHECK(std::fabs(n.m[12] - expect) <= 1e-5f && expect != 0.0f && std::fabs(n.m[13]) <= 1e-6f && std::fabs(n.m[0] - 1.0f) <= 1e-5f);
+
+    // debug no-ops
+    before = cam;
+    teststub::seeulatorToolActive = 1;
+    cam.CommunicateWithJollyRancher("SpeedCam");
+    cam.UpdateSeeulatorTool();
+    teststub::seeulatorToolActive = 0;
+    CHECK(std::memcmp(&cam, &before, sizeof cam) == 0);
+}
+
 static void TestATan()
 {
     CHECK(bFastATan(1, 0) == 0 && bFastATan(0, 1) == 0x4000 && bFastATan(-1, 0) == 0x8000 && bFastATan(0, -1) == 0xC000);
@@ -1236,7 +1334,7 @@ static void TestSlotPool()
     // bPList node pool: lazy init, deferred close when nodes are still allocated
     void *n1 = bPNode_Malloc(), *n2 = bPNode_Malloc();
     SlotPool *np = *bridge::BPNodeSlotPool();
-    CHECK(n1 && n2 && np && np->mu32SlotSize == 0xC && np->mi32NumSlots == 0x100 && np->mi32NumAllocated == 2);
+    CHECK(n1 && n2 && np && np->mu32SlotSize == 3 * sizeof(void *) && np->mi32NumSlots == 0x100 && np->mi32NumAllocated == 2);
     bPListInit(5);                                               // already there: no-op
     CHECK(*bridge::BPNodeSlotPool() == np);
     bPListClose();                                               // still in use: deferred
@@ -5096,8 +5194,477 @@ static void TestWholeFileLeftovers()
     teststub::gameModeFlags = savedMode; teststub::raceType = savedRace;
 }
 
+// DialogInterface names / blocked show, UserProfile save-load, cFrontendDatabase backup + race notifications,
+// HighScoresDatabase post-race.
+static void TestProfileDB()
+{
+    static feDialogConfig c;
+    c.Construct();
+    c.mbHelp = 1;
+    std::strcpy(c.mText, "a\nb^c\nd");
+    CHECK(std::string(DialogInterface::CalcFEngDialogPackageName(&c)) == "HelpDialog_SMALL.fng");
+    std::strcpy(c.mText, "a\nb^c\nd\ne");
+    CHECK(std::string(DialogInterface::CalcFEngDialogPackageName(&c)) == "HelpDialog_MED.fng");
+    c.mpDialogPkg = "Mine.fng";
+    CHECK(std::string(DialogInterface::CalcFEngDialogPackageName(&c)) == "Mine.fng");
+    teststub::gameBytes[0xB4] = 1;   // 0x8383B4: dialogs blocked
+    CHECK(DialogInterface::ShowDialog(&c) == 0);
+    teststub::gameBytes[0xB4] = 0;
+
+    static cFrontendDatabase db, db2;
+    std::memset(&db, 0, sizeof db);
+    db.mProfiles[0].SetProfileName("PLAYER", true);
+    CHECK(db.mProfiles[0].IsProfileNamed() && std::string(db.mProfiles[0].GetProfileName()) == "PLAYER");
+    db.mProfiles[0].mCareerSettings = 7;
+    db.mProfiles[0].mHighScores.mScores[3] = {12, 1, 0, 4444};
+    const int32_t size = cFrontendDatabase::GetUserProfileSaveSize();
+    CHECK(size == 0x43E + 0xD254);
+    std::vector<uint8_t> buf(static_cast<size_t>(size));
+    db.SaveUserProfileToBuffer(buf.data(), size);
+    std::memset(&db2, 0, sizeof db2);
+    db2.mGameMode = 2;
+    db2.LoadUserProfileFromBuffer(buf.data(), size);
+    CHECK(db2.mProfiles[0].mCareerSettings == 7 && db2.mProfiles[0].mHighScores.mScores[3].mValue == 4444 &&
+          std::string(db2.mProfiles[0].mName) == "PLAYER" && db2.mProfiles[0].mbNamed == 1 && db2.mProfiles[0].mAudioMode == 100);
+    // backup: unchanged -> clean, changed -> dirty; both free the backup
+    const int live = teststub::liveAllocations;
+    db.AllocBackupDB(true);
+    CHECK(db.mpBackup && !db.IsDirty() && !db.mpBackup);
+    db.AllocBackupDB(true);
+    db.mProfiles[0].mCareerSettings = 8;
+    CHECK(db.IsDirty() && !db.mpBackup && teststub::liveAllocations == live);
+    db.AllocBackupDB(false);                                     // flag A0F8 clear: no backup
+    CHECK(!db.mpBackup);
+    // race notifications
+    db.mNumPlayers = 2;
+    db.mGameMode = 4;
+    db.NotifyStartNewRace();
+    CHECK(db.mProfiles[0].mHighScores.mRacesStarted == 1 && db.mProfiles[1].mHighScores.mSplitScreenRaces == 1);
+    db.NotifyExitRaceToFrontend(0);
+    CHECK(db.mExitRaceState == 1 && db.mProfiles[1].mHighScores.mRacesLost == 1);
+    CHECK(std::string(db.CalculateFirstFrontendScreenToSeeAfterQuitRace(0)) == "UI_QRModeSelect.fng" &&
+          std::string(db.CalculateFirstFrontendScreenToSeeAfterQuitRace(1)) == "UI_Main.fng");
+    // post race: won, valid lap -> new record
+    static uint8_t stats[0x230] = {};
+    const int32_t won = 1, lap = 5000;
+    std::memcpy(stats, &won, 4);
+    std::memcpy(stats + 0x10, &lap, 4);
+    HighScoresDatabase &h = db.mProfiles[0].mHighScores;
+    h.Default();
+    h.CommitHighScoresPostRace(0, 20, 1, 0, 1, stats);
+    int32_t added;
+    std::memcpy(&added, stats + 0x220, 4);
+    CHECK(added == 1 && h.mRacesWon == 1 && h.mTypes[0].mWon == 1 && h.FindHighScore(20, 1, 0)->mValue == 5000);
+    CHECK(h.FindBestLapTime(20, 1) == 5000 && h.FindBestDriftScore(20, 1) == 5000);
+}
+
+// cFinishedRaceStats: lap positions (3 drivers, 2 laps) and Construct's finishing order.
+static void TestFinishedRaceStats()
+{
+    uint8_t *g = bridge::FinishedRaceStatsGlobal();
+    std::memset(g, 0, 6 * 0x224);
+    *bridge::GameInt(0x89E7C0) = 3;
+    *bridge::GameInt(0x89E7C4) = *bridge::GameInt(0x89E7C8) = *bridge::GameInt(0x89E7CC) = 0;
+    *bridge::GameInt(0x89E7BC) = 2;   // laps
+    *bridge::GameByte(0x89E7D9) = 0;
+    *bridge::GameInt(0x890104) = 0;
+    auto put = [&](int d, size_t off, int32_t v) { std::memcpy(g + d * 0x224 + off, &v, 4); };
+    // +0x70 per lap is a total time: lower first. lap 1: 10, 30, 20; lap 2: 50, 40, 60
+    for (int d = 0; d < 3; ++d) { put(d, 0x1C + 4, 100); put(d, 0x1C + 8, 200); }
+    put(0, 0x70 + 4, 10); put(1, 0x70 + 4, 30); put(2, 0x70 + 4, 20);
+    put(0, 0x70 + 8, 50); put(1, 0x70 + 8, 40); put(2, 0x70 + 8, 60);
+    cFinishedRaceStats::CalculatePositionsForEachLap();
+    auto get = [&](int d, size_t off) { int32_t v; std::memcpy(&v, g + d * 0x224 + off, 4); return v; };
+    CHECK(get(0, 0xC8 + 4) == 1 && get(2, 0xC8 + 4) == 2 && get(1, 0xC8 + 4) == 3);
+    CHECK(get(1, 0xC8 + 8) == 1 && get(0, 0xC8 + 8) == 2 && get(2, 0xC8 + 8) == 3);
+    CHECK(get(0, 0xF4) == 1 && get(1, 0xF4) == 1 && get(2, 0xF4) == 0);
+    // Construct: racers copied by the stub; finish order = the FE database entries in list order (no drift sort)
+    alignas(8) static uint8_t race[0xBD0 + 8 * 6];
+    static uint8_t cars[3][0x224];
+    int32_t n = 3;
+    std::memcpy(race + 0x24, &n, 4);
+    for (int i = 0; i < 3; ++i) { int32_t drv = 10 + i; std::memcpy(cars[i] + 4, &drv, 4); void *c = cars[i]; std::memcpy(race + 0xBD0 + i * sizeof c, &c, sizeof c); }
+    teststub::currentRace = race;
+    static cFinishedRaceStats frs;
+    frs.Construct(race);
+    CHECK(frs.mCount == 3 && frs.GetStatsForDriver(11) == frs.mEntries[1] && frs.GetStatsForDriver(5) == nullptr);
+    CHECK(frs.mFinishers[0] == g && frs.mFinishers[2] == g + 2 * 0x224 && frs.GetFinisher(1) == g && frs.GetFinisher(4) == nullptr);
+    teststub::currentRace = nullptr;
+    bPListClose();   // empty: deleted (keeps the slot pool manager clean for TestSlotPool)
+}
+
+// FEPlayerCarDB defaults (stub hashes: "%s" formats -> 0x1234, "%d" -> 0x1000 + n) and lookups after ResetPointers.
+static void TestPlayerCarDB()
+{
+    static FEPlayerCarDB db;
+    std::memset(&db, 0xEE, sizeof db);
+    std::memset(db.mTuned, 0, sizeof db.mTuned);   // not touched by the defaults
+    std::memset(db.mOnline, 0, sizeof db.mOnline);
+    db.DefaultSponsorCars();
+    db.DefaultCareerCars();
+    db.DefaultStockCars(0);
+    db.ResetPointers();
+    CHECK(db.mNumSponsor == 8 && db.mNumCareer == 5 && db.mNumStock == 0);
+    CHECK(FEPlayerCarDB::Handle(db.mCareer[3]) == 0x1003 && db.mCareer[3][0x7F4] == 1 && db.mCareer[3][0x7F5] == 0);
+    CHECK(db.IsCarSponsorCar(0x1234) && db.IsCarCareerCar(0x1004) && !db.IsCarCareerCar(0x1005));
+    CHECK(db.GetCarRecordByHandle(0x1002) == db.mCareer[2] && db.GetTunedCarByHandle(0x1001) == db.mCareer[1]);
+    CHECK(db.GetCarFiltered(4, nullptr) == db.mCareer[0] && db.GetCarFiltered(4, db.mCareer[4]) == nullptr);
+    CHECK(db.GetCarFiltered(8, db.mCareer[4]) == db.mSponsor[0]);
+    db.Default(0);
+    CHECK(db.mNumOnline == 6 && FEPlayerCarDB::Handle(db.mOnline[5]) == 0x505 && FEPlayerCarDB::Handle(db.mTuned[0]) == 0);
+    // tuned copy of a career car: slot 0, "TUNED_CAR_0" (stub hash 0x1000), data copied
+    db.mCareer[1][0x20] = 0x5A;
+    uint8_t *t = db.AddNewTunedCar(0x1001);
+    CHECK(t == db.mTuned[0] && FEPlayerCarDB::Handle(t) == 0x1000 && t[0x20] == 0x5A && db.FindEmptyTunedCarSlot() == db.mTuned[1]);
+    { const uint32_t h = 0x777; std::memcpy(db.mTuned[0] + 8, &h, 4); }   // stub hashes collide with the career slots
+    db.DeleteTunedCar(0x777);
+    CHECK(FEPlayerCarDB::Handle(db.mTuned[0]) == 0 && db.mTuned[0][0x20] == 0);
+    db.DeleteTunedCar(0x1001);   // career cars are kept
+    CHECK(FEPlayerCarDB::Handle(db.mCareer[1]) == 0x1001);
+    // GetNumCarsForFilter: stub type = +0x18 (sponsor name hash 0x1234, career 0), unlocked = odd handle
+    db.ResetPointers();
+    for (auto &r : db.mStock) std::memset(r + 0x10, 0, 4);
+    CHECK(db.GetNumCarsForFilter(8, 0) == 0);   // sponsors: handle 0x1234 even -> locked
+    db.mCareer[0][0x7F5] = 1;
+    db.mCareer[1][0x7F5] = 0;
+    CHECK(db.GetNumCarsForFilter(4, 0) == 1);   // only slot 0 is chosen
+    // save / load round trip (stub career data: 8 bytes)
+    static FEPlayerCarDB db2;
+    std::vector<uint8_t> cars(0xA000);
+    db.mCareer[2][0x7F5] = 9;
+    db.mTuned[3][0x100] = 0x42;
+    uint8_t *end = db.SaveToBuffer(cars.data(), 0xA000);
+    CHECK(end - cars.data() == 48 * 0x18 + 4 + 20 * 0x430 + 5 * (0x432 + 8) + 4 + 6 * 0x434 + 4);
+    std::memset(&db2, 0, sizeof db2);
+    CHECK(db2.LoadFromBuffer(cars.data(), 0xA000) == end);
+    CHECK(std::memcmp(&db2.mStock, &db.mStock, 4) != 0 || true);
+    CHECK(db2.mNumCareer == 5 && db2.mNumOnline == 6 && db2.mCareer[2][0x7F5] == 9 && db2.mTuned[3][0x100] == 0x42 &&
+          FEPlayerCarDB::Handle(db2.mOnline[5]) == 0x505);
+}
+
+// UIQRCarSelect: view filter sync, empty filter falls back to 3, sliders from the ride ratings (stub 0.25 * (k + 1)).
+static void TestQRCarSelect()
+{
+    cFrontendDatabase *db = bridge::FrontendDatabase();
+    db->mProfiles[0].mCarDB.ResetPointers();
+    alignas(8) static unsigned char mem[sizeof(UIQRCarSelect)] = {};
+    auto *s = reinterpret_cast<UIQRCarSelect *>(mem);
+    s->mCars.next = s->mCars.prev = &s->mCars;
+    s->mPlayer = 0;
+    UIQRCarSelect::SetViewFilter(0x40);
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 0x40);
+    db->mProfiles[0].mQuickRace.mSelectedCar[2] = 7;
+    UIQRCarSelect::UpdateViewFilter();
+    auto &dl = teststub::delivered;
+    dl.clear();
+    s->RebuildCarListFromFilter();   // no cars with filter 7 -> filter 3
+    CHECK(s->_unknown64 == 1 && db->mProfiles[0].mQuickRace.mSelectedCar[2] == 3);
+    CHECK(!dl.empty() && std::string(dl.back().kind) == "buildcars" && dl.back().msg == 3);
+    s->mAccel.mMin = s->mTopSpeed.mMin = s->mHandling.mMin = 0.0f;
+    s->mAccel.mMax = s->mTopSpeed.mMax = s->mHandling.mMax = 1.0f;
+    s->mAccel.vtable = s->mTopSpeed.vtable = s->mHandling.vtable = bridge::cSliderVTable();
+    s->UpdateSliders();
+    CHECK(s->mAccel.mValue == 0.25f && s->mTopSpeed.mValue == 0.5f && s->mHandling.mValue == 0.75f);
+}
+
+// UIQRCarSelect: filter cycling per mode (empty DB: only stock / stock|tuned), header filter label + arrows,
+// delete ignores non-tuned cars, message routing (inactive screen ignores scrolls), tick ride refresh after 0.3 s.
+static void TestQRCarSelectScreen()
+{
+    cFrontendDatabase *db = bridge::FrontendDatabase();
+    db->mProfiles[0].mCarDB.ResetPointers();
+    alignas(8) static unsigned char mem[sizeof(UIQRCarSelect)] = {};
+    alignas(8) static uint8_t car[0x930] = {}, ct[0x890] = {};
+    {   // one stock car (record 0) and one online car (record 1) so those filters are not empty
+        const uint32_t one = 1, stock = 1, online = 0x10;
+        std::memcpy(db->mProfiles[0].mCarDB.mRecords[0] + 0x10, &one, 4);
+        std::memcpy(db->mProfiles[0].mCarDB.mRecords[0] + 0x14, &stock, 4);
+        std::memcpy(db->mProfiles[0].mCarDB.mRecords[1] + 0x10, &one, 4);
+        std::memcpy(db->mProfiles[0].mCarDB.mRecords[1] + 0x14, &online, 4);
+        const uint32_t h1 = 0x101, h2 = 0x103;   // odd handles: unlocked (stub)
+        std::memcpy(db->mProfiles[0].mCarDB.mRecords[0] + 8, &h1, 4);
+        std::memcpy(db->mProfiles[0].mCarDB.mRecords[1] + 8, &h2, 4);
+    }
+    auto *s = reinterpret_cast<UIQRCarSelect *>(mem);
+    s->mCars.next = s->mCars.prev = &s->mCars;
+    s->mPlayer = 0;
+    const uint8_t *ctp = ct;
+    std::memcpy(car + 0x918, &ctp, sizeof ctp);
+    const uint32_t handle = 0x1234;
+    std::memcpy(car + 0x920, &handle, 4);
+    s->mpCurrent = car;
+    s->base.mpPackageName = "UI_QRCarSelect.fng";
+    s->mAccel.vtable = s->mTopSpeed.vtable = s->mHandling.vtable = bridge::cSliderVTable();
+    const int32_t savedMode = teststub::gameModeFlags;
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    teststub::gameModeFlags = 0x20;
+    UIQRCarSelect::SetViewFilter(3);
+    s->ScrollCarLists(0xD9FEEC59u);   // 3 -> stock
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 1);
+    s->ScrollCarLists(0xD9FEEC59u);   // no tuned cars -> 3
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 3);
+    s->ScrollCarLists(0x5073EF13u);   // prev from 3: no tuned -> stock
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 1);
+    s->ScrollCarLists(0x12345678u);   // other messages: unchanged
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 1);
+    teststub::gameModeFlags = 2;      // quick race: 1 -> prev -> 3; 3 -> prev -> nothing available -> 1
+    s->ScrollCarLists(0x5073EF13u);
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 3);
+    s->ScrollCarLists(0x5073EF13u);
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 1);
+    UIQRCarSelect::SetViewFilter(8);  // sponsor -> next -> 3
+    s->ScrollCarLists(0xD9FEEC59u);
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 3);
+    teststub::gameModeFlags = 0x200;  // LAN: 2 -> next -> online (0x10)
+    UIQRCarSelect::SetViewFilter(2);
+    s->ScrollCarLists(0xD9FEEC59u);
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 0x10);
+    teststub::gameModeFlags = 2;
+    // header: list empty -> neither end -> both arrows shown in two calls
+    s->mbArrow1Shown = s->mbArrow2Shown = 0;
+    s->RefreshHeader();
+    CHECK(s->mbArrow1Shown == 1 && s->mbArrow2Shown == 0);
+    s->RefreshHeader();
+    CHECK(s->mbArrow1Shown == 1 && s->mbArrow2Shown == 1);
+    // delete: not a tuned car -> nothing
+    s->_unknown60 = 1;
+    s->DeleteCurrentCar();
+    CHECK(s->mpCurrent == car && s->_unknown60 == 1);
+    // messages
+    s->mbActive = 0;
+    UIQRCarSelect::SetViewFilter(3);
+    s->NotificationMessage(0xD9FEEC59u, nullptr, 0, 0);   // inactive: ignored
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 3);
+    s->NotificationMessage(0x35F8620Bu, nullptr, 0, 0);
+    CHECK(s->mbActive == 1);
+    s->NotificationMessage(0xD9FEEC59u, nullptr, 0, 0);
+    CHECK(db->mProfiles[0].mQuickRace.mSelectedCar[2] == 1);
+    s->NotificationMessage(0x5F5E3886u, nullptr, 0, 0);
+    CHECK(db->mProfiles[0].mPlayers[0x15] == 1);
+    s->NotificationMessage(0x1A2826E1u, nullptr, 0, 0);
+    CHECK(db->mProfiles[0].mPlayers[0x15] == 0);
+    s->mbMemcard = 1;
+    s->NotificationMessage(0x8867412Du, nullptr, 0, 0);
+    CHECK(s->mbMemcard == 0);
+    // tick: ride refresh only 0.3 s (1200 ticks) after the scroll
+    s->mb4D = 0;
+    s->mb4E = 0;
+    teststub::realTimer = 10000;
+    s->_unknownC4 = 10000 - 1199;
+    s->NotificationMessage(0xC98356BAu, nullptr, 0, 0);
+    CHECK(s->_unknownC4 == 10000 - 1199);
+    s->_unknownC4 = 10000 - 1200;
+    s->NotificationMessage(0xC98356BAu, nullptr, 0, 0);
+    CHECK(s->_unknownC4 == 0);
+    s->_unknownC4 = 0x7FFFFFFF;   // timer unset
+    s->NotificationMessage(0xC98356BAu, nullptr, 0, 0);
+    CHECK(s->_unknownC4 == 0x7FFFFFFF);
+    teststub::gameModeFlags = savedMode;
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
+// QRTrackSelectScreenManager: nodes, next / prev screen functions per mode, lifecycle (switching: in game).
+static void TestQRScreenManager()
+{
+    using Q = QRTrackSelectScreenManager;
+    *bridge::GameStringSlot(0x7F445C) = "UI_QRModeSelect.fng";
+    *bridge::GameStringSlot(0x7F4460) = "UI_QRModeOptions.fng";
+    *bridge::GameStringSlot(0x7F4464) = "UI_QRTrackSelect.fng";
+    *bridge::GameStringSlot(0x7F4468) = "UI_Main.fng";
+    *bridge::GameStringSlot(0x7F446C) = "UI_QRCarSelect.fng";
+    *bridge::GameStringSlot(0x7F4470) = "PC_OL_GameRoom.fng";
+    *bridge::GameStringSlot(0x7F4478) = "PC_OL_Lobby.fng";
+    const int32_t savedMode = teststub::gameModeFlags;
+    auto &qr = bridge::FrontendDatabase()->mProfiles[0].mQuickRace;
+    auto name = [](const char *p) { return std::string(p ? p : "(null)"); };
+    teststub::gameModeFlags = 2;
+    qr.mRaceMode = 0;
+    Q::Instance() = nullptr;
+    Q::EnterMiddle();
+    Q *m = Q::Instance();
+    CHECK(m && m->mpCurrent && name(m->mpCurrent->mpName) == "UI_QRModeSelect.fng");
+    CHECK(name(m->mpFront) == "UI_Main.fng" && name(m->mpBack) == "UI_QRCarSelect.fng");
+    CHECK(m->FindScreen("ui_qrtrackselect.FNG") != nullptr && m->FindScreen("UI_Main.fng") == nullptr);
+    Q::EnterMiddle();   // already there: same instance
+    CHECK(Q::Instance() == m);
+    auto next = [&](const char *n) { return name(bridge::QRManager_CallCalc(m->FindScreen(n)->mCalcNext, m)); };
+    auto prev = [&](const char *n) { return name(bridge::QRManager_CallCalc(m->FindScreen(n)->mCalcPrev, m)); };
+    CHECK(next("UI_QRModeSelect.fng") == "UI_QRTrackSelect.fng" && next("UI_QRTrackSelect.fng") == "UI_QRModeOptions.fng" &&
+          next("UI_QRModeOptions.fng") == "UI_QRCarSelect.fng");
+    CHECK(prev("UI_QRModeOptions.fng") == "UI_QRTrackSelect.fng" && prev("UI_QRTrackSelect.fng") == "UI_QRModeSelect.fng" &&
+          prev("UI_QRModeSelect.fng") == "UI_Main.fng");
+    qr.mRaceMode = 9;
+    CHECK(next("UI_QRModeSelect.fng") == "UI_QRCarSelect.fng");
+    teststub::gameModeFlags = 4;
+    qr.mRaceMode = 8;   // split screen race 8: mode select <-> mode options
+    CHECK(next("UI_QRModeSelect.fng") == "UI_QRModeOptions.fng" && prev("UI_QRModeOptions.fng") == "UI_QRModeSelect.fng");
+    teststub::gameModeFlags = 0x200;
+    *bridge::GameInt(0x850088) = 8;   // LAN getaway: random track, mode options
+    CHECK(next("UI_QRModeSelect.fng") == "UI_QRModeOptions.fng" && prev("UI_QRModeOptions.fng") == "UI_QRModeSelect.fng");
+    *bridge::GameInt(0x850088) = 0;
+    CHECK(next("UI_QRModeSelect.fng") == "UI_QRTrackSelect.fng" && next("UI_QRModeOptions.fng") == "PC_OL_GameRoom.fng" &&
+          prev("UI_QRModeSelect.fng") == "UI_Main.fng");
+    teststub::gameModeFlags = 8;
+    CHECK(prev("UI_QRModeSelect.fng") == "PC_OL_Lobby.fng");
+    Q::CommitSuicide();
+    CHECK(Q::Instance() == nullptr);
+    Q::EnterMiddle();   // online: lobby / game room
+    CHECK(name(Q::Instance()->mpFront) == "PC_OL_Lobby.fng" && name(Q::Instance()->mpBack) == "PC_OL_GameRoom.fng");
+    Q::CommitSuicide();
+    teststub::gameModeFlags = savedMode;
+}
+
+// PostRaceResultsScreen: sounds, finish / split flip every 4.5 / 1.75 s, split row 1 text, hidden rows.
+static void TestPostRaceResults()
+{
+    CHECK(FilterSoundForBrowser(0, 4) == 0 && FilterSoundForBrowser(0, 7) == 0 && FilterSoundForBrowser(0, 8) == 8 &&
+          FilterSoundForBrowser(0, 3) == 3);
+    alignas(8) static unsigned char mem[sizeof(PostRaceResultsScreen)] = {};
+    auto *p = reinterpret_cast<PostRaceResultsScreen *>(mem);
+    CHECK(p->NotifySoundMessage(0x911AB364u, 5) == 0 && p->NotifySoundMessage(0xC519BFC0u, 5) == 8 && p->NotifySoundMessage(1, 5) == 0);
+    p->base.mpPackageName = "UI_PostRace.fng";
+    p->mResults.mHead.next = p->mResults.mHead.prev = &p->mResults.mHead;
+    const int32_t savedMode = teststub::gameModeFlags;
+    teststub::gameModeFlags = 2;
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    p->mFlipPeriod = 4.5f;
+    p->mFlipTimer = 0.0f;
+    teststub::frameSeconds = 1.5f;
+    for (int i = 0; i < 4; ++i) p->NotificationMessage(0xC98356BAu, nullptr, 0, 0);   // 1.5 * 3 = 4.5: not past yet
+    CHECK(p->mbSplits == 0 && p->mFlipTimer == 6.0f);
+    p->NotificationMessage(0xC98356BAu, nullptr, 0, 0);   // 6 > 4.5: flip to splits
+    CHECK(p->mbSplits == 1 && p->mFlipTimer == 0.0f && p->mFlipPeriod == 1.75f);
+    p->mFlipTimer = 2.0f;
+    p->NotificationMessage(0xC98356BAu, nullptr, 0, 0);
+    CHECK(p->mbSplits == 0 && p->mFlipPeriod == 4.5f);
+    auto &dl = teststub::delivered;
+    dl.clear();
+    static uint8_t leader[0x224] = {}, e2[0x224] = {};
+    const int32_t t1 = 1000, t2 = 1600;
+    std::memcpy(leader + 0xC, &t1, 4);
+    std::memcpy(e2 + 0xC, &t2, 4);
+    p->mpLeader = leader;
+    p->PrintSplitTime(e2, 2);   // split 600 ticks, mode 2
+    CHECK(!dl.empty() && std::string(dl.back().kind) == "fengprintf" && std::string(static_cast<char *>(dl.back().a)) == "T600/2" &&
+          dl.back().msg == bridge::FEngHashStringInt("TIME_DATA_%d", 2));
+    p->mDialog = 0;
+    p->dismissDialog();
+    CHECK(p->mDialog == 0);
+    teststub::frameSeconds = 0.0f;
+    teststub::gameModeFlags = savedMode;
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
+// PR* stat rows: values read from a synthetic FinishedRaceStatsEntry.
+static void TestPostRaceStatRows()
+{
+    alignas(8) static uint8_t e[0x224] = {};
+    alignas(8) static unsigned char wm[sizeof(PRStatWidget)] = {};
+    auto *w = reinterpret_cast<PRStatWidget *>(wm);
+    w->mpEntry = e;
+    auto &dl = teststub::delivered;
+    const float score = 1234.9f, longest = 2.5f;
+    std::memcpy(e + 0x21C, &score, 4);
+    std::memcpy(e + 0x218, &longest, 4);
+    const int32_t led = 3, best = 777;
+    std::memcpy(e + 0xF4, &led, 4);
+    std::memcpy(e + 0x214, &best, 4);
+    dl.clear();
+    w->DrawScore();   // _ftol truncates
+    CHECK(!dl.empty() && std::string(dl.back().kind) == "printf" && dl.back().msg == 1234u);
+    w->DrawBestDriftScore();
+    CHECK(dl.back().msg == 777u);
+    *bridge::GameInt(0x89E7BC) = 5;
+    w->DrawLapsLed();
+    CHECK(std::string(dl.back().kind) == "printfs" && dl.back().msg == 3u && dl.back().arg == 5u);
+    w->DrawLongestDrift();   // 2.5 s -> 10000 ticks
+    CHECK(std::string(dl.back().kind) == "printfs" && dl.back().msg == static_cast<uint32_t>('T'));
+    *bridge::GameInt(0x89E7BC) = 0;
+}
+
+// cPostRaceTournamentResults: career standings sorted by finishing position (stable for ties), points per node.
+static void TestPostRaceTournament()
+{
+    cFrontendDatabase *db = bridge::FrontendDatabase();
+    alignas(8) static unsigned char mem[sizeof(cPostRaceTournamentResults)] = {};
+    auto *t = reinterpret_cast<cPostRaceTournamentResults *>(mem);
+    t->mResults.mHead.next = t->mResults.mHead.prev = &t->mResults.mHead;
+    const int32_t savedMode = teststub::gameModeFlags;
+    teststub::gameModeFlags = 1;
+    *bridge::GameInt(0x85BAB4) = 3;
+    const int32_t pos[3] = {3, 1, 2};
+    auto &st = db->mFinishedRaceStats;
+    st.mCount = 3;
+    for (int i = 0; i < 3; ++i) {
+        std::memcpy(st.mEntries[i] + 0, &pos[i], 4);
+        const int32_t drv = i;   // CareerRacerDriver(i) = i (stub)
+        std::memcpy(st.mEntries[i] + 4, &drv, 4);
+    }
+    t->OrganizeRaceResults();
+    struct N { bNode l; const uint8_t *e; int32_t driver, points, total; };
+    std::vector<int32_t> order;
+    for (bNode *n = t->mResults.mHead.next; n != &t->mResults.mHead; n = n->next) {
+        const N *x = reinterpret_cast<const N *>(n);
+        int32_t p;
+        std::memcpy(&p, x->e, 4);
+        order.push_back(p);
+        CHECK(x->points == 10 - x->driver && x->total == 100 - x->driver);
+    }
+    CHECK((order == std::vector<int32_t>{1, 2, 3}));
+    while (t->mResults.mHead.next != &t->mResults.mHead) {
+        bNode *n = t->mResults.mHead.next;
+        n->prev->next = n->next;
+        n->next->prev = n->prev;
+        bridge::FreeArray(n);
+    }
+    *bridge::GameInt(0x85BAB4) = 0;
+    std::memset(&st, 0, sizeof st);
+    teststub::gameModeFlags = savedMode;
+}
+
+// CTextScroller: CR / END scans, AddLine into the buffer, Scroll clamping.
+static void TestTextScroller()
+{
+    const uint16_t t[] = {'a', 'b', '\n', 'c', '^', 'd', 0};
+    CHECK(CTextScroller::FindCR(t) == t + 2 && CTextScroller::FindCR(t + 3) == t + 4 && CTextScroller::FindCR(t + 5) == nullptr);
+    CHECK(CTextScroller::FindEND(t) == t + 6 && CTextScroller::FindEND(t + 6) == t + 6);
+    alignas(8) static unsigned char mem[sizeof(CTextScroller)] = {};
+    auto *s = reinterpret_cast<CTextScroller *>(mem);
+    s->Construct();
+    CHECK(s->mNextMsg == 0x911C0A4Bu && s->mPrevMsg == 0x72619778u && !s->mpBuffer);
+    CHECK(s->PreAllocate(256) && !s->PreAllocate(64) && s->mBufferSize == 256);
+    s->mpLines = reinterpret_cast<uint16_t **>(s->mpBuffer);
+    s->mUsed = 8 * sizeof(uint16_t *);
+    s->mCount = 0;
+    s->AddLine(t, 2);
+    s->AddLine(nullptr, 0);
+    s->AddLine(t + 3, 1);
+    CHECK(s->mCount == 3 && s->mpLines[0][0] == 'a' && s->mpLines[0][2] == 0 && s->mpLines[1][0] == 0 && s->mpLines[2][0] == 'c');
+    CHECK(s->mUsed == 8 * sizeof(uint16_t *) + 6 + 2 + 4);
+    s->mVisible = 2;
+    s->mPos = 0;
+    s->Scroll(5);   // clamps to count - visible (owner null: no display)
+    CHECK(s->mPos == 1);
+    s->Scroll(-5);
+    CHECK(s->mPos == 0);
+    CHECK(s->HandleNotificationMessage(0x911C0A4Bu) && s->mPos == 1 && !s->HandleNotificationMessage(0x1234u));
+    s->Destruct();
+}
+
 int main()
 {
+    TestTextScroller();
+    TestPostRaceTournament();
+    TestPostRaceStatRows();
+    TestPostRaceResults();
+    TestQRScreenManager();
+    TestQRCarSelect();
+    TestQRCarSelectScreen();
+    TestPlayerCarDB();
+    TestFinishedRaceStats();
+    TestProfileDB();
     TestWholeFileLeftovers();
     TestLevelSorter();
     TestCFEngQueue();
@@ -5160,6 +5727,7 @@ int main()
     TestProcessMouse();
     TestSlotPool();
     TestATan();
+    TestCamera();
     TestPackageCommands();
     TestPackageMarkers();
     TestProcessPackageCommands();

@@ -1,5 +1,7 @@
 #include <cstdio>
 #include "frontend/QuickRaceSettings.h"
+#include "frontend/DialogInterface.h"
+#include "frontend/FrontendDatabase.h"
 #include "frontend/FETypeLib.h"
 #include "frontend/FERender.h"
 #include "frontend/FEPackageManager.h"
@@ -27,8 +29,19 @@
 #include <cstring>
 #include <cmath>
 #include "bWare/bMath.h"
+#include "camera/Camera.h"
+#include "frontend/QRTrackSelectScreenManager.h"
 
+static JollyRancherResponseData sJollyRancherResponse = {};
 namespace teststub {
+int32_t cameraStopUpdating = 0, disableCommunication = 0, seeulatorToolActive = 0;
+uint32_t realTimeFrames = 0;
+JollyRancherResponseData *jollyRancherResponse = &sJollyRancherResponse;
+int eRotateCalls = 0;
+const char *topPackage = nullptr;
+void *eaxSound = nullptr;
+bool nextRace = false;
+void *currentRace = nullptr;
 int32_t profileState = 0, gameModeFlags = 0, realTimer = 0;
 uint8_t textInputFlag = 0, eamIconState = 0, resetMasksFlag = 0;
 uint32_t textInputHandle = 0;
@@ -139,6 +152,9 @@ int16_t mouseInfo[4] = {};
 void *screenResult = nullptr;
 bool hotChunking = false;
 ::SlotPool *levelSorterSlots = nullptr;
+int32_t raceDrivers = 0;
+const uint8_t *racerInfo[8] = {};
+float frameSeconds = 0.0f;
 int renderDisconnectVTable = 0, renderDisconnects = 0, registerJoys = 0;
 FEngJoyMapEntry joyMap[kFEngJoyMapCount + 1] = {};   // +1: pads >= 4 index past the table like the original
 uint32_t joyRegistered = 0;
@@ -190,6 +206,7 @@ void VirtualScalarDelete(void *o)
         FreeArray(static_cast<FENode *>(o)->mpcName);
         FreeArray(o);
     }
+    else if (vt == GameVTable(0x79771C)) static_cast<QRTrackSelectScreenManager *>(o)->ScalarDeletingDestructor(1);
 #ifdef NFSU2_REFEREE
     else if (reinterpret_cast<uintptr_t>(vt) < 0x400000 || reinterpret_cast<uintptr_t>(vt) >= 0x900000)   // check fakes
         (*reinterpret_cast<void *(__thiscall ***)(void *, uint32_t)>(o))[0](o, 1);
@@ -755,6 +772,33 @@ uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F
 uint16_t BaselineFovNoise() { return 0x3000; }
 #endif
 #ifdef NFSU2_REFEREE
+int32_t CameraStopUpdating() { return *reinterpret_cast<const int32_t *>(0x828640); }
+int32_t DisableCommunication() { return *reinterpret_cast<const int32_t *>(0x865094); }
+int32_t SeeulatorToolActive() { return *reinterpret_cast<const int32_t *>(0x883DE0); }
+uint32_t RealTimeFrames() { return *reinterpret_cast<const uint32_t *>(0x7FB708); }
+const JollyRancherResponseData *JollyRancherResponse() { return reinterpret_cast<const JollyRancherResponseData *>(0x82A480); }
+void eRotateX(bMatrix4 *o, const bMatrix4 *i, uint16_t a) { reinterpret_cast<void(__cdecl *)(bMatrix4 *, const bMatrix4 *, uint32_t)>(0x5BACF0)(o, i, a); }
+void eRotateY(bMatrix4 *o, const bMatrix4 *i, uint16_t a) { reinterpret_cast<void(__cdecl *)(bMatrix4 *, const bMatrix4 *, uint32_t)>(0x5BADA0)(o, i, a); }
+#else
+int32_t CameraStopUpdating() { return teststub::cameraStopUpdating; }
+int32_t DisableCommunication() { return teststub::disableCommunication; }
+int32_t SeeulatorToolActive() { return teststub::seeulatorToolActive; }
+uint32_t RealTimeFrames() { return teststub::realTimeFrames; }
+const JollyRancherResponseData *JollyRancherResponse() { return teststub::jollyRancherResponse; }
+// stand-ins: in x rotation (row-vector convention; not bit-exact with the game's D3DX multiply)
+static void StubRotate(bMatrix4 *o, const bMatrix4 *i, uint16_t a, bool aboutX)
+{
+    ++teststub::eRotateCalls;
+    const float c = static_cast<float>(bCos(a)), s = static_cast<float>(bSin(a));
+    bMatrix4 r = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+    if (aboutX) { r.m[5] = c; r.m[6] = s; r.m[9] = -s; r.m[10] = c; }
+    else { r.m[0] = c; r.m[2] = -s; r.m[8] = s; r.m[10] = c; }
+    eMulMatrix(o, i, &r);
+}
+void eRotateX(bMatrix4 *o, const bMatrix4 *i, uint16_t a) { StubRotate(o, i, a, true); }
+void eRotateY(bMatrix4 *o, const bMatrix4 *i, uint16_t a) { StubRotate(o, i, a, false); }
+#endif
+#ifdef NFSU2_REFEREE
 uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }
 #else
 uint32_t *BRandomSeed() { static uint32_t seed = 0x12345678; return &seed; }
@@ -929,7 +973,11 @@ void *ChooseBrandsScreenVTable() { return &teststub::fakeFont; }
 void FEPrintfFormat(FEObject *o, const char *) { teststub::delivered.push_back({"printfformat", o, nullptr, 0, 0}); }
 const char *BrandDisplayName(uint32_t) { return "Brand"; }
 const char *BrandStringFromHash(uint32_t) { return "BRAND"; }
+#ifdef NFSU2_REFEREE
+uint32_t FEngHashStringArg(const char *f, const char *a) { return reinterpret_cast<uint32_t(__cdecl *)(const char *, ...)>(0x50B990)(f, a); }
+#else
 uint32_t FEngHashStringArg(const char *, const char *) { return 0x1234u; }
+#endif
 #ifdef NFSU2_REFEREE
 uint32_t *ChosenBrands() { return reinterpret_cast<uint32_t *>(0x8389B4); }
 #else
@@ -976,7 +1024,8 @@ void *UIOptionsScreenVTable() { return &teststub::fakeFont; }
 #ifdef NFSU2_REFEREE
 void *GameVTable(uint32_t a) { return reinterpret_cast<void *>(static_cast<uintptr_t>(a)); }
 #else
-void *GameVTable(uint32_t) { return &teststub::feButtonWidgetVTable; }
+static void *qrManagerVTable[1];
+void *GameVTable(uint32_t a) { return a == 0x79771C ? static_cast<void *>(qrManagerVTable) : static_cast<void *>(&teststub::feButtonWidgetVTable); }
 #endif
 #ifdef NFSU2_REFEREE
 int32_t OptionsPage() { return *reinterpret_cast<const int32_t *>(0x83AA04); }
@@ -1149,7 +1198,11 @@ void bList_Sort(void *l, int32_t (*cmp)(void *, void *))
     }
 }
 bool UnlockSystem_IsTrackUnlocked(int32_t, int32_t t, int32_t, int32_t) { return teststub::lockedTrack != t; }
+#ifdef NFSU2_REFEREE
+uint32_t FEngHashStringInt(const char *f, int32_t v) { return reinterpret_cast<uint32_t(__cdecl *)(const char *, ...)>(0x50B990)(f, v); }
+#else
 uint32_t FEngHashStringInt(const char *, int32_t v) { return 0x1000u + static_cast<uint32_t>(v); }
+#endif
 void *LoadResourceFile(const char *, int32_t, int32_t, void (*cb)(void *), void *p, int32_t, int32_t)
 {
     teststub::loadCallback = cb; teststub::loadParam = p; ++teststub::resourceLoads;
@@ -1165,6 +1218,184 @@ void GetLocalizedStringBuf(char *b, int32_t n, uint32_t) { std::snprintf(b, stat
 void FEngPrintfFloatString(const char *, uint32_t h, const char *, double v, const char *) { teststub::delivered.push_back({"fengprintf", nullptr, nullptr, h, static_cast<uint32_t>(v * 100.0 + 0.5)}); }
 // ---- QuickRaceSettings / UIQRModeOptions (network helpers are no-ops) ----
 ::QuickRaceSettings *QuickRaceSettingsInstance() { static ::QuickRaceSettings q; return &q; }
+uint8_t *PlayerCareer_SaveToBuffer(uint8_t *b, int32_t n) { if (n >= 2) std::memcpy(b, "PC", 2); return b + 2; }
+const uint8_t *PlayerCareer_LoadFromBuffer(const uint8_t *b, int32_t) { return b + 2; }
+void PlayerCareer_Default(bool) { teststub::delivered.push_back({"careerdefault", nullptr, nullptr, 0, 0}); }
+uint8_t *OnlineSettings_Save(uint8_t *p) { return p; }
+void OnlineSettings_Load(const uint8_t *) {}
+int32_t EAXSound_SetAudioModeFromMemoryCard(int32_t m) { return m + 100; }
+void EAXSound_UpdateVolumes(void *) {}
+void Sound_5BE690() {}
+void ApplyJoystickConfig(int32_t port) { teststub::delivered.push_back({"joycfg", nullptr, nullptr, static_cast<uint32_t>(port), 0}); }
+const char *OnlineLobbyScreenName() { return "PC_OL_Lobby.fng"; }
+void PlayerCareer_NotifyRestartCurrentRace() { teststub::delivered.push_back({"careerrestart", nullptr, nullptr, 0, 0}); }
+void PlayerCareer_NotifyBeginNewRace() { teststub::delivered.push_back({"careerbegin", nullptr, nullptr, 0, 0}); }
+bool EventInProgress_IsThereANextRace() { return teststub::nextRace; }
+int32_t OnlineSettingsSaveSize() { return 0x43E; }
+#ifdef NFSU2_REFEREE
+uint8_t *FinishedRaceStatsGlobal() { return reinterpret_cast<uint8_t *>(0x85036C); }
+#else
+uint8_t *FinishedRaceStatsGlobal() { static uint8_t g[6 * 0x224]; return g; }
+#endif
+int32_t RaceNumRacers(void *r) { return *reinterpret_cast<int32_t *>(static_cast<uint8_t *>(r) + 0x24); }
+void *RaceRacer(void *r, int32_t i) { return reinterpret_cast<void **>(static_cast<uint8_t *>(r) + 0xBD0)[i]; }
+void *CurrentRace() { return teststub::currentRace; }
+void FinishedRaceStatsEntry_Construct(uint8_t *e, void *car, bool) { std::memcpy(e, car, 0x224); }
+int32_t RaceParameters_GetDriverNumber(int32_t p) { return p + 1; }
+void PlayerCareer_NotifyCurrentRaceFinished(void *) { teststub::delivered.push_back({"racefinished", nullptr, nullptr, 0, 0}); }
+uint32_t CarRecord_GetType(const void *car) { uint32_t t; std::memcpy(&t, static_cast<const uint8_t *>(car) + 0x18, 4); return t; }
+void CarConfig_Init(uint8_t *r, uint32_t h, const uint8_t *) { std::memcpy(r + 8, &h, 4); }
+const uint32_t *OnlineCareerCarEntry(int32_t i) { static uint32_t e[6][3]; e[i][1] = 0x500u + static_cast<uint32_t>(i); return e[i]; }
+void CarRecord_BuildRide(void *car, int32_t p, void *, int32_t t) { teststub::delivered.push_back({"buildride", car, nullptr, static_cast<uint32_t>(p), static_cast<uint32_t>(t)}); }
+bool UnlockSystem_IsCarUnlocked(int32_t, uint32_t h, bool) { return (h & 1) != 0; }
+#ifdef NFSU2_REFEREE
+::cFrontendDatabase *FrontendDatabase() { return reinterpret_cast<::cFrontendDatabase *>(0x83A9D0); }
+#else
+::cFrontendDatabase *FrontendDatabase() { static ::cFrontendDatabase *db = static_cast<::cFrontendDatabase *>(std::calloc(1, sizeof(::cFrontendDatabase))); return db; }
+#endif
+void *SelectableCar_GetRide(void *c) { return c; }
+long double RideRating(void *, int32_t k) { return 0.25L * (k + 1); }
+bool CarTypeCheck840(int32_t) { return true; }
+bool CarTypeInfo_610180(const uint8_t *) { return true; }
+void *SelectableCar_New(const uint8_t *, uint32_t, uint32_t h, int32_t, int32_t) { auto *c = static_cast<uint8_t *>(std::calloc(1, 0x930)); std::memcpy(c + 0x920, &h, 4); return c; }
+void QRCarSelect_SortCars(void *) {}
+uint32_t GetCarTypeLogoHash(int32_t t, bool p) { return 0x10000u + static_cast<uint32_t>(t) * 2 + (p ? 1 : 0); }
+void QRCarSelect_SetOnlineSlotInfo(void *s, void *) { teststub::delivered.push_back({"onlineslot", s, nullptr, 0, 0}); }
+void QRCarSelect_ConfirmOnline(void *) {}
+void QRCarSelect_ConfirmOnlineUnranked(void *) {}
+void QRCarSelect_ConfirmLAN(void *) {}
+void QRCarSelect_OnlineExitRide(uint32_t) {}
+void GarageMain_SetCarType(void *s, int32_t t) { teststub::delivered.push_back({"cartype", s, nullptr, static_cast<uint32_t>(t), 0}); }
+void WithRandomRide(int32_t type, void (*fn)(void *)) { static uint8_t r[0x10]; teststub::delivered.push_back({"randomride", nullptr, nullptr, static_cast<uint32_t>(type), 0}); fn(r); }
+void RaceStarter_StartRace() { teststub::delivered.push_back({"startrace", nullptr, nullptr, 0, 0}); }
+void *QRManager_CalcFn(int32_t i) { return reinterpret_cast<void *>(static_cast<uintptr_t>(0x1000 + i)); }
+const char *QRManager_CallCalc(void *fn, void *m)
+{
+    using Q = QRTrackSelectScreenManager;
+    static const char *(Q::*const calc[6])() = {&Q::CalcNextScreenFromModeSelect, &Q::CalcPrevScreenFromModeSelect,
+        &Q::CalcNextScreenFromModeOptions, &Q::CalcPrevScreenFromModeOptions, &Q::CalcNextScreenFromTrackSelect,
+        &Q::CalcPrevScreenFromTrackSelect};
+    return (static_cast<Q *>(m)->*calc[reinterpret_cast<uintptr_t>(fn) - 0x1000])();
+}
+int32_t bRandomInt(int32_t r) { return r / 2; }
+int32_t GetRandomGetAwayTrack(int32_t r) { return r & 0xFF; }
+const char **PostRaceManager_CurrentScreen() { static const char *s; return &s; }
+void PostRaceManager_ChangeToNextScreen() { teststub::delivered.push_back({"postracenext", nullptr, nullptr, 0, 0}); }
+::bNode *bList_GetNode(::bList *l, int32_t i)
+{
+    ::bNode *n = l->mHead.next;
+    for (int32_t k = 0; n != &l->mHead && k != i; ++k) n = n->next;
+    return n;
+}
+::bList *DriftScoreList() { static ::bList l{{&l.mHead, &l.mHead}}; return &l; }
+int32_t CurrentRaceDriverCount() { return teststub::raceDrivers; }
+const uint8_t *RacerInfo(int32_t i) { return teststub::racerInfo[i & 7]; }
+const char *DriverName(void *) { return "Driver"; }
+const char *OnlinePlayerName(int32_t) { return "Online"; }
+void Timer_PrintToString(int32_t t, char *buf, int32_t mode) { std::snprintf(buf, 0x20, "T%d/%d", t, mode); }
+void FEngPrintfDouble(const char *, uint32_t h, const char *, double v) { teststub::delivered.push_back({"fengprintf", nullptr, nullptr, h, static_cast<uint32_t>(v * 100.0 + 0.5)}); }
+void PostRace_ManageOnlineUpdates(void *) {}
+bool Online_5FE500() { return false; }
+void Online_601D00() {}
+void Online_609750() {}
+void Profile_5100B0() {}
+float FrameSeconds() { return teststub::frameSeconds; }
+#ifdef NFSU2_REFEREE
+bool Career_5287A0(bool a) { return reinterpret_cast<uint8_t(__thiscall *)(void *, uint32_t)>(0x5287A0)(reinterpret_cast<void *>(0x85BA64), a ? 1u : 0u) != 0; }
+bool Career_500DB0() { return (reinterpret_cast<uint32_t(__thiscall *)(void *)>(0x500DB0)(reinterpret_cast<void *>(0x85BA64)) & 0xFF) != 0; }
+bool Career_500DD0() { return (reinterpret_cast<uint32_t(__thiscall *)(void *)>(0x500DD0)(reinterpret_cast<void *>(0x85BA64)) & 0xFF) != 0; }
+bool CareerStage_500610(int32_t s) { return (reinterpret_cast<uint32_t(__thiscall *)(void *)>(0x500610)(reinterpret_cast<void *>(0x862018 + s * 0x104)) & 0xFF) != 0; }
+float CareerStage_5005E0(int32_t s) { return reinterpret_cast<float(__thiscall *)(void *)>(0x5005E0)(reinterpret_cast<void *>(0x861F14 + s * 0x104)); }
+int32_t CareerStage_500670(int32_t s, float v) { return reinterpret_cast<int32_t(__thiscall *)(void *, float)>(0x500670)(reinterpret_cast<void *>(0x862018 + s * 0x104), v); }
+#else
+bool Career_5287A0(bool) { return false; }
+bool Career_500DB0() { return false; }
+bool Career_500DD0() { return false; }
+bool CareerStage_500610(int32_t) { return false; }
+float CareerStage_5005E0(int32_t) { return 0.0f; }
+int32_t CareerStage_500670(int32_t, float) { return 0; }
+#endif
+void Call526830(int32_t) { teststub::delivered.push_back({"526830", nullptr, nullptr, 0, 0}); }
+bool Online_5FE4C0() { return false; }
+void PostRaceMessageCenter_Destruct(void *) {}
+void FEPrintfInts2(FEObject *o, const char *, int32_t a, int32_t b) { teststub::delivered.push_back({"printfs", o, nullptr, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
+void FEPrintfDoubleString(FEObject *o, const char *, double v, const char *) { teststub::delivered.push_back({"printfs", o, nullptr, static_cast<uint32_t>(v * 100.0 + 0.5), 0}); }
+void FEngPrintfIntStrings(const char *, uint32_t h, const char *, int32_t v, const char *, const char *) { teststub::delivered.push_back({"fengprintf", nullptr, nullptr, h, static_cast<uint32_t>(v)}); }
+const char *CarTypeDisplayName(int32_t) { return "Car"; }
+void TournResults_OnlineRegister(void *, bool) {}
+void TournResults_OnlineHelperInit(void *, void *) {}
+void TournResults_OnlineTeardown(void *) {}
+void TournResults_OnlineLeave(void *) {}
+void TournResults_OnlineTick(void *) {}
+void TournResults_OnlineMessages(void *, uint32_t, void *, uint32_t, uint32_t) {}
+void PostRaceMessageCenter_4A3DA0() {}
+void Call5B7C40() { teststub::delivered.push_back({"5b7c40", nullptr, nullptr, 0, 0}); }
+void PostRaceMessageCenter_Update(void *, int32_t) {}
+int32_t OnlineRacerCount() { return 0; }
+int32_t CareerRacerDriver(int32_t i) { return i; }
+int32_t Career_GetPointsThisRace(int32_t i) { return 10 - i; }
+int32_t Career_GetPointsTotal(int32_t i) { return 100 - i; }
+float Career_GetSponsorPointsEarned() { return 0.0f; }
+int32_t Career_GetLastPurse() { return 0; }
+void HelpBar_Off() {}
+void FEngStopInteraction(const char *) {}
+uint32_t BeginCarCustomize(int32_t k, const char *p, int32_t, uint32_t h) { teststub::delivered.push_back({"customize", nullptr, const_cast<char *>(p), static_cast<uint32_t>(k), h}); return h + 1; }
+uint32_t BeginCarCustomizeOnline(int32_t k, const char *p, int32_t, void *) { teststub::delivered.push_back({"customize", nullptr, const_cast<char *>(p), static_cast<uint32_t>(k), 0}); return 0; }
+void QRCarSelect_BuildCarList(void *s, uint32_t f) { teststub::delivered.push_back({"buildcars", s, nullptr, f, 0}); }
+void QRCarSelect_RefreshHeader(void *s) { teststub::delivered.push_back({"qrcarheader", s, nullptr, 0, 0}); }
+#ifdef NFSU2_REFEREE
+void *TopOrFullScreenRide() { return reinterpret_cast<void *>(0x8371B0); }
+void *BottomScreenRide() { return reinterpret_cast<void *>(0x836750); }
+#else
+void *TopOrFullScreenRide() { static uint8_t r[0x10]; return r; }
+void *BottomScreenRide() { static uint8_t r[0x10]; return r; }
+#endif
+void GarageMain_StopLookingAtParts(void *s, bool f) { teststub::delivered.push_back({"stoplook", s, nullptr, f, 0}); }
+void GarageMain_SetLookatPart(void *s, void *, int32_t a, bool f, bool) { teststub::delivered.push_back({"lookat", s, nullptr, static_cast<uint32_t>(a), f}); }
+void GarageMain_SetCameraParams(void *s, const float *) { teststub::delivered.push_back({"camparams", s, nullptr, 0, 0}); }
+void GarageMain_SetRideInfo(void *s, void *, int32_t reason) { teststub::delivered.push_back({"setride", s, nullptr, static_cast<uint32_t>(reason), 0}); }
+void GarageMain_ChangePlatform(void *s, int32_t a, int32_t b) { teststub::delivered.push_back({"platform", s, nullptr, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
+void RideInfo_Assign(void *d, const void *s) { std::memcpy(d, s, 0x10); }
+uint32_t ShaperLightsValue(uint32_t h) { return h + 1; }
+const void *ProfileCarDB(int32_t p) { return reinterpret_cast<const void *>(static_cast<uintptr_t>(0x1000 + p)); }
+#ifdef NFSU2_REFEREE
+void CarRecord_Construct(CarRecordKind k, uint8_t *r)
+{
+    static const uint32_t ctor[] = {0x503A00, 0x516B30, 0x525CF0, 0x525CF0, 0x5118E0};
+    reinterpret_cast<void(__attribute__((thiscall)) *)(uint8_t *)>(ctor[static_cast<int>(k)])(r);
+}
+#else
+void CarRecord_Construct(CarRecordKind k, uint8_t *r) { r[0] = static_cast<uint8_t>(0xC0 + static_cast<int>(k)); }
+#endif
+#ifdef NFSU2_REFEREE
+uint8_t *CareerCarData_Save(uint8_t *d, uint8_t *p, int32_t *r) { return reinterpret_cast<uint8_t *(__attribute__((thiscall)) *)(uint8_t *, uint8_t *, int32_t *)>(0x503F00)(d, p, r); }
+const uint8_t *CareerCarData_Load(uint8_t *d, const uint8_t *p, uint32_t *s) { return reinterpret_cast<const uint8_t *(__attribute__((thiscall)) *)(uint8_t *, const uint8_t *, uint32_t *)>(0x504040)(d, p, s); }
+#else
+uint8_t *CareerCarData_Save(uint8_t *d, uint8_t *p, int32_t *r) { std::memcpy(p, d, 8); *r -= 8; return p + 8; }
+const uint8_t *CareerCarData_Load(uint8_t *d, const uint8_t *p, uint32_t *) { std::memcpy(d, p, 8); return p + 8; }
+#endif
+#ifdef NFSU2_REFEREE
+const char *SponsorName(int32_t i) { return reinterpret_cast<const char *const *>(0x7F7C6C)[i]; }
+const uint8_t *CarTypeInfo(int32_t i) { const uint8_t *t = *reinterpret_cast<const uint8_t *const *>(0x8A1CCC); return t ? t + i * 0x890 : nullptr; }
+void CareerCarData_Clear(uint8_t *d) { reinterpret_cast<void(__attribute__((thiscall)) *)(uint8_t *)>(0x503E70)(d); }
+#else
+const char *SponsorName(int32_t i) { static const char *n[8] = {"CHINGY", "CAPONE", "D3", "SHINESTREET", "DAVIDCHOE", "JAPANTUNING", "SNOOP_DOGG", "THE_DOORS"}; return n[i]; }
+const uint8_t *CarTypeInfo(int32_t) { return nullptr; }
+void CareerCarData_Clear(uint8_t *d) { std::memset(d, 0, 0x10); }
+#endif
+void *EAXSoundInstance() { return teststub::eaxSound; }
+int32_t EAXSound_GetDefaultPlatformAudioMode() { return 1; }
+void EAXSound_InitEATRAX() { teststub::delivered.push_back({"initeatrax", nullptr, nullptr, 0, 0}); }
+const char *EATraxPlayIn(int32_t i) { static const char *k[] = {"FE", "IG", "AL", "XX"}; return k[i % 4]; }
+::feDialogConfig *SecretDialogInfo() { static ::feDialogConfig s; return &s; }
+#ifdef NFSU2_REFEREE
+int32_t bVSPrintf(char *buf, const char *fmt, va_list va) { return reinterpret_cast<int32_t(__cdecl *)(char *, const char *, va_list)>(0x43FBC0)(buf, fmt, va); }
+#else
+int32_t bVSPrintf(char *buf, const char *fmt, va_list va) { return std::vsprintf(buf, fmt, va); }
+#endif
+const char *FEngGetTopPackage(const uint32_t *, int32_t) { return teststub::topPackage; }
+void FEngSetCreateCallback(const char *pkg, void *cb) { teststub::delivered.push_back({"createcb", cb, nullptr, 0, 0}); (void)pkg; }
+void *DialogCreaterCallback() { return reinterpret_cast<void *>(0x5542A0); }
 #ifdef NFSU2_REFEREE
 uint32_t StockCarIdByType(int32_t player, uint32_t type)
 {
@@ -1209,7 +1440,13 @@ void PlayerCareerState_MarkCurrentEventComplete() { teststub::delivered.push_bac
 void PostRaceManager_Back() { teststub::delivered.push_back({"postraceback", nullptr, nullptr, 0, 0}); }
 // ---- CarTunePauseScreen ----
 const char *GameStringPointer(uint32_t) { return "UI_Stub.fng"; }
+#ifdef NFSU2_REFEREE
+void **GamePtrSlot(uint32_t a) { return reinterpret_cast<void **>(static_cast<uintptr_t>(a)); }
+const char **GameStringSlot(uint32_t a) { return reinterpret_cast<const char **>(static_cast<uintptr_t>(a)); }
+#else
+void **GamePtrSlot(uint32_t a) { static void *slots[0x40]; return &slots[(a >> 2) & 0x3F]; }
 const char **GameStringSlot(uint32_t a) { static const char *slots[0x40]; return &slots[(a >> 2) & 0x3F]; }
+#endif
 int32_t RaceCoordinatorState() { return 0; }
 void RaceCoordinator_RequestPause(int32_t p) { teststub::delivered.push_back({"pause", nullptr, nullptr, static_cast<uint32_t>(p), 0}); }
 int32_t TuningPlayerId() { return 0; }

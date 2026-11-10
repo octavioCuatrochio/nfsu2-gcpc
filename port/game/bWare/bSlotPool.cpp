@@ -234,7 +234,7 @@ void bPListInit(int32_t numSlots)
 {
     SlotPool **pool = bridge::BPNodeSlotPool();
     if (*pool) return;
-    *pool = bNewSlotPool(0xC, numSlots, "bPNode SlotPool", 0);
+    *pool = bNewSlotPool(static_cast<int32_t>(3 * sizeof(void *)), numSlots, "bPNode SlotPool", 0);   // PC 0xC (next, prev, data)
     *bridge::BPListWantToClose() = 0;
 }
 
