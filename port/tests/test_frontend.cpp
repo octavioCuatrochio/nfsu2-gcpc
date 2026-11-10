@@ -1759,6 +1759,19 @@ static void TestCodeListBox()
     lb->mfPulse = 0.5f;
     FECodeListBox::DefaultSelectCallback(lb);
     CHECK(lb->mColor.c[3] == 127);
+    // Clone: same grid, flags 1-3, texts copied into its own pool, image data for type 1
+    lb->mu32Flags = 1 | 2 | 8;
+    lb->AllocateStrings(4, 6);
+    lb->mpCells[0].mu32Type = 2;
+    lb->mpCells[0].mpText = lb->mppStrings[lb->mu32StringsUsed++];
+    { const uint16_t w[] = {'h', 'i', 0}; std::memcpy(lb->mpCells[0].mpText, w, sizeof w); }
+    lb->mpCells[1].mu32Type = 1;
+    lb->mpCells[1].mData[2] = 0x1234;
+    FECodeListBox *copy = lb->Clone(false);
+    CHECK(copy && copy->mu32NumColumns == lb->mu32NumColumns && copy->mu32NumRows == lb->mu32NumRows && copy->mu32Flags == (1u | 2u | 8u));
+    CHECK(copy->mpCells[0].mpText != lb->mpCells[0].mpText && copy->mpCells[0].mpText[1] == 'i' && copy->mu32StringsUsed == 1);
+    CHECK(copy->mpCells[1].mData[2] == 0x1234 && copy->mpGameInterface == lb->mpGameInterface && copy->mfPulse == 1.0f);
+    bridge::VirtualScalarDelete(copy);
     // Update: pulse bounces between 0 and 1
     lb->mpSelectCallback = nullptr;
     lb->mfPulse = 0.5f; lb->mfPulseRate = -0.25f;

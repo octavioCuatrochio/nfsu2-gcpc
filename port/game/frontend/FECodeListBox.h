@@ -73,6 +73,13 @@ struct FECodeListBox {
     bool ScrollSelection(int32_t dx, int32_t dy);
     // GC 8013ED74 / PC 518E20 (__cdecl, mpDefaultCallback): color alpha = _ftol(pulse * 255).
     static void DefaultSelectCallback(FECodeListBox *lb);
+    // GC 8013E2D8 / PC 5352D0 (ret 4): flags (bits 1-3), view, totals, Initialize to src's grid, new string pool like
+    // src's, then each cell's fields; texts are copied into pool strings (unbounded copy). A text cell whose source
+    // text is null stops the copy there (the original returns early).
+    void CopyProperties(const FECodeListBox &src);
+    // GC 8013E1F0 / PC 554710 (ret 8) and GC 8013E794 / PC 554830 (vtable slot 1, ret 4).
+    static FECodeListBox *CopyConstruct(void *mem, const FECodeListBox &src, bool reference);
+    FECodeListBox *Clone(bool reference) const;
 };
 
 // PC 504790 (__cdecl): modulo that is positive for negative values (n - (-v % n), so a multiple gives n; n <= 1 -> 0).

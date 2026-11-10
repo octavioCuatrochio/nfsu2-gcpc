@@ -355,3 +355,82 @@ void FECodeListBox::DefaultSelectCallback(FECodeListBox *lb)
     const long double a = static_cast<long double>(lb->mfPulse) * 255.0L;   // x87, then _ftol (truncate)
     lb->mColor.c[3] = static_cast<int32_t>(a);
 }
+
+void FECodeListBox::CopyProperties(const FECodeListBox &src)
+{
+    mu32Flags |= src.mu32Flags & 0xE;
+    mfViewWidth = src.mfViewWidth;
+    mfViewHeight = src.mfViewHeight;
+    mu32TotalColumns = src.mu32TotalColumns;
+    mu32TotalRows = src.mu32TotalRows;
+    Initialize(src.mu32NumColumns, src.mu32NumRows);
+    if (mpStringBuffer) {
+        bridge::FreeArray(mpStringBuffer);
+        mpStringBuffer = nullptr;
+    }
+    if (mppStrings) {
+        bridge::FreeArray(mppStrings);
+        mppStrings = nullptr;
+    }
+    mu32NumStrings = mu32StringsUsed = mu32StringLength = 0;
+    AllocateStrings(src.mu32NumStrings, src.mu32StringLength);
+    const uint32_t n = mu32NumRows * mu32NumColumns;
+    for (uint32_t i = 0; i < n; ++i) {
+        FEListBoxCell &d = mpCells[i];
+        const FEListBoxCell &s = src.mpCells[i];
+        d.mu32Color = s.mu32Color;
+        d.mu32Type = s.mu32Type;
+        d.mfScaleX = s.mfScaleX;
+        d.mfScaleY = s.mfScaleY;
+        d.mJustification[0] = s.mJustification[0];
+        d.mJustification[2] = s.mJustification[2];
+        d.mJustification[1] = s.mJustification[1];
+        d._unknown1C = s._unknown1C;
+        if (d.mu32Type == 2) {
+            const uint16_t *text = s.mpText;
+            if (!text) return;
+            uint16_t *dst = mppStrings[mu32StringsUsed++];
+            dst[0] = 0;
+            d.mpText = dst;
+            if (dst) {
+                while (*text) *dst++ = *text++;
+                *dst = 0;
+            }
+        }
+        if (d.mu32Type == 1) std::memcpy(d.mData, s.mData, 16);
+    }
+}
+
+FECodeListBox *FECodeListBox::CopyConstruct(void *mem, const FECodeListBox &src, bool reference)
+{
+    auto *lb = static_cast<FECodeListBox *>(mem);
+    FEObject::CopyConstruct(mem, src.obj, reference);
+    lb->obj.node.vtable = bridge::FECodeListBoxVTable();
+    lb->mpGameInterface = src.mpGameInterface;
+    lb->mu32NumColumns = lb->mu32NumRows = lb->mu32Flags = 0;
+    lb->mu32TotalColumns = src.mu32TotalColumns;
+    lb->mu32TotalRows = src.mu32TotalRows;
+    lb->mi32ColumnOffset = lb->mi32RowOffset = 0;
+    lb->mu32SelColumn = lb->mu32SelRow = 0;
+    lb->mfViewWidth = src.mfViewWidth;
+    lb->mpCells = nullptr;
+    lb->mu32NumStrings = lb->mu32StringLength = lb->mu32StringsUsed = 0;
+    lb->mppStrings = nullptr;
+    lb->mpStringBuffer = nullptr;
+    lb->mfViewHeight = src.mfViewHeight;
+    lb->mfPulse = 1.0f;
+    const uint32_t rate = 0xBAB60B61u;
+    std::memcpy(&lb->mfPulseRate, &rate, 4);
+    lb->mColor = FEColor{{0xFF, 0xFF, 0xFF, 0xFF}};
+    lb->mpSelectCallback = src.mpSelectCallback;
+    lb->mpFillCallback = src.mpFillCallback;
+    lb->mpFillCallbackData = src.mpFillCallbackData;
+    lb->CopyProperties(src);
+    return lb;
+}
+
+FECodeListBox *FECodeListBox::Clone(bool reference) const
+{
+    void *mem = bridge::Alloc(sizeof(FECodeListBox));
+    return mem ? CopyConstruct(mem, *this, reference) : nullptr;
+}

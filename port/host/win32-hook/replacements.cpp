@@ -269,6 +269,9 @@ FECodeListBox *THISCALL FECodeListBox_ScalarDtor(FECodeListBox *self, uint32_t f
 void THISCALL FECodeListBox_Initialize(FECodeListBox *self, uint32_t c, uint32_t r) { self->Initialize(c, r); }
 void THISCALL FECodeListBox_SetTotalNumColumns(FECodeListBox *self, uint32_t n) { self->SetTotalNumColumns(n); }
 void THISCALL FECodeListBox_FillAllCells(FECodeListBox *self) { self->FillAllCells(); }
+void THISCALL FECodeListBox_CopyProperties(FECodeListBox *self, const FECodeListBox *s) { self->CopyProperties(*s); }
+FECodeListBox *THISCALL FECodeListBox_CopyCtor(FECodeListBox *self, const FECodeListBox *s, uint32_t ref) { return FECodeListBox::CopyConstruct(self, *s, (ref & 0xFF) != 0); }
+FECodeListBox *THISCALL FECodeListBox_Clone(FECodeListBox *self, uint32_t ref) { return self->Clone((ref & 0xFF) != 0); }
 bool THISCALL FECodeListBox_CheckMovement(FECodeListBox *self, int32_t d, int32_t o, uint32_t s, int32_t t, int32_t v) { return self->CheckMovement(d, o, s, t, v); }
 bool THISCALL FECodeListBox_MakeMove(FECodeListBox *self, int32_t d, int32_t *o, uint32_t *s, int32_t t, int32_t v) { return self->MakeMove(d, o, s, t, v); }
 bool THISCALL FECodeListBox_ScrollAxis(FECodeListBox *self, int32_t d, int32_t *o, uint32_t *s, uint32_t t, uint32_t v, uint32_t cols) { return self->ScrollSelection(d, o, s, t, v, (cols & 0xFF) != 0); }
@@ -588,6 +591,9 @@ const Replacement kReplacements[] = {
     {0x518F20, (const void *)&FECodeListBox_ScrollAxis, "FECodeListBox::ScrollSelection(axis)", {0x53, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
     {0x52BD70, (const void *)&FECodeListBox_ScrollSelection, "FECodeListBox::ScrollSelection", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x60}},
     {0x518E20, (const void *)&FECodeListBox::DefaultSelectCallback, "FECodeListBox::DefaultSelectCallback", {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24}},
+    {0x5352D0, (const void *)&FECodeListBox_CopyProperties, "FECodeListBox::CopyProperties", {0x51, 0x55, 0x56, 0x8B, 0xF1, 0x8B}},
+    {0x554710, (const void *)&FECodeListBox_CopyCtor, "FECodeListBox::FECodeListBox(copy)", {0x6A, 0xFF, 0x68, 0xD8, 0x74, 0x77}},
+    {0x554830, (const void *)&FECodeListBox_Clone, "FECodeListBox::Clone", {0x6A, 0xFF, 0x68, 0x6B, 0x80, 0x77}},
     {0x52B9E0, (const void *)&FECodeListBox_Ctor, "FECodeListBox::FECodeListBox", {0x56, 0x8B, 0xF1, 0xE8, 0x38, 0xF5}},
     {0x52BAA0, (const void *)&FECodeListBox_Dtor, "FECodeListBox::~FECodeListBox", {0x6A, 0xFF, 0x68, 0xD8, 0x74, 0x77}},
     {0x5352B0, (const void *)&FECodeListBox_ScalarDtor, "FECodeListBox scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xE8, 0x67}},
