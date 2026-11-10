@@ -36,6 +36,7 @@ struct FEJoyPad {
     uint32_t mHoldTime[32];          // +0x08
 
     void Update(uint32_t bits, uint32_t delta);   // GC FEJoyPad::Update / PC 504FA0 (ret 8)
+    FEJoyPad *Construct();                        // GC 8013FF9C (Reset 8013FFCC inlined) / PC 519AE0: all zero
     // GC 8014004C.. (PC: inlined): all of `mask` down now and not all before / all down now and before / not all
     // down now but all before; HeldFor (PC 504FF0, ret 4) = shortest hold time over the bits (0xFFFFFFFF if none).
     bool WasPressed(uint32_t m) const { return (mu32Current & m) == m && (mu32Previous & m) != m; }
@@ -159,6 +160,9 @@ struct FEngine {
     // GC 80145724 / PC 51A640: deletes active packages (virtual), purges idle, libraries, messages; frees the pads;
     // clears input/marker/last-button state; purges the type library. (PC: package commands are not purged.)
     void ReleaseAll();
+    // GC 801458BC / PC 51A740 (ret 4, byte arg): frees the pads, allocates and resets `count` new ones (count 0: the
+    // freed pointer is left in mpJoyPads, like the original), clears the release times.
+    void SetNumJoyPads(uint8_t count);
     void Destruct();   // GC 80145680 / PC 52C430: ReleaseAll, then each list (types .. active) reset + purged
     void RenderObject(FEObject *obj, const struct FEMatrix4 *m, uint16_t ctx);   // GC 801478F8 / PC 51A970 (ret 0xC)
     // GC 80147728 / PC 52C5D0 (ret 0x10): group transform (rotation about pivot, then position) * parent; children

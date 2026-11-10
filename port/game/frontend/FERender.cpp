@@ -230,3 +230,24 @@ void FEngine::Destruct()
         l->Purge();
     }
 }
+
+FEJoyPad *FEJoyPad::Construct()
+{
+    mu32Current = 0;
+    mu32Previous = 0;
+    std::memset(mHoldTime, 0, sizeof mHoldTime);
+    return this;
+}
+
+void FEngine::SetNumJoyPads(uint8_t count)
+{
+    bridge::FreeArray(mpJoyPads);
+    if (count) {
+        auto *pads = static_cast<FEJoyPad *>(bridge::Alloc(count * static_cast<uint32_t>(sizeof(FEJoyPad))));
+        if (pads)
+            for (uint32_t i = 0; i < count; ++i) pads[i].Construct();   // PC: vector constructor iterator 401650
+        mpJoyPads = pads;
+    }
+    mu32NumJoyPads = count;
+    std::memset(mReleaseTime, 0, sizeof mReleaseTime);
+}

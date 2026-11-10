@@ -1603,6 +1603,11 @@ static void CheckPadMouse(int iters)
             const uint32_t m = rng() % 4 ? rng() & rng() & rng() : rng() % 2 ? 0u : 0xFFFFFFFFu;
             const uint32_t ha = ORIG<uint32_t(THISCALL *)(const FEJoyPad *, uint32_t)>(0x504FF0)(&a, m), hb = b.HeldFor(m);
             EXPECT(ha == hb, "FEJoyPad::HeldFor %x: %x vs %x", m, ha, hb);
+            FEJoyPad ca, cb;
+            std::memset(&ca, 0x5A, sizeof ca);
+            std::memset(&cb, 0x5A, sizeof cb);
+            FEJoyPad *ra = ORIG<FEJoyPad *(THISCALL *)(FEJoyPad *)>(0x519AE0)(&ca), *rb = cb.Construct();
+            EXPECT(ra == &ca && rb == &cb && std::memcmp(&ca, &cb, sizeof ca) == 0, "FEJoyPad::FEJoyPad");
         } else {
             FEMouse a, b;
             uint8_t *pa = reinterpret_cast<uint8_t *>(&a);

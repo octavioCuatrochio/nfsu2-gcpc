@@ -2192,8 +2192,11 @@ static void TestEngineConstructTypes()
     CHECK(anim->GetField("Frame Number")->mu32Offset == 84 && *static_cast<const uint32_t *>(anim->GetField("Frame Number")->mpDefault) == 0);
     CHECK(e->mTypeLib.FindType(5)->mParams.count == 5 && std::string(e->mTypeLib.FindType(6)->node.mpcName) == "Code List" && !e->mTypeLib.FindType(12));
     // teardown: ReleaseAll frees pads, purges messages and the type library; Destruct purges every list
-    e->mpJoyPads = static_cast<FEJoyPad *>(bridge::Alloc(2 * sizeof(FEJoyPad)));
-    e->mu32NumJoyPads = 2;
+    e->mReleaseTime[18] = 7;
+    e->SetNumJoyPads(3);
+    CHECK(e->mu32NumJoyPads == 3 && e->mpJoyPads && e->mpJoyPads[2].mHoldTime[31] == 0 && e->mpJoyPads[1].mu32Current == 0 && e->mReleaseTime[18] == 0);
+    e->SetNumJoyPads(2);
+    CHECK(e->mu32NumJoyPads == 2 && e->mpJoyPads[1].mu32Previous == 0);
     e->QueueMessage(0x1234, nullptr, nullptr, nullptr, 0);
     e->mu32NumPackageMarkers = 3;
     e->Destruct();
