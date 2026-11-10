@@ -574,6 +574,8 @@ void THISCALL FEButtonMap_ComputeButtonLocation(const FEButtonMap *self, FEObjec
 FEObject *THISCALL FEButtonMap_GetButtonFrom(const FEButtonMap *self, FEObject *f, uint32_t d, void *gi, uint32_t w) { return self->GetButtonFrom(f, d, gi, w); }
 uint32_t THISCALL FEJoyPad_HeldFor(const FEJoyPad *self, uint32_t m) { return self->HeldFor(m); }
 void THISCALL FEJoyPad_Update(FEJoyPad *self, uint32_t bits, uint32_t d) { self->Update(bits, d); }
+FERefList *THISCALL FERefList_ScalarDtor(FERefList *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+uint32_t THISCALL FEMouse_HeldFor(const FEMouse *self, uint32_t m) { return self->HeldFor(static_cast<uint16_t>(m)); }
 void THISCALL FEMouse_Update(FEMouse *self, const FEMouse::Info *i, uint32_t d) { self->Update(*i, d); }
 FEPackage *THISCALL FEngine_PushPackageHook(FEngine *self, const char *n, uint32_t prio, uint32_t mask) { return self->PushPackage(n, static_cast<uint8_t>(prio), mask); }
 bool THISCALL FEngine_UnloadPackageHook(FEngine *self, FEPackage *p) { return self->UnloadPackage(p); }
@@ -1202,6 +1204,8 @@ const Replacement kReplacements[] = {
     {0x5189E0, (const void *)&FEButtonMap_GetButtonFrom, "FEButtonMap::GetButtonFrom", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
     {0x504FF0, (const void *)&FEJoyPad_HeldFor, "FEJoyPad::HeldFor", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
     {0x504FA0, (const void *)&FEJoyPad_Update, "FEJoyPad::Update", {0x8B, 0xD1, 0x8B, 0x4C, 0x24, 0x04}},
+    {0x525E50, (const void *)&FERefList_ScalarDtor, "FERefList scalar dtor", {0x56, 0x8B, 0xF1, 0x8A, 0x46, 0x04}},
+    {0x50B150, (const void *)&FEMouse_HeldFor, "FEMouse::HeldFor", {0x53, 0x56, 0x57, 0x0F, 0xB7, 0x7C}},
     {0x50B0C0, (const void *)&FEMouse_Update, "FEMouse::Update", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x555860, (const void *)&FEngine_PushPackageHook, "FEngine::PushPackage", {0x6A, 0xFF, 0x64, 0xA1, 0x00, 0x00}},
     {0x5362E0, (const void *)&FEngine_UnloadPackageHook, "FEngine::UnloadPackage", {0x51, 0x53, 0x55, 0x57, 0x8B, 0xF9}},

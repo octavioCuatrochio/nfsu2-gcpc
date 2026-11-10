@@ -883,3 +883,19 @@ void FEngine::ProcessMouseForPackage(FEPackage *pkg)
     QueueMessage(0xABC08912u, next, pkg, m5, 0);
     pkg->mpCurrentButton = next;
 }
+
+void FEJoyPad::DecrementHold(uint32_t mask, uint32_t amount)
+{
+    for (int i = 0; i < 32; ++i)
+        if (mask & (1u << i)) mHoldTime[i] = amount < mHoldTime[i] ? mHoldTime[i] - amount : 0;
+}
+
+uint32_t FEMouse::HeldFor(uint16_t mask) const
+{
+    // raw words from +0x10 like the original (indices 3..15 lie in the owning FEngine)
+    const uint32_t *w = reinterpret_cast<const uint32_t *>(reinterpret_cast<const uint8_t *>(this) + 0x10);
+    uint32_t best = 0xFFFFFFFFu;
+    for (int i = 0; i < 16; ++i)
+        if ((mask >> i & 1) && w[i] <= best) best = w[i];
+    return best;
+}

@@ -816,7 +816,11 @@ uint32_t HoldDirtyFlags()
     return teststub::holdDirtyFlags;
 #endif
 }
+#ifdef NFSU2_REFEREE
+void *FERefListVTable() { return reinterpret_cast<void *>(0x79AA30); }
+#else
 void *FERefListVTable() { return &teststub::feRefListVTable; }
+#endif
 void *FEMessageResponseVTable() { return &teststub::feMsgRespVTable; }
 void *FEObjectVTable() { return &teststub::feObjectVTable; }
 uint32_t NextFEObjectGUID() { return teststub::nextGUID++; }

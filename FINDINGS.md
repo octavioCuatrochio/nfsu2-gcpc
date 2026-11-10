@@ -76,7 +76,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   Globals: 0x83A644 all-ports flag (mask 0xFF), 0x83A7A0 active port, 0x83A7A4 accept block, 0x83AA1A speed units
   (1 = km/h labels 60..420, else 35..245). FindScreenCreateData(hash)+0x10 = last button. Career-only screen (not in
   the quick-race pause menu): native tests only. UIWidgetMenu row helpers now shared via namespace uiwm.
-  Next (whole files): pick the next zFe2 screen class whose callees are done (UIWidgetMenu subclasses).
+- FEng input/list leftovers done: FEMouse::HeldFor 50B150 (32-word loop from +0x10 like GC; 16-bit mask so only words
+  0..15, i.e. into FEngine, can count), FERefList scalar dtor 525E50 (Purge 511D00 unless reference). FERefList
+  ReferenceList/AddNode/GetNumElements, FENode ctor, FEMouse/FEJoyPad Reset/Was* are PC-inlined in rewritten callers.
+  FEHashList (GC) has no callers. Next (whole files): pick the next zFe2 screen class whose callees are done.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

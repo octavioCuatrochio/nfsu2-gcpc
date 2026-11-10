@@ -110,3 +110,11 @@ FEMinNode *FERefList::GetHead() const
     while (l->mbIsReference) l = reinterpret_cast<const FERefList *>(l->head);
     return l->head;
 }
+
+FERefList *FERefList::ScalarDeletingDestructor(uint32_t flags)
+{
+    vtable = bridge::FERefListVTable();
+    if (!mbIsReference) Purge();
+    if (flags & 1) bridge::FreeArray(this);
+    return this;
+}

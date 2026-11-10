@@ -42,6 +42,10 @@ struct FERefList {
     FEMinNode *RemHead() { return head ? RemNode(head) : nullptr; }
     FEMinNode *GetHead() const;            // GC 8030D094 / PC 4FE890: follows references to the owning list
     void Purge();                          // GC 8030D0CC / PC 511D00: deletes every node (virtual)
+    // GC ~FERefList 8030D03C / PC 525E50 (vtable slot 0, ret 4): vtable reset, Purge unless a reference, bit0 free.
+    // ReferenceList / AddNode / GetNumElements (GC 80142694 / 8014271C / 80142828) are inlined on PC; their callers
+    // are rewritten (FEPackageReader, FEScript, FEKeyTrack, FEInterp).
+    FERefList *ScalarDeletingDestructor(uint32_t flags);
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

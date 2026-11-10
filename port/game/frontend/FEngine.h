@@ -43,6 +43,9 @@ struct FEJoyPad {
     bool WasHeld(uint32_t m) const { return (mu32Current & m) == m && (mu32Previous & m) == m; }
     bool WasReleased(uint32_t m) const { return (mu32Current & m) != m && (mu32Previous & m) == m; }
     uint32_t HeldFor(uint32_t mask) const;
+    void Reset() { *this = FEJoyPad{}; }            // GC 8013FFCC (PC: inlined in the ctor)
+    // GC 8014012C (PC: not found, inlined or unused): every bit in `mask` loses `amount` hold time (floored at 0).
+    void DecrementHold(uint32_t mask, uint32_t amount);
 };
 // Mouse state (FEngine +0x0C, 0x20 bytes).
 struct FEMouse {
@@ -56,6 +59,13 @@ struct FEMouse {
 
     struct Info { int16_t x, y, wheel; uint16_t buttons; };   // game interface +0x44 output
     void Update(const Info &info, uint32_t delta);  // GC FEMouse::Update / PC 50B0C0 (ret 8)
+    void Reset() { *this = FEMouse{}; }             // GC 80145354 / 80145384 (PC: inlined in the FEngine ctor)
+    bool WasPressed(uint16_t m) const { return (mu16Current & m) == m && (mu16Previous & m) != m; }    // GC 80145454
+    bool WasHeld(uint16_t m) const { return (mu16Current & m) == m && (mu16Previous & m) == m; }       // GC 80145488
+    bool WasReleased(uint16_t m) const { return (mu16Current & m) != m && (mu16Previous & m) == m; }   // GC 80145500
+    // GC 801454B8 / PC 50B150 (ret 4): shortest hold time over the set bits (0xFFFFFFFF if none). Both loop over 32
+    // words from +0x10 (past the 3 real ones); the mask is 16-bit, so only words 0..15 can be read.
+    uint32_t HeldFor(uint16_t mask) const;
 };
 
 // Pad message hashes (PC data 0x7F7D20 pressed[19], 0x7F7D6C held[2], 0x7F7D78 released[19]; GC PadButtonHash...).

@@ -3307,6 +3307,29 @@ static void CheckFEngLineWidth(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEMouse::HeldFor (reads 16 words from +0x10: arena past the struct) and the FERefList scalar dtor (flag 0, empty
+// or reference lists: no node deletes).
+static void CheckMouseHeldRefList(int iters)
+{
+    auto oHeld = ORIG<uint32_t(THISCALL *)(const void *, uint32_t)>(0x50B150);
+    auto oDtor = ORIG<void *(THISCALL *)(FERefList *, uint32_t)>(0x525E50);
+    alignas(8) static uint8_t arena[0x60];
+    for (int it = 0; it < iters; ++it) {
+        for (auto &b : arena) b = static_cast<uint8_t>(rng());
+        const uint32_t m = rng() % 4 ? rng() & 0xFFFF & rng() : rng() % 2 ? 0u : (rng() | 0xFFFF);   // high bits ignored
+        const uint32_t ha = oHeld(arena, m), hb = reinterpret_cast<const FEMouse *>(arena)->HeldFor(static_cast<uint16_t>(m));
+        EXPECT(ha == hb, "FEMouse::HeldFor %x: %x vs %x", m, ha, hb);
+        FERefList a, b;
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&a);
+        for (size_t i = 0; i < sizeof a; ++i) pa[i] = static_cast<uint8_t>(rng());
+        a.mbIsReference = rng() % 2 ? static_cast<uint8_t>(1 + rng() % 255) : 0;
+        if (!a.mbIsReference) a.head = a.tail = nullptr;
+        b = a;
+        void *ra = oDtor(&a, rng() & ~1u);
+        EXPECT(ra == &a && b.ScalarDeletingDestructor(0) == &b && std::memcmp(&a, &b, sizeof a) == 0, "FERefList dtor ref %u", a.mbIsReference);
+    }
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -3882,6 +3905,7 @@ static int RunAll()
     REFEREE_RUN(CheckCodeListBoxFillUpdate(iters * 5));
     REFEREE_RUN(CheckCodeListBoxMove(iters * 10));
     REFEREE_RUN(CheckPadMouse(iters * 5));
+    REFEREE_RUN(CheckMouseHeldRefList(iters));
     REFEREE_RUN(CheckButtonMap(iters * 5));
     REFEREE_RUN(CheckRender(iters * 3));
     REFEREE_RUN(CheckTypeLib(iters * 5));

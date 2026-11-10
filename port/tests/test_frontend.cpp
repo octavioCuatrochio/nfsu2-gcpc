@@ -354,6 +354,27 @@ static void TestScriptDestruct()
     // RemNode on an unlinked/null node
     FERefList l{&teststub::feRefListVTable, 0, {}, nullptr, nullptr};
     CHECK(l.RemNode(nullptr) == nullptr && l.RemHead() == nullptr);
+    // dtor: an owning list purges (virtual deletes), a reference list does not
+    {
+        auto *n = static_cast<FEMinNode *>(bridge::Alloc(sizeof(FEMinNode)));
+        *n = {&teststub::feMinNodeVTable, nullptr, nullptr};
+        FERefList own{&teststub::feRefListVTable, 0, {}, n, n}, ref{&teststub::feRefListVTable, 1, {}, n, n};
+        const int del = teststub::virtualDeletes;
+        CHECK(ref.ScalarDeletingDestructor(0) == &ref && teststub::virtualDeletes == del && ref.vtable == bridge::FERefListVTable());
+        CHECK(own.ScalarDeletingDestructor(0) == &own && teststub::virtualDeletes == del + 1 && own.head == nullptr);
+    }
+    // FEJoyPad::DecrementHold / FEMouse::HeldFor
+    {
+        FEJoyPad p{};
+        p.mHoldTime[0] = 10; p.mHoldTime[5] = 3; p.mHoldTime[31] = 7;
+        p.DecrementHold(0x80000021u, 5);
+        CHECK(p.mHoldTime[0] == 5 && p.mHoldTime[5] == 0 && p.mHoldTime[31] == 2);
+        struct { FEMouse m; uint32_t after[16]; } mm{};
+        mm.m.mHoldTime[0] = 9; mm.m.mHoldTime[2] = 4; mm.after[0] = 1;   // word 4 lies past the mouse
+        CHECK(mm.m.HeldFor(0) == 0xFFFFFFFFu && mm.m.HeldFor(1) == 9 && mm.m.HeldFor(5) == 4 && mm.m.HeldFor(0x10) == 1);
+        mm.m.mu16Current = 3; mm.m.mu16Previous = 1;
+        CHECK(mm.m.WasPressed(2) && mm.m.WasHeld(1) && !mm.m.WasReleased(1) && !mm.m.WasPressed(1) && mm.m.WasPressed(3));
+    }
 }
 
 // FEScript copy constructor: deep (new key nodes, same data) and reference (lists point at the source's).
