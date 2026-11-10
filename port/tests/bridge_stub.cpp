@@ -48,7 +48,7 @@ int32_t fengLoadCounter = 0;
 int fePackageDataVTable = 0, fePackageVTable = 0, feNodeVTable = 0, fePackageList74VTable = 0, resourceConnectorVTable = 0;
 bool loadResourcesResult = true, readerChunkResult = true;
 const void *libraryData = nullptr;
-void *readerObject = nullptr;
+std::vector<void *> readerScripts;
 void *screenResult = nullptr;
 bool hotChunking = false;
 ::SlotPool *levelSorterSlots = nullptr;
@@ -135,21 +135,23 @@ const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, ui
     return teststub::libraryData;
 }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { teststub::delivered.push_back({"libloaded", gi, p, 0, 0}); }
-FEObject *FEPackageReader_CreateObject(void *r, uint32_t type)
+FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
 {
-    teststub::delivered.push_back({"create", r, nullptr, type, 0});
-    if (teststub::readerObject) return static_cast<FEObject *>(teststub::readerObject);
-    auto *o = static_cast<FEObject *>(Alloc(sizeof(FEObject)));
-    FEObject::Construct(o);
-    o->mu32Type = type;
-    return o;
+    teststub::delivered.push_back({"typector", mem, nullptr, type, 0});
+    return FEObject::Construct(mem);   // stand-in: base part only
 }
 void FEPackageReader_ProcessStringTag(void *r, const uint8_t *t) { teststub::delivered.push_back({"strtag", r, nullptr, *reinterpret_cast<const uint16_t *>(t), 0}); }
 void FEPackageReader_ProcessListBoxTag(void *r, const uint8_t *t) { teststub::delivered.push_back({"lbtag", r, nullptr, *reinterpret_cast<const uint16_t *>(t), 0}); }
 void FEPackageReader_ProcessCodeListBoxTag(void *r, const uint8_t *t) { teststub::delivered.push_back({"clbtag", r, nullptr, *reinterpret_cast<const uint16_t *>(t), 0}); }
 FEObject *FEObject_VirtualClone(FEObject *o, bool ref) { return o->Clone(ref); }
 FEObject *FEGroup_CopyConstruct(void *, FEObject *, bool, bool) { std::abort(); }
-bool FEPackageReader_ReadScriptTags(void *r, const uint8_t *, uint32_t n) { teststub::delivered.push_back({"scrtags", r, nullptr, n, 0}); return true; }
+bool FEPackageReader_ReadScriptTags(void *r, const uint8_t *, uint32_t n)
+{
+    teststub::delivered.push_back({"scrtags", r, nullptr, n, 0});
+    if (FEObject *o = static_cast<FEPackageReader *>(r)->mpCurrentObject)
+        for (void *s : teststub::readerScripts) o->mScripts.AddTail(static_cast<FEMinNode *>(s));
+    return true;
+}
 void FEListBox_RecalculateCummulative(void *lb) { teststub::delivered.push_back({"recalc", lb, nullptr, 0, 0}); }
 void FECodeListBox_FillAllCells(void *lb) { teststub::delivered.push_back({"fillcells", lb, nullptr, 0, 0}); }
 void FEKeyInterpScript(void *s, uint8_t t, uint32_t time, void *o) { teststub::delivered.push_back({"keyinterp", s, static_cast<FEPackage *>(o), t, time}); }

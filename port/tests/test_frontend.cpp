@@ -1498,23 +1498,20 @@ static void TestPackageReader()
     for (FEPackage *p : {p1, p2, libPkg}) bridge::VirtualScalarDelete(p);
     // an object: list box fixup, chained script id -> pointer, current script 0x1744B3, initial interpolation, linked
     {
-        auto *o = static_cast<FEObject *>(bridge::Alloc(sizeof(FEObject)));
-        std::memset(o, 0, sizeof(FEObject));
-        o->mu32Type = 4;
         alignas(8) unsigned char sb[2][sizeof(FEScript)] = {};
         auto *s0 = reinterpret_cast<FEScript *>(sb[0]), *s1 = reinterpret_cast<FEScript *>(sb[1]);
         alignas(8) unsigned char tb[2 * sizeof(FEKeyTrack)] = {};   // SetupMoveToTracks reads the tracks
         s0->mu32Id = 0x1744B3; s0->mu32NumTracks = 2; s0->mi32Time = 55; s0->mpTracks = reinterpret_cast<FEKeyTrack *>(tb);
         s0->mpChainedScript = reinterpret_cast<FEScript *>(uintptr_t{0x99});
         s1->mu32Id = 0x99;
-        o->mScripts.AddTail(&s0->node);
-        o->mScripts.AddTail(&s1->node);
-        teststub::readerObject = o;
+        teststub::readerScripts = {s0, s1};
         auto od = BuildFng(true, 0, nullptr, true);
         dl.clear();
         FEPackage *po = FEngine_LoadPackage(e, od.data(), 0);
-        teststub::readerObject = nullptr;
-        CHECK(po && po->mObjects.count == 1 && po->mObjects.head == &o->node && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1);
+        teststub::readerScripts.clear();
+        CHECK(po && po->mObjects.count == 1);
+        auto *o = reinterpret_cast<FEObject *>(po->mObjects.head);
+        CHECK(o->mu32Type == 4 && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1 && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1);
         int recalc = 0, interp = 0;
         for (auto &d : dl) { recalc += std::string(d.kind) == "recalc"; interp += std::string(d.kind) == "keyinterp" && d.a == s0; }
         CHECK(recalc == 1 && interp == 2);
@@ -1524,9 +1521,10 @@ static void TestPackageReader()
         bool lb = false;
         for (auto &d : dl) lb |= std::string(d.kind) == "lbtag" && d.msg == 0x584C;
         CHECK(lb);
-        bridge::FreeArray(o->mpcName);
-        o->mScripts.head = o->mScripts.tail = nullptr;
-        o->node.vtable = nullptr;
+        bool ctor = false;
+        for (auto &d : dl) ctor |= std::string(d.kind) == "typector" && d.msg == 4;
+        CHECK(ctor);
+        o->mScripts.count = 0; o->mScripts.head = o->mScripts.tail = nullptr;   // scripts are on the stack
         bridge::VirtualScalarDelete(po);
     }
     // failures

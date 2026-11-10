@@ -76,7 +76,8 @@ int32_t *FEngLoadCounterPtr();                                                  
 // FEGameInterface (engine +0x10C) vtable slot 0: package data by name; *freeBuffer -> caller frees *buffer
 const void *FEGameInterface_GetPackageData(void *gi, const char *name, void **buffer, uint8_t *freeBuffer);
 void FEGameInterface_LibraryLoaded(void *gi, ::FEPackage *pkg);   // vtable slot 3 (+0xC)
-::FEObject *FEPackageReader_CreateObject(void *reader, uint32_t type);   // PC 534DF0 (GC 8013B2E0)
+// constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)
+::FEObject *FEObjectTypeConstruct(void *mem, uint32_t type);
 void FEPackageReader_ProcessStringTag(void *reader, const uint8_t *tag);    // PC 534FC0
 void FEPackageReader_ProcessListBoxTag(void *reader, const uint8_t *tag);   // PC 52B740
 void FEPackageReader_ProcessCodeListBoxTag(void *reader, const uint8_t *tag);   // PC 535060

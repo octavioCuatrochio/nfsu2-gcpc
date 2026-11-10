@@ -60,6 +60,9 @@ struct FEPackageReader {
     // library object; failure deletes the object and fails), PA parent, Oh hash, On name (only with mbFlag09),
     // per-type tags (string/list box/code list box/image).
     bool ReadObjectTags(const uint8_t *tags, uint32_t size);
+    // GC 8013B2E0 / PC 534DF0 (ret 4): new object of factory `type` (0: null; 3, 8, >11: plain FEObject), type set,
+    // data block from ObjDataPool sized by the "TypS" table (0 if absent). Type 6 gets the game interface at +0x5C.
+    FEObject *CreateObject(uint32_t type);
     // GC 8013D134 / PC 5186C0 (ret 0xC): library reference -> library package (FEngine::FindLibraryPackage) -> object.
     bool FindReferencedObject(uint32_t refHash, FEObject **obj, FEPackage **pkg);
 };

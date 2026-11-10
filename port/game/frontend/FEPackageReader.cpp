@@ -6,6 +6,8 @@
 #include "FEObject.h"
 #include "FEPackage.h"
 #include "FEScript.h"
+#include "FEString.h"
+#include "FEMultiPool.h"
 #include "FEngine.h"
 #include "bridge/Bridge.h"
 
@@ -315,7 +317,7 @@ bool FEPackageReader::ReadObjectTags(const uint8_t *tags, uint32_t size)
             break;
         case 0x684F: obj->mu32NameHash = v[0]; break;   // "Oh"
         case 0x6E4F: if (mbFlag09) obj->SetName(reinterpret_cast<const char *>(v)); break;   // "On"
-        case 0x744F: mpCurrentObject = bridge::FEPackageReader_CreateObject(this, v[0]); break;   // "Ot"
+        case 0x744F: mpCurrentObject = CreateObject(v[0]); break;   // "Ot"
         default:
             if (!obj) break;
             switch (obj->mu32Type) {   // PC jump table 55541C / 555430
@@ -330,6 +332,28 @@ bool FEPackageReader::ReadObjectTags(const uint8_t *tags, uint32_t size)
         }
     }
     return true;
+}
+
+FEObject *FEPackageReader::CreateObject(uint32_t type)
+{
+    // sizes per type: PC jump table 534F84
+    static const uint32_t kSizes[12] = {0, 0x60, 0x78, 0x5C, 0xAC, 0x6C, 0xC8, 0x60, 0x5C, 0x60, 0x60, 0x5C};
+    if (type == 0) return nullptr;
+    const bool plain = type == 3 || type == 8 || type > 11;
+    void *mem = bridge::Alloc(plain ? 0x5C : kSizes[type]);
+    FEObject *obj = nullptr;
+    if (plain) obj = mem ? FEObject::Construct(mem) : nullptr;
+    else if (type == 2) obj = mem ? reinterpret_cast<FEObject *>(FEString::Construct(mem)) : nullptr;
+    else if (mem) obj = bridge::FEObjectTypeConstruct(mem, type);
+    if (type == 6) reinterpret_cast<uint32_t *>(obj)[0x5C / 4] = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(mpGameInterface));   // PC: even when null
+    obj->mu32Type = type;   // PC: no null check
+    const uint32_t size = GetTypeSize(type);   // (inlined)
+    bridge::ObjDataPool()->Free(obj->mpData);
+    obj->mpData = nullptr;
+    void *data = bridge::ObjDataPool()->Alloc(size);
+    obj->mu32DataSize = size;
+    obj->mpData = data;
+    return obj;
 }
 
 bool FEPackageReader::ReadMessageTargetListChunk()

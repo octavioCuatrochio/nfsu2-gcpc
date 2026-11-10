@@ -111,7 +111,22 @@ const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, ui
     return (*reinterpret_cast<const void *(THISCALL ***)(void *, const char *, void **, uint8_t *)>(gi))[0](gi, n, b, f);
 }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }
-FEObject *FEPackageReader_CreateObject(void *r, uint32_t t) { return reinterpret_cast<FEObject *(THISCALL *)(void *, uint32_t)>(0x534DF0)(r, t); }
+FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
+{
+    uintptr_t ctor = 0;
+    switch (type) {
+    case 1: ctor = 0x532640; break;
+    case 4: ctor = 0x5349C0; break;
+    case 5: ctor = 0x52B080; break;
+    case 6: ctor = 0x52B9E0; break;
+    case 7: ctor = 0x52B0B0; break;
+    case 9: ctor = 0x534B90; break;
+    case 10: ctor = 0x534DB0; break;
+    case 11: ctor = 0x52B480; break;
+    default: return nullptr;
+    }
+    return reinterpret_cast<FEObject *(THISCALL *)(void *)>(ctor)(mem);
+}
 void FEPackageReader_ProcessStringTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x534FC0)(r, t); }
 void FEPackageReader_ProcessListBoxTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x52B740)(r, t); }
 void FEPackageReader_ProcessCodeListBoxTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x535060)(r, t); }
