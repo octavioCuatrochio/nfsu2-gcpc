@@ -2684,6 +2684,35 @@ static void CheckUIWidgetMenu(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FESliderWidget::SetSliderObjects (5275B0): random widget bytes, a synthetic backing box, both precisions.
+static void CheckSliderObjects(int iters)
+{
+    auto orig = ORIG<void(THISCALL *)(FESliderWidget *, FEObject *, FEObject *, FEObject *, FEObject *, FEObject *, FEObject *)>(0x5275B0);
+    static FESliderWidget A, B;
+    alignas(8) static unsigned char om[sizeof(FEObject)];
+    static float od[20];
+    auto *o = reinterpret_cast<FEObject *>(om);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            A.mSlider.mMargin = RefCoord() / 7.0f;
+            std::memcpy(&B, &A, sizeof A);
+            std::memset(om, 0, sizeof om);
+            o->mpData = od; o->mu32Type = rng() % 3 ? 1 : 3;
+            for (float &f : od) f = RefCoord();
+            FEObject *p[5];
+            for (auto &q : p) q = reinterpret_cast<FEObject *>(static_cast<uintptr_t>(rng()));
+            orig(&A, o, p[0], p[1], p[2], p[3], p[4]);
+            B.SetSliderObjects(o, p[0], p[1], p[2], p[3], p[4]);
+            EXPECT(std::memcmp(&A, &B, sizeof A) == 0, "FESliderWidget::SetSliderObjects pc=%x", pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -3567,6 +3596,7 @@ static int RunAll()
     REFEREE_RUN(CheckLocalize(iters));
     REFEREE_RUN(CheckMenuScreen(iters));
     REFEREE_RUN(CheckUIWidgetMenu(iters));
+    REFEREE_RUN(CheckSliderObjects(iters));
     REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckCFEngInterface(iters));

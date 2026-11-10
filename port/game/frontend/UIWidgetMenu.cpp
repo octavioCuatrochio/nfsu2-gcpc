@@ -6,6 +6,9 @@
 #include "cFEng.h"
 #include "FEObject.h"
 #include <cmath>
+#include <cstdio>
+#include "bWare/bString.h"
+#include "FEScrollBar.h"
 
 namespace {
 using L = long double;
@@ -327,3 +330,163 @@ void UIWidgetMenu::ScrollWrapped(int32_t dir)
     }
     ApplySelection(*this, w);
 }
+
+namespace {
+// "<prefix>%d" formatted with the current row index (PC: bStrCat + FEngSNPrintf, 0x20-byte buffers)
+void OptionName(char (&out)[64], const char *prefix, uint32_t index)
+{
+    char fmt[64];
+    bStrCat(fmt, prefix, "%d");
+    std::snprintf(out, sizeof out, fmt, static_cast<int>(index));
+}
+void Append(UIWidgetMenu &m, FEWidget *w)
+{
+    auto *n = reinterpret_cast<WidgetListNode *>(reinterpret_cast<uint8_t *>(w) + kNodeOffset);
+    WidgetListNode *last = m.mWidgets.prev;
+    last->next = n;
+    m.mWidgets.prev = n;
+    n->next = &m.mWidgets;
+    n->prev = last;
+}
+// the inlined IncrementStartPos: two evaluation orders on PC
+void AdvanceRowStepFirst(UIWidgetMenu &m)   // AddButton / AddStat / AddToggleImage / AddSlider
+{
+    ++m.mCurrentIndex;
+    m.mStartY = static_cast<float>((L(m.mRowHeight) + m.mSpacing) + m.mStartY);
+    m.mDataY = static_cast<float>((L(m.mRowHeight) + m.mSpacing) + m.mDataY);
+}
+void AdvanceRowPosFirst(UIWidgetMenu &m)    // AddToggleOption
+{
+    ++m.mCurrentIndex;
+    m.mStartY = static_cast<float>((L(m.mStartY) + m.mRowHeight) + m.mSpacing);
+    m.mDataY = static_cast<float>((L(m.mDataY) + m.mRowHeight) + m.mSpacing);
+}
+void ShowNewRow(FEWidget *w)
+{
+    if (!w->mbEnabled) bridge::FEWidget_Disable(w);   // slot 8
+    bridge::FEWidget_Show(w);
+    bridge::FEWidget_Position(w);
+    bridge::FEWidget_Draw(w);
+}
+// width = |left edge - right edge of obj| (PC: x87 w + x)
+float RowWidth(const FEWidget *w, const FEObject *obj)
+{
+    float x, y, ow, oh;
+    FEngGetTopLeft(obj, &x, &y);
+    FEngGetSize(obj, &ow, &oh);
+    return static_cast<float>(std::fabs(L(w->mPosX) - (L(ow) + x)));
+}
+void SetArrowTextures(FEObject *left, FEObject *right, int32_t style)
+{
+    uint32_t l = 0x367B3E04u, r = 0x367B3E04u;
+    if (style == 1) l = r = 0x9943D584u;
+    else if (style == 2 || style == 3) { l = 0x374F6465u; r = 0x760BDC9Du; }
+    if (left) FEngSetTextureHash(left, l);
+    if (right) FEngSetTextureHash(right, r);
+}
+}  // namespace
+
+FEObject *UIWidgetMenu::GetCurrentFEObject(const char *prefix)
+{
+    char name[64];
+    OptionName(name, prefix, mCurrentIndex);
+    return FEngFindObject(base.mpPackageName, FEHashUpper(name));
+}
+
+FEObject *UIWidgetMenu::GetCurrentFEString(const char *prefix)
+{
+    char name[64];
+    OptionName(name, prefix, mCurrentIndex);
+    return FEngFindString(base.mpPackageName, FEHashUpper(name));
+}
+
+FEObject *UIWidgetMenu::GetCurrentFEImage(const char *prefix)
+{
+    char name[64];
+    OptionName(name, prefix, mCurrentIndex);
+    return FEngFindImage(base.mpPackageName, name);
+}
+
+uint32_t UIWidgetMenu::AddButtonOption(FEButtonWidget *w)
+{
+    w->mpObject = GetCurrentFEString(mOptionName);
+    w->base.mpLabel = GetCurrentFEObject(mOptionBacking);
+    Append(*this, &w->base);
+    AdvanceRowStepFirst(*this);
+    ShowNewRow(&w->base);
+    w->base.mSizeX = mDataOffsetX;
+    return mCurrentIndex - 1;
+}
+
+uint32_t UIWidgetMenu::AddStatOption(FEStatWidget *w)
+{
+    w->mpObject = GetCurrentFEString(mOptionName);
+    w->mpValue = GetCurrentFEString(mOptionData);
+    w->base.mpLabel = GetCurrentFEObject(mOptionBacking);
+    Append(*this, &w->base);
+    AdvanceRowStepFirst(*this);
+    ShowNewRow(&w->base);
+    w->base.mSizeX = RowWidth(&w->base, w->mpValue);
+    return mCurrentIndex - 1;
+}
+
+uint32_t UIWidgetMenu::AddToggleOption(FEToggleWidget *w, int32_t style)
+{
+    FEStatWidget &s = w->base;
+    s.mpObject = GetCurrentFEString(mOptionName);
+    s.mpValue = GetCurrentFEString(mOptionData);
+    s.base.mpLabel = GetCurrentFEObject(mOptionBacking);
+    w->mpLeftArrow = GetCurrentFEImage(mLeftArrow);
+    w->mpRightArrow = GetCurrentFEImage(mRightArrow);
+    SetArrowTextures(w->mpLeftArrow, w->mpRightArrow, style);
+    Append(*this, &s.base);
+    AdvanceRowPosFirst(*this);
+    ShowNewRow(&s.base);
+    s.base.mSizeX = RowWidth(&s.base, w->mpRightArrow);
+    return mCurrentIndex - 1;
+}
+
+uint32_t UIWidgetMenu::AddToggleOption(FEToggleWidget *w, bool plain) { return AddToggleOption(w, plain ? 0 : 2); }
+
+uint32_t UIWidgetMenu::AddToggleImageOption(FEToggleImageWidget *w, int32_t style)
+{
+    FEToggleWidget &t = w->base;
+    FEStatWidget &s = t.base;
+    s.mpObject = GetCurrentFEString(mOptionName);
+    s.mpValue = GetCurrentFEString(mOptionData);
+    s.base.mpLabel = GetCurrentFEObject(mOptionBacking);
+    w->mpImage = GetCurrentFEImage(mOptionImage);
+    t.mpLeftArrow = GetCurrentFEImage(mLeftArrow);
+    t.mpRightArrow = GetCurrentFEImage(mRightArrow);
+    SetArrowTextures(t.mpLeftArrow, t.mpRightArrow, style);
+    Append(*this, &s.base);
+    AdvanceRowStepFirst(*this);
+    ShowNewRow(&s.base);
+    s.base.mSizeX = RowWidth(&s.base, t.mpRightArrow);
+    return mCurrentIndex - 1;
+}
+
+uint32_t UIWidgetMenu::AddSliderOption(FESliderWidget *w, int32_t style)
+{
+    FEStatWidget &s = w->base;
+    s.mpObject = GetCurrentFEString(mOptionName);
+    FEObject *end = GetCurrentFEImage(mSliderEnd);
+    FEObject *beg = GetCurrentFEImage(mSliderBeg);
+    FEObject *handle = GetCurrentFEImage(mSliderHandle);
+    FEObject *value = GetCurrentFEString(mSliderValue);
+    FEObject *knob = GetCurrentFEImage(mSliderKnob);
+    FEObject *backing = GetCurrentFEImage(mSliderBase);
+    w->SetSliderObjects(backing, knob, value, handle, beg, end);
+    s.base.mpLabel = GetCurrentFEObject(mOptionBacking);
+    bridge::FEWidget_Slot17(w);   // vtable +0x44 (slider widgets)
+    w->mpLeftArrow = GetCurrentFEImage(mLeftArrow);
+    w->mpRightArrow = GetCurrentFEImage(mRightArrow);
+    SetArrowTextures(w->mpLeftArrow, w->mpRightArrow, style);
+    Append(*this, &s.base);
+    AdvanceRowStepFirst(*this);
+    ShowNewRow(&s.base);
+    s.base.mSizeX = RowWidth(&s.base, w->mpRightArrow);
+    return mCurrentIndex - 1;
+}
+
+uint32_t UIWidgetMenu::AddSliderOption(FESliderWidget *w, bool plain) { return AddSliderOption(w, plain ? 0 : 2); }

@@ -9,6 +9,11 @@
 
 struct FEObject;
 struct FEWidget;
+struct FEButtonWidget;
+struct FEStatWidget;
+struct FEToggleWidget;
+struct FEToggleImageWidget;
+struct FESliderWidget;
 
 // Intrusive list node: FEWidget +0x04 / +0x08 (after the vtable); the list stores node pointers.
 struct WidgetListNode {
@@ -63,6 +68,19 @@ struct UIWidgetMenu {
     // previous; the view follows one row at a time (Reposition each step). PC differs from GC (no lookahead).
     void Scroll(int32_t dir);
     void ScrollWrapped(int32_t dir);       // GC 8015B6B0 / PC 539370 (ret 4): like Scroll but wraps around
+    // Option rows: objects are named <prefix><mCurrentIndex> ("OPTION_NAME_3"). Each Add appends the widget, advances the
+    // start position, Disable (if not enabled) / Show / Position / Draw, and returns the new row's index (0-based).
+    FEObject *GetCurrentFEObject(const char *prefix);   // GC 8015C468 / PC 5445F0 (ret 4)
+    FEObject *GetCurrentFEString(const char *prefix);   // GC 8015C390 (PC: inlined, 4953C0)
+    FEObject *GetCurrentFEImage(const char *prefix);    // GC 8015C3FC (PC: inlined, 4953E0)
+    uint32_t AddButtonOption(FEButtonWidget *w);        // GC 8015B9B8 / PC 54EE40 (ret 4)
+    uint32_t AddStatOption(FEStatWidget *w);            // GC 8015BAA8 / PC 54F820 (ret 4)
+    // style: 1 -> arrows 0x9943D584, 2/3 -> 0x374F6465 / 0x760BDC9D, else 0x367B3E04 (texture hashes)
+    uint32_t AddToggleOption(FEToggleWidget *w, int32_t style);            // GC 8015BBE4 / PC 54EF30 (ret 8)
+    uint32_t AddToggleOption(FEToggleWidget *w, bool plain);               // GC 8015BDB0 / PC 54F170: style plain ? 0 : 2
+    uint32_t AddToggleImageOption(FEToggleImageWidget *w, int32_t style);  // GC 8015BDDC / PC 54F190 (ret 8)
+    uint32_t AddSliderOption(FESliderWidget *w, int32_t style);            // GC 8015BFB8 / PC 54F410 (ret 8)
+    uint32_t AddSliderOption(FESliderWidget *w, bool plain);               // GC 8015C228 / PC 54F800
     FEWidget *GetWidget(uint32_t index1);  // GC 8015B3F8 (PC: inlined): 0 -> null, else bList::GetNode(index - 1)
     void IncrementStartPos();              // GC 8015CA04 (PC: inlined)
 };

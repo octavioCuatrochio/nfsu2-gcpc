@@ -226,6 +226,8 @@ void FEWidget_Draw(void *widget);                               // widget vtable
 void FEWidget_Position(void *widget);                           // widget vtable +0x10
 void FEWidget_Show(void *widget);                               // widget vtable +0x14
 void FEWidget_Hide(void *widget);                               // widget vtable +0x18
+void FEWidget_Disable(void *widget);                            // widget vtable +0x20
+void FEWidget_Slot17(void *widget);                             // widget vtable +0x44 (slider widgets; GC vptr[0x12])
 void FEWidget_SetFocus(void *widget, const char *pkg);          // widget vtable +0x24
 void FEWidget_UnsetFocus(void *widget);                         // widget vtable +0x28
 void FEWidget_SetPosY(void *widget, float y);                   // widget vtable +0x34

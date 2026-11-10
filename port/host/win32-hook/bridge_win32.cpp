@@ -189,6 +189,8 @@ static void WidgetSlot(void *w, int off) { (*reinterpret_cast<void(THISCALL ***)
 void FEWidget_Position(void *w) { WidgetSlot(w, 0x10); }
 void FEWidget_Show(void *w) { WidgetSlot(w, 0x14); }
 void FEWidget_Hide(void *w) { WidgetSlot(w, 0x18); }
+void FEWidget_Disable(void *w) { WidgetSlot(w, 0x20); }
+void FEWidget_Slot17(void *w) { WidgetSlot(w, 0x44); }
 void FEWidget_UnsetFocus(void *w) { WidgetSlot(w, 0x28); }
 void FEWidget_SetFocus(void *w, const char *p) { (*reinterpret_cast<void(THISCALL ***)(void *, const char *)>(w))[0x24 / 4](w, p); }
 void FEWidget_SetPosY(void *w, float y) { (*reinterpret_cast<void(THISCALL ***)(void *, float)>(w))[0x34 / 4](w, y); }

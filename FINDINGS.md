@@ -96,8 +96,9 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   Reset/Sync done (+ generic bTList::DeleteAllElements 4358E0, bList::GetNode 43BE60). Widget list nodes at FEWidget +4.
   Widget vtable slots: 0 dtor, 1 Act, 2 CheckMouse, 3 Draw, 4 Position, 5 Show, 6 Hide, 7 Enable, 8 Disable, 9 SetFocus,
   10 UnsetFocus, 11 SetPos, 12 SetPosX, 13 SetPosY, 14 DetermineSpecialSound, 15 DetermineSoundTrigger (GC index = +1).
-  Left: NotificationMessage 556020, Scroll 5390E0, ScrollWrapped 539370, Add*Option 54EE40/54F820/54EF30/54F170/54F190/
-  54F410/54F800 (verify), SetInitialOption 539650, AddInputOption, GetCurrentFE*.
+  Scroll/ScrollWrapped and all Add*Option (+ GetCurrentFE*, FESliderWidget::SetSliderObjects 5275B0) done too. PC inlines
+  IncrementStartPos in two evaluation orders (AddToggleOption: (y + row) + gap; others (row + gap) + y). Left:
+  NotificationMessage 556020, SetInitialOption 539650, AddInputOption (no PC match yet), StorePrevNotification.
 - Referee: originals that look up packages/objects (FEngFindPackage 52CEF0) crash in DllMain (no cFEng). bridge_stub
   VirtualScalarDelete calls slot 0 for vtables outside the exe (check fakes). Remap only known pointer fields when
   comparing two arenas (blanket "looks like a B address" remaps give rare false mismatches; TuningSlider check still does).

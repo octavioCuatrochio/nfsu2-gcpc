@@ -850,3 +850,17 @@ void TuningSlider::CheckMouse(const char *pkg, float x, float y)
     base.CheckMouse(pkg, x, y);
     if (FEngTestForIntersection(x, y, mpExtra)) bridge::TheFEPackageManager()->SendMessageToPackage(pkg, 0xC519BFC3u);
 }
+
+void FESliderWidget::SetSliderObjects(FEObject *backing, FEObject *handle, FEObject *value, FEObject *current,
+                                      FEObject *endCap, FEObject *end)
+{
+    mSlider.mpBacking = backing;
+    mSlider.mpHandle = handle;
+    mSlider.mpCurrent = current;
+    mSlider.mpValue = value;
+    mSlider.mpEndCap = endCap;
+    mSlider.mpEnd = end;
+    float w, h;
+    FEngGetSize(mSlider.mpBacking, &w, &h);
+    mSlider.mLength = static_cast<float>(L(w) - (L(mSlider.mMargin) + mSlider.mMargin));
+}

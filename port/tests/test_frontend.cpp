@@ -3152,6 +3152,36 @@ static void TestUIWidgetMenu()
     CHECK(m->base.vtable == &teststub::feWidgetVTable);
 }
 
+static void TestUIWidgetMenuAdd()
+{
+    alignas(8) static unsigned char mm[sizeof(UIWidgetMenu)];
+    std::memset(mm, 0, sizeof mm);
+    auto *m = reinterpret_cast<UIWidgetMenu *>(mm);
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+    teststub::profileState = 0;
+    m->Construct(&d);
+    m->mRowHeight = 20; m->mSpacing = 2; m->mStartY = 100; m->mDataY = 50; m->mDataOffsetX = 33;
+    alignas(8) unsigned char bm[sizeof(FEButtonWidget)] = {}, tm[sizeof(FEToggleWidget)] = {}, sm[sizeof(FESliderWidget)] = {};
+    auto *b = reinterpret_cast<FEButtonWidget *>(bm);
+    auto *t = reinterpret_cast<FEToggleWidget *>(tm);
+    auto *s = reinterpret_cast<FESliderWidget *>(sm);
+    b->base.mbEnabled = 0;
+    teststub::delivered.clear();
+    CHECK(m->AddButtonOption(b) == 1 && m->mCurrentIndex == 2 && m->mStartY == 122 && m->mDataY == 72 && b->base.mSizeX == 33);
+    CHECK(teststub::delivered.size() == 4 && std::string(teststub::delivered[0].kind) == "disable" && std::string(teststub::delivered[3].kind) == "draw");
+    t->base.base.mbEnabled = 1;
+    CHECK(m->AddToggleOption(t, false) == 2 && m->mStartY == 144 && m->GetWidgetIndex(&t->base.base) == 2);
+    s->base.base.mbEnabled = 1;
+    s->mSlider.mMargin = 10;
+    teststub::delivered.clear();
+    CHECK(m->AddSliderOption(s, 1) == 3 && m->GetWidget(3) == &s->base.base);
+    CHECK(std::string(teststub::delivered[0].kind) == "slot17" && teststub::delivered.size() == 4);
+    m->mWidgets.next = m->mWidgets.prev = &m->mWidgets;   // stack widgets: don't delete them
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -3515,6 +3545,7 @@ int main()
     TestTuningSliderValues();
     TestMenuScreen();
     TestUIWidgetMenu();
+    TestUIWidgetMenuAdd();
     TestCSlider();
     TestStageSliders();
     TestFEngExtents();

@@ -379,6 +379,15 @@ void THISCALL UIWidgetMenu_Scroll(UIWidgetMenu *self, int32_t d) { self->Scroll(
 void THISCALL UIWidgetMenu_ScrollWrapped(UIWidgetMenu *self, int32_t d) { self->ScrollWrapped(d); }
 void THISCALL DeleteAllNodeOwners_Hook(WidgetListNode *head) { DeleteAllNodeOwners(head); }
 WidgetListNode *THISCALL ListGetNode_Hook(WidgetListNode *head, uint32_t i) { return ListGetNode(head, i); }
+FEObject *THISCALL UIWidgetMenu_GetCurrentFEObject(UIWidgetMenu *self, const char *p) { return self->GetCurrentFEObject(p); }
+uint32_t THISCALL UIWidgetMenu_AddButtonOption(UIWidgetMenu *self, FEButtonWidget *w) { return self->AddButtonOption(w); }
+uint32_t THISCALL UIWidgetMenu_AddStatOption(UIWidgetMenu *self, FEStatWidget *w) { return self->AddStatOption(w); }
+uint32_t THISCALL UIWidgetMenu_AddToggleOption(UIWidgetMenu *self, FEToggleWidget *w, int32_t st) { return self->AddToggleOption(w, st); }
+uint32_t THISCALL UIWidgetMenu_AddToggleOptionB(UIWidgetMenu *self, FEToggleWidget *w, uint32_t b) { return self->AddToggleOption(w, (b & 0xFF) != 0); }
+uint32_t THISCALL UIWidgetMenu_AddToggleImageOption(UIWidgetMenu *self, FEToggleImageWidget *w, int32_t st) { return self->AddToggleImageOption(w, st); }
+uint32_t THISCALL UIWidgetMenu_AddSliderOption(UIWidgetMenu *self, FESliderWidget *w, int32_t st) { return self->AddSliderOption(w, st); }
+uint32_t THISCALL UIWidgetMenu_AddSliderOptionB(UIWidgetMenu *self, FESliderWidget *w, uint32_t b) { return self->AddSliderOption(w, (b & 0xFF) != 0); }
+void THISCALL FESliderWidget_SetSliderObjects(FESliderWidget *self, FEObject *a, FEObject *b, FEObject *c, FEObject *d, FEObject *e, FEObject *f) { self->SetSliderObjects(a, b, c, d, e, f); }
 MenuScreen *THISCALL MenuScreen_Ctor(MenuScreen *self, const ScreenConstructorData *d) { return self->Construct(d); }
 MenuScreen *THISCALL MenuScreen_ScalarDtor(MenuScreen *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 uint32_t __cdecl IsOverlayPackage_Hook(const char *p) { return IsOverlayPackage(p); }
@@ -925,6 +934,15 @@ const Replacement kReplacements[] = {
     {0x539370, (const void *)&UIWidgetMenu_ScrollWrapped, "UIWidgetMenu::ScrollWrapped", {0x83, 0xEC, 0x08, 0x55, 0x56, 0x8B}},
     {0x4358E0, (const void *)&DeleteAllNodeOwners_Hook, "bTList::DeleteAllElements", {0x56, 0x8B, 0xF1, 0x8B, 0x06, 0x3B}},
     {0x43BE60, (const void *)&ListGetNode_Hook, "bList::GetNode", {0x8B, 0x01, 0x33, 0xD2, 0x3B, 0xC1}},
+    {0x5445F0, (const void *)&UIWidgetMenu_GetCurrentFEObject, "UIWidgetMenu::GetCurrentFEObject", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xEC}},
+    {0x54EE40, (const void *)&UIWidgetMenu_AddButtonOption, "UIWidgetMenu::AddButtonOption", {0x83, 0xEC, 0x40, 0x56, 0x57, 0x8B}},
+    {0x54F820, (const void *)&UIWidgetMenu_AddStatOption, "UIWidgetMenu::AddStatOption", {0x83, 0xEC, 0x48, 0x56, 0x57, 0x8B}},
+    {0x54EF30, (const void *)&UIWidgetMenu_AddToggleOption, "UIWidgetMenu::AddToggleOption", {0x83, 0xEC, 0x44, 0x56, 0x57, 0x8B}},
+    {0x54F170, (const void *)&UIWidgetMenu_AddToggleOptionB, "UIWidgetMenu::AddToggleOption(bool)", {0x8A, 0x54, 0x24, 0x08, 0x33, 0xC0}},
+    {0x54F190, (const void *)&UIWidgetMenu_AddToggleImageOption, "UIWidgetMenu::AddToggleImageOption", {0x83, 0xEC, 0x44, 0x56, 0x57, 0x8B}},
+    {0x54F410, (const void *)&UIWidgetMenu_AddSliderOption, "UIWidgetMenu::AddSliderOption", {0x81, 0xEC, 0x8C, 0x01, 0x00, 0x00}},
+    {0x54F800, (const void *)&UIWidgetMenu_AddSliderOptionB, "UIWidgetMenu::AddSliderOption(bool)", {0x8A, 0x54, 0x24, 0x08, 0x33, 0xC0}},
+    {0x5275B0, (const void *)&FESliderWidget_SetSliderObjects, "FESliderWidget::SetSliderObjects", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x54}},
     {0x551DE0, (const void *)&MenuScreen_Ctor, "MenuScreen::MenuScreen", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x33}},
     {0x51DC60, (const void *)&MenuScreen_ScalarDtor, "MenuScreen::~MenuScreen", {0xF6, 0x44, 0x24, 0x04, 0x01, 0x56}},
     {0x49FFA0, (const void *)&IsOverlayPackage_Hook, "IsOverlayPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x68}},

@@ -202,6 +202,8 @@ struct FESliderWidget {
     void Hide();                     // GC 80154BC8 / PC 50D780
     void SetFocus(const char *pkg);  // GC 80154C3C / PC 52DFF0 (ret 4): current button + "Highlight" (inlined)
     void UnsetFocus();               // GC 80154CC4 / PC 51E8D0
+    // PC 5275B0 (ret 0x18; GC: inlined in AddSliderOption): slider objects, length = backing width - 2 * margin
+    void SetSliderObjects(FEObject *backing, FEObject *handle, FEObject *value, FEObject *current, FEObject *endCap, FEObject *end);
 };
 
 // GC TuningSlider (zFe2.cpp; PC 0xC0, vtable 0x79B7B0 = FEToggleWidget's 17 slots with 0 dtor 531010, 1 Act 564F10,
