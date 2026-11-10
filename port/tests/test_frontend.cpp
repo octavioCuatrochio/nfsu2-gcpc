@@ -1617,8 +1617,8 @@ static void TestReaderInsertTrack()
     params[2].mu32Offset = 16;
     FETypeNode type{};
     type.mu32Type = 7;
-    for (auto &pp : params) type.mParams.AddTail(&pp.node);
-    e->mTypes.AddTail(&type.node);
+    for (auto &pp : params) type.mParams.AddTail(&pp.node.node);
+    e->mTypeLib.mTypes.AddTail(&type.node.node);
     alignas(8) unsigned char ob[sizeof(FEObject)] = {};
     auto *obj = reinterpret_cast<FEObject *>(ob);
     obj->mu32Type = 7;
@@ -1640,7 +1640,7 @@ static void TestReaderInsertTrack()
     CHECK(s->mpTracks[1].mu8ParamType == 2 && s->mpTracks[1].mu8ValueSize == 4 && s->mpTracks[1].mu8InterpType == 3 && s->mpTracks[1].Length() == 30);
     CHECK(reinterpret_cast<uint32_t *>(s->mpTracks)[-1] == 3);
     bridge::VirtualScalarDelete(s);
-    e->mTypes.head = e->mTypes.tail = nullptr; e->mTypes.count = 0;
+    e->mTypeLib.mTypes.head = e->mTypeLib.mTypes.tail = nullptr; e->mTypeLib.mTypes.count = 0;
 }
 
 // FEListBox allocation paths: resize keeps min(old, new) slots, cells re-initialized, strings owned.
@@ -2157,6 +2157,55 @@ static void TestRender()
     std::free(e);
 }
 
+// FEngine::Construct + FETypeLib::Startup: built-in types, field offsets/defaults, untouched fields.
+static void TestEngineConstructTypes()
+{
+    static unsigned char mem[sizeof(FEngine)];
+    std::memset(mem, 0x5A, sizeof mem);
+    const int live0 = teststub::liveAllocations;
+    FEngine *e = FEngine::Construct(mem);
+    CHECK(e == reinterpret_cast<FEngine *>(mem));
+    CHECK(e->_unknown000 == 1 && e->mbFlag01 == 1 && e->mbMouseEnabled == 0 && e->mbFlag03 == 1 && e->mbFlag04 == 1);
+    CHECK(e->mpPackages == nullptr && e->mIdlePackages.count == 0 && e->mMessages.vtable == &teststub::feMinListVTable);
+    CHECK(e->mPressedButton[18] == nullptr && e->mLastButtons[31].mu32ButtonGUID == 0 && e->macPackageMarkers[15][255] == 0);
+    CHECK(e->mu32ButtonsToRelease == 0x5A5A5A5Au && e->mu16RenderContextCount == 0x5A5A && e->mSorter.mEntries[0].mu32Key == 0x5A5A5A5Au);   // untouched
+    CHECK(e->mTypeLib.mTypes.count == 11);
+    const uint32_t ids[11] = {1, 9, 10, 11, 2, 3, 7, 8, 4, 5, 6};
+    int i = 0;
+    for (auto *t = reinterpret_cast<FETypeNode *>(e->mTypeLib.mTypes.head); t; t = reinterpret_cast<FETypeNode *>(t->node.node.next), ++i)
+        CHECK(i < 11 && t->mu32Type == ids[i] && t->node.node.vtable == &teststub::feTypeNodeVTable);
+    FETypeNode *img = e->mTypeLib.FindType(1);
+    CHECK(img && std::string(img->node.mpcName) == "Image" && img->mParams.count == 7);
+    const char *names[7] = {"Color", "Pivot", "Position", "Rotation", "Size", "Upper Left", "Lower Right"};
+    const uint32_t offs[7] = {0, 16, 28, 40, 56, 68, 76};
+    i = 0;
+    for (auto *f = reinterpret_cast<FEFieldNode *>(img->mParams.head); f; f = reinterpret_cast<FEFieldNode *>(f->node.node.next), ++i)
+        CHECK(i < 7 && std::string(f->node.mpcName) == names[i] && f->mu32Offset == offs[i] && f->mpDefault);
+    CHECK(img->GetField("lower right") == reinterpret_cast<FEFieldNode *>(img->mParams.tail) && img->GetField("Nope") == nullptr);
+    const float *lr = static_cast<const float *>(img->GetField("Lower Right")->mpDefault);
+    const float *rot = static_cast<const float *>(img->GetField("Rotation")->mpDefault);
+    const uint32_t *col = static_cast<const uint32_t *>(img->GetField("Color")->mpDefault);
+    CHECK(lr[0] == 1 && lr[1] == 1 && rot[3] == 1 && rot[0] == 0 && col[2] == 0xFF);
+    FETypeNode *cbv = e->mTypeLib.FindType(9);
+    CHECK(cbv->mParams.count == 11 && cbv->GetField("Bottom Left")->mu32Offset == 84 + 48 && cbv->GetField("Top Left")->mu32ValueSize == 16);
+    FETypeNode *anim = e->mTypeLib.FindType(10);
+    CHECK(anim->GetField("Frame Number")->mu32Offset == 84 && *static_cast<const uint32_t *>(anim->GetField("Frame Number")->mpDefault) == 0);
+    CHECK(e->mTypeLib.FindType(5)->mParams.count == 5 && std::string(e->mTypeLib.FindType(6)->node.mpcName) == "Code List" && !e->mTypeLib.FindType(12));
+    // free (the original never tears the library down here)
+    while (FEMinNode *tn = e->mTypeLib.mTypes.RemHead()) {
+        auto *t = reinterpret_cast<FETypeNode *>(tn);
+        while (FEMinNode *fn = t->mParams.RemHead()) {
+            auto *f = reinterpret_cast<FEFieldNode *>(fn);
+            bridge::FreeArray(f->mpDefault);
+            bridge::FreeArray(f->node.mpcName);
+            bridge::FreeArray(f);
+        }
+        bridge::FreeArray(t->node.mpcName);
+        bridge::FreeArray(t);
+    }
+    CHECK(teststub::liveAllocations == live0);
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -2327,6 +2376,7 @@ int main()
     TestEngineUpdate();
     TestButtonMap();
     TestRender();
+    TestEngineConstructTypes();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();

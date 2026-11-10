@@ -464,8 +464,7 @@ void AppendKey(FERefList &l, FEMinNode *n)   // inlined AddTail (no count)
 void SetLength24(FEKeyTrack &t, uint32_t v) { t._length[0] = uint8_t(v); t._length[1] = uint8_t(v >> 8); t._length[2] = uint8_t(v >> 16); }
 FETypeParam *FindTypeParam(FEngine *e, uint32_t type, uint32_t index)
 {
-    auto *tn = reinterpret_cast<FETypeNode *>(e->mTypes.head);
-    while (tn && tn->mu32Type != type) tn = reinterpret_cast<FETypeNode *>(tn->node.next);
+    const FETypeNode *tn = e->mTypeLib.FindType(type);   // PC 505480
     FEMinNode *p = tn->mParams.head;   // PC: no null check on the type
     for (uint32_t i = 0; p && i != index; ++i) p = p->next;
     return reinterpret_cast<FETypeParam *>(p);

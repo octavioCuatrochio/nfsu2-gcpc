@@ -28,6 +28,7 @@ int liveAllocations = 0;
 int feStringVTable = 0;
 void *lastLabelCallback = nullptr;
 int feMinNodeVTable = 0, feMinListVTable = 0, virtualDeletes = 0;
+int feFieldNodeVTable = 0, feTypeNodeVTable = 0;
 int feObjectVTable = 0, feSlotNodeVTable = 0, feSlotPoolVTable = 0;
 FEMultiPool objDataPool{{&feMinListVTable, 0, nullptr, nullptr}};
 int feMsgRespVTable = 0, feMsgRespBlockVTable = 0, virtualDtorCalls = 0;
@@ -77,6 +78,13 @@ void *FEStringVTable() { return &teststub::feStringVTable; }
 void CallLabelCallback(void *s) { teststub::lastLabelCallback = s; }
 void *FEMinNodeVTable() { return &teststub::feMinNodeVTable; }
 void *FEMinListVTable() { return &teststub::feMinListVTable; }
+#ifdef NFSU2_REFEREE
+void *FEFieldNodeVTable() { return reinterpret_cast<void *>(0x79B018); }
+void *FETypeNodeVTable() { return reinterpret_cast<void *>(0x79B90C); }
+#else
+void *FEFieldNodeVTable() { return &teststub::feFieldNodeVTable; }
+void *FETypeNodeVTable() { return &teststub::feTypeNodeVTable; }
+#endif
 // dispatch on the stand-in vtables, like the game's real vtable slot 0 would
 void VirtualScalarDelete(void *o)
 {

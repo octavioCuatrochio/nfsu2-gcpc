@@ -299,6 +299,14 @@ void THISCALL FEObjectSorter_SortObjects(FEngine::ObjectSorter *self) { self->So
 void THISCALL FEngine_RenderObject(FEngine *self, FEObject *o, const FEMatrix4 *m, uint16_t c) { self->RenderObject(o, m, c); }
 void THISCALL FEngine_RenderGroup(FEngine *self, FEGroup *g, const FEMatrix4 *p, const FEMatrix4 *v, uint16_t c) { self->RenderGroup(g, p, v, c); }
 void THISCALL FEngine_Render(FEngine *self) { self->Render(); }
+void THISCALL FETypeNode_AddField(FETypeNode *self, const char *n, uint32_t t) { self->AddField(n, t); }
+void THISCALL FETypeNode_AddFieldNode(FETypeNode *self, FEFieldNode *f) { self->AddFieldNode(f); }
+FEFieldNode *THISCALL FETypeNode_GetField(const FETypeNode *self, const char *n) { return self->GetField(n); }
+FETypeNode *THISCALL FETypeLib_FindType(const FETypeLib *self, uint32_t t) { return self->FindType(t); }
+FETypeNode *THISCALL FETypeLib_CreateBaseObjectType(FETypeLib *self, const char *n) { return self->CreateBaseObjectType(n); }
+FETypeNode *THISCALL FETypeLib_CreateImageObjectType(FETypeLib *self, const char *n) { return self->CreateImageObjectType(n); }
+bool THISCALL FETypeLib_Startup(FETypeLib *self) { return self->Startup(); }
+FEngine *THISCALL FEngine_Ctor(void *self) { return FEngine::Construct(self); }
 void THISCALL FEButtonMap_ComputeButtonLocation(const FEButtonMap *self, FEObject *o, void *gi, FEVector2 *out) { self->ComputeButtonLocation(o, gi, out); }
 FEObject *THISCALL FEButtonMap_GetButtonFrom(const FEButtonMap *self, FEObject *f, uint32_t d, void *gi, uint32_t w) { return self->GetButtonFrom(f, d, gi, w); }
 uint32_t THISCALL FEJoyPad_HeldFor(const FEJoyPad *self, uint32_t m) { return self->HeldFor(m); }
@@ -618,6 +626,14 @@ const Replacement kReplacements[] = {
     {0x51A970, (const void *)&FEngine_RenderObject, "FEngine::RenderObject", {0x83, 0xEC, 0x18, 0x56, 0x8B, 0x74}},
     {0x52C5D0, (const void *)&FEngine_RenderGroup, "FEngine::RenderGroup", {0x81, 0xEC, 0x98, 0x00, 0x00, 0x00}},
     {0x536520, (const void *)&FEngine_Render, "FEngine::Render", {0xB8, 0x04, 0x11, 0x00, 0x00, 0xE8}},
+    {0x519EB0, (const void *)&FETypeNode_AddField, "FETypeNode::AddField", {0x56, 0x57, 0x6A, 0x24, 0x8B, 0xF9}},
+    {0x514780, (const void *)&FETypeNode_AddFieldNode, "FETypeNode::AddFieldNode", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x519F10, (const void *)&FETypeNode_GetField, "FETypeNode::GetField", {0x56, 0x8B, 0x71, 0x1C, 0x85, 0xF6}},
+    {0x505480, (const void *)&FETypeLib_FindType, "FETypeLib::FindType", {0x8B, 0x41, 0x08, 0x85, 0xC0, 0x74}},
+    {0x535610, (const void *)&FETypeLib_CreateBaseObjectType, "FETypeLib::CreateBaseObjectType", {0x83, 0xEC, 0x38, 0x53, 0x55, 0x56}},
+    {0x5358D0, (const void *)&FETypeLib_CreateImageObjectType, "FETypeLib::CreateImageObjectType", {0x83, 0xEC, 0x08, 0x8B, 0x44, 0x24}},
+    {0x5359D0, (const void *)&FETypeLib_Startup, "FETypeLib::Startup", {0x83, 0xEC, 0x14, 0x53, 0x57, 0x68}},
+    {0x536170, (const void *)&FEngine_Ctor, "FEngine::FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
     {0x504B50, (const void *)static_cast<void (*)(FEVector3 *, const float *, const FEVector3 *)>(&FEMultMatrix), "FEMultMatrix", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}, 1, 12, 0},
     {0x504BB0, (const void *)&FEButtonMap_ComputeButtonLocation, "FEButtonMap::ComputeButtonLocation", {0x8B, 0x4C, 0x24, 0x08, 0x83, 0xEC}},
     {0x5189E0, (const void *)&FEButtonMap_GetButtonFrom, "FEButtonMap::GetButtonFrom", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},

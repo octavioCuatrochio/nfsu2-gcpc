@@ -158,3 +158,43 @@ void FEngine::Render()
     }
     _unknown5250 = _unknown000;
 }
+
+FEngine *FEngine::Construct(void *mem)
+{
+    auto *e = static_cast<FEngine *>(mem);
+    e->mMouse.mi32Wheel = e->mMouse.mi32Y = e->mMouse.mi32X = 0;
+    e->mMouse.mu16Current = e->mMouse.mu16Previous = 0;
+    e->mMouse.mHoldTime[2] = e->mMouse.mHoldTime[1] = e->mMouse.mHoldTime[0] = 0;
+    e->mMouse._unknown1C = 0;
+    e->mMouse.mbMoved = 0;
+    void *const listVTable = bridge::FEPackageList74VTable();   // PC 0x79B878 (FEPackageList)
+    e->mpPackages = e->mpPackagesTail = nullptr;
+    e->mu32NumPackages = 0;
+    e->mpActiveListVTable = listVTable;
+    e->mIdlePackages = FEMinList{listVTable, 0, nullptr, nullptr};
+    e->mLibraries = FEMinList{listVTable, 0, nullptr, nullptr};
+    e->mSorter.mu32Count = 0;
+    e->mMessages = FEMinList{bridge::FEMinListVTable(), 0, nullptr, nullptr};
+    e->mPackageCommands = FEMinList{listVTable, 0, nullptr, nullptr};
+    e->mTypeLib.mTypes = FEMinList{listVTable, 0, nullptr, nullptr};
+    e->mTypeLib._unknown10 = 0;
+    e->_unknown000 = 1;
+    e->mbFlag01 = 1;
+    e->mbFlag03 = 1;
+    e->mbFlag04 = 1;
+    e->_unknown5250 = 0;
+    e->mu32NumJoyPads = 0;
+    e->mpJoyPads = nullptr;
+    e->_unknown030 = 0;
+    e->_unknown02C = 0;
+    e->mu32ButtonMapArg = 0;
+    e->mbMouseEnabled = 0;
+    e->mbForwardQueuedMessages = 0;
+    std::memset(e->mPressedButton, 0, sizeof e->mPressedButton);
+    e->mu32NumPackageMarkers = 0;
+    std::memset(e->macPackageMarkers, 0, sizeof e->macPackageMarkers);
+    e->mi32LastButtonIndex = 0;
+    std::memset(e->mLastButtons, 0, sizeof e->mLastButtons);
+    e->mTypeLib.Startup();
+    return e;
+}

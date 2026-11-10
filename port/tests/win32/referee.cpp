@@ -22,6 +22,7 @@
 #include "frontend/FEObject.h"
 #include "frontend/FEButtonMap.h"
 #include "frontend/FERender.h"
+#include "frontend/FETypeLib.h"
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
@@ -1527,6 +1528,63 @@ static void CheckRender(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FETypeNode::AddFieldNode, FETypeLib::FindType on synthetic lists (no allocation).
+static void CheckTypeLib(int iters)
+{
+    auto oGet = ORIG<FEFieldNode *(THISCALL *)(const FETypeNode *, const char *)>(0x519F10);
+    auto oFind = ORIG<FETypeNode *(THISCALL *)(const FETypeLib *, uint32_t)>(0x505480);
+    auto oAdd = ORIG<void(THISCALL *)(FETypeNode *, FEFieldNode *)>(0x514780);
+    static const char *const names[] = {"Color", "color", "COLOR", "Pivot", "Upper Left", "upper left", "Size", "", "Sizes", "Frame Number", "Top Left"};
+    for (int it = 0; it < iters; ++it) {
+        static FEFieldNode fa[8], fb[8];
+        static FETypeNode ta, tb;
+        const uint32_t n = rng() % 8;   // fa[n] is what AddFieldNode appends (not yet in the list)
+        std::memset(&ta, 0, sizeof ta);
+        std::memset(fa, 0, sizeof fa);
+        FEMinNode *prev = nullptr;
+        for (uint32_t i = 0; i < n; ++i) {
+            fa[i].node.mpcName = const_cast<char *>(names[rng() % 11]);
+            fa[i].mu32ValueSize = rng() % 3 ? kFEKeyTypeSize[rng() % 8] : rng();
+            fa[i].mu32Offset = rng();
+            fa[i].node.node.prev = prev;
+            if (prev) prev->next = &fa[i].node.node; else ta.mParams.head = &fa[i].node.node;
+            prev = &fa[i].node.node;
+        }
+        ta.mParams.tail = prev;
+        ta.mParams.count = n;
+        // GetField (519F10) is not compared here: the original calls the CRT _stricmp (75DD6F), which crashes before
+        // the CRT is initialized (DllMain). Covered by unit tests + in game.
+        (void)oGet;
+        // FindType over the fields reused as type nodes is not meaningful; build a type list instead
+        static FETypeNode types[6];
+        FETypeLib lib{};
+        FEMinNode *tp = nullptr;
+        const uint32_t nt = rng() % 7;
+        for (uint32_t i = 0; i < nt; ++i) {
+            std::memset(&types[i], 0, sizeof types[i]);
+            types[i].mu32Type = rng() % 12;
+            types[i].node.node.prev = tp;
+            if (tp) tp->next = &types[i].node.node; else lib.mTypes.head = &types[i].node.node;
+            tp = &types[i].node.node;
+        }
+        const uint32_t want = rng() % 13;
+        EXPECT(oFind(&lib, want) == lib.FindType(want), "FindType %u", want);
+        // AddFieldNode: same list in two copies (fb mirrors fa)
+        std::memcpy(&tb, &ta, sizeof ta);
+        std::memcpy(fb, fa, sizeof fa);
+        auto rebase = [&](FEMinNode *x) -> FEMinNode * { return x ? reinterpret_cast<FEMinNode *>(reinterpret_cast<uint8_t *>(x) - reinterpret_cast<uint8_t *>(fa) + reinterpret_cast<uint8_t *>(fb)) : nullptr; };
+        tb.mParams.head = rebase(ta.mParams.head);
+        tb.mParams.tail = rebase(ta.mParams.tail);
+        for (uint32_t i = 0; i < n; ++i) { fb[i].node.node.next = rebase(fa[i].node.node.next); fb[i].node.node.prev = rebase(fa[i].node.node.prev); }
+        const bool addNull = rng() % 4 == 0;
+        oAdd(&ta, addNull ? nullptr : &fa[n]);
+        tb.AddFieldNode(addNull ? nullptr : &fb[n]);
+        bool same = ta.mParams.count == tb.mParams.count;
+        for (int i = 0; i < 8; ++i) same &= fa[i].mu32Offset == fb[i].mu32Offset && rebase(fa[i].node.node.next) == fb[i].node.node.next;
+        EXPECT(same, "AddFieldNode n %u null %d", n, addNull);
+    }
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2099,6 +2157,7 @@ static int RunAll()
     REFEREE_RUN(CheckPadMouse(iters * 5));
     REFEREE_RUN(CheckButtonMap(iters * 5));
     REFEREE_RUN(CheckRender(iters * 3));
+    REFEREE_RUN(CheckTypeLib(iters * 5));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));

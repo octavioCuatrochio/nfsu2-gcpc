@@ -9,6 +9,7 @@ extern int liveAllocations;    // bridge::Alloc minus bridge::FreeArray
 extern int feStringVTable;     // its address stands in for the FEString vtable
 extern void *lastLabelCallback;
 extern int feMinNodeVTable, feMinListVTable, virtualDeletes;
+extern int feFieldNodeVTable, feTypeNodeVTable;
 extern int feObjectVTable, feSlotNodeVTable, feSlotPoolVTable;
 }
 struct FEMultiPool;

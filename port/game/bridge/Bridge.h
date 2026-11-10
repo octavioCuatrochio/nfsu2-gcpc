@@ -41,6 +41,8 @@ void *FEStringVTable();                                                // PC 0x7
 void CallLabelCallback(void *feString);
 
 void *FEMinNodeVTable();                                               // PC 0x79A9E8
+void *FEFieldNodeVTable();                                             // PC 0x79B018
+void *FETypeNodeVTable();                                              // PC 0x79B90C
 void *FEMinListVTable();                                               // PC 0x79A9EC
 // delete an object through its own vtable: slot 0 = MSVC scalar deleting destructor, called with flag 1
 void VirtualScalarDelete(void *object);

@@ -28,6 +28,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   FEObject +0x20. FEPackage objects head +0x4C, FEGroup children head +0x64. Data: +0xC alpha (int, 0 = skip),
   +0x10 pivot, +0x1C position, +0x28 rotation quaternion. gi vtable 0x79BCD8: +0x20 Begin, +0x24 End,
   +0x28 GenerateRenderContext, +0x2C GetContextTransform, +0x30 RenderObjectList, +0x3C GetViewTransformation.
+- FETypeLib (FEngine +0x4134, 0x14 bytes) rewritten: Startup 5359D0 builds types Image 1, CBV Image 9, Anim Image
+  10, Simple Image 11, String 2, Model 3, Movie 7, Effect 8, List 4, Group 5, Code List 6. Base fields Color(6)/
+  Pivot(4)/Position(4)/Rotation(5)/Size(4) -> data offsets 0/16/28/40/56; image + Upper Left/Lower Right (3).
+  FEngine ctor 536170 rewritten (FEngine::Construct).
+- Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.
 - Referee: bridge_stub.cpp under NFSU2_REFEREE must call game-interface slots through the vtable (fake gi).
 - Single instance: an earlier SPEED2.EXE still running makes a new launch exit quietly -> check pgrep before A/B.
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).

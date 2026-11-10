@@ -49,6 +49,8 @@ void CallLabelCallback(void *feString)
 }
 
 void *FEMinNodeVTable() { return reinterpret_cast<void *>(0x79A9E8); }
+void *FEFieldNodeVTable() { return reinterpret_cast<void *>(0x79B018); }
+void *FETypeNodeVTable() { return reinterpret_cast<void *>(0x79B90C); }
 void *FEMinListVTable() { return reinterpret_cast<void *>(0x79A9EC); }
 
 void VirtualScalarDtor(void *object, uint32_t flags)
