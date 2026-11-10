@@ -1,4 +1,5 @@
 #include "FERender.h"
+#include "cFEngRender.h"
 #include <cstring>
 #include <initializer_list>
 #include "bridge/Bridge.h"
@@ -140,7 +141,7 @@ void FEngine::Render()
     for (auto *p = mpPackages; p; p = reinterpret_cast<FEPackage *>(p->node.next)) pkgs[n++] = p;
     for (int32_t i = 0; i < n; ++i) ActiveList().RemNode(&pkgs[i]->node);
     for (int32_t i = 0; i < n; ++i) AddPackageByPriority(pkgs[i]);
-    alignas(8) static uint8_t sortBuffer[0x1000];   // PC: on the stack; only its address is handed out
+    alignas(8) static uint8_t sortBuffer[0x200 * sizeof(FERenderNode)];   // PC: 0x1000 on the stack (512 8-byte nodes)
     for (auto *p = mpPackages; p; p = reinterpret_cast<FEPackage *>(p->node.next)) {
         mu16RenderContextCount = 0;
         InitFEngObjectSorting(p, sortBuffer, 0x1000);

@@ -350,6 +350,18 @@ void bMatrixToQuaternion(bVector4 *q, const bMatrix4 *pm)
 
 void bMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b) { eMulMatrix(out, b, a); }
 
+void eMulVector(bVector3 *out, const bMatrix4 *mat, const bVector3 *in)
+{
+    using LD = long double;
+    const float *m = mat->m;
+    const LD x = ((LD(m[8]) * in->z + LD(m[4]) * in->y) + LD(m[0]) * in->x) + m[12];
+    const LD y = ((LD(m[9]) * in->z + LD(m[1]) * in->x) + LD(m[5]) * in->y) + m[13];
+    const LD z = ((LD(m[10]) * in->z + LD(m[2]) * in->x) + LD(m[6]) * in->y) + m[14];
+    out->x = static_cast<float>(x);
+    out->y = static_cast<float>(y);
+    out->z = static_cast<float>(z);
+}
+
 void bTransposeMatrix(bMatrix4 *out, const bMatrix4 *in)
 {
     bMatrix4 t = *in;

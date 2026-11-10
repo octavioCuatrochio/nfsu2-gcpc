@@ -22,6 +22,7 @@
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
 #include "frontend/FEScrollBar.h"
+#include "frontend/cFEngRender.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FENode.h"
 #include "frontend/FEPackageManager.h"
@@ -360,6 +361,35 @@ uint8_t *THISCALL cFEng_GetPackageData(cFEng *self, const char *n, uint32_t u, u
 void THISCALL cFEng_BeginPackageRendering(cFEng *self, FEPackage *p, uint32_t m) { self->BeginPackageRendering(p, m & 0xFF); }
 uint32_t THISCALL cFEng_GetContextTransform(cFEng *self, uint32_t c, float *m) { return self->GetContextTransform(static_cast<uint16_t>(c), m); }
 void THISCALL cFEng_GetMouseInfo(cFEng *self, void *i) { self->GetMouseInfo(i); }
+// cFEngRender / FERenderObject / clipping
+FERenderObject *THISCALL FERenderObject_Ctor(FERenderObject *self, FEObject *o, void *t) { return self->Construct(o, t); }
+void THISCALL FERenderObject_FreePolys(FERenderObject *self) { self->FreePolys(); }
+void THISCALL FERenderObject_Clear(FERenderObject *self, uint32_t a) { self->Clear(a); }
+FERenderEPoly *THISCALL FERenderObject_AddPoly(FERenderObject *self, float x0, float y0, float x1, float y1, float z, float u0, float v0, float u1, float v1, const uint32_t *c, void *ri, uint32_t f) { return self->AddPoly(x0, y0, x1, y1, z, u0, v0, u1, v1, c, ri, f & 0xFF); }
+void THISCALL FERenderObject_AddPolyClipped(FERenderObject *self, float x0, float y0, float x1, float y1, float z, float u0, float v0, float u1, float v1, const uint32_t *c, FEClipInfo *clip, void *ri) { self->AddPolyClipped(x0, y0, x1, y1, z, u0, v0, u1, v1, c, clip, ri); }
+void THISCALL FERenderObject_Render(FERenderObject *self) { self->Render(); }
+cFEngRender *THISCALL cFEngRender_Ctor(cFEngRender *self) { return self->Construct(); }
+void THISCALL cFEngRender_Dtor(cFEngRender *self) { self->Destroy(); }
+FERenderObject *THISCALL cFEngRender_CreateCachedRender(cFEngRender *self, FEObject *o, void *t) { return self->CreateCachedRender(o, t); }
+void THISCALL cFEngRender_RemoveCachedRender(cFEngRender *self, FEObject *o, uint32_t a) { self->RemoveCachedRender(o, a); }
+void THISCALL cFEngRender_GenerateRenderContext(cFEngRender *self, uint32_t c, FEObject *g) { self->GenerateRenderContext(static_cast<uint16_t>(c), g); }
+void THISCALL cFEngRender_AddToRenderList(cFEngRender *self, FEObject *o) { self->AddToRenderList(o); }
+void THISCALL cFEngRender_PackageFinished(cFEngRender *self, FEPackage *p) { self->PackageFinished(p); }
+void THISCALL cFEngRender_RenderObject(cFEngRender *self, FEObject *o, void *ri) { self->RenderObject(o, ri); }
+FEClipInfo *THISCALL cFEngRender_MakeRenderMatrix(cFEngRender *self, const void *d, bMatrix4 *m, int32_t *c, uint32_t id, float s) { return self->MakeRenderMatrix(d, m, c, id & 0xFFFF, s); }
+void THISCALL cFEngRender_GenerateClipInfo(cFEngRender *self, cFEngRenderContext *c) { self->GenerateClipInfo(c); }
+void THISCALL cFEngRender_RenderImage(cFEngRender *self, FEObject *o, FERenderObject *c, void *ri) { self->RenderImage(o, c, ri); }
+void THISCALL cFEngRender_RenderCBVImage(cFEngRender *self, FEObject *o, FERenderObject *c, void *ri) { self->RenderCBVImage(o, c, ri); }
+void THISCALL cFEngRender_RenderMovie(cFEngRender *self, FEObject *o, FERenderObject *c, void *ri) { self->RenderMovie(o, c, ri); }
+void THISCALL cFEngRender_RenderString(cFEngRender *self, FEObject *o, FERenderObject *c, void *ri) { self->RenderString(o, c, ri); }
+uint32_t FEClipEdgeXGe(float *ov, float *ouv, float *oc, const float *v, const float *uv, const float *c, uint32_t n, float d) { return FEClipEdge(0, true, ov, ouv, oc, v, uv, c, n, d); }
+uint32_t FEClipEdgeYGe(float *ov, float *ouv, float *oc, const float *v, const float *uv, const float *c, uint32_t n, float d) { return FEClipEdge(1, true, ov, ouv, oc, v, uv, c, n, d); }
+uint32_t FEClipEdgeXLe(float *ov, float *ouv, float *oc, const float *v, const float *uv, const float *c, uint32_t n, float d) { return FEClipEdge(0, false, ov, ouv, oc, v, uv, c, n, d); }
+uint32_t FEClipEdgeYLe(float *ov, float *ouv, float *oc, const float *v, const float *uv, const float *c, uint32_t n, float d) { return FEClipEdge(1, false, ov, ouv, oc, v, uv, c, n, d); }
+uint32_t THISCALL FEClipAligned_Hook(void *, const FEClipInfo *k, float *v, float *uv, float *c, float *tv, float *tuv, float *tc) { return FEClipAligned(k, v, uv, c, tv, tuv, tc); }
+uint32_t THISCALL FEClipGeneral_Hook(void *, const FEClipInfo *k, float *v, float *uv, float *c, float *tv, float *tuv, float *tc) { return FEClipGeneral(k, v, uv, c, tv, tuv, tc); }
+void THISCALL FEQuatToMatrix_Hook(const float *q, bMatrix4 *m) { FEQuatToMatrix(q, m); }
+void THISCALL ePoly_Init(ePoly *self) { self->Init(); }
 FEButtonWidget *THISCALL FEButtonWidget_Ctor(FEButtonWidget *self, const float *pos, const float *size, bool en) { return self->Construct(pos, size, en); }
 void THISCALL FEButtonWidget_Show(FEButtonWidget *self) { self->Show(); }
 void THISCALL FEButtonWidget_Hide(FEButtonWidget *self) { self->Hide(); }
@@ -807,6 +837,36 @@ const Replacement kReplacements[] = {
     {0x51C690, (const void *)&cFEng_BeginPackageRendering, "cFEng::BeginPackageRendering", {0x53, 0x56, 0x8B, 0xF1, 0xC6, 0x46}},
     {0x50C3D0, (const void *)&cFEng_GetContextTransform, "cFEng::GetContextTransform", {0x8B, 0x44, 0x24, 0x08, 0x33, 0xD2}},
     {0x50C860, (const void *)&cFEng_GetMouseInfo, "cFEng::GetMouseInfo", {0xDB, 0x05, 0xD4, 0x63, 0x87, 0x00}},
+    {0x52C330, (const void *)&FERenderObject_Ctor, "FERenderObject::FERenderObject", {0x6A, 0xFF, 0x68, 0xFB, 0x74, 0x77}},
+    {0x52C390, (const void *)&FERenderObject_FreePolys, "FERenderObject::~FERenderObject (polys)", {0x83, 0xC1, 0x18, 0xE9, 0x28, 0x97}},
+    {0x52C3A0, (const void *)&FERenderObject_Clear, "FERenderObject::Clear", {0x53, 0x8B, 0xD9, 0x8B, 0x43, 0x18}},
+    {0x519FC0, (const void *)&FERenderObject_AddPoly, "FERenderObject::AddPoly", {0x6A, 0xFF, 0x68, 0xCB, 0x70, 0x77}},
+    {0x51A1C0, (const void *)&FERenderObject_AddPolyClipped, "FERenderObject::AddPoly(clip)", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x51A5D0, (const void *)&FERenderObject_Render, "FERenderObject::Render", {0x53, 0x55, 0x56, 0x57, 0x6A, 0x00}},
+    {0x536050, (const void *)&cFEngRender_Ctor, "cFEngRender::cFEngRender", {0x6A, 0xFF, 0x68, 0xEB, 0x75, 0x77}},
+    {0x536100, (const void *)&cFEngRender_Dtor, "cFEngRender::~cFEngRender", {0x6A, 0xFF, 0x68, 0xEB, 0x75, 0x77}},
+    {0x52CBA0, (const void *)&cFEngRender_CreateCachedRender, "cFEngRender::CreateCachedRender", {0x6A, 0xFF, 0x68, 0x1B, 0x75, 0x77}},
+    {0x5371A0, (const void *)&cFEngRender_RemoveCachedRender, "cFEngRender::RemoveCachedRender", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x8B}},
+    {0x51B7F0, (const void *)&cFEngRender_GenerateRenderContext, "cFEngRender::GenerateRenderContext", {0x0F, 0xB7, 0x44, 0x24, 0x04, 0x56}},
+    {0x51B850, (const void *)&cFEngRender_AddToRenderList, "cFEngRender::AddToRenderList", {0x57, 0x8B, 0x7C, 0x24, 0x08, 0x8B}},
+    {0x5371F0, (const void *)&cFEngRender_PackageFinished, "cFEngRender::PackageFinished", {0x51, 0x53, 0x55, 0x56, 0x57, 0x8B}},
+    {0x5370A0, (const void *)&cFEngRender_RenderObject, "cFEngRender::RenderObject", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x57}},
+    {0x51B0B0, (const void *)&cFEngRender_MakeRenderMatrix, "cFEngRender::MakeRenderMatrix", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x51B3A0, (const void *)&cFEngRender_GenerateClipInfo, "cFEngRender::GenerateClipInfo", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x536A50, (const void *)&cFEngRender_RenderImage, "cFEngRender::RenderImage", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x536C80, (const void *)&cFEngRender_RenderCBVImage, "cFEngRender::RenderCBVImage", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x536850, (const void *)&cFEngRender_RenderMovie, "cFEngRender::RenderMovie", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x536F60, (const void *)&cFEngRender_RenderString, "cFEngRender::RenderString", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x506CB0, (const void *)&FEClipEdgeXGe, "FEClipEdge x>=", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x507D80, (const void *)&FEClipEdgeYGe, "FEClipEdge y>=", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x508E60, (const void *)&FEClipEdgeXLe, "FEClipEdge x<=", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x509F30, (const void *)&FEClipEdgeYLe, "FEClipEdge y<=", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x50B010, (const void *)&FEClipAligned_Hook, "FERenderObject::ClipAligned", {0x8B, 0x4C, 0x24, 0x1C, 0x8B, 0x54}},
+    {0x505660, (const void *)&FEClipGeneral_Hook, "FERenderObject::ClipGeneral", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x4FD980, (const void *)&FEQuatToMatrix_Hook, "quaternion -> matrix (4FD980)", {0x83, 0xEC, 0x20, 0xD9, 0x01, 0x8B}},
+    {0x50B3C0, (const void *)&FESortClipCorners, "FESortClipCorners", {0x8B, 0x4C, 0x24, 0x04, 0xD9, 0x01}},
+    {0x441000, (const void *)&eMulVector, "eMulVector", {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x0C}},
+    {0x5BB1C0, (const void *)&ePoly_Init, "ePoly::ePoly", {0x8B, 0xC1, 0x33, 0xC9, 0xBA, 0x00}},
     {0x51DFC0, (const void *)&FEButtonWidget_Ctor, "FEButtonWidget::FEButtonWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50D530, (const void *)&FEButtonWidget_Show, "FEButtonWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x50D550, (const void *)&FEButtonWidget_Hide, "FEButtonWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},

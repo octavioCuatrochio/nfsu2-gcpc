@@ -219,6 +219,23 @@ void InitDebugLanguageChange() { reinterpret_cast<void(__cdecl *)(uint32_t, uint
 void CloseDebugLanguageChange() { reinterpret_cast<void(__cdecl *)(uint32_t, uint32_t)>(0x57C330)(0, 0x34); }
 int32_t IsLiveJoystickPluggedIn(int32_t p) { return reinterpret_cast<int32_t(__cdecl *)(int32_t)>(0x571A80)(p); }
 void *RenderObjectDisconnectVTable() { return reinterpret_cast<void *>(0x79AB9C); }
+::SlotPool **FERenderObjectPool() { return reinterpret_cast<::SlotPool **>(0x83847C); }
+::SlotPool **FERenderEPolyPool() { return reinterpret_cast<::SlotPool **>(0x838480); }
+::SlotPool **FERenderEPolyOverflowPool() { return reinterpret_cast<::SlotPool **>(0x838484); }
+::FERenderBucket *FERenderBuckets() { return reinterpret_cast<::FERenderBucket *>(0x8639A0); }
+void *eGetView(int32_t i) { return reinterpret_cast<void *>(0x832DE0 + 0x70 * i); }
+void eView_Render(void *v, ::ePoly *p, void *t, int32_t f) { reinterpret_cast<void(THISCALL *)(void *, ::ePoly *, void *, int32_t)>(0x5C7EA0)(v, p, t, f); }
+const int32_t *FERenderStatsMode() { return *reinterpret_cast<const int32_t *const *>(0x8900D8); }
+uint32_t *FERenderStats() { return reinterpret_cast<uint32_t *>(0x837D20); }
+void *cFEngRenderVTable() { return reinterpret_cast<void *>(0x79BBA0); }
+int32_t CurrentLanguage() { return *reinterpret_cast<const int32_t *>(0x7F70D0); }
+int32_t MovieActive() { return *reinterpret_cast<const int32_t *>(0x8383AC); }
+const uint8_t *MoviePlayer() { return *reinterpret_cast<const uint8_t *const *>(0x8383A4); }
+void *MovieTexture() { return reinterpret_cast<void *>(0x8385C0); }
+void FEngFont_RenderString(void *f, const int32_t *c, const uint16_t *t, ::FEObject *o, const ::bMatrix4 *m, ::FERenderObject *r, void *i)
+{
+    reinterpret_cast<void(THISCALL *)(void *, const int32_t *, const uint16_t *, ::FEObject *, const ::bMatrix4 *, ::FERenderObject *, void *)>(0x51C110)(f, c, t, o, m, r, i);
+}
 int32_t *DiscErrorOccurred() { return reinterpret_cast<int32_t *>(0x864F2C); }
 const char **FEngPleaseRenderSinglePackage() { return reinterpret_cast<const char **>(0x8384B4); }
 const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D4); }

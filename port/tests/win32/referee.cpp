@@ -37,6 +37,7 @@
 #include "frontend/FEPackageReader.h"
 #include "frontend/FEngine.h"
 #include "frontend/cFEng.h"
+#include "frontend/cFEngRender.h"
 #include "frontend/FEListBox.h"
 #include "frontend/FECodeListBox.h"
 #include "bWare/bSlotPool.h"
@@ -2087,6 +2088,127 @@ static void CheckCFEngInterface(int iters)
     }
 }
 
+// cFEngRender pure math: eMulVector, quaternion matrix, corner sort, edge clippers, ClipAligned / ClipGeneral,
+// MakeRenderMatrix, GenerateClipInfo (synthetic render + objects), ePoly::Init. Both precisions.
+static float RenderCoord() { return rng() % 5 ? static_cast<float>(static_cast<int>(rng() % 801) - 400) / static_cast<float>(1 + rng() % 4) : RefCoord(); }
+static void CheckRenderMath(int iters)
+{
+    auto oMulV = ORIG<void(__cdecl *)(bVector3 *, const bMatrix4 *, const bVector3 *)>(0x441000);
+    auto oQuat = ORIG<void(THISCALL *)(const float *, bMatrix4 *)>(0x4FD980);
+    auto oSort = ORIG<void(__cdecl *)(float *)>(0x50B3C0);
+    using Edge = uint32_t(__cdecl *)(float *, float *, float *, const float *, const float *, const float *, uint32_t, float);
+    const Edge oEdge[4] = {ORIG<Edge>(0x506CB0), ORIG<Edge>(0x507D80), ORIG<Edge>(0x508E60), ORIG<Edge>(0x509F30)};
+    using Clip = uint32_t(THISCALL *)(void *, const FEClipInfo *, float *, float *, float *, float *, float *, float *);
+    auto oAligned = ORIG<Clip>(0x50B010);
+    auto oGeneral = ORIG<Clip>(0x505660);
+    auto oMake = ORIG<FEClipInfo *(THISCALL *)(cFEngRender *, const void *, bMatrix4 *, int32_t *, uint32_t, float)>(0x51B0B0);
+    auto oGenClip = ORIG<void(THISCALL *)(cFEngRender *, cFEngRenderContext *)>(0x51B3A0);
+    auto oPoly = ORIG<void(THISCALL *)(ePoly *)>(0x5BB1C0);
+    static cFEngRender ra, rb;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            bMatrix4 m;
+            for (float &f : m.m) f = RenderCoord() / 100.0f;
+            bVector3 in = {RenderCoord(), RenderCoord(), RenderCoord()}, a, b;
+            oMulV(&a, &m, &in);
+            eMulVector(&b, &m, &in);
+            EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "eMulVector pc=%x", pc);
+            float q[4] = {RenderCoord() / 400.0f, RenderCoord() / 400.0f, RenderCoord() / 400.0f, RenderCoord() / 400.0f};
+            bMatrix4 qa, qb;
+            for (int i = 0; i < 16; ++i) qa.m[i] = qb.m[i] = RefCoord();
+            oQuat(q, &qa);
+            FEQuatToMatrix(q, &qb);
+            EXPECT(std::memcmp(&qa, &qb, sizeof qa) == 0, "quat matrix pc=%x", pc);
+            float ca[16], cb[16];
+            for (float &f : ca) f = rng() % 3 ? RenderCoord() : 0.0f;
+            std::memcpy(cb, ca, sizeof ca);
+            oSort(ca);
+            FESortClipCorners(cb);
+            EXPECT(std::memcmp(ca, cb, sizeof ca) == 0, "sort corners");
+            // clipping: random polygon (3..6 vertices) for the edges, quads for the full clips
+            float v[16 * 4], uv[16 * 2], c[16 * 4];
+            for (float &f : v) f = RenderCoord();
+            for (float &f : uv) f = static_cast<float>(rng() % 1000) / 999.0f;
+            for (float &f : c) f = static_cast<float>(rng() % 256) / 255.0f;
+            const uint32_t n = 3 + rng() % 4;
+            const float d = RenderCoord();
+            const int e = static_cast<int>(rng() % 4);
+            float oa[3][16 * 4], ob[3][16 * 4];
+            std::memset(oa, 0x5A, sizeof oa); std::memset(ob, 0x5A, sizeof ob);
+            const uint32_t na = oEdge[e](oa[0], oa[1], oa[2], v, uv, c, n, d);
+            const uint32_t nb = FEClipEdge(e & 1, e < 2, ob[0], ob[1], ob[2], v, uv, c, n, d);
+            EXPECT(na == nb && std::memcmp(oa, ob, sizeof oa) == 0, "clip edge %d n %u pc=%x: %u vs %u", e, n, pc, na, nb);
+            FEClipInfo clip;
+            for (auto &pl : clip.mPlanes) { for (float &f : pl) f = RenderCoord() / 400.0f; }
+            for (float &f : clip.mDist) f = RenderCoord();
+            clip.mu32Flags = rng();
+            float va[6][16 * 4], vb[6][16 * 4];
+            for (int k = 0; k < 6; ++k) for (int i = 0; i < 16 * 4; ++i) va[k][i] = vb[k][i] = (k == 0 ? v[i] : k == 1 ? uv[i % 32] : c[i]);
+            const bool aligned = rng() % 2;
+            const uint32_t ka = (aligned ? oAligned : oGeneral)(nullptr, &clip, va[0], va[1], va[2], va[3], va[4], va[5]);
+            const uint32_t kb = (aligned ? FEClipAligned : FEClipGeneral)(&clip, vb[0], vb[1], vb[2], vb[3], vb[4], vb[5]);
+            {
+                int diff = 0;
+                for (int k = 0; k < 6; ++k) if (std::memcmp(va[k], vb[k], sizeof va[k])) diff |= 1 << k;
+                int fk = -1, fi = -1;
+                for (int k = 0; k < 6 && fk < 0; ++k) for (int i = 0; i < 64 && fk < 0; ++i) if (std::memcmp(&va[k][i], &vb[k][i], 4)) { fk = k; fi = i; }
+                EXPECT(ka == kb && diff == 0, "clip %s pc=%x: %u vs %u bufs %x first %d[%d] %g vs %g", aligned ? "aligned" : "general", pc, ka, kb, diff,
+                       fk, fi, fk >= 0 ? va[fk][fi] : 0.0, fk >= 0 ? vb[fk][fi] : 0.0);
+            }
+            // MakeRenderMatrix / GenerateClipInfo on a synthetic renderer
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&ra);
+            for (size_t i = 0; i < sizeof ra; ++i) pa[i] = static_cast<uint8_t>(rng());
+            for (auto &cx : ra.mContexts) {
+                for (float &f : cx.mMatrix.m) f = RenderCoord() / 100.0f;
+                for (int32_t &cc : cx.mColour) cc = static_cast<int32_t>(rng() % 0x200);
+            }
+            static float data[2][40];
+            for (float &f : data[0]) f = RenderCoord() / 10.0f;
+            int32_t *di = reinterpret_cast<int32_t *>(data[0]);
+            for (int i = 0; i < 4; ++i) di[i] = static_cast<int32_t>(rng() % 0x100);
+            if (rng() % 2) data[0][4] = data[0][5] = data[0][6] = 0;                                  // no pivot
+            if (rng() % 2) data[0][10] = data[0][11] = data[0][12] = 0, data[0][13] = 1;              // no rotation
+            if (rng() % 2) data[0][14] = data[0][15] = data[0][16] = 1;                               // unit size
+            std::memcpy(data[1], data[0], sizeof data[0]);
+            static uint8_t ka2[sizeof(FEString)], kb2[sizeof(FEString)];
+            std::memset(ka2, 0, sizeof ka2);
+            auto *ko = reinterpret_cast<FEObject *>(ka2);
+            ko->mpData = data[0];
+            ko->mu32Type = rng() % 3 ? 1 : (rng() % 2 ? 9 : 2);
+            ko->mu16RenderContext = static_cast<uint16_t>(rng() % 3 ? 0 : rng() % 64);
+            for (auto &cx : ra.mContexts) cx.mpClipObject = rng() % 2 ? ko : nullptr;
+            std::memcpy(&rb, &ra, sizeof ra);
+            std::memcpy(kb2, ka2, sizeof ka2);
+            auto *kob = reinterpret_cast<FEObject *>(kb2);
+            kob->mpData = data[1];
+            for (int i = 0; i < 64; ++i) if (rb.mContexts[i].mpClipObject) rb.mContexts[i].mpClipObject = kob;
+            const uint32_t ctx = rng() % 3 ? 0 : rng() % 64;
+            const float scale = rng() % 2 ? 1.0f : RenderCoord() / 100.0f;
+            bMatrix4 ma, mb;
+            int32_t cola[4], colb[4];
+            FEClipInfo *xa = oMake(&ra, data[0], &ma, cola, ctx, scale);
+            FEClipInfo *xb = rb.MakeRenderMatrix(data[1], &mb, colb, ctx, scale);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&rb) - reinterpret_cast<uint8_t *>(&ra);
+            EXPECT((xa ? reinterpret_cast<uint8_t *>(xa) + delta : nullptr) == reinterpret_cast<uint8_t *>(xb) && std::memcmp(&ma, &mb, sizeof ma) == 0 &&
+                   std::memcmp(cola, colb, sizeof cola) == 0, "MakeRenderMatrix ctx %u pc=%x", ctx, pc);
+            const int gi = static_cast<int>(rng() % 64);
+            ra.mContexts[gi].mpClipObject = ko;
+            rb.mContexts[gi].mpClipObject = kob;
+            oGenClip(&ra, &ra.mContexts[gi]);
+            rb.GenerateClipInfo(&rb.mContexts[gi]);
+            EXPECT(std::memcmp(&ra.mContexts[gi].mClip, &rb.mContexts[gi].mClip, sizeof(FEClipInfo)) == 0, "GenerateClipInfo type %u pc=%x", ko->mu32Type, pc);
+            ePoly pa1, pb1;
+            std::memset(&pa1, 0x5A, sizeof pa1); std::memset(&pb1, 0x5A, sizeof pb1);
+            oPoly(&pa1);
+            pb1.Init();
+            EXPECT(std::memcmp(&pa1, &pb1, sizeof pa1) == 0, "ePoly init");
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FESliderWidget: ctor, sound events, Position / Show / Hide / SetFocus / UnsetFocus on synthetic boxes with a fake
 // cSlider vtable that logs its calls (both sides must make the same calls in the same order).
 namespace slider_fake {
@@ -3048,6 +3170,7 @@ static int RunAll()
     REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckCFEngInterface(iters));
+    REFEREE_RUN(CheckRenderMath(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckFEngFontMeasure(iters * 3));

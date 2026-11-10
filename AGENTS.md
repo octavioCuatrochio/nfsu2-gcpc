@@ -33,7 +33,10 @@ Knowledge: `ExportKnowledge.java` + `ExportDecompFeatures.java` on both, then
 `python3 -I tooling/knowledge/build_db.py --nfsu2-re ext/nfsu2-re` and `python3 -I tooling/knowledge/match.py`.
 Measure changes with `tooling/knowledge/decomp_metrics.py pc/baseline/pc_decomp/src pc_decomp/src`; keep steps idempotent.
 
-## The loop (per function or class)
+## The loop (per file / class)
+Work in **whole units**: pick a class or source group (e.g. cFEngRender + FERenderObject + FERenderEPoly) and
+write **every** function of it into its port file first (steps 2-6 for all of them), then test the unit as a
+whole (step 7) and record/commit once. Don't scatter single functions across many classes.
 1. **Pick** something whose callees are rewritten, bridged or simple. Prefer whole small classes.
 2. **Packet:** `python3 -I tooling/knowledge/packet.py <Name|GC/PC addr|--class C>`.
 3. **Verify the match by reading** (callees, constants, offsets, how PC callers use it). Fix wrong/missing ones:

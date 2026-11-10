@@ -24,7 +24,7 @@ FEObject *FEObject::Construct(void *mem)
     o->mu32DataSize = 0;
     o->mResponses = FEMinList{bridge::FEMinListVTable(), 0, nullptr, nullptr};
     o->mScripts = FEMinList{bridge::FEMinListVTable(), 0, nullptr, nullptr};
-    o->_unknown58 = 0;
+    o->mpCachedRender = nullptr;
     o->mu32GUID = bridge::NextFEObjectGUID();
     return o;
 }

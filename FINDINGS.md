@@ -63,6 +63,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
   Globals: g_discErrorOccured 0x864F2C, FEngPleaseRenderSinglePackage 0x8384B4, mouse 0x8763D4. Also 0, 8, 11, 17. Left: 3 InitPackage
   54E4A0, 4 PackageWillUnload 51C8C0 (SEH, ForAllObjects functors), 25 5425E0; cFEngRender (51B7F0, 51B850, 5371F0...).
+- cFEngRender unit (cFEngRender.cpp: cFEngRender + FERenderObject + clipping) fully rewritten; all FE drawing goes
+  through it (only FEngFont::RenderString 51C110 and eView 5C7EA0 bridged). Lessons: MSVC's unrolled loops can sum in a
+  different order per copy (ClipGeneral) -> referee at _PC_24 catches it; emulate 24-bit with numpy float32 to
+  brute-force the order. eMulVector 441000 and ePoly ctor 5BB1C0 (engine) are hooked too.
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.

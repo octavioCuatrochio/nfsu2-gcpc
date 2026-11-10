@@ -9,6 +9,7 @@
 #include "bWare/bSlotPool.h"
 #include "bWare/bMath.h"
 #include "FEngUtil.h"
+#include "cFEngRender.h"
 #include "FEHash.h"
 #include "FEMath.h"
 #include <cstring>
@@ -330,8 +331,8 @@ bool cFEng::UnloadResources(FEPackage *, int32_t count, FEResourceRequest *req)
     return true;
 }
 
-void cFEng::EndPackageRendering(FEPackage *pkg) { bridge::cFEngRender_PackageFinished(mpRender, pkg); }
-void cFEng::GenerateRenderContext(uint32_t context, FEObject *group) { bridge::cFEngRender_GenerateRenderContext(mpRender, context, group); }
+void cFEng::EndPackageRendering(FEPackage *pkg) { static_cast<cFEngRender *>(mpRender)->PackageFinished(pkg); }
+void cFEng::GenerateRenderContext(uint32_t context, FEObject *group) { static_cast<cFEngRender *>(mpRender)->GenerateRenderContext(static_cast<uint16_t>(context), group); }
 
 void cFEng::RenderObjectList(void *entries, uint32_t count)
 {
@@ -341,7 +342,7 @@ void cFEng::RenderObjectList(void *entries, uint32_t count)
 
 void cFEng::RenderObject(FEObject *obj)
 {
-    if (!(obj->mu32Flags & 1) && mbRendering) bridge::cFEngRender_AddToRenderList(mpRender, obj);
+    if (!(obj->mu32Flags & 1) && mbRendering) static_cast<cFEngRender *>(mpRender)->AddToRenderList(obj);
 }
 
 void cFEng::GetViewTransformation(void *matrix) { bIdentity(static_cast<bMatrix4 *>(matrix)); }
@@ -355,10 +356,6 @@ uint8_t *cFEng::GetPackageData(const char *name, uint32_t, uint8_t *flag)
     return bridge::TheFEPackageManager()->GetPackageData(name);
 }
 
-namespace {
-// cFEngRender: 64 render contexts of 0xD0 bytes from +0x20 (matrix at +0x10, "used" byte at +0xC0).
-uint8_t *RenderContext(void *render, uint32_t id) { return static_cast<uint8_t *>(render) + 0x20 + id * 0xD0; }
-}
 
 void cFEng::BeginPackageRendering(FEPackage *pkg, bool magazine)
 {
@@ -375,13 +372,13 @@ void cFEng::BeginPackageRendering(FEPackage *pkg, bool magazine)
     }
     if (!visible) mbRendering = 0;
     if (magazine && bStringHash("UI_MAGAZINEBACK.FNG") == pkg->mu32NameHash) mbRendering = 0;
-    for (uint32_t i = 0; i < 0x40; ++i) RenderContext(mpRender, i)[0xC0] = 0;
+    for (cFEngRenderContext &c : static_cast<cFEngRender *>(mpRender)->mContexts) c.mbUsed = 0;   // PrepForPackage
 }
 
 bool cFEng::GetContextTransform(uint16_t context, float *m)
 {
     bIdentity(reinterpret_cast<bMatrix4 *>(m));
-    if (context) std::memcpy(m, RenderContext(mpRender, context) + 0x10, 0x40);
+    if (context) std::memcpy(m, &static_cast<cFEngRender *>(mpRender)->mContexts[context].mMatrix, 0x40);
     return true;
 }
 

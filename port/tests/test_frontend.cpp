@@ -21,6 +21,7 @@
 #include "frontend/cFEng.h"
 #include "bWare/bString.h"
 #include "frontend/FEPackageManager.h"
+#include "frontend/cFEngRender.h"
 #include "frontend/FEPackageReader.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/FEListBox.h"
@@ -2211,6 +2212,146 @@ static void TestEngineConstructTypes()
 }
 
 // cFEng joystick registration: handlers per mapped event, per-port state, pad masks.
+static void TestCFEngRender()
+{
+    static cFEngRender r;
+    std::memset(&r, 0x5A, sizeof r);
+    CHECK(r.Construct() == &r && r.mpCachedHead == r.CachedSentinel() && r.mContexts[5].mbUsed == 0 && r.mContexts[63].mpGroup == nullptr);
+    CHECK(*bridge::FERenderObjectPool() && *bridge::FERenderEPolyPool() && (*bridge::FERenderEPolyPool())->mi32TotalSlots == 0x384);
+    // cached render + a plain quad through a translation (z untouched)
+    alignas(8) unsigned char om[sizeof(FEString)] = {};
+    auto *o = reinterpret_cast<FEObject *>(om);
+    float od[40] = {};
+    o->mpData = od;
+    o->mu32Type = 1;
+    int tex = 0;
+    FERenderObject *c = r.CreateCachedRender(o, &tex);
+    CHECK(c && o->mpCachedRender == c && r.mpCachedHead == c && c->mpObject == o && c->mpTexture == &tex && c->mTransform.m[0] == 1);
+    c->mTransform.m[12] = 100; c->mTransform.m[14] = 50;
+    const uint32_t cols[4] = {1, 2, 3, 4};
+    FERenderEPoly *p = c->AddPoly(-1, -2, 3, 4, 0.5f, 0, 0.25f, 1, 0.75f, cols, nullptr, true);
+    CHECK(p && c->mpPolyHead == p && p->mpNext == c->PolySentinel() && p->mpTexture == nullptr);
+    CHECK(p->mPoly.mVerts[0][0] == 99 && p->mPoly.mVerts[0][1] == -2 && p->mPoly.mVerts[0][2] == 0.5f && p->mPoly.mVerts[2][0] == 103 && p->mPoly.mVerts[2][1] == 4);
+    CHECK(p->mPoly.mUVs[1][0] == 1 && p->mPoly.mUVs[1][1] == 0.25f && p->mPoly.mUVs[3][1] == 0.75f && p->mPoly.mColours[3] == 4);
+    CHECK(p->mPoly.mu8Blend == 1 && (p->mPoly.mu8Flags & 2));
+    teststub::delivered.clear();
+    c->Render();
+    c->Render(); c->Render(); c->Render();
+    CHECK(teststub::delivered.size() == 4 && teststub::delivered[0].msg == 0 && teststub::delivered[3].msg == 1 && (c->mu32Flags & 2) && c->mu32RenderCount == 4);
+    CHECK(teststub::delivered[0].arg == static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&tex)));
+    c->Clear(0);
+    CHECK(c->mpPolyHead == c->PolySentinel() && !(c->mu32Flags & 2) && c->mu32RenderCount == 0 && (*bridge::FERenderEPolyPool())->mi32NumAllocated == 0);
+    // overflow pool on demand, freed when empty
+    (*bridge::FERenderEPolyPool())->mi32NumAllocated = (*bridge::FERenderEPolyPool())->mi32TotalSlots;
+    c->AddPoly(0, 0, 1, 1, 0, 0, 0, 1, 1, cols, nullptr, false);
+    CHECK(*bridge::FERenderEPolyOverflowPool() != nullptr);
+    (*bridge::FERenderEPolyPool())->mi32NumAllocated = 0;
+    c->FreePolys();
+    CHECK(*bridge::FERenderEPolyOverflowPool() == nullptr);
+    // clip edges: square (0,0)-(10,10) against x >= 5: (5,0) (10,0) (10,10) (5,10) + duplicate of the last inside vertex
+    float v[16 * 4] = {0, 0, 0, 0, 10, 0, 0, 0, 10, 10, 0, 0, 0, 10, 0, 0}, uv[16 * 2] = {0, 0, 1, 0, 1, 1, 0, 1};
+    float col[16 * 4] = {}, ov[16 * 4], ouv[16 * 2], oc[16 * 4];
+    for (int i = 0; i < 4; ++i) col[i * 4] = static_cast<float>(i);
+    const uint32_t n = FEClipEdge(0, true, ov, ouv, oc, v, uv, col, 4, 5.0f);
+    CHECK(n == 4 && ov[0] == 5 && ov[1] == 0 && ouv[0] == 0.5f && oc[0] == 0.5f && ov[4] == 10 && ov[12] == 5 && ov[13] == 10 && oc[12] == 2.5f);
+    CHECK(FEClipEdge(1, false, ov, ouv, oc, v, uv, col, 4, -1.0f) == 0);   // everything below y <= -1 is out
+    // MakeRenderMatrix: position + scale; context colour modulation and clip info
+    float d[20] = {};
+    int32_t *di = reinterpret_cast<int32_t *>(d);
+    di[0] = 0x80; di[1] = 0x40; di[2] = 0x20; di[3] = 0xFF;
+    d[7] = 10; d[8] = 20; d[9] = 30;                 // position
+    d[13] = 1;                                       // rotation w
+    d[14] = 2; d[15] = 3; d[16] = 1;                 // size
+    bMatrix4 m;
+    int32_t colour[4];
+    CHECK(r.MakeRenderMatrix(d, &m, colour, 0, 1.0f) == nullptr && colour[0] == 0x80 && colour[3] == 0xFF);
+    CHECK(m.m[0] == 2 && m.m[5] == 3 && m.m[10] == 1 && m.m[12] == 10 && m.m[13] == 20 && m.m[14] == 30);
+    cFEngRenderContext &cx = r.mContexts[2];
+    bIdentity(&cx.mMatrix);
+    cx.mMatrix.m[12] = 5;
+    cx.mColour[0] = 0x100; cx.mColour[1] = 0x80; cx.mColour[2] = 0; cx.mColour[3] = 0x100;
+    cx.mpClipObject = nullptr;
+    CHECK(r.MakeRenderMatrix(d, &m, colour, 2, 0.5f) == nullptr && m.m[0] == 1 && m.m[12] == 15);
+    CHECK(colour[0] == 0x80 && colour[1] == 0x20 && colour[2] == 0 && colour[3] == 0xFF);
+    // 90-degree rotation about z: x -> y
+    float dr[20] = {};
+    dr[12] = 0.70710678f; dr[13] = 0.70710678f; dr[14] = dr[15] = dr[16] = 1;
+    r.MakeRenderMatrix(dr, &m, colour, 0, 1.0f);
+    bVector3 pt = {1, 0, 0}, out;
+    eMulVector(&out, &m, &pt);
+    CHECK(std::fabs(out.x) < 1e-6f && std::fabs(out.y - 1) < 1e-6f);
+    // clip info from an axis-aligned clip object: 100x50 box centred at (0, 0) -> screen (270..370, 215..265)
+    alignas(8) unsigned char km[sizeof(FEString)] = {};
+    auto *k = reinterpret_cast<FEObject *>(km);
+    float kd[20] = {};
+    kd[13] = 1; kd[14] = 100; kd[15] = 50; kd[16] = 1;
+    k->mpData = kd; k->mu32Type = 1;
+    cx.mpClipObject = k;
+    bIdentity(&cx.mMatrix);
+    r.GenerateClipInfo(&cx);
+    CHECK((cx.mClip.mu32Flags & 1) && cx.mClip.mDist[3] == 270 && cx.mClip.mDist[0] == 215 && cx.mClip.mDist[1] == 370 && cx.mClip.mDist[2] == 265);
+    CHECK(r.MakeRenderMatrix(d, &m, colour, 2, 1.0f) == &cx.mClip);
+    // clipped poly: a 200-wide quad cut to the clip's x range -> one quad, x 270..370
+    c->Clear(0);
+    bIdentity(&c->mTransform);
+    const uint32_t white[4] = {0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu};
+    c->AddPolyClipped(220, 220, 420, 260, 1, 0, 0, 1, 1, white, &cx.mClip, nullptr);
+    float xmin = 1e9f, xmax = -1e9f;
+    int polys = 0;
+    for (FERenderEPoly *q = c->mpPolyHead; q != c->PolySentinel(); q = q->mpNext, ++polys)
+        for (auto &vv : q->mPoly.mVerts) { xmin = std::min(xmin, vv[0]); xmax = std::max(xmax, vv[0]); }
+    CHECK(polys >= 2 && xmin == 270 && xmax == 370);
+    CHECK(c->mpPolyHead->mPoly.mColours[0] == 0xFFFFFFFFu && c->mpPolyHead->mPoly.mu8Blend == 1);
+    c->Clear(0);
+    // render list: buckets far to near
+    alignas(8) static unsigned char sortBuf[16 * sizeof(FERenderNode)];
+    InitFEngObjectSorting(nullptr, sortBuf, 16 * 8);
+    teststub::sortGlobals.mi32Num = 0;
+    alignas(8) unsigned char om2[sizeof(FEString)] = {};
+    auto *o2 = reinterpret_cast<FEObject *>(om2);
+    float od2[40] = {};
+    od2[9] = 300;                                    // clamped to 255
+    o2->mpData = od2; o2->mu32Type = 3;              // no renderer
+    od[9] = -4;                                      // clamped to 0
+    r.AddToRenderList(o);
+    r.AddToRenderList(o2);
+    CHECK(bridge::FERenderBuckets()[255].mpHead->mpObject == o2 && bridge::FERenderBuckets()[0].mpHead->mpObject == o);
+    // o is cached and built: Render() is reused; o2 dispatches nothing
+    c->AddPoly(0, 0, 1, 1, 0, 0, 0, 1, 1, cols, nullptr, false);
+    c->mu32Flags |= 2;
+    teststub::delivered.clear();
+    r.PackageFinished(nullptr == nullptr ? reinterpret_cast<FEPackage *>(om2) : nullptr);
+    CHECK(teststub::delivered.size() == 1 && std::string(teststub::delivered[0].kind) == "eview");
+    CHECK(bridge::FERenderBuckets()[255].mpHead == bridge::FERenderBuckets()[255].Sentinel() && bridge::FERenderBuckets()[0].mpHead == bridge::FERenderBuckets()[0].Sentinel());
+    // movie flag, image render through the texture stub (64x32 texture in a 64x32 page)
+    std::memset(teststub::movieTexture, 0, sizeof teststub::movieTexture);
+    const int16_t tw = 64, th = 32;
+    std::memcpy(teststub::movieTexture + 0x44, &tw, 2);
+    std::memcpy(teststub::movieTexture + 0x46, &th, 2);
+    alignas(8) unsigned char im[sizeof(FEString)] = {};
+    auto *img = reinterpret_cast<FEObject *>(im);
+    float imd[40] = {};
+    reinterpret_cast<int32_t *>(imd)[0] = 0x100; reinterpret_cast<int32_t *>(imd)[1] = 0x80;
+    reinterpret_cast<int32_t *>(imd)[2] = 0x40; reinterpret_cast<int32_t *>(imd)[3] = 0xFF;
+    imd[13] = 1; imd[14] = 64; imd[15] = 32; imd[16] = 1;
+    imd[17] = 0; imd[18] = 0; imd[19] = 1; imd[20] = 1;
+    img->mpData = imd; img->mu32Type = 1;
+    teststub::delivered.clear();
+    r.RenderObject(img, nullptr);
+    FERenderObject *ic = img->mpCachedRender;
+    CHECK(ic && ic->mpTexture == teststub::movieTexture && ic->mpPolyHead != ic->PolySentinel() && teststub::delivered.size() == 1);
+    const ePoly &ip = ic->mpPolyHead->mPoly;
+    CHECK(ip.mVerts[0][0] == 288 && ip.mVerts[0][1] == 224 && ip.mVerts[2][0] == 352 && ip.mVerts[2][1] == 256 && ip.mVerts[0][2] == 1);
+    CHECK(ip.mColours[0] == 0xFF804020u && ip.mUVs[2][0] == 1 && ip.mUVs[2][1] == 1);   // 64 / pow2(64), 32 / pow2(32)
+    r.RenderObject(img, nullptr);                    // built: reused
+    CHECK(img->mpCachedRender == ic && teststub::delivered.size() == 2);
+    r.RemoveCachedRender(img, 0);
+    CHECK(img->mpCachedRender == nullptr);
+    r.RemoveCachedRender(o, 0);
+    r.Destroy();
+    *bridge::FERenderEPolyPool() = nullptr;
+}
+
 static void TestCFEngInterface()
 {
     char out[64];
@@ -2235,21 +2376,30 @@ static void TestCFEngInterface()
     CHECK(teststub::delivered.size() == 2 && teststub::delivered[0].pkg == reinterpret_cast<FEPackage *>(om[1]) && teststub::delivered[1].pkg == reinterpret_cast<FEPackage *>(om[0]));
     teststub::delivered.clear();
     auto *o = reinterpret_cast<FEObject *>(om[0]);
+    static cFEngRender render;
+    std::memset(&render, 0xAB, sizeof render);
+    fe->mpRender = &render;
+    alignas(8) static unsigned char sortBuf[16 * sizeof(FERenderNode)];
+    InitFEngObjectSorting(nullptr, sortBuf, 16 * 8);
+    teststub::sortGlobals.mi32Num = 0;
+    float od[20] = {};
+    od[9] = 3.7f;                             // z -> bucket 3 (no context)
+    o->mpData = od;
     fe->RenderObject(o);                      // not rendering
     fe->mbRendering = 1;
     o->mu32Flags = 1; fe->RenderObject(o);    // hidden
     o->mu32Flags = 0; fe->RenderObject(o);
-    CHECK(teststub::delivered.size() == 1 && std::string(teststub::delivered[0].kind) == "render add");
+    FERenderBucket &b3 = bridge::FERenderBuckets()[3];
+    CHECK(teststub::sortGlobals.mi32Num == 1 && b3.mpHead->mpObject == o && b3.mpHead->mpNext == b3.Sentinel());
+    b3.mpHead = b3.mpTail = b3.Sentinel();
+    teststub::sortGlobals.mi32Num = 0;
     float m[16] = {};
     fe->GetViewTransformation(m);
     CHECK(m[0] == 1 && m[5] == 1 && m[10] == 1 && m[15] == 1 && m[1] == 0);
     // render contexts
-    std::vector<uint8_t> render(0x20 + 0x40 * 0xD0, 0xAB);
-    fe->mpRender = render.data();
     float cm[16];
     CHECK(fe->GetContextTransform(0, cm) && cm[0] == 1 && cm[1] == 0);
-    const float two = 2.0f;
-    std::memcpy(&render[0x20 + 3 * 0xD0 + 0x10], &two, 4);
+    render.mContexts[3].mMatrix.m[0] = 2.0f;
     CHECK(fe->GetContextTransform(3, cm) && cm[0] == 2);
     // begin rendering: visibility, disc error, single package, magazine
     alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
@@ -2259,7 +2409,7 @@ static void TestCFEngInterface()
     pkg->mpPackageData = pd; pd->mVisible = 1; pkg->mu32NameHash = FEHashUpper("A.FNG");
     fe->mbRendering = 0;
     fe->BeginPackageRendering(pkg, false);
-    CHECK(fe->mbRendering == 1 && render[0x20 + 0xC0] == 0 && render[0x20 + 63 * 0xD0 + 0xC0] == 0 && render[0x20 + 0xC1] == 0xAB);
+    CHECK(fe->mbRendering == 1 && render.mContexts[0].mbUsed == 0 && render.mContexts[63].mbUsed == 0 && render.mContexts[0]._unknownC1[0] == 0xAB);
     pd->mVisible = 0; fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 0);
     pd->mVisible = 1; teststub::singlePackage = "b.fng"; fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 0);
     teststub::singlePackage = "a.fng"; fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 1);
@@ -3001,6 +3151,7 @@ int main()
     TestPackageUpdate();
     TestProcessMessageQueue();
     TestProcessResponses();
+    TestCFEngRender();   // last: creates game slot pools
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;
 }

@@ -30,7 +30,7 @@ struct FEObject {
     FEMinList mResponses;            // +0x34 FEMessageResponse list
     FEMinList mScripts;              // +0x44 FEScript list
     FEScript *mpCurrentScript;       // +0x54
-    uint32_t _unknown58;             // +0x58
+    struct FERenderObject *mpCachedRender;   // +0x58 PC: cached polygons (cFEngRender)
 
     // Lifecycle on raw memory (objects are created/destroyed by game code while hooked)
     static FEObject *Construct(void *mem);                 // GC 801379F0 / PC 52AF20

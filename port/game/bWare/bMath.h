@@ -69,6 +69,9 @@ void bIdentity(bMatrix4 *m);                                   // GC ? / PC 43C7
 // (unrolled) order in x87 and rounded once; result written through a temporary (out may alias a or b).
 void eMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b);
 void bMulMatrix(bMatrix4 *out, const bMatrix4 *a, const bMatrix4 *b);   // GC 80059A8C / PC 43C990: eMulMatrix(out, b, a)
+// PC 441000 (eMulVector; bMulVector 43C9C0 jumps here): out = in x m (x87: ((m[8+i] z + m[4+i] y) + m[i] x) + m[12+i]
+// for x; y and z sum z, x, y), rounded once per component; all three computed before storing (out may alias in).
+void eMulVector(bVector3 *out, const bMatrix4 *m, const bVector3 *in);
 void bTransposeMatrix(bMatrix4 *out, const bMatrix4 *in);
 // GC 80059A6C / PC 43C7C0: inverse of an affine matrix (3x3 cofactors / determinant, translation row = -t * R^-1,
 // column 3 = 0,0,0,1). Original's x87 order and float temporaries; reads all of `in` first (in may alias out).

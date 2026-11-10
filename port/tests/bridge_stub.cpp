@@ -12,6 +12,7 @@
 #include "frontend/FENode.h"
 // Bridge stand-ins for native unit tests: plain heap, no character histogram, settable dirty flag.
 #include "bridge/Bridge.h"
+#include "frontend/cFEngRender.h"
 #include "bridge_stub.h"
 #include "frontend/FEObject.h"
 #include "frontend/FEMultiPool.h"
@@ -64,6 +65,12 @@ int32_t joyPluggedPort = -1;
 int32_t discError = 0;
 const char *singlePackage = nullptr;
 uint8_t mouseGlobals[0x24] = {};
+int32_t language = 0;
+uint8_t moviePlayer[0x10] = {};
+uint8_t movieTexture[0x50] = {};
+int views[4];
+const int32_t *renderStatsMode = nullptr;
+uint32_t renderStats[4] = {};
 uint8_t joyPortConfig[8] = {0xFF, 0, 0, 0, 0xFF, 0, 0, 0};
 std::string lastJoyTextureName;
 uint32_t lastTextureHash = 0;
@@ -206,22 +213,50 @@ void FEGameInterface_GenerateRenderContext(void *gi, uint32_t c, FEObject *g) { 
 void FEGameInterface_RenderObjectList(void *gi, void *e, uint32_t n) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *, uint32_t)>(gi))[0x30 / 4](gi, e, n); }
 void FEGameInterface_GetViewTransformation(void *gi, void *m) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *)>(gi))[0x3C / 4](gi, m); }
 FESortGlobals *FEngSortGlobals() { return reinterpret_cast<FESortGlobals *>(0x838488); }
+void *cFEngRenderVTable() { return reinterpret_cast<void *>(0x79BBA0); }
+int32_t CurrentLanguage() { return *reinterpret_cast<const int32_t *>(0x7F70D0); }
+int32_t MovieActive() { return *reinterpret_cast<const int32_t *>(0x8383AC); }
+const uint8_t *MoviePlayer() { return *reinterpret_cast<const uint8_t *const *>(0x8383A4); }
+void *MovieTexture() { return reinterpret_cast<void *>(0x8385C0); }
+::SlotPool **FERenderObjectPool() { return reinterpret_cast<::SlotPool **>(0x83847C); }
+::SlotPool **FERenderEPolyPool() { return reinterpret_cast<::SlotPool **>(0x838480); }
+::SlotPool **FERenderEPolyOverflowPool() { return reinterpret_cast<::SlotPool **>(0x838484); }
+::FERenderBucket *FERenderBuckets() { return reinterpret_cast<::FERenderBucket *>(0x8639A0); }
+void *eGetView(int32_t i) { return reinterpret_cast<void *>(0x832DE0 + 0x70 * i); }
+void eView_Render(void *, ::ePoly *, void *, int32_t) {}
+const int32_t *FERenderStatsMode() { return *reinterpret_cast<const int32_t *const *>(0x8900D8); }
+uint32_t *FERenderStats() { return reinterpret_cast<uint32_t *>(0x837D20); }
+void FEngFont_RenderString(void *, const int32_t *, const uint16_t *, FEObject *, const ::bMatrix4 *, ::FERenderObject *, void *) {}
 int32_t *DiscErrorOccurred() { return reinterpret_cast<int32_t *>(0x864F2C); }
 const char **FEngPleaseRenderSinglePackage() { return reinterpret_cast<const char **>(0x8384B4); }
 const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D4); }
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, FEObject *)>(gi))[0x34 / 4](gi, o); }
-void cFEngRender_GenerateRenderContext(void *r, uint32_t c, FEObject *g) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, uint32_t, FEObject *)>(0x51B7F0)(r, c, g); }
-void cFEngRender_AddToRenderList(void *r, FEObject *o) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, FEObject *)>(0x51B850)(r, o); }
-void cFEngRender_PackageFinished(void *r, FEPackage *p) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, FEPackage *)>(0x5371F0)(r, p); }
 void FEPackageManager_NotifySoundMessage(FEPackageManager *m, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, uint32_t, uint32_t, uint32_t, uint32_t)>(0x52CC90)(m, a, b, c, d); }
 #else
+void *cFEngRenderVTable() { return &teststub::fakeFont; }
+int32_t CurrentLanguage() { return teststub::language; }
+int32_t MovieActive() { return 1; }
+const uint8_t *MoviePlayer() { return teststub::moviePlayer; }
+void *MovieTexture() { return teststub::movieTexture; }
+::SlotPool **FERenderObjectPool() { static ::SlotPool *p; return &p; }
+::SlotPool **FERenderEPolyPool() { static ::SlotPool *p; return &p; }
+::SlotPool **FERenderEPolyOverflowPool() { static ::SlotPool *p; return &p; }
+::FERenderBucket *FERenderBuckets()
+{
+    static ::FERenderBucket b[256];
+    static bool init = false;
+    if (!init) { for (auto &x : b) x.mpHead = x.mpTail = x.Sentinel(); init = true; }
+    return b;
+}
+void *eGetView(int32_t i) { return &teststub::views[i]; }
+void eView_Render(void *v, ::ePoly *p, void *t, int32_t f) { teststub::delivered.push_back({"eview", v, reinterpret_cast<FEPackage *>(p), static_cast<uint32_t>(f), static_cast<uint32_t>(reinterpret_cast<uintptr_t>(t))}); }
+const int32_t *FERenderStatsMode() { return teststub::renderStatsMode; }
+uint32_t *FERenderStats() { return teststub::renderStats; }
+void FEngFont_RenderString(void *f, const int32_t *, const uint16_t *t, FEObject *o, const ::bMatrix4 *, ::FERenderObject *r, void *) { teststub::delivered.push_back({"fontrender", f, reinterpret_cast<FEPackage *>(o), static_cast<uint32_t>(reinterpret_cast<uintptr_t>(t)), static_cast<uint32_t>(reinterpret_cast<uintptr_t>(r))}); }
 int32_t *DiscErrorOccurred() { return &teststub::discError; }
 const char **FEngPleaseRenderSinglePackage() { return &teststub::singlePackage; }
 const uint8_t *MouseGlobals() { return teststub::mouseGlobals; }
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { teststub::delivered.push_back({"renderobj", gi, reinterpret_cast<FEPackage *>(o), 0, 0}); }
-void cFEngRender_GenerateRenderContext(void *r, uint32_t c, FEObject *g) { teststub::delivered.push_back({"render genctx", r, reinterpret_cast<FEPackage *>(g), c, 0}); }
-void cFEngRender_AddToRenderList(void *r, FEObject *o) { teststub::delivered.push_back({"render add", r, reinterpret_cast<FEPackage *>(o), 0, 0}); }
-void cFEngRender_PackageFinished(void *r, FEPackage *p) { teststub::delivered.push_back({"render finished", r, p, 0, 0}); }
 void FEPackageManager_NotifySoundMessage(FEPackageManager *m, uint32_t a, uint32_t, uint32_t, uint32_t) { teststub::delivered.push_back({"soundmsg", m, nullptr, a, 0}); }
 void FEGameInterface_BeginPackageRendering(void *gi, FEPackage *p, uint32_t f) { teststub::delivered.push_back({"beginrender", gi, p, f, 0}); }
 void FEGameInterface_EndPackageRendering(void *gi, FEPackage *p) { teststub::delivered.push_back({"endrender", gi, p, 0, 0}); }
@@ -293,7 +328,7 @@ void PlayFrontendSound(uint32_t t) { teststub::delivered.push_back({"sound", nul
 int32_t IsJoystickPluggedIn(int32_t p) { return p == teststub::joyPluggedPort; }
 const uint8_t *JoyPortConfig() { return teststub::joyPortConfig; }
 uint32_t GetJoyEventTexture(const char *n, int32_t p) { teststub::lastJoyTextureName = n; return 0x1000u + static_cast<uint32_t>(p); }
-void *GetTextureInfo(uint32_t h, int32_t, int32_t) { teststub::lastTextureHash = h; return &teststub::fakeFont; }
+void *GetTextureInfo(uint32_t h, int32_t, int32_t) { teststub::lastTextureHash = h; return teststub::movieTexture; }
 bool TextInputFocused() { return teststub::textInputFocused; }
 #ifdef NFSU2_REFEREE
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }

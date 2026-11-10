@@ -20,6 +20,12 @@ struct FEObject;
 
 struct bASinTableEntry;
 struct FESortGlobals;
+struct FERenderBucket;
+struct ePoly;
+struct cFEngRender;
+struct cFEngRenderContext;
+struct FERenderObject;
+struct bMatrix4;
 struct FEngJoyMapEntry;
 namespace bridge {
 
@@ -101,6 +107,23 @@ void FEGameInterface_BeginPackageRendering(void *gi, ::FEPackage *pkg, uint32_t 
 void FEGameInterface_EndPackageRendering(void *gi, ::FEPackage *pkg);                        // +0x24
 void FEGameInterface_GenerateRenderContext(void *gi, uint32_t context, ::FEObject *group);   // +0x28
 void FEGameInterface_RenderObjectList(void *gi, void *entries, uint32_t count);              // +0x30 ({obj, key} x count)
+// --- cFEngRender (engine side; see frontend/cFEngRender.h) ---
+::SlotPool **FERenderObjectPool();               // PC 0x83847C
+::SlotPool **FERenderEPolyPool();                // PC 0x838480
+::SlotPool **FERenderEPolyOverflowPool();        // PC 0x838484 (created on demand, deleted when empty)
+::FERenderBucket *FERenderBuckets();             // PC 0x8639A0 (256)
+void *eGetView(int32_t index);                   // PC 48B1E0: 0x832DE0 + 0x70 * index
+void eView_Render(void *view, ::ePoly *poly, void *texture, int32_t flag);   // PC 5C7EA0 (__thiscall, ret 0xC)
+const int32_t *FERenderStatsMode();              // PC *(0x8900D8): stats counted when it points at 4
+uint32_t *FERenderStats();                       // PC 0x837D20: objects, cached, cached+built, clipped
+void *cFEngRenderVTable();                       // PC 0x79BBA0
+int32_t CurrentLanguage();                       // PC 0x7F70D0 (GetCurrentLanguage inlined)
+int32_t MovieActive();                           // PC 0x8383AC
+const uint8_t *MoviePlayer();                    // PC *(0x8383A4): +0x0C byte = flip vertically
+void *MovieTexture();                            // PC 0x8385C0 (TextureInfo of the playing movie)
+// PC 51C110 (FEngFont::RenderString, __thiscall, ret 0x18)
+void FEngFont_RenderString(void *font, const int32_t *colour, const uint16_t *text, ::FEObject *obj, const ::bMatrix4 *m,
+                           ::FERenderObject *cached, void *renderInfo);
 int32_t *DiscErrorOccurred();                    // PC 0x864F2C g_discErrorOccured
 const char **FEngPleaseRenderSinglePackage();    // PC 0x8384B4
 const uint8_t *MouseGlobals();                   // PC 0x8763D4: +0 x, +4 y (int), +0x1C left-handed, +0x1D / +0x20 buttons
