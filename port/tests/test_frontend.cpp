@@ -1402,7 +1402,15 @@ std::vector<uint32_t> BuildFng(bool withLib, uint32_t badLibSize = 0, const char
           { uint32_t v[4] = {0x500, 0x501, 0x10000000, 7}; b.Tag(0x504F, v, 16); }
           b.Tag(0x6E4F, "Name", 5);
           b.Tag32(0x684F, 0x777);
-          b.Tag32(0x584C, 1);   // list box specific tag
+          { uint32_t d[2] = {2, 1}; b.Tag(0x644C, d, 8); }                      // Ld: 2 columns, 1 row
+          { float c[2] = {10.0f, 0.0f}; b.Tag(0x634C, c, 8); }
+          { float c[2] = {20.0f, 0.0f}; b.Tag(0x634C, c, 8); }
+          { float r[2] = {5.0f, 0.0f}; b.Tag(0x724C, r, 8); }
+          b.Tag32(0x6343, 0x80FF2010u);                                          // Cc cell 0
+          b.Tag32(0x5443, 2);                                                    // CT string
+          { const uint16_t w[] = {'a', 'b', 0}; b.Tag(0x7443, w, 6); }           // Ct
+          b.Tag32(0x6343, 0x12345678u);                                          // Cc cell 1
+          b.Tag32(0x774C, 1);                                                    // Lw
       } else {
           b.w.push_back(0x1111);
       }
@@ -1528,18 +1536,19 @@ static void TestPackageReader()
         CHECK(s0->mEvents.mu32Count == 1 && s0->mEvents.mpEvents[0].mu32MsgId == 0xABC && s0->mEvents.mpEvents[0].mu32Time == 10);
         CHECK(s0->mpcName && std::string(s0->mpcName) == "Init");   // names only with mbFlag0A (engine +4 = 2 here)
         CHECK(true && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1);
-        int recalc = 0, interp = 0;
-        for (auto &d : dl) { recalc += std::string(d.kind) == "recalc"; interp += std::string(d.kind) == "keyinterp" && d.a == s0; }
-        CHECK(recalc == 1 && interp == 2);
+        int interp = 0;
+        for (auto &d : dl) interp += std::string(d.kind) == "keyinterp" && d.a == s0;
+        CHECK(interp == 2);
+        auto *lbx = reinterpret_cast<FEListBox *>(o);
+        CHECK(o->node.vtable == &teststub::feListBoxVTable && lbx->mu32NumColumns == 2 && lbx->mu32NumRows == 1);
+        CHECK(lbx->mpColumns[1].mfSize == 20.0f && lbx->mpColumns[1].mfPosition == 10.0f && lbx->mpRows[0].mfSize == 5.0f);   // RecalculateCummulative
+        CHECK(lbx->mpCells[0].mu32Color == 0x80FF2010u && lbx->mpCells[0].mu32Type == 2 && lbx->mpCells[0].mpText[1] == 'b');
+        CHECK(lbx->mpCells[1].mu32Color == 0x12345678u && lbx->mu32SelColumn == 1 && !(lbx->mu32Flags & 4));
         CHECK(o->mu32GUID == 0x500 && o->mu32NameHash == 0x777 && o->mu32Flags == 0x10000000 && o->_unknown22 == 7);
         CHECK(po->mppButtons[0] == o);
         CHECK(o->mpcName && std::string(o->mpcName) == "Name");
-        bool lb = false;
-        for (auto &d : dl) lb |= std::string(d.kind) == "lbtag" && d.msg == 0x584C;
-        CHECK(lb);
-        bool ctor = false;
-        for (auto &d : dl) ctor |= std::string(d.kind) == "typector" && d.msg == 4;
-        CHECK(ctor);
+        lbx->mu32Flags |= 1;   // let Terminate free the columns/rows (cells leak like the original: freed by hand)
+        lbx->CleanupCells();
         bridge::VirtualScalarDelete(po);
     }
     // failures
@@ -1628,6 +1637,50 @@ static void TestReaderInsertTrack()
     CHECK(reinterpret_cast<uint32_t *>(s->mpTracks)[-1] == 3);
     bridge::VirtualScalarDelete(s);
     e->mTypes.head = e->mTypes.tail = nullptr; e->mTypes.count = 0;
+}
+
+// FEListBox allocation paths: resize keeps min(old, new) slots, cells re-initialized, strings owned.
+static void TestListBoxCells()
+{
+    const int live0 = teststub::liveAllocations;
+    auto *lb = FEListBox::Construct(bridge::Alloc(sizeof(FEListBox)));
+    CHECK(lb->obj.mu32Type == 4 && lb->mu32Flags == 4 && lb->mfSpeedX == 1.0f && lb->mfPulse == 1.0f && lb->mpCells == nullptr);
+    lb->SetNumColumns(3);              // no rows yet: no cells
+    CHECK(lb->mu32NumColumns == 3 && lb->mpCells == nullptr && lb->mpColumns[2].mfSize == 0.0f);
+    lb->mpColumns[0].mfSize = 4.0f;
+    lb->SetNumRows(2);
+    CHECK(lb->mu32NumRows == 2 && lb->mpCells && lb->mpCells[5].mu32Color == 0xFFFFFFFFu && lb->mpCells[5].mfScaleY == 1.0f);
+    lb->SetSelColumn(9); lb->SetSelRow(1);
+    CHECK(lb->mu32SelColumn == 2 && lb->mu32SelRow == 1);
+    lb->SetCellType(2);
+    const uint16_t w[] = {'x', 'y', 0};
+    lb->SetCellString(w);
+    CHECK(lb->CurrentCell()->mpText && lb->CurrentCell()->mpText[1] == 'y');
+    lb->SetCellString(w);                             // replaces (old freed)
+    lb->SetSelColumn(0); lb->SetSelRow(0);
+    lb->CurrentCell()->mu32Color = 0xAABBCCDDu;
+    lb->SetNumColumns(4);              // copies only min(3, 4) = 3 BYTES per row (original quirk)
+    CHECK(lb->mu32NumColumns == 4 && lb->mpColumns[0].mfSize == 4.0f && lb->mpColumns[3].mfSize == 0.0f);
+    CHECK((lb->mpCells[0].mu32Color & 0xFFFFFF) == 0xBBCCDDu && lb->mpCells[1].mu32Color == 0 && lb->mpCells[3].mu32Color == 0xFFFFFFFFu);
+    lb->SetCellType(2);
+    lb->SetCellString(w);
+    lb->SetCellType(1);                // leaving type 2 frees the text
+    CHECK(lb->CurrentCell()->mpText == nullptr);
+    lb->mpCells[7].mu32Type = 2;       // the cell whose text was lost by the resize keeps a null pointer
+    lb->mpCells[7].mpText = nullptr;
+    teststub::liveAllocations += 0;    // the string set before the resize leaked in the original too
+    lb->IncrementCellByColumn();
+    CHECK(lb->mu32SelColumn == 1);
+    lb->SetSelColumn(3); lb->SetSelRow(1);
+    lb->IncrementCellByColumn();
+    CHECK(lb->mu32SelColumn == 0 && lb->mu32SelRow == 0);
+    lb->Terminate();                   // flag 1 not set: nothing
+    CHECK(lb->mu32NumColumns == 4);
+    lb->CleanupCells();
+    lb->mu32Flags |= 1;
+    bridge::VirtualScalarDelete(lb);   // Terminate frees columns and rows
+    CHECK(teststub::liveAllocations == live0 + 1);   // the text leaked by the byte-copy resize (as in the original)
+    teststub::liveAllocations = live0;
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
@@ -1794,6 +1847,7 @@ int main()
     TestPackageReader();
     TestReaderStringTags();
     TestReaderInsertTrack();
+    TestListBoxCells();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

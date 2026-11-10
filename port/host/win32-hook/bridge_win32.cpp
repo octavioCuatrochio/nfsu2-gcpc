@@ -116,7 +116,6 @@ FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
     uintptr_t ctor = 0;
     switch (type) {
     case 1: ctor = 0x532640; break;
-    case 4: ctor = 0x5349C0; break;
     case 5: ctor = 0x52B080; break;
     case 6: ctor = 0x52B9E0; break;
     case 7: ctor = 0x52B0B0; break;
@@ -127,13 +126,12 @@ FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
     }
     return reinterpret_cast<FEObject *(THISCALL *)(void *)>(ctor)(mem);
 }
-void FEPackageReader_ProcessListBoxTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x52B740)(r, t); }
 void FEPackageReader_ProcessCodeListBoxTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x535060)(r, t); }
 FEObject *FEObject_VirtualClone(FEObject *o, bool ref) { return (*reinterpret_cast<FEObject *(THISCALL ***)(FEObject *, uint32_t)>(o))[1](o, ref); }
 FEObject *FEGroup_CopyConstruct(void *m, FEObject *s, bool a, bool b) { return reinterpret_cast<FEObject *(THISCALL *)(void *, FEObject *, uint32_t, uint32_t)>(0x5548A0)(m, s, a, b); }
-void FEListBox_RecalculateCummulative(void *lb) { reinterpret_cast<void(THISCALL *)(void *)>(0x504360)(lb); }
 void FECodeListBox_FillAllCells(void *lb) { reinterpret_cast<void(THISCALL *)(void *)>(0x504C40)(lb); }
 void FEKeyInterpScript(void *s, uint8_t t, uint32_t time, void *o) { reinterpret_cast<void(__cdecl *)(void *, uint32_t, uint32_t, void *)>(0x541F60)(s, t, time, o); }
+void *FEListBoxVTable() { return reinterpret_cast<void *>(0x79BAE4); }
 void *FEPackageVTable() { return reinterpret_cast<void *>(0x79B8F8); }
 void *FENodeVTable() { return reinterpret_cast<void *>(0x79AB0C); }
 void *FEPackageList74VTable() { return reinterpret_cast<void *>(0x79B878); }

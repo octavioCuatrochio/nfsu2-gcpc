@@ -243,6 +243,25 @@ bool THISCALL FEPackageReader_ReadObjectTags(FEPackageReader *self, const uint8_
 FEObject *THISCALL FEPackageReader_CreateObject(FEPackageReader *self, uint32_t t) { return self->CreateObject(t); }
 void THISCALL FEPackageReader_ProcessStringTag(FEPackageReader *self, const uint8_t *t) { self->ProcessStringTag(t); }
 bool THISCALL FEPackageReader_ReadScriptTags(FEPackageReader *self, const uint8_t *t, uint32_t n) { return self->ReadScriptTags(t, n); }
+FEListBox *THISCALL FEListBox_Ctor(FEListBox *self) { return FEListBox::Construct(self); }
+void THISCALL FEListBox_Dtor(FEListBox *self) { self->Destruct(); }
+FEListBox *THISCALL FEListBox_ScalarDtor(FEListBox *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL FEListBox_Terminate(FEListBox *self) { self->Terminate(); }
+void THISCALL FEListBox_SetNumColumns(FEListBox *self, uint32_t n) { self->SetNumColumns(n); }
+void THISCALL FEListBox_SetNumRows(FEListBox *self, uint32_t n) { self->SetNumRows(n); }
+void THISCALL FEListBox_CleanupCells(FEListBox *self) { self->CleanupCells(); }
+void THISCALL FEListBox_SetSelColumn(FEListBox *self, uint32_t c) { self->SetSelColumn(c); }
+void THISCALL FEListBox_SetSelRow(FEListBox *self, uint32_t r) { self->SetSelRow(r); }
+void THISCALL FEListBox_SetCellType(FEListBox *self, uint32_t t) { self->SetCellType(t); }
+void THISCALL FEListBox_IncrementCellByColumn(FEListBox *self) { self->IncrementCellByColumn(); }
+void THISCALL FEListBox_SetAutoWrap(FEListBox *self, uint32_t w) { self->SetAutoWrap((w & 0xFF) != 0); }
+void THISCALL FEListBox_RecalculateCummulative(FEListBox *self) { self->RecalculateCummulative(); }
+void THISCALL FEListBox_SetCellColor(FEListBox *self, const FEColor *c) { self->SetCellColor(*c); }
+void THISCALL FEListBox_SetCellScale(FEListBox *self, const float *xy) { self->SetCellScale(xy); }
+void THISCALL FEListBox_SetCellJustification(FEListBox *self, uint32_t a, uint32_t b, uint32_t c) { self->SetCellJustification(a, b, c); }
+void THISCALL FEListBox_SetCellData(FEListBox *self, const uint32_t *d) { self->SetCellData(d); }
+void THISCALL FEListBox_SetCellString(FEListBox *self, const uint16_t *t) { self->SetCellString(t); }
+void THISCALL FEPackageReader_ProcessListBoxTag(FEPackageReader *self, const uint8_t *t) { self->ProcessListBoxTag(t); }
 void THISCALL FEString_SetLabelHash(FEString *self, uint32_t h) { self->SetLabelHash(h); }
 bool THISCALL FEPackageReader_FindReferencedObject(FEPackageReader *self, uint32_t h, FEObject **o, FEPackage **p) { return self->FindReferencedObject(h, o, p); }
 FEPackage *THISCALL FEngine_FindLibraryPackageHook(FEngine *self, uint32_t h) { return FEngine_FindLibraryPackage(self, h); }
@@ -544,6 +563,26 @@ const Replacement kReplacements[] = {
     {0x54D1D0, (const void *)&FEPackageReader_ReadMessageResponseTags, "FEPackageReader::ReadMessageResponseTags", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x53}},
     {0x518190, (const void *)&FEPackage_SetNumLibraryRefs, "FEPackage::SetNumLibraryRefs", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
     {0x555800, (const void *)&FEngine_LoadPackageHook, "FEngine::LoadPackage", {0x83, 0xEC, 0x50, 0x33, 0xC0, 0x89}},
+    {0x5349C0, (const void *)&FEListBox_Ctor, "FEListBox::FEListBox", {0x56, 0x8B, 0xF1, 0xE8, 0x58, 0x65}},
+    {0x534A50, (const void *)&FEListBox_Dtor, "FEListBox::~FEListBox", {0x6A, 0xFF, 0x68, 0xD8, 0x74, 0x77}},
+    {0x541D90, (const void *)&FEListBox_ScalarDtor, "FEListBox scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0x2C}},
+    {0x516DC0, (const void *)&FEListBox_Terminate, "FEListBox::Terminate", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x5C}},
+    {0x52A910, (const void *)&FEListBox_SetNumColumns, "FEListBox::SetNumColumns", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x52AB30, (const void *)&FEListBox_SetNumRows, "FEListBox::SetNumRows", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x5042E0, (const void *)&FEListBox_CleanupCells, "FEListBox::CleanupCells", {0x57, 0x8B, 0xF9, 0x8B, 0x47, 0x64}},
+    {0x504290, (const void *)&FEListBox::InitializeCells, "FEListBox::InitializeCells", {0x56, 0x8B, 0x74, 0x24, 0x0C, 0x33}},
+    {0x504180, (const void *)&FEListBox_SetSelColumn, "FEListBox::SetSelColumn", {0x8B, 0x41, 0x60, 0x85, 0xC0, 0x76}},
+    {0x5041B0, (const void *)&FEListBox_SetSelRow, "FEListBox::SetSelRow", {0x8B, 0x41, 0x64, 0x85, 0xC0, 0x76}},
+    {0x5041E0, (const void *)&FEListBox_SetCellType, "FEListBox::SetCellType", {0x8B, 0x81, 0x8C, 0x00, 0x00, 0x00}},
+    {0x504230, (const void *)&FEListBox_IncrementCellByColumn, "FEListBox::IncrementCellByColumn", {0x8B, 0x81, 0x88, 0x00, 0x00, 0x00}},
+    {0x504270, (const void *)&FEListBox_SetAutoWrap, "FEListBox::SetAutoWrap", {0x8A, 0x44, 0x24, 0x04, 0x84, 0xC0}},
+    {0x504360, (const void *)&FEListBox_RecalculateCummulative, "FEListBox::RecalculateCummulative", {0x8B, 0x41, 0x78, 0xD9, 0x05, 0x3C}},
+    {0x516CD0, (const void *)&FEListBox_SetCellColor, "FEListBox::SetCellColor", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x516D00, (const void *)&FEListBox_SetCellScale, "FEListBox::SetCellScale", {0x8B, 0x81, 0x8C, 0x00, 0x00, 0x00}},
+    {0x516D40, (const void *)&FEListBox_SetCellJustification, "FEListBox::SetCellJustification", {0x8B, 0x81, 0x8C, 0x00, 0x00, 0x00}},
+    {0x516D80, (const void *)&FEListBox_SetCellData, "FEListBox::SetCellData", {0x8B, 0x81, 0x8C, 0x00, 0x00, 0x00}},
+    {0x516E10, (const void *)&FEListBox_SetCellString, "FEListBox::SetCellString", {0x8B, 0x81, 0x8C, 0x00, 0x00, 0x00}},
+    {0x52B740, (const void *)&FEPackageReader_ProcessListBoxTag, "FEPackageReader::ProcessListBoxTag", {0x83, 0xEC, 0x10, 0x53, 0x56, 0x8B}},
     {0x5515E0, (const void *)&FEPackageReader_ReadScriptTags, "FEPackageReader::ReadScriptTags", {0x6A, 0xFF, 0x68, 0xAB, 0x7B, 0x77}},
     {0x534FC0, (const void *)&FEPackageReader_ProcessStringTag, "FEPackageReader::ProcessStringTag", {0x8B, 0x54, 0x24, 0x04, 0x0F, 0xB7}},
     {0x4FE940, (const void *)&FEString_SetLabelHash, "FEString::SetLabelHash", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},

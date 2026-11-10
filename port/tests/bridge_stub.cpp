@@ -2,6 +2,7 @@
 #include "frontend/FEPackage.h"
 #include "frontend/FEPackageReader.h"
 #include "frontend/FEObject.h"
+#include "frontend/FEListBox.h"
 #include "frontend/FEHash.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/cFEng.h"
@@ -45,7 +46,7 @@ std::vector<std::string> levelSortingList;
 FEPackage *pushResult = nullptr;
 std::string lastPushName;
 int32_t fengLoadCounter = 0;
-int fePackageDataVTable = 0, fePackageVTable = 0, feNodeVTable = 0, fePackageList74VTable = 0, resourceConnectorVTable = 0;
+int feListBoxVTable = 0, fePackageDataVTable = 0, fePackageVTable = 0, feNodeVTable = 0, fePackageList74VTable = 0, resourceConnectorVTable = 0;
 bool loadResourcesResult = true, readerChunkResult = true;
 const void *libraryData = nullptr;
 void *screenResult = nullptr;
@@ -79,6 +80,7 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feKeyNodeVTable) static_cast<FEKeyNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feKeyNodeBlockVTable) FEKeyNodeBlock_ScalarDtor(static_cast<FEKeyNodeBlock *>(o), 1);
     else if (vt == &teststub::feScriptBlockVTable) FEScriptBlock_ScalarDtor(static_cast<FEScriptBlock *>(o), 1);
+    else if (vt == &teststub::feListBoxVTable) static_cast<FEListBox *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feNodeVTable) { static_cast<FENode *>(o)->Destruct(); FreeArray(o); }
     else if (vt == &teststub::fePackageVTable) static_cast<FEPackage *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageDataVTable) static_cast<FEPackageData *>(o)->ScalarDeletingDestructor(1);
@@ -139,13 +141,16 @@ FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
     teststub::delivered.push_back({"typector", mem, nullptr, type, 0});
     return FEObject::Construct(mem);   // stand-in: base part only
 }
-void FEPackageReader_ProcessListBoxTag(void *r, const uint8_t *t) { teststub::delivered.push_back({"lbtag", r, nullptr, *reinterpret_cast<const uint16_t *>(t), 0}); }
 void FEPackageReader_ProcessCodeListBoxTag(void *r, const uint8_t *t) { teststub::delivered.push_back({"clbtag", r, nullptr, *reinterpret_cast<const uint16_t *>(t), 0}); }
 FEObject *FEObject_VirtualClone(FEObject *o, bool ref) { return o->Clone(ref); }
 FEObject *FEGroup_CopyConstruct(void *, FEObject *, bool, bool) { std::abort(); }
-void FEListBox_RecalculateCummulative(void *lb) { teststub::delivered.push_back({"recalc", lb, nullptr, 0, 0}); }
 void FECodeListBox_FillAllCells(void *lb) { teststub::delivered.push_back({"fillcells", lb, nullptr, 0, 0}); }
 void FEKeyInterpScript(void *s, uint8_t t, uint32_t time, void *o) { teststub::delivered.push_back({"keyinterp", s, static_cast<FEPackage *>(o), t, time}); }
+#ifdef NFSU2_REFEREE
+void *FEListBoxVTable() { return reinterpret_cast<void *>(0x79BAE4); }
+#else
+void *FEListBoxVTable() { return &teststub::feListBoxVTable; }
+#endif
 void *FEPackageVTable() { return &teststub::fePackageVTable; }
 void *FENodeVTable() { return &teststub::feNodeVTable; }
 void *FEPackageList74VTable() { return &teststub::fePackageList74VTable; }

@@ -2,6 +2,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+struct FEColor;
 #include "FEObject.h"
 
 // One column / row of a list box (12 bytes).
@@ -9,6 +10,19 @@ struct FEListBoxSlot {
     float mfSize;                    // +0x0 width (column) / height (row)
     float mfPosition;                // +0x4 scroll position that shows this slot
     uint32_t _unknown08;
+};
+
+// One cell (0x30): new[]-constructed by PC 504150, (re)initialized in ranges by PC 504290.
+struct FEListBoxCell {
+    uint32_t mu32Color;              // +0x00 packed ARGB (504290: 0xFFFFFFFF, ctor: 0)
+    float mfScaleX, mfScaleY;        // +0x04 1.0
+    uint32_t mJustification[3];      // +0x0C ("Cr": 0, 0, value)
+    uint32_t mu32Type;               // +0x18 2 = string (owns mpData as uint16_t text)
+    uint32_t _unknown1C;
+    union {
+        uint32_t mData[4];           // +0x20 image rect etc.; 504290: {0, 0, 1.0f, 1.0f}
+        uint16_t *mpText;            // +0x20 type 2: owned text
+    };
 };
 
 struct FEListBox {
@@ -27,7 +41,7 @@ struct FEListBox {
     float mfSpeedY;                  // +0x84
     uint32_t mu32SelColumn;          // +0x88
     uint32_t mu32SelRow;             // +0x8C
-    uint8_t _unknown90[4];
+    FEListBoxCell *mpCells;          // +0x90 rows x columns (operator new, no count cookie)
     float mfTargetX;                 // +0x94
     float mfTargetY;                 // +0x98
     float mfDirX;                    // +0x9C unit scroll direction
@@ -44,9 +58,35 @@ struct FEListBox {
     // PC: the pulse bounds are tested on the unrounded x87 value; the X step stays unrounded but the Y step is
     // rounded to float before it is added; the overshoot test uses the unrounded new positions.
     void Update(float dt);
+
+    static FEListBox *Construct(void *mem);   // GC 80135D28 / PC 5349C0 (vtable 0x79BAE4, flags 4)
+    void Destruct();                          // GC 80135DD8 / PC 534A50
+    FEListBox *ScalarDeletingDestructor(uint32_t flags);   // PC 541D90 (vtable slot 0)
+    // GC 80135E20 / PC 516DC0: only with flag 1: clears it, frees columns and rows (counts 0), then CleanupCells,
+    // which therefore frees nothing (the original leaks the cells here).
+    void Terminate();
+    // GC 80135E74 / 80136030, PC 52A910 / 52AB30 (ret 4). Like the original (GC too), existing cells are copied as
+    // min(old, new) BYTES per row (columns) / columns*min(old, new) bytes (rows), not cells.
+    void SetNumColumns(uint32_t n);
+    void SetNumRows(uint32_t n);
+    void CleanupCells();                       // GC 80136A2C / PC 5042E0 (nothing if rows*columns == 0)
+    static void InitializeCells(FEListBoxCell *cells, uint32_t count);   // GC 80136908 / PC 504290 (__cdecl)
+    void SetSelColumn(uint32_t c);             // PC 504180 (clamped; 0 without columns)
+    void SetSelRow(uint32_t r);                // PC 5041B0
+    FEListBoxCell *CurrentCell() { return &mpCells[mu32SelRow * mu32NumColumns + mu32SelColumn]; }   // GC GetPCellData
+    void SetCellType(uint32_t type);           // GC 801361AC / PC 5041E0: leaving type 2 frees the string
+    void IncrementCellByColumn();              // GC 801362BC / PC 504230: next column, wrapping to the next row / 0
+    void SetAutoWrap(bool wrap);               // GC 801368B8 / PC 504270: wrap clears flag 4 (clamp)
+    void RecalculateCummulative();             // GC 80136AD0 / PC 504360: slot positions = running size sums (x87)
+    void SetCellColor(const struct FEColor &c);   // PC 516CD0 (packs with clamping, PC 5054D0)
+    void SetCellScale(const float *xy);        // PC 516D00
+    void SetCellJustification(uint32_t a, uint32_t b, uint32_t c);   // PC 516D40 (ret 0xC)
+    void SetCellData(const uint32_t *d4);      // PC 516D80
+    void SetCellString(const uint16_t *text);  // GC 80136224 / PC 516E10: owned copy (null -> none)
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FEListBox) == 0xAC && offsetof(FEListBox, mu32Flags) == 0x5C && offsetof(FEListBox, mpRows) == 0x7C);
+static_assert(sizeof(FEListBoxCell) == 0x30 && offsetof(FEListBoxCell, mData) == 0x20 && offsetof(FEListBox, mpCells) == 0x90);
 static_assert(offsetof(FEListBox, mu32SelColumn) == 0x88 && offsetof(FEListBox, mfTargetX) == 0x94 && offsetof(FEListBox, mfDirY) == 0xA0);
 #endif

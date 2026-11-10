@@ -22,7 +22,9 @@ struct FEPackageReader {
     uint8_t _pad19[3];
     FEObject *mpRefObject;           // +0x1C library object of a referenced (flag 0x100000) object
     FEPackage *mpRefPackage;         // +0x20 its library package
-    uint8_t _unknown24[0x30 - 0x24];
+    int32_t mi32ListColumn;          // +0x24 list box tags: last column / row / cell written (-1 after "Ld")
+    int32_t mi32ListRow;             // +0x28
+    int32_t mi32ListCell;            // +0x2C
     uint32_t mu32NumTypes;           // +0x30 (GC +0x38) "TypS" entries {type, size}
     const uint32_t *mpTypes;         // +0x34 (GC +0x3C)
     void *mpGameInterface;           // +0x38 FEngine +0x10C
@@ -66,6 +68,9 @@ struct FEPackageReader {
     // GC 8013BA78 / PC 534FC0 (ret 4): Sb buffer length, SL label (only with mbFlag09), SH label hash, St text,
     // Sj/Sl/Sw string +0x6C/+0x70/+0x74.
     void ProcessStringTag(const uint8_t *tag);
+    // GC 8013BCAC / PC 52B740 (ret 4): Ld dimensions, Lc/Lr column/row sizes, Ls speeds, Lv view size, Lw auto wrap,
+    // CT cell type, Cc next cell + color, Cs scale, Cr justification, Ci data, Ct text.
+    void ProcessListBoxTag(const uint8_t *tag);
     // GC 8013C44C / PC 5515E0 (ret 8): one script per chunk. Sn new (name only with mbFlag0A), Sh header (id,
     // length, flags, track count), SI existing script by id, Sl/Sf/Sc length/flags/chained id, EV events; per track:
     // FI header, Ti track by data index (missing ones are inserted from the type library, ordered by data offset),

@@ -1118,6 +1118,56 @@ static void CheckReaderStringTags(int iters)
     }
 }
 
+// FEListBox non-allocating methods on a synthetic list box (cells/columns/rows on the stack).
+static void CheckListBoxCells(int iters)
+{
+    auto oSelC = ORIG<void(THISCALL *)(FEListBox *, uint32_t)>(0x504180);
+    auto oSelR = ORIG<void(THISCALL *)(FEListBox *, uint32_t)>(0x5041B0);
+    auto oInc = ORIG<void(THISCALL *)(FEListBox *)>(0x504230);
+    auto oWrap = ORIG<void(THISCALL *)(FEListBox *, uint32_t)>(0x504270);
+    auto oRecalc = ORIG<void(THISCALL *)(FEListBox *)>(0x504360);
+    auto oColor = ORIG<void(THISCALL *)(FEListBox *, const FEColor *)>(0x516CD0);
+    auto oScale = ORIG<void(THISCALL *)(FEListBox *, const float *)>(0x516D00);
+    auto oJust = ORIG<void(THISCALL *)(FEListBox *, uint32_t, uint32_t, uint32_t)>(0x516D40);
+    auto oData = ORIG<void(THISCALL *)(FEListBox *, const uint32_t *)>(0x516D80);
+    auto oInit = ORIG<void(__cdecl *)(FEListBoxCell *, uint32_t)>(0x504290);
+    for (int it = 0; it < iters; ++it) {
+        struct Arena { FEListBox lb; FEListBoxCell cells[12]; FEListBoxSlot cols[4], rows[3]; } A, B;
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        A.lb.mu32NumColumns = rng() % 5;
+        A.lb.mu32NumRows = A.lb.mu32NumColumns ? rng() % 4 : 0;
+        if (A.lb.mu32NumRows == 0 && A.lb.mu32NumColumns) A.lb.mu32NumRows = 1;
+        A.lb.mu32SelColumn = A.lb.mu32NumColumns ? rng() % A.lb.mu32NumColumns : 0;
+        A.lb.mu32SelRow = A.lb.mu32NumRows ? rng() % A.lb.mu32NumRows : 0;
+        for (auto &c : A.cols) c.mfSize = static_cast<float>(rng() % 1000) / 7.0f;
+        for (auto &r : A.rows) r.mfSize = static_cast<float>(rng() % 1000) / 3.0f;
+        std::memcpy(&B, &A, sizeof A);
+        A.lb.mpCells = A.cells; A.lb.mpColumns = A.cols; A.lb.mpRows = A.rows;
+        B.lb.mpCells = B.cells; B.lb.mpColumns = B.cols; B.lb.mpRows = B.rows;
+        const uint32_t x = rng() % 7, y = rng(), z = rng();
+        const int op = rng() % 10;
+        FEColor col{{static_cast<int32_t>(rng() % 600) - 150, static_cast<int32_t>(rng() % 600) - 150, static_cast<int32_t>(rng()), static_cast<int32_t>(rng() % 300)}};
+        float xy[2] = {static_cast<float>(y % 100), static_cast<float>(z % 100)};
+        uint32_t d4[4] = {y, z, x, y ^ z};
+        const bool hasCell = A.lb.mu32NumColumns && A.lb.mu32NumRows;
+        switch (op) {
+        case 0: oSelC(&A.lb, x); B.lb.SetSelColumn(x); break;
+        case 1: oSelR(&A.lb, x); B.lb.SetSelRow(x); break;
+        case 2: if (hasCell) { oInc(&A.lb); B.lb.IncrementCellByColumn(); } break;
+        case 3: oWrap(&A.lb, y & 0xFF); B.lb.SetAutoWrap((y & 0xFF) != 0); break;
+        case 4: oRecalc(&A.lb); B.lb.RecalculateCummulative(); break;
+        case 5: if (hasCell) { oColor(&A.lb, &col); B.lb.SetCellColor(col); } break;
+        case 6: if (hasCell) { oScale(&A.lb, xy); B.lb.SetCellScale(xy); } break;
+        case 7: if (hasCell) { oJust(&A.lb, x, y, z); B.lb.SetCellJustification(x, y, z); } break;
+        case 8: if (hasCell) { oData(&A.lb, d4); B.lb.SetCellData(d4); } break;
+        case 9: oInit(A.cells + (x % 4), x % 9); FEListBox::InitializeCells(B.cells + (x % 4), x % 9); break;
+        }
+        A.lb.mpCells = B.lb.mpCells = nullptr; A.lb.mpColumns = B.lb.mpColumns = nullptr; A.lb.mpRows = B.lb.mpRows = nullptr;
+        EXPECT(std::memcmp(&A, &B, sizeof A) == 0, "FEListBox op %d", op);
+    }
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1619,6 +1669,7 @@ static int RunAll()
     CheckPackageCtor(500);
     CheckReaderTypeSizes(20000);
     CheckReaderStringTags(5000);
+    CheckListBoxCells(20000);
     CheckPackageManager(iters);
     CheckFENodeFind(iters);
     CheckUpdateObjectTracks(iters);

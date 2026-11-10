@@ -9,6 +9,8 @@
 #include "FEString.h"
 #include "FEMultiPool.h"
 #include "FEPool.h"
+#include "FEListBox.h"
+#include "FEMath.h"
 #include "FEngine.h"
 #include "bridge/Bridge.h"
 
@@ -240,7 +242,7 @@ bool FEPackageReader::ReadObjectChunk()
         }
         FEObject *obj = mpCurrentObject;
         if (!obj) continue;
-        if (obj->mu32Type == 4) bridge::FEListBox_RecalculateCummulative(obj);
+        if (obj->mu32Type == 4) reinterpret_cast<FEListBox *>(obj)->RecalculateCummulative();
         else if (obj->mu32Type == 6) bridge::FECodeListBox_FillAllCells(obj);
         for (auto *s = reinterpret_cast<FEScript *>(obj->mScripts.head); s; s = reinterpret_cast<FEScript *>(s->node.next)) {
             const auto chained = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(s->mpChainedScript));   // id while loading
@@ -326,7 +328,7 @@ bool FEPackageReader::ReadObjectTags(const uint8_t *tags, uint32_t size)
                 if (id == 0x6649) reinterpret_cast<FEImage *>(obj)->mu32ImageFlags = v[0];   // "If": image flags
                 break;
             case 2: ProcessStringTag(t); break;
-            case 4: bridge::FEPackageReader_ProcessListBoxTag(this, t); break;
+            case 4: ProcessListBoxTag(t); break;
             case 6: bridge::FEPackageReader_ProcessCodeListBoxTag(this, t); break;
             default: break;
             }
@@ -341,10 +343,13 @@ FEObject *FEPackageReader::CreateObject(uint32_t type)
     static const uint32_t kSizes[12] = {0, 0x60, 0x78, 0x5C, 0xAC, 0x6C, 0xC8, 0x60, 0x5C, 0x60, 0x60, 0x5C};
     if (type == 0) return nullptr;
     const bool plain = type == 3 || type == 8 || type > 11;
-    void *mem = bridge::Alloc(plain ? 0x5C : kSizes[type]);
+    // sizeof() == the PC size on 32-bit (static_asserts); differs only in native 64-bit tests
+    const uint32_t bytes = plain ? sizeof(FEObject) : type == 2 ? sizeof(FEString) : type == 4 ? sizeof(FEListBox) : kSizes[type];
+    void *mem = bridge::Alloc(bytes);
     FEObject *obj = nullptr;
     if (plain) obj = mem ? FEObject::Construct(mem) : nullptr;
     else if (type == 2) obj = mem ? reinterpret_cast<FEObject *>(FEString::Construct(mem)) : nullptr;
+    else if (type == 4) obj = mem ? &FEListBox::Construct(mem)->obj : nullptr;
     else if (mem) obj = bridge::FEObjectTypeConstruct(mem, type);
     if (type == 6) reinterpret_cast<uint32_t *>(obj)[0x5C / 4] = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(mpGameInterface));   // PC: even when null
     obj->mu32Type = type;   // PC: no null check
@@ -355,6 +360,49 @@ FEObject *FEPackageReader::CreateObject(uint32_t type)
     obj->mu32DataSize = size;
     obj->mpData = data;
     return obj;
+}
+
+void FEPackageReader::ProcessListBoxTag(const uint8_t *tag)
+{
+    auto *lb = reinterpret_cast<FEListBox *>(mpCurrentObject);
+    const uint32_t *v = reinterpret_cast<const uint32_t *>(tag + 4);
+    switch (*reinterpret_cast<const uint16_t *>(tag)) {
+    case 0x644C:   // "Ld"
+        lb->SetNumColumns(v[0]);
+        lb->SetNumRows(v[1]);
+        mi32ListCell = mi32ListRow = mi32ListColumn = -1;
+        lb->SetSelColumn(0);
+        lb->SetSelRow(0);
+        break;
+    case 0x634C: {   // "Lc"
+        FEListBoxSlot &c = lb->mpColumns[++mi32ListColumn];
+        std::memcpy(&c.mfSize, &v[0], 4);
+        c._unknown08 = v[1];
+        break;
+    }
+    case 0x724C: {   // "Lr"
+        FEListBoxSlot &r = lb->mpRows[++mi32ListRow];
+        std::memcpy(&r.mfSize, &v[0], 4);
+        r._unknown08 = v[1];
+        break;
+    }
+    case 0x734C: std::memcpy(&lb->mfSpeedX, v, 4); std::memcpy(&lb->mfSpeedY, v + 1, 4); break;        // "Ls"
+    case 0x764C: std::memcpy(&lb->mfViewWidth, v, 4); std::memcpy(&lb->mfViewHeight, v + 1, 4); break;   // "Lv"
+    case 0x774C: lb->SetAutoWrap(v[0] != 0); break;                                                      // "Lw"
+    case 0x5443: lb->SetCellType(v[0]); break;                                                           // "CT"
+    case 0x6343: {   // "Cc": next cell, color
+        if (++mi32ListCell != 0) lb->IncrementCellByColumn();
+        const FEColor c{{static_cast<int32_t>(v[0] & 0xFF), static_cast<int32_t>((v[0] >> 8) & 0xFF),
+                         static_cast<int32_t>((v[0] >> 16) & 0xFF), static_cast<int32_t>(v[0] >> 24)}};   // PC 5054A0
+        lb->SetCellColor(c);
+        break;
+    }
+    case 0x7343: { float xy[2]; std::memcpy(xy, v, 8); lb->SetCellScale(xy); break; }   // "Cs"
+    case 0x7243: lb->SetCellJustification(0, 0, v[0]); break;                          // "Cr"
+    case 0x6943: lb->SetCellData(v); break;                                            // "Ci"
+    case 0x7443: lb->SetCellString(reinterpret_cast<const uint16_t *>(v)); break;      // "Ct"
+    default: break;
+    }
 }
 
 void FEPackageReader::ProcessStringTag(const uint8_t *tag)
