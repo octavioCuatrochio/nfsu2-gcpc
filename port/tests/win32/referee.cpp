@@ -1628,64 +1628,79 @@ static void CheckPopQueuedPush(int iters)
     }
 }
 
+// REFEREE_ONLY=a,b: run only the checks whose call text contains one of the comma-separated words.
+static bool RefereeSelected(const char *call)
+{
+    const char *only = std::getenv("REFEREE_ONLY");
+    if (!only || !*only) return true;
+    std::string list(only);
+    size_t pos = 0;
+    while (pos <= list.size()) {
+        size_t end = list.find(',', pos);
+        if (end == std::string::npos) end = list.size();
+        std::string word = list.substr(pos, end - pos);
+        if (!word.empty() && std::strstr(call, word.c_str())) return true;
+        pos = end + 1;
+    }
+    return false;
+}
+#define REFEREE_RUN(...) do { if (RefereeSelected(#__VA_ARGS__)) { __VA_ARGS__; } } while (0)
+
 static int RunAll()
 {
     auto *base = reinterpret_cast<uint8_t *>(GetModuleHandleA(nullptr));
     auto *nt = reinterpret_cast<IMAGE_NT_HEADERS32 *>(base + reinterpret_cast<IMAGE_DOS_HEADER *>(base)->e_lfanew);
     if (nt->FileHeader.TimeDateStamp != 0x214D4C48) { std::printf("referee: not SPEED2.EXE v1.2\n"); return 2; }
     const char *env = std::getenv("REFEREE_ITERATIONS");
-    int iters = env ? std::atoi(env) : 20000;
+    int iters = env ? std::atoi(env) : 2000;
     // sanity: prove we really execute the ORIGINAL machine code (known answer: POSIX cksum of "123456789")
     uint32_t known = ORIG<uint32_t(__cdecl *)(const void *, int, uint32_t)>(0x43BCD0)("123456789", 9, 0);
     if (known != 0x377A6011u) { std::printf("referee: original code not callable (got %08X)\n", known); return 2; }
-    CheckCrc(iters);
-    CheckStringHash(iters);
-    CheckStrFuncs(iters);
-    CheckStrToNumber(iters);
-    CheckLevelSortingList(iters);
-    CheckListBoxScroll(iters);
-    CheckListBoxUpdate(iters);
-    CheckWideCopies(iters);
-    CheckMinList(iters);
-    CheckFEObject(iters);
-    CheckSlotPool(iters);
-    CheckRefList(iters);
-    CheckKeyTrackCtor(iters);
-    CheckFEMath(iters);
-    CheckSetTrackValue(iters);
-    CheckSetters(iters);
-    CheckKeyInterp(iters);
-    CheckInterpLinear(iters);
-    CheckTrigAndSlerp(iters);
-    CheckSinCos();
-    CheckATan(iters);
-    CheckRandomMod(iters);
-    CheckMatrices(iters);
-    CheckVectors(iters);
-    CheckBoxes(iters);
-    CheckSlotPoolB(iters);
-    CheckNoise(iters);
-    CheckPackageDataCtor(2000);
-    CheckPackageCtor(500);
-    CheckReaderTypeSizes(20000);
-    CheckReaderStringTags(5000);
-    CheckListBoxCells(20000);
-    CheckPackageManager(iters);
-    CheckFENodeFind(iters);
-    CheckUpdateObjectTracks(iters);
-    CheckUpdateObject(iters);
-    CheckPackageUpdate(iters);
-    CheckFindObject(iters);
-    CheckPackageSmall(iters);
-    CheckConditionBranch(iters);
-    CheckPackageMarkers(iters);
-    CheckPopQueuedPush(iters);
-    CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block",
-        {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}});
-    CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block",
-        {{&teststub::feKeyNodeBlockVTable, 0x79B9EC}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feKeyNodeVTable, 0x79AA34}});
-    CheckBlockCtor<FEScriptBlock>(0x53E910, FEScriptBlock_Construct, "FEScript block",
-        {{&teststub::feScriptBlockVTable, 0x79BF54}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feScriptVTable, 0x79AD28}});
+    REFEREE_RUN(CheckCrc(iters));
+    REFEREE_RUN(CheckStringHash(iters));
+    REFEREE_RUN(CheckStrFuncs(iters));
+    REFEREE_RUN(CheckStrToNumber(iters));
+    REFEREE_RUN(CheckLevelSortingList(iters));
+    REFEREE_RUN(CheckListBoxScroll(iters));
+    REFEREE_RUN(CheckListBoxUpdate(iters));
+    REFEREE_RUN(CheckWideCopies(iters));
+    REFEREE_RUN(CheckMinList(iters));
+    REFEREE_RUN(CheckFEObject(iters));
+    REFEREE_RUN(CheckSlotPool(iters));
+    REFEREE_RUN(CheckRefList(iters));
+    REFEREE_RUN(CheckKeyTrackCtor(iters));
+    REFEREE_RUN(CheckFEMath(iters));
+    REFEREE_RUN(CheckSetTrackValue(iters));
+    REFEREE_RUN(CheckSetters(iters));
+    REFEREE_RUN(CheckKeyInterp(iters));
+    REFEREE_RUN(CheckInterpLinear(iters));
+    REFEREE_RUN(CheckTrigAndSlerp(iters));
+    REFEREE_RUN(CheckSinCos());
+    REFEREE_RUN(CheckATan(iters));
+    REFEREE_RUN(CheckRandomMod(iters));
+    REFEREE_RUN(CheckMatrices(iters));
+    REFEREE_RUN(CheckVectors(iters));
+    REFEREE_RUN(CheckBoxes(iters));
+    REFEREE_RUN(CheckSlotPoolB(iters));
+    REFEREE_RUN(CheckNoise(iters));
+    REFEREE_RUN(CheckPackageDataCtor(iters / 10 + 1));
+    REFEREE_RUN(CheckPackageCtor(iters / 40 + 1));
+    REFEREE_RUN(CheckReaderTypeSizes(iters));
+    REFEREE_RUN(CheckReaderStringTags(iters / 4 + 1));
+    REFEREE_RUN(CheckListBoxCells(iters));
+    REFEREE_RUN(CheckPackageManager(iters));
+    REFEREE_RUN(CheckFENodeFind(iters));
+    REFEREE_RUN(CheckUpdateObjectTracks(iters));
+    REFEREE_RUN(CheckUpdateObject(iters));
+    REFEREE_RUN(CheckPackageUpdate(iters));
+    REFEREE_RUN(CheckFindObject(iters));
+    REFEREE_RUN(CheckPackageSmall(iters));
+    REFEREE_RUN(CheckConditionBranch(iters));
+    REFEREE_RUN(CheckPackageMarkers(iters));
+    REFEREE_RUN(CheckPopQueuedPush(iters));
+    REFEREE_RUN(CheckBlockCtor<FEMessageResponseBlock>(0x53E710, FEMessageResponseBlock_Construct, "FEMessageResponse block", {{&teststub::feMsgRespBlockVTable, 0x79BF50}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feMsgRespVTable, 0x79AA38}}));
+    REFEREE_RUN(CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block", {{&teststub::feKeyNodeBlockVTable, 0x79B9EC}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feKeyNodeVTable, 0x79AA34}}));
+    REFEREE_RUN(CheckBlockCtor<FEScriptBlock>(0x53E910, FEScriptBlock_Construct, "FEScript block", {{&teststub::feScriptBlockVTable, 0x79BF54}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feScriptVTable, 0x79AD28}}));
     EXPECT(ORIG<uint32_t(__cdecl *)(const char *)>(0x505450)(nullptr) == FEHashUpper(nullptr), "FEHashUpper(null)");
     std::printf("referee: %d checks, %d mismatches -> %s\n", checks, failures, failures ? "FAILED" : "ok");
     return failures != 0;

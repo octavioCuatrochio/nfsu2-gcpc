@@ -49,7 +49,8 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   too); Terminate frees columns/rows first so CleanupCells frees nothing (leak, original). Not reached in menus/race.
   Script chunk: one script per Scrp; "Kd" first key overwrites the base key; "Ti" inserts tracks via the type library.
 - Only one SPEED2.EXE can run: never run the referee and the in-game test at the same time.
-- Referee: ~4 min per full run; random chunk tests must keep sizes consistent (the original scan never stops otherwise).
+- Referee: default 2000 iterations (~13 s, ~770k checks); full `run_referee.sh 20000` (~4 min) before milestones;
+  `REFEREE_ONLY=ListBox,Reader` runs matching checks only (~1 s). Random chunk tests must keep sizes consistent.
 - Hook host: counters/stubs sized by kMaxHooks (hooks.cpp); >256 hooks overflowed the old 4 KB stub page (DllMain AV).
 - Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
 
