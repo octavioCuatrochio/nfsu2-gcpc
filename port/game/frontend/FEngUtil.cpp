@@ -8,6 +8,10 @@
 #include "bWare/bMath.h"
 #include "FEMath.h"
 #include "FEString.h"
+#include "FEPackage.h"
+#include "FEPackageManager.h"
+#include "FEngine.h"
+#include "cFEng.h"
 
 uint32_t FEngGetTextureHash(const FEObject *obj) { return obj ? obj->_unknown24 : 0; }
 
@@ -292,4 +296,47 @@ void FEngGetSize(const FEObject *obj, float *w, float *h)
         *w = 0.0f;
         *h = 0.0f;
     }
+}
+
+void FEngSetUseIdleList(const char *pkg, bool use)
+{
+    if (!bridge::cFEngInstance()) return;
+    FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg);
+    if (d && d->mpPackage) d->mpPackage->_unknown15[0] = use;
+}
+
+void FEngSetPermanent(const char *pkg, int32_t permanent) { bridge::TheFEPackageManager()->SetPermanent(pkg, permanent); }
+
+FEObject *FEngGetCurrentButton(const char *pkg)
+{
+    if (!bridge::cFEngInstance()) return nullptr;
+    FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg);
+    FEPackage *p = d ? d->mpPackage : nullptr;
+    return p ? p->mpCurrentButton : nullptr;
+}
+
+void FEngSetButtonState(const char *pkg, uint32_t button, bool enable)
+{
+    if (bridge::cFEngInstance()) cFEng::SetButtonState(pkg, button, enable);
+}
+
+void FEngPostMessageToFEng(uint32_t msg, FEObject *obj, FEObject *target, FEPackage *pkg)
+{
+    cFEng *fe = bridge::cFEngInstance();
+    if (fe && fe->mpEngine) fe->mpEngine->QueueMessage(msg, obj, pkg, target, 0);
+}
+
+void FEngQueueControllerMessageToPackage(uint32_t msg, const char *pkg, uint32_t arg)
+{
+    cFEng *fe = bridge::cFEngInstance();   // (debug prints "Send message[%x] to package [%s]" are no-ops)
+    if (!fe || !fe->mpEngine) return;
+    FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg);
+    if (d && d->mpPackage) fe->mpEngine->QueueMessage(msg, nullptr, d->mpPackage, reinterpret_cast<FEObject *>(intptr_t{-1}), arg);
+}
+
+void FEngQueueMessageToPackage(uint32_t msg, const char *pkg) { FEngQueueControllerMessageToPackage(msg, pkg, 0); }
+
+void FEngSetPackageVisibility(const char *pkg, uint8_t visible)
+{
+    if (FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg)) d->mVisible = visible;
 }

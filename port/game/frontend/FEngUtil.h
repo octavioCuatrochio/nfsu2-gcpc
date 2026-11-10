@@ -3,6 +3,7 @@
 #include <cstdint>
 
 struct FEObject;
+struct FEPackage;
 
 uint32_t FEngGetTextureHash(const FEObject *obj);              // GC 801500BC / PC 50C980 (null -> 0)
 void FEngSetTextureHash(FEObject *obj, uint32_t hash);         // GC 801500D4 / PC 50C990 (dirty only on change)
@@ -44,3 +45,15 @@ void FEngGetCenter(const FEObject *obj, float *x, float *y);
 void FEngGetSize(const FEObject *obj, float *w, float *h);             // GC 80150F6C / PC 50CB00: data Size (+0x38/+0x3C)
 
 constexpr uint32_t kFEObjectDirty = 0x400000;
+
+// Package-level helpers (cFEng::pInstance / the global FEPackageManager; PC inlines the FEPkgMgr_* wrappers).
+void FEngSetUseIdleList(const char *pkg, bool use);                      // GC 8014F69C / PC 51CD10: package +0x15
+void FEngSetPermanent(const char *pkg, int32_t permanent);               // GC 8014F6D8 / PC 51CD40 (low 16 bits)
+FEObject *FEngGetCurrentButton(const char *pkg);                         // GC 8014F778 / PC 51CD60
+void FEngSetButtonState(const char *pkg, uint32_t button, bool enable);  // GC 8014F7B0 / PC 51CDA0
+// GC 8014F7F4 / PC 51CDC0: FEngine::QueueMessage(msg, obj, pkg, target, 0) when FEng runs.
+void FEngPostMessageToFEng(uint32_t msg, FEObject *obj, FEObject *target, FEPackage *pkg);
+// GC 8014F844 / PC 51CDF0: QueueMessage(msg, null, package, -1, arg) if the package is loaded.
+void FEngQueueControllerMessageToPackage(uint32_t msg, const char *pkg, uint32_t arg);
+void FEngQueueMessageToPackage(uint32_t msg, const char *pkg);           // GC 8014F8E0 / PC 51CE60 (arg 0)
+void FEngSetPackageVisibility(const char *pkg, uint8_t visible);         // GC 80150274 / PC 51CE80
