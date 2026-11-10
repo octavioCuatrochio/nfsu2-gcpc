@@ -33,6 +33,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   screen create data, +0x24 render info, +0x4C pkg control mask, +0x50. FEPackage +0x40 = its FEPackageData. Chunk
   loaders LoaderFEngPackage 51BD30 / UnloaderFEngPackage 5425A0. 8384D0 is also GC gInsideScreenConstructor.
   PC 51B9D0 = Activate (old auto-match said FEngDebugPrintf; that is the 50D510 stub).
+- FEPackage (PC 0xB0, vtable 0x79B8F8, scalar dtor 534C50 = slot 0): +0x38 filename, +0x64/+0x68 resources (count,
+  array; Startup passes them to FEGameInterface vtable slot 1), +0x70 message targets new[] (cookie at -4, elem dtor
+  4FF200 frees +0xC), +0x74 list (ctor vtable 0x79B878), +0x98 buffer, +0x9C list of nodes owning +0x10, +0xAC 4x1.
+  FENode vtable 0x79AB0C (dtor 505350); 0x79B8FC is another FENode subclass. FEPackageReader::Load = 555720.
 - Hook host: counters/stubs sized by kMaxHooks (hooks.cpp); >256 hooks overflowed the old 4 KB stub page (DllMain AV).
 - Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
 

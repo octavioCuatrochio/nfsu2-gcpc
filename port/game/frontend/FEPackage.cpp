@@ -1,4 +1,7 @@
+#include <initializer_list>
+#include <cstring>
 #include "FEPackage.h"
+#include "FENode.h"
 #include "FEObject.h"
 #include "FEScript.h"
 #include "FEMessageResponse.h"
@@ -291,4 +294,96 @@ FEMessageTargets *FEPackage::GetMessageTargets(uint32_t msg) const
     for (uint32_t i = 0; i < mu32NumMessageTargets; ++i)
         if (mpMessageTargets[i].mu32MsgId == msg) return &mpMessageTargets[i];
     return nullptr;
+}
+
+void FEPackage::Construct()
+{
+    node.vtable = bridge::FEPackageVTable();
+    node.next = node.prev = reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED);
+    mpcName = nullptr;
+    mu32NameHash = 0;
+    for (FEMinList *l : {&mObjects, &mResponses}) { l->vtable = bridge::FEMinListVTable(); l->count = 0; l->head = l->tail = nullptr; }
+    mList74.vtable = bridge::FEPackageList74VTable();
+    mList74.count = 0; mList74.head = mList74.tail = nullptr;
+    mppButtons = nullptr;
+    mu32NumButtons = 0;
+    mList9C.vtable = bridge::FEMinListVTable();
+    mList9C.count = 0; mList9C.head = mList9C.tail = nullptr;
+    mbFastInterp = 0;
+    _unknown15[0] = _unknown15[1] = _unknown15[2] = 0;
+    mi32Priority = 0;
+    mpcFilename = nullptr;
+    mpParent = nullptr;
+    mpPackageData = nullptr;
+    mu32NumResources = 0;
+    mpResources = nullptr;
+    mu32NumMessageTargets = 0;
+    mpMessageTargets = nullptr;
+    mpCurrentButton = nullptr;
+    mp98 = nullptr;
+    mu32NumLibraryRefs = 0;
+    mpLibraryRefs = nullptr;
+    mu32ControlMask = mu32SavedControlMask = mu32SavedInputControlMask = mu32InputControlMask = 0xFF;
+    mbFlagsAC[0] = mbFlagsAC[1] = mbFlagsAC[2] = mbFlagsAC[3] = 1;
+}
+
+// PC frees the filename unconditionally, then the arrays; mList9C nodes free their +0x10 buffer and are deleted
+// through their vtable; lists are then reset to the plain FEMinList vtable and purged (PC 511670).
+void FEPackage::Destruct()
+{
+    node.vtable = bridge::FEPackageVTable();
+    bridge::FreeArray(mpcFilename);
+    if (mpResources) bridge::FreeArray(mpResources);
+    if (mpMessageTargets) {
+        uint32_t *cookie = reinterpret_cast<uint32_t *>(mpMessageTargets) - 1;   // new[] element count
+        for (uint32_t i = *cookie; i-- > 0;) bridge::FreeArray(mpMessageTargets[i].mpObjects);   // ~FEMessageTargets (4FF200)
+        bridge::FreeArray(cookie);
+    }
+    if (mp98) bridge::FreeArray(mp98);
+    while (FEMinNode *n = mList9C.RemHead()) {
+        bridge::FreeArray(reinterpret_cast<FEPackageBufferNode *>(n)->mpBuffer);
+        bridge::VirtualScalarDelete(n);
+    }
+    if (mpLibraryRefs) bridge::FreeArray(mpLibraryRefs);
+    mList9C.vtable = bridge::FEMinListVTable();
+    mList9C.Purge();
+    bridge::FreeArray(mppButtons);
+    for (FEMinList *l : {&mList74, &mResponses, &mObjects}) {
+        l->vtable = bridge::FEMinListVTable();
+        l->Purge();
+    }
+    reinterpret_cast<FENode *>(this)->Destruct();
+}
+
+FEPackage *FEPackage::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) bridge::FreeArray(this);
+    return this;
+}
+
+void FEPackage::SetFilename(const char *name)
+{
+    bridge::FreeArray(mpcFilename);
+    mpcFilename = nullptr;
+    if (!name) return;
+    const size_t n = std::strlen(name) + 1;
+    mpcFilename = static_cast<char *>(bridge::Alloc(static_cast<uint32_t>(n)));
+    std::memcpy(mpcFilename, name, n);   // PC: no null check
+}
+
+bool FEPackage::Startup(void *gameInterface)
+{
+    const bool ok = bridge::FEGameInterface_LoadResources(gameInterface, this, mu32NumResources, mpResources);
+    ConnectObjectResources();
+    return ok;
+}
+
+void FEPackage::ConnectObjectResources()
+{
+    struct { void *vtable; FEPackage *pkg; void *resources; } cb;   // game-side ResourceConnector (PC 0x79AB04)
+    cb.vtable = bridge::ResourceConnectorVTable();
+    cb.pkg = this;
+    cb.resources = &mpResources;
+    ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb));
 }

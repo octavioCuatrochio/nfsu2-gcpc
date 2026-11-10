@@ -25,6 +25,12 @@ struct FEMessageTargets {           // 0x10 bytes
     FEObject **mpObjects;
 };
 
+struct FEPackageBufferNode {        // FEPackage::mList9C entries (GC +0xA8 list)
+    FEMinNode node;
+    uint32_t _unknown0C;
+    void *mpBuffer;                  // +0x10 owned (operator delete)
+};
+
 struct FEPackage {
     FEMinNode node;                  // +0x00 FEngine package list link
     const char *mpcName;             // +0x0C
@@ -40,20 +46,35 @@ struct FEPackage {
     uint8_t _unknown2C[4];
     void *mpEngine;                  // +0x30 FEngine (passed to IssueScriptMessages)
     int32_t mi32ScriptDelta;         // +0x34 time added to the current script per UpdateObject
-    uint8_t _unknown38[4];
+    char *mpcFilename;               // +0x38 owned copy (SetFilename)
     FEPackage *mpParent;             // +0x3C (GC +0x48) package that pushed this one (gets its masks back on pop)
     FEPackageData *mpPackageData;    // +0x40 (GC +0x4C) game FEPackageData (set by Activate); its +0x24 is the render info
     FEMinList mObjects;              // +0x44 top-level objects
     FEMinList mResponses;            // +0x54 package-level FEMessageResponses ("global" handlers)
-    uint8_t _unknown64[8];
+    uint32_t mu32NumResources;       // +0x64 (GC +0x70) resource requests, given to the game on Startup
+    void *mpResources;               // +0x68 (GC +0x74) array (operator new[])
     uint32_t mu32NumMessageTargets;  // +0x6C
-    struct FEMessageTargets *mpMessageTargets;   // +0x70 per-message object lists
-    uint8_t _unknown74[0x10];
+    struct FEMessageTargets *mpMessageTargets;   // +0x70 per-message object lists (new[] with count cookie at -4)
+    FEMinList mList74;               // +0x74 constructed with vtable 0x79B878, purged as a plain FEMinList
     uint32_t mu32NumLibraryRefs;     // +0x84
     struct FELibraryRef *mpLibraryRefs;   // +0x88 array, 0xC bytes each, hash first
     FEObject *mpCurrentButton;       // +0x8C
     FEObject **mppButtons;           // +0x90 (GC +0x9C) selectable objects
     uint32_t mu32NumButtons;         // +0x94 (GC +0xA0)
+    void *mp98;                      // +0x98 (GC +0xA4) owned buffer
+    FEMinList mList9C;               // +0x9C (GC +0xA8) nodes own a buffer at node +0x10
+    uint8_t mbFlagsAC[4];            // +0xAC all 1 after construction
+
+    // GC 80138CEC / PC 52B100 (vtable 0x79B8F8)
+    void Construct();
+    // GC 80138DF0 / PC 52B1E0 (non-deleting) and the scalar deleting dtor PC 534C50 (vtable slot 0)
+    void Destruct();
+    FEPackage *ScalarDeletingDestructor(uint32_t flags);
+    void SetFilename(const char *name);                         // GC 80138F64 / PC 517F30 (ret 4)
+    // GC 80138FD4 / PC 52B370 (ret 4): game interface vtable slot 1 (pkg, numResources, resources), then
+    // ConnectObjectResources; returns the game's answer.
+    bool Startup(void *gameInterface);
+    void ConnectObjectResources();                              // GC 8013A0FC / PC 518140
 
     // GC 801399F8 / PC 541DB0: evaluate the script's tracks at its current time into the object's data.
     void UpdateObjectTracks(FEObject *obj, FEScript *script) const;
@@ -92,4 +113,5 @@ static_assert(offsetof(FEPackage, mu32ControlMask) == 0x1C && offsetof(FEPackage
 static_assert(offsetof(FEPackage, mu32NumLibraryRefs) == 0x84 && offsetof(FEPackage, mpCurrentButton) == 0x8C);
 static_assert(sizeof(FELibraryRef) == 0xC && sizeof(FEMessageTargets) == 0x10);
 static_assert(offsetof(FEPackage, mResponses) == 0x54 && offsetof(FEPackage, mpMessageTargets) == 0x70);
+static_assert(offsetof(FEPackageBufferNode, mpBuffer) == 0x10 && offsetof(FEPackage, mpcFilename) == 0x38 && offsetof(FEPackage, mList9C) == 0x9C && sizeof(FEPackage) == 0xB0);
 #endif

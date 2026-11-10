@@ -1051,6 +1051,23 @@ static void CheckPackageDataCtor(int iters)
     }
 }
 
+// FEPackage ctor on random memory (vtables normalized: the referee bridge returns stub vtables).
+static void CheckPackageCtor(int iters)
+{
+    auto oCtor = ORIG<FEPackage *(THISCALL *)(FEPackage *)>(0x52B100);
+    for (int it = 0; it < iters; ++it) {
+        alignas(4) uint8_t a[sizeof(FEPackage)], b[sizeof(FEPackage)];
+        for (size_t i = 0; i < sizeof a; ++i) a[i] = b[i] = static_cast<uint8_t>(rng());
+        auto *pa = reinterpret_cast<FEPackage *>(a), *pb = reinterpret_cast<FEPackage *>(b);
+        FEPackage *r = oCtor(pa);
+        pb->Construct();
+        EXPECT(pa->node.vtable == reinterpret_cast<void *>(0x79B8F8) && pa->mList74.vtable == reinterpret_cast<void *>(0x79B878), "FEPackage ctor vtables");
+        pb->node.vtable = pa->node.vtable;
+        for (FEMinList FEPackage::*l : {&FEPackage::mObjects, &FEPackage::mResponses, &FEPackage::mList74, &FEPackage::mList9C}) (pb->*l).vtable = (pa->*l).vtable;
+        EXPECT(r == pa && std::memcmp(a, b, sizeof a) == 0, "FEPackage ctor");
+    }
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1549,6 +1566,7 @@ static int RunAll()
     CheckSlotPoolB(iters);
     CheckNoise(iters);
     CheckPackageDataCtor(2000);
+    CheckPackageCtor(500);
     CheckPackageManager(iters);
     CheckFENodeFind(iters);
     CheckUpdateObjectTracks(iters);

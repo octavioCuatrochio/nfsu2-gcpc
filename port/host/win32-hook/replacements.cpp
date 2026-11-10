@@ -220,6 +220,13 @@ void THISCALL FEPackageData_Close(FEPackageData *self) { self->Close(); }
 void THISCALL FEPkgMgr_CloseAllPackages(FEPackageManager *self, int32_t all) { self->CloseAllPackages(all); }
 void THISCALL FEPkgMgr_Loader(FEPackageManager *self, uint32_t *c, bool h) { self->Loader(c, h); }
 void THISCALL FEPkgMgr_UnLoader(FEPackageManager *self, uint32_t *c, bool h) { self->UnLoader(c, h); }
+FEPackage *THISCALL FEPackage_Ctor(FEPackage *self) { self->Construct(); return self; }
+void THISCALL FEPackage_Dtor(FEPackage *self) { self->Destruct(); }
+FEPackage *THISCALL FEPackage_ScalarDtor(FEPackage *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL FEPackage_SetFilename(FEPackage *self, const char *n) { self->SetFilename(n); }
+bool THISCALL FEPackage_Startup(FEPackage *self, void *gi) { return self->Startup(gi); }
+void THISCALL FEPackage_ConnectObjectResources(FEPackage *self) { self->ConnectObjectResources(); }
+void THISCALL FENode_Dtor(FENode *self) { self->Destruct(); }
 void THISCALL cFEng_NotificationMessage(cFEng *self, uint32_t m, FEObject *o, uint32_t a, FEPackage *p) { self->NotificationMessage(m, o, a, p); }
 void THISCALL cFEng_SwitchFEngPackages(cFEng *self, const char *f, const char *t) { self->SwitchFEngPackages(f, t); }
 void THISCALL cFEng_QueuePopPackage(cFEng *self, const char *n) { self->QueuePopPackage(n); }
@@ -500,6 +507,13 @@ const Replacement kReplacements[] = {
     {0x51BD30, (const void *)&LoaderFEngPackage, "LoaderFEngPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x8B}},
     {0x5425A0, (const void *)&UnloaderFEngPackage, "UnloaderFEngPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x8B}},
     {0x558EE0, (const void *)&JustUpdateFeng, "JustUpdateFeng", {0xA1, 0xC4, 0x84, 0x83, 0x00, 0x85}},
+    {0x52B100, (const void *)&FEPackage_Ctor, "FEPackage::FEPackage", {0x8B, 0xC1, 0xC7, 0x00, 0xF8, 0xB8}},
+    {0x52B1E0, (const void *)&FEPackage_Dtor, "FEPackage::~FEPackage", {0x6A, 0xFF, 0x68, 0xA5, 0x74, 0x77}},
+    {0x534C50, (const void *)&FEPackage_ScalarDtor, "FEPackage scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x88, 0x65}},
+    {0x517F30, (const void *)&FEPackage_SetFilename, "FEPackage::SetFilename", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x38}},
+    {0x52B370, (const void *)&FEPackage_Startup, "FEPackage::Startup", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x56}},
+    {0x518140, (const void *)&FEPackage_ConnectObjectResources, "FEPackage::ConnectObjectResources", {0x6A, 0xFF, 0x68, 0x88, 0x6F, 0x77}},
+    {0x505350, (const void *)&FENode_Dtor, "FENode::~FENode", {0x6A, 0xFF, 0x68, 0x68, 0x6F, 0x77}},
     {0x55DD50, (const void *)&cFEng_NotificationMessage, "cFEng::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x15}},
     {0x51CB20, (const void *)&cFEng_QueuePushPackage, "cFEng::QueuePushPackage", {0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0}},
     {0x51CB60, (const void *)&cFEng_QueuePushModalPackage, "cFEng::QueuePushModalPackage", {0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0}},

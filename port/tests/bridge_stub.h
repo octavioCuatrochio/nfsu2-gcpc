@@ -33,7 +33,8 @@ extern std::vector<std::string> levelSortingList;          // cFEng_FindInLevelS
 extern std::string lastPushName;                            // copy: the command (and its name) is freed
 extern FEPackage *pushResult;
 extern int32_t fengLoadCounter;
-extern int fePackageDataVTable;
+extern int fePackageDataVTable, fePackageVTable, feNodeVTable, fePackageList74VTable, resourceConnectorVTable;
+extern bool loadResourcesResult;
 extern void *screenResult;   // ScreenFactory result
 extern bool hotChunking;
 extern int renderDisconnectVTable, renderDisconnects, registerJoys;

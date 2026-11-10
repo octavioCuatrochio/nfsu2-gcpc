@@ -1311,6 +1311,47 @@ static void TestPackageDataLifecycle()
     dl.clear();
 }
 
+// FEPackage ctor/dtor (owned arrays, message targets with new[] cookie, +0x9C nodes), SetFilename, Startup.
+static void TestPackageLifetime()
+{
+    const int live0 = teststub::liveAllocations;
+    auto *pkg = static_cast<FEPackage *>(bridge::Alloc(sizeof(FEPackage)));
+    std::memset(pkg, 0xCD, sizeof(FEPackage));
+    pkg->Construct();
+    CHECK(pkg->node.vtable == &teststub::fePackageVTable && pkg->node.next == reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED));
+    CHECK(pkg->mu32ControlMask == 0xFF && pkg->mu32InputControlMask == 0xFF && pkg->mbFlagsAC[3] == 1 && pkg->mpcFilename == nullptr);
+    CHECK(pkg->mList74.vtable == &teststub::fePackageList74VTable && pkg->mList9C.count == 0 && pkg->mObjects.head == nullptr);
+    reinterpret_cast<FENode *>(pkg)->SetName("Pkg.fng");
+    pkg->SetFilename("data\\pkg.fng");
+    pkg->SetFilename("x.fng");
+    CHECK(std::string(pkg->mpcFilename) == "x.fng");
+    pkg->mpResources = bridge::Alloc(16);
+    pkg->mu32NumResources = 2;
+    auto *cookie = static_cast<uint32_t *>(bridge::Alloc(4 + 2 * sizeof(FEMessageTargets)));
+    cookie[0] = 2;
+    pkg->mpMessageTargets = reinterpret_cast<FEMessageTargets *>(cookie + 1);
+    pkg->mpMessageTargets[0].mpObjects = static_cast<FEObject **>(bridge::Alloc(8));
+    pkg->mpMessageTargets[1].mpObjects = nullptr;
+    pkg->mppButtons = static_cast<FEObject **>(bridge::Alloc(8));
+    pkg->mpLibraryRefs = static_cast<FELibraryRef *>(bridge::Alloc(sizeof(FELibraryRef)));
+    for (int i = 0; i < 2; ++i) {   // nodes with an owned buffer at +0x10 (deleted through the stub's default path)
+        auto *n = static_cast<FEPackageBufferNode *>(bridge::Alloc(sizeof(FEPackageBufferNode)));
+        n->node.vtable = nullptr;
+        n->mpBuffer = bridge::Alloc(4);
+        pkg->mList9C.AddTail(&n->node);
+    }
+    auto &dl = teststub::delivered;
+    dl.clear();
+    int gi = 0;
+    teststub::loadResourcesResult = false;
+    CHECK(!pkg->Startup(&gi) && dl.size() == 1 && std::string(dl[0].kind) == "loadres" && dl[0].a == &gi && dl[0].pkg == pkg && dl[0].msg == 2);
+    teststub::loadResourcesResult = true;
+    CHECK(pkg->Startup(&gi));
+    dl.clear();
+    bridge::VirtualScalarDelete(pkg);
+    CHECK(teststub::liveAllocations == live0);
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -1471,6 +1512,7 @@ int main()
     TestCFEngQueue();
     TestPackageManager();
     TestPackageDataLifecycle();
+    TestPackageLifetime();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

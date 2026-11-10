@@ -71,6 +71,12 @@ void bWareFree(void *p);
 int32_t FEngLoadCounter();                                                         // PC 0x8384D0 (game global)
 int32_t *FEngLoadCounterPtr();                                                     // same global (GC gInsideScreenConstructor)
 // FEPackageManager callees (game-side screens; PC __cdecl)
+void *FEPackageVTable();                                           // PC 0x79B8F8 (slot 0 = 534C50)
+void *FENodeVTable();                                              // PC 0x79AB0C
+void *FEPackageList74VTable();                                     // PC 0x79B878 (FEPackage +0x74 list)
+void *ResourceConnectorVTable();                                   // PC 0x79AB04 (game-side FEObjectCallback)
+// FEGameInterface vtable slot 1 (__thiscall): load the package's resources        (GC slot +0x14)
+bool FEGameInterface_LoadResources(void *gi, ::FEPackage *pkg, uint32_t count, void *resources);
 void *FEPackageDataVTable();                                       // PC 0x79B15C (slot 0 = 52CC20)
 void *ScreenFactory(uint32_t nameHash, ::FEPackage *pkg, int32_t arg);   // PC 0x50B790 (GC 8014A2CC)
 uint32_t FindScreenCreateData(uint32_t nameHash);                  // PC 0x50B840 (GC 8014A3A8)

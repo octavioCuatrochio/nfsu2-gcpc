@@ -22,6 +22,13 @@ bool FENode::SetName(const char *name)
     return copied;
 }
 
+void FENode::Destruct()
+{
+    node.vtable = bridge::FENodeVTable();
+    if (mpcName) bridge::FreeArray(mpcName);
+    node.vtable = bridge::FEMinNodeVTable();
+}
+
 int32_t FEStricmp(const char *a, const char *b)
 {
     auto up = [](signed char c) { return (c >= 'a' && c <= 'z') ? static_cast<signed char>(c + 0xE0) : c; };

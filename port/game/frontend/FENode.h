@@ -12,6 +12,8 @@ struct FENode {
     // GC 80141828 / PC 519DE0 (__thiscall, ret 4). Frees the old name, copies the new one (null -> no name) and
     // rehashes (null name -> 0xFFFFFFFF). True if a copy was made.
     bool SetName(const char *name);
+    // GC 801417C4 / PC 505350 (non-deleting): vtable 0x79AB0C, frees the name, leaves the FEMinNode vtable.
+    void Destruct();
 };
 
 // GC 80141730 / PC 505310: case-insensitive compare ('a'..'z' + 0xE0), stops at the end of a or a mismatch.

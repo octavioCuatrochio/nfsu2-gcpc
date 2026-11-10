@@ -106,6 +106,14 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
 }
 int32_t FEngLoadCounter() { return *reinterpret_cast<const int32_t *>(0x8384D0); }
 int32_t *FEngLoadCounterPtr() { return reinterpret_cast<int32_t *>(0x8384D0); }
+void *FEPackageVTable() { return reinterpret_cast<void *>(0x79B8F8); }
+void *FENodeVTable() { return reinterpret_cast<void *>(0x79AB0C); }
+void *FEPackageList74VTable() { return reinterpret_cast<void *>(0x79B878); }
+void *ResourceConnectorVTable() { return reinterpret_cast<void *>(0x79AB04); }
+bool FEGameInterface_LoadResources(void *gi, FEPackage *p, uint32_t n, void *r)
+{
+    return (*reinterpret_cast<bool(THISCALL ***)(void *, FEPackage *, uint32_t, void *)>(gi))[1](gi, p, n, r);
+}
 void *FEPackageDataVTable() { return reinterpret_cast<void *>(0x79B15C); }
 void *ScreenFactory(uint32_t h, FEPackage *p, int32_t a) { return reinterpret_cast<void *(__cdecl *)(uint32_t, FEPackage *, int32_t)>(0x50B790)(h, p, a); }
 uint32_t FindScreenCreateData(uint32_t h) { return reinterpret_cast<uint32_t(__cdecl *)(uint32_t)>(0x50B840)(h); }

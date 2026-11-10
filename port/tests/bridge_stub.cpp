@@ -1,4 +1,5 @@
 #include "frontend/FEPackageManager.h"
+#include "frontend/FEPackage.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/cFEng.h"
 #include "frontend/FENode.h"
@@ -41,7 +42,8 @@ std::vector<std::string> levelSortingList;
 FEPackage *pushResult = nullptr;
 std::string lastPushName;
 int32_t fengLoadCounter = 0;
-int fePackageDataVTable = 0;
+int fePackageDataVTable = 0, fePackageVTable = 0, feNodeVTable = 0, fePackageList74VTable = 0, resourceConnectorVTable = 0;
+bool loadResourcesResult = true;
 void *screenResult = nullptr;
 bool hotChunking = false;
 ::SlotPool *levelSorterSlots = nullptr;
@@ -73,6 +75,7 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feKeyNodeVTable) static_cast<FEKeyNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feKeyNodeBlockVTable) FEKeyNodeBlock_ScalarDtor(static_cast<FEKeyNodeBlock *>(o), 1);
     else if (vt == &teststub::feScriptBlockVTable) FEScriptBlock_ScalarDtor(static_cast<FEScriptBlock *>(o), 1);
+    else if (vt == &teststub::fePackageVTable) static_cast<FEPackage *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageDataVTable) static_cast<FEPackageData *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageCommandVTable) {   // ~FENode frees the name
         FreeArray(static_cast<FENode *>(o)->mpcName);
@@ -118,6 +121,19 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
 }
 int32_t FEngLoadCounter() { return teststub::fengLoadCounter; }
 int32_t *FEngLoadCounterPtr() { return &teststub::fengLoadCounter; }
+void *FEPackageVTable() { return &teststub::fePackageVTable; }
+void *FENodeVTable() { return &teststub::feNodeVTable; }
+void *FEPackageList74VTable() { return &teststub::fePackageList74VTable; }
+#ifdef NFSU2_REFEREE
+void *ResourceConnectorVTable() { return reinterpret_cast<void *>(0x79AB04); }
+#else
+void *ResourceConnectorVTable() { return &teststub::resourceConnectorVTable; }
+#endif
+bool FEGameInterface_LoadResources(void *gi, FEPackage *p, uint32_t n, void *)
+{
+    teststub::delivered.push_back({"loadres", gi, p, n, 0});
+    return teststub::loadResourcesResult;
+}
 void *FEPackageDataVTable() { return &teststub::fePackageDataVTable; }
 void *ScreenFactory(uint32_t h, FEPackage *p, int32_t a)
 {
@@ -225,6 +241,7 @@ bool FEObjectCallback_Call(void *cb, void *obj)
     return (*reinterpret_cast<bool(__attribute__((thiscall)) ***)(void *, void *)>(cb))[1](cb, obj);
 #endif
     if (*static_cast<void **>(cb) == &teststub::renderDisconnectVTable) { ++teststub::renderDisconnects; return true; }
+    if (*static_cast<void **>(cb) == &teststub::resourceConnectorVTable) { teststub::delivered.push_back({"connect", obj, static_cast<FEPackage **>(cb)[1], 0, 0}); return true; }
     auto *t = static_cast<teststub::TestCallback *>(cb);
     t->visited.push_back(obj);
     return obj != t->stopAt;
