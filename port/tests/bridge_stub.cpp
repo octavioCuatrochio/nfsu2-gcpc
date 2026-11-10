@@ -114,6 +114,8 @@ int32_t lockedTrack = -1, resourceLoads = 0, resourceUnloads = 0;
 void (*loadCallback)(void *) = nullptr;
 void *loadParam = nullptr;
 const void *currentTrackInfo = nullptr;
+int iconOptionsAdded = 0;
+bool autoSaveAccepted = false, nextEventExists = false, postRaceReplay = false;
 uint32_t lastJoyTypes[2] = {};
 uint8_t joyTypes[2] = {};
 void *memoryCard = nullptr;
@@ -1038,7 +1040,7 @@ void SetIconScrollTime(int32_t t) { teststub::iconScrollTime = t; }
 // ---- UIOptionsMain / UIPauseOptionsMain ----
 void *UIOptionsMainVTable() { return &teststub::iconScrollerMenuVTable; }
 void *UIPauseOptionsMainVTable() { return &teststub::iconScrollerMenuVTable; }
-void IconScrollerMenu_AddOption(void *m, void *o) { static_cast<IconScrollerMenu *>(m)->AddOption(static_cast<IconOption *>(o)); }
+void IconScrollerMenu_AddOption(void *m, void *o) { ++teststub::iconOptionsAdded; static_cast<IconScrollerMenu *>(m)->AddOption(static_cast<IconOption *>(o)); }
 void IconScroller_SetInitialPos(void *s, int32_t i) { static_cast<IconScroller *>(s)->SetInitialPos(i); }
 #ifdef NFSU2_REFEREE
 void SetOptionsPage(int32_t p) { *reinterpret_cast<int32_t *>(0x83AA04) = p; }
@@ -1171,4 +1173,17 @@ uint16_t OnlineNumLaps_MinLaps(void *) { return 1; }
 void *DialogShowOk(const char *, const char *, uint32_t) { return nullptr; }
 void *DialogShowOk(const char *, const char *, uint32_t, int32_t, int32_t) { return nullptr; }
 void DialogDismiss(void *) {}
+// ---- PostRaceMenu ----
+bool CareerState_5287A0() { return teststub::autoSaveAccepted; }
+bool CareerState_513FA0() { return teststub::nextEventExists; }
+void PlayerCareerState_54CAE0() { teststub::delivered.push_back({"career54cae0", nullptr, nullptr, 0, 0}); }
+bool FrontendDatabase_503080() { return false; }
+void EAXSound_481210(int32_t v) { teststub::delivered.push_back({"eax481210", nullptr, nullptr, static_cast<uint32_t>(v), 0}); }
+bool PostRaceReplayAvailable() { return teststub::postRaceReplay; }
+void PlayerCareerState_NotifyEnterCribFromPostRace() { teststub::delivered.push_back({"entercrib", nullptr, nullptr, 0, 0}); }
+void PlayerCareerState_513950() {}
+bool PlayerCareerState_NotifyEnterFreeRoamFromPostRace(char *m) { m[0] = 'm'; m[1] = 0; return true; }
+void LaunchPostRaceMovie(const char *, const char *m) { teststub::delivered.push_back({"movie", const_cast<char *>(m), nullptr, 0, 0}); }
+void PlayerCareerState_MarkCurrentEventComplete() { teststub::delivered.push_back({"eventcomplete", nullptr, nullptr, 0, 0}); }
+void PostRaceManager_Back() { teststub::delivered.push_back({"postraceback", nullptr, nullptr, 0, 0}); }
 }  // namespace bridge

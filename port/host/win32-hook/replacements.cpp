@@ -31,6 +31,7 @@
 #include "frontend/ThumbnailScroller.h"
 #include "frontend/QRTrackSelect.h"
 #include "frontend/QRModeOptions.h"
+#include "frontend/PostRaceMenu.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
@@ -793,6 +794,19 @@ void THISCALL QMO_SetupOutrun(UIQRModeOptions *s) { s->SetupOutrun(); }
 void THISCALL QMO_SetupGT(UIQRModeOptions *s) { s->SetupGT(); }
 void THISCALL QMO_SetupShortTrack(UIQRModeOptions *s) { s->SetupShortTrack(); }
 void THISCALL QMO_SetupFreeRun(UIQRModeOptions *s) { s->SetupFreeRun(); }
+
+// ---- PostRaceMenu + pr_* icons ----
+PostRaceMenu *THISCALL PRM_Ctor(PostRaceMenu *m, const ScreenConstructorData *d) { return m->Construct(d); }
+void THISCALL PRM_Dtor(PostRaceMenu *m) { m->Destruct(); }
+PostRaceMenu *THISCALL PRM_ScalarDtor(PostRaceMenu *m, uint32_t f) { return m->ScalarDeletingDestructor(f); }
+void THISCALL PRM_Notify(PostRaceMenu *m, uint32_t msg, FEObject *o, uint32_t a, uint32_t p) { m->NotificationMessage(msg, o, a, p); }
+void THISCALL PRM_Setup(PostRaceMenu *m) { m->Setup(); }
+void THISCALL PRM_SetupRace(PostRaceMenu *m) { m->SetupRace(); }
+void PRM_QuitToWorldMap() { PostRaceMenu::QuitToWorldMap(); }   // called with ecx = menu, unused
+void THISCALL PRM_QuitRaceToFreeRoam(PostRaceMenu *m) { m->QuitRaceToFreeRoam(); }
+void THISCALL PRM_RaceDone(PostRaceMenu *m) { m->QuitRaceToFreeRoamRaceDone(); }
+void THISCALL PRM_QuitGame(PostRaceMenu *m) { m->QuitGame(); }
+template <PRKind K> void THISCALL PR_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PRReact(K, p, m); }
 
 FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
 uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
@@ -1713,6 +1727,24 @@ const Replacement kReplacements[] = {
     {0x4CDB40, (const void *)&QMO_SetupGT, "UIQRModeOptions::SetupGT", {0x6A, 0xFF, 0x68, 0xD0, 0x44, 0x77}},
     {0x4B47B0, (const void *)&QMO_SetupShortTrack, "UIQRModeOptions::SetupShortTrack", {0x6A, 0xFF, 0x68, 0x34, 0x44, 0x77}},
     {0x4B4A10, (const void *)&QMO_SetupFreeRun, "UIQRModeOptions::SetupFreeRun", {0x6A, 0xFF, 0x68, 0xB8, 0x30, 0x77}},
+    {0x4E94C0, (const void *)&PRM_Ctor, "PostRaceMenu::PostRaceMenu", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4E9540, (const void *)&PRM_Dtor, "PostRaceMenu::~PostRaceMenu", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4E9520, (const void *)&PRM_ScalarDtor, "PostRaceMenu scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4F39A0, (const void *)&PRM_Notify, "PostRaceMenu::NotificationMessage", {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x14}},
+    {0x4D7160, (const void *)&PRM_Setup, "PostRaceMenu::Setup", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4BEE10, (const void *)&PRM_SetupRace, "PostRaceMenu::SetupRace", {0x6A, 0xFF, 0x68, 0xFC, 0x39, 0x77}},
+    {0x4A3DC0, (const void *)&PRM_QuitToWorldMap, "PostRaceMenu::QuitToWorldMap", {0xB9, 0x40, 0xAD, 0x85, 0x00, 0xE8}},
+    {0x4A3DF0, (const void *)&PRM_QuitRaceToFreeRoam, "PostRaceMenu::QuitRaceToFreeRoam", {0xB9, 0x40, 0xAD, 0x85, 0x00, 0xE8}},
+    {0x4A3E30, (const void *)&PRM_RaceDone, "PostRaceMenu::QuitRaceToFreeRoamRaceDone", {0x83, 0xEC, 0x40, 0x56, 0x8D, 0x44}},
+    {0x4A3E80, (const void *)&PRM_QuitGame, "PostRaceMenu::QuitGame", {0x83, 0x3D, 0x78, 0x00, 0x85, 0x00}},
+    {0x4A3D50, (const void *)&PostRace_SetControlMask, "PostRace_SetControlMask", {0x8B, 0x15, 0x78, 0x00, 0x85, 0x00}},
+    {0x4BEC90, (const void *)&PR_React<PRKind::NextEvent>, "pr NextEvent React", {0x55, 0x8B, 0xEC, 0x81, 0x7D, 0x0C}},
+    {0x4BEC20, (const void *)&PR_React<PRKind::QuitToFreeRoam>, "pr QuitToFreeRoam React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4BEDC0, (const void *)&PR_React<PRKind::WorldMap>, "pr WorldMap React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4BECC0, (const void *)&PR_React<PRKind::RestartRace>, "pr RestartRace React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4BED10, (const void *)&PR_React<PRKind::Stats>, "pr Stats React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4BED90, (const void *)&PR_React<PRKind::Replay>, "pr Replay React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4BED40, (const void *)&PR_React<PRKind::QuitToFrontEnd>, "pr QuitToFrontEnd React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x527660, (const void *)&ISX_StaticArrow2, "FEScrollBar::StaticArrow2", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x77}},
     {0x51D7F0, (const void *)&FEngSetColor, "FEngSetColor", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0x74}},
     {0x50CCC0, (const void *)&ISX_GetObjectColor, "FEngGetObjectColor", {0x8B, 0x44, 0x24, 0x08, 0x33, 0xC9}},

@@ -23,6 +23,7 @@
 #include "frontend/QRModeSelect.h"
 #include "frontend/QRTrackSelect.h"
 #include "frontend/QRModeOptions.h"
+#include "frontend/PostRaceMenu.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/StartCareer.h"
 #include "frontend/ProfileManager.h"
@@ -4716,6 +4717,87 @@ static void TestQRModeOptions()
     bridge::cFEngInstance()->mpEngine = savedEngine;
 }
 
+static void TestPostRaceMenu()
+{
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    const int32_t savedMode = teststub::gameModeFlags;
+    auto has = [](const char *kind, uint32_t msg) {
+        for (const auto &e : teststub::delivered) if (std::string(e.kind) == kind && e.msg == msg) return true;
+        return false;
+    };
+    // icons
+    teststub::delivered.clear();
+    PRReact(PRKind::NextEvent, nullptr, 0x0C407210u);
+    CHECK(has("rcpost", 0xA) && has("career54cae0", 0));
+    teststub::delivered.clear();
+    PRReact(PRKind::NextEvent, nullptr, 0x911AB364u);
+    CHECK(teststub::delivered.empty());
+    teststub::delivered.clear();
+    PRReact(PRKind::QuitToFreeRoam, nullptr, 0x0C407210u);   // no confirm needed: straight to 0x3411395C
+    CHECK(has("sendmsg", 0x3411395Cu));
+    teststub::delivered.clear();
+    PRReact(PRKind::RestartRace, nullptr, 0x0C407210u);
+    CHECK(has("sendmsg", 0x96DDA9E6u));
+
+    auto build = [&](int32_t flags) {
+        teststub::gameModeFlags = flags;
+        alignas(8) static unsigned char mem[sizeof(PostRaceMenu)];
+        std::memset(mem, 0, sizeof mem);
+        auto *m = reinterpret_cast<PostRaceMenu *>(mem);
+        ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+        const int live = teststub::liveAllocations;
+        teststub::delivered.clear();
+        m->base.Construct(&d);   // Setup's SetInitialPos needs real icon objects: SetupRace only
+        const int before = teststub::iconOptionsAdded;
+        m->SetupRace();
+        const int n = teststub::iconOptionsAdded - before;
+        return std::make_pair(m, std::make_pair(n, live));
+    };
+    // quick race: restart, stats, (replay), quit
+    teststub::postRaceReplay = false;
+    auto r = build(0);
+    CHECK(r.second.first == 3 && r.first->mbToFreeRoam == 0);
+    PostRaceMenu *m = r.first;
+    teststub::delivered.clear();
+    m->NotificationMessage(0x30ED2368u, nullptr, 0, 0);
+    CHECK(has("sendmsg", 0x24DD40CFu));
+    teststub::delivered.clear();
+    m->NotificationMessage(0x24DD40CFu, nullptr, 0, 0);   // no autosave outside the career
+    CHECK(has("sendmsg", 0xD78D7BF1u));
+    teststub::delivered.clear();
+    m->NotificationMessage(0xE1A57D51u, nullptr, 0, 0);
+    CHECK(has("rcpost", 9));
+    teststub::delivered.clear();
+    m->NotificationMessage(0x35E413DDu, nullptr, 0, 0);   // free roam with a movie
+    CHECK(!teststub::delivered.empty() && std::string(teststub::delivered.back().kind) == "movie");
+    m->base.mPrevMsg = 0xB5AF2461u;
+    teststub::delivered.clear();
+    m->NotificationMessage(0xE1FDE1D1u, nullptr, 0, 0);
+    CHECK(has("unpause", 1));
+    teststub::delivered.clear();
+    m->Destruct();
+    CHECK(has("eax481210", 3));
+    // career with a next event, world map and replay: 7 icons; autosave before free roam
+    teststub::nextEventExists = true;
+    teststub::postRaceReplay = true;
+    *bridge::GameByte(0x85BA67) = 1;
+    r = build(1);
+    CHECK(r.second.first == 7);
+    m = r.first;
+    teststub::autoSaveAccepted = true;
+    *bridge::GameByte(0x844AD8) = 1;
+    teststub::delivered.clear();
+    m->NotificationMessage(0x3411395Cu, nullptr, 0, 0);
+    CHECK(m->mbToFreeRoam == 1 && has("memcard", 0x441) && has("eventcomplete", 0));
+    m->Destruct();
+    teststub::nextEventExists = teststub::postRaceReplay = teststub::autoSaveAccepted = false;
+    *bridge::GameByte(0x85BA67) = 0;
+    *bridge::GameByte(0x844AD8) = 0;
+    teststub::gameModeFlags = savedMode;
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
 int main()
 {
     TestLevelSorter();
@@ -4752,6 +4834,7 @@ int main()
     TestQRTrackSelect();
     TestQuickRaceSettings();
     TestQRModeOptions();
+    TestPostRaceMenu();
     TestOptionsMain();
     TestPauseMenu();
     TestMenuIcons();

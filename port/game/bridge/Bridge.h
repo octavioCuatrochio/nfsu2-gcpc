@@ -557,4 +557,18 @@ uint16_t OnlineNumLaps_MinLaps(void *widget);                    // PC 498400 (_
 void *DialogShowOk(const char *pkg, const char *dialog, uint32_t hash);   // PC DialogInterface::ShowOk 558430 (varargs)
 void *DialogShowOk(const char *pkg, const char *dialog, uint32_t hash, int32_t a, int32_t b);
 void DialogDismiss(void *dialog);                                // PC DialogInterface::DismissDialog 540A60 (__cdecl)
+// ---- PostRaceMenu ----
+bool CareerState_5287A0();                       // PC 5287A0 (__thiscall on 0x85BA64, arg 0, AL): result accepted for autosave
+bool CareerState_513FA0();                       // PC 513FA0 (__thiscall on 0x85BA64, AL): a next event exists
+void PlayerCareerState_54CAE0();                 // PC 54CAE0 (__thiscall on 0x85AD40) -> 541580(this + 0xD24)
+bool FrontendDatabase_503080();                  // PC 503080 (__thiscall on 0x83A9D0, AL): free roam needs a confirm
+void EAXSound_481210(int32_t v);                 // PC 481210 (__thiscall on *(0x82B884), ret 4)
+bool PostRaceReplayAvailable();                  // PC byte *(0x8650B8)+0x50EC && int +0xBC > 0
+void PlayerCareerState_NotifyEnterCribFromPostRace();   // PC 54CA40 (__thiscall on 0x85AD40)
+void PlayerCareerState_513950();                 // PC 513950 (__thiscall on 0x85AD40) before free roam
+bool PlayerCareerState_NotifyEnterFreeRoamFromPostRace(char *movie);   // PC 54C9D0 (__thiscall on 0x85AD40, AL)
+void LaunchPostRaceMovie(const char *pkg, const char *movie);   // PC InGamePlayMovie 53D7A0 (__cdecl)
+void PlayerCareerState_MarkCurrentEventComplete();   // PC 54CA30 (__thiscall on 0x85AD40)
+// PC PostRaceMenu 0x911AB364: m = *0x8363DC (cPostRaceScreenManager); 4A45E0(m) ? 4EA240(m) : -; ChangeToPrevScreen 4C0020
+void PostRaceManager_Back();
 }  // namespace bridge

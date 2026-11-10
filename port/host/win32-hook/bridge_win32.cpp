@@ -711,4 +711,29 @@ uint16_t OnlineNumLaps_MinLaps(void *w) { return reinterpret_cast<uint16_t(THISC
 void *DialogShowOk(const char *p, const char *d, uint32_t h) { return reinterpret_cast<void *(__cdecl *)(const char *, const char *, uint32_t, ...)>(0x558430)(p, d, h); }
 void *DialogShowOk(const char *p, const char *d, uint32_t h, int32_t a, int32_t b) { return reinterpret_cast<void *(__cdecl *)(const char *, const char *, uint32_t, ...)>(0x558430)(p, d, h, a, b); }
 void DialogDismiss(void *d) { reinterpret_cast<void(__cdecl *)(void *)>(0x540A60)(d); }
+// ---- PostRaceMenu ----
+bool CareerState_5287A0() { return reinterpret_cast<bool(THISCALL *)(void *, int32_t)>(0x5287A0)(reinterpret_cast<void *>(0x85BA64), 0); }
+bool CareerState_513FA0() { return reinterpret_cast<bool(THISCALL *)(void *)>(0x513FA0)(reinterpret_cast<void *>(0x85BA64)); }
+void PlayerCareerState_54CAE0() { reinterpret_cast<void(THISCALL *)(void *)>(0x54CAE0)(reinterpret_cast<void *>(0x85AD40)); }
+bool FrontendDatabase_503080() { return reinterpret_cast<bool(THISCALL *)(void *)>(0x503080)(reinterpret_cast<void *>(0x83A9D0)); }
+void EAXSound_481210(int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x481210)(*reinterpret_cast<void **>(0x82B884), v); }
+bool PostRaceReplayAvailable()
+{
+    const uint8_t *r = *reinterpret_cast<uint8_t *const *>(0x8650B8);
+    return r[0x50EC] != 0 && *reinterpret_cast<const int32_t *>(r + 0xBC) > 0;
+}
+void PlayerCareerState_NotifyEnterCribFromPostRace() { reinterpret_cast<void(THISCALL *)(void *)>(0x54CA40)(reinterpret_cast<void *>(0x85AD40)); }
+void PlayerCareerState_513950() { reinterpret_cast<void(THISCALL *)(void *)>(0x513950)(reinterpret_cast<void *>(0x85AD40)); }
+bool PlayerCareerState_NotifyEnterFreeRoamFromPostRace(char *m) { return reinterpret_cast<bool(THISCALL *)(void *, char *)>(0x54C9D0)(reinterpret_cast<void *>(0x85AD40), m); }
+void LaunchPostRaceMovie(const char *p, const char *m) { reinterpret_cast<void(__cdecl *)(const char *, const char *)>(0x53D7A0)(p, m); }
+void PlayerCareerState_MarkCurrentEventComplete() { reinterpret_cast<void(THISCALL *)(void *)>(0x54CA30)(reinterpret_cast<void *>(0x85AD40)); }
+void PostRaceManager_Back()
+{
+    void *m = *reinterpret_cast<void **>(0x8363DC);
+    if (reinterpret_cast<bool(THISCALL *)(void *)>(0x4A45E0)(m)) {
+        reinterpret_cast<void(THISCALL *)(void *)>(0x4EA240)(m);
+        m = *reinterpret_cast<void **>(0x8363DC);
+    }
+    reinterpret_cast<void(THISCALL *)(void *)>(0x4C0020)(m);
+}
 }  // namespace bridge

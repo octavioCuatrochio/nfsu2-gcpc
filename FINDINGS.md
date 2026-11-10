@@ -177,6 +177,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   Setup* option lists (offline jump table 4E2C70: 0 circuit, 1 sprint, 2 drag, 3 drift, 4/5/10 4B47B0, 7 GT, 8 outrun,
   9 free run). Online paths stubbed (network). In-game A/B with xdotool is flaky (key presses get dropped): compare
   with the drive.py approach only when presses are confirmed by call counts.
+  PostRaceMenu done (PostRaceMenu.cpp, PC 0x154, vtable 797A70; pr_* icons 794FF8..79503C): career autosave before
+  quit / free roam (flags 1 && 0x844AD8 && 5287A0(0x85BA64, 0)) -> MarkCurrentEventComplete 54CA30 + EnterMemcard op 0x441;
+  0x911AB364 -> cPostRaceScreenManager (*0x8363DC). Replay icon uses *(0x8650B8)+0xBC (PauseMenu: +0xB8). Not tested
+  in-game (needs a finished race).
   Next: other ThumbnailScroller users (PartSelectionScreen 55E820, RimsBrowser 5678E0, ChooseDecalScreen 568450, CribWorld-
   MapScreen 4EE690), UIMagazineSelect, PostRaceMenu, CarTunePauseScreen, 797564 screen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
