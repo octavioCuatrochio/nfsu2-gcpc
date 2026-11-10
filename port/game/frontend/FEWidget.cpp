@@ -175,3 +175,81 @@ void FEStatWidget::Position()
     FEngSetTopLeft(mpValue, tlx, mValuePosY);
     PlaceLabel(base);
 }
+
+FESliderWidget *FESliderWidget::Construct(const float *pos, const float *size, const float *valueSize, const float *valuePos, bool enabled)
+{
+    base.Construct(pos, size, valueSize, valuePos, enabled);
+    mpLeftArrow = mpRightArrow = nullptr;
+    base.base.vtable = bridge::FESliderWidgetVTable();
+    cSlider &s = mSlider;   // PC: cSlider ctor (4FF430) inlined
+    s.mpThumb = nullptr;
+    for (uint32_t &u : s._unknown10) u = 0;
+    s._unknown24 = s._unknown28 = s._unknown2C = 0;
+    for (uint32_t &u : s._unknown30) u = 0;
+    s._unknown04[0] = 0;
+    s.vtable = bridge::cSliderVTable();
+    s._unknown08 = bridge::GameEmptyString();
+    s._unknown40 = 46.0f;
+    return this;
+}
+
+uint32_t FESliderWidget::DetermineSpecialSound(uint32_t, uint32_t event) const
+{
+    if (event == 4) return mSlider._unknown2C != mSlider._unknown28 ? 4 : 0;   // PC: NaN counts as different
+    if (event == 5) return mSlider._unknown2C != mSlider._unknown24 ? 5 : 0;
+    return event;
+}
+
+void FESliderWidget::Position()
+{
+    FEngSetTopLeft(base.mpObject, base.base.mPosX, base.base.mPosY);
+    const float y = base.mValuePosY;
+    const float cx = static_cast<float>(L(base.mValueSizeX) * 0.5L + base.mValuePosX);
+    float w, h;
+    FEngGetSize(mSlider.mpThumb, &w, &h);
+    FEngSetTopLeft(mSlider.mpThumb, static_cast<float>(cx - L(w) * 0.5L), y);
+    bridge::cSlider_Draw(&mSlider);
+    FEngGetSize(mpRightArrow, &w, &h);
+    FEngSetTopLeft(mpLeftArrow, static_cast<float>(cx - (L(base.mValueSizeX) * 0.5L + w)), base.mValuePosY);
+    FEngSetTopLeft(mpRightArrow, static_cast<float>(L(base.mValueSizeX) * 0.5L + cx), base.mValuePosY);
+    if (base.base.mpLabel)
+        FEngSetTopLeft(base.base.mpLabel, base.base.mPosX - base.base.mLabelOffsetX, base.base.mPosY - base.base.mLabelOffsetY);
+}
+
+void FESliderWidget::Show()
+{
+    FEngSetVisible(base.mpObject);
+    FEngSetVisible(mpLeftArrow);
+    FEngSetVisible(mpRightArrow);
+    bridge::cSlider_Toggle(&mSlider, true);
+    if (base.base.mpLabel) FEngSetVisible(base.base.mpLabel);
+}
+
+void FESliderWidget::Hide()
+{
+    FEngSetInvisible(base.mpObject);
+    FEngSetInvisible(mpLeftArrow);
+    FEngSetInvisible(mpRightArrow);
+    bridge::cSlider_Toggle(&mSlider, false);
+    if (base.base.mpLabel) FEngSetInvisible(base.base.mpLabel);
+}
+
+void FESliderWidget::SetFocus(const char *pkg)
+{
+    if (cFEng *fe = bridge::cFEngInstance())
+        if (base.mpObject) fe->SetCurrentButton(pkg, base.mpObject->mu32NameHash);
+    FEngSetScript(base.mpObject, "Highlight", true);   // PC: inlined (51CF70)
+    FEngSetScript(mpLeftArrow, "Highlight", true);
+    FEngSetScript(mpRightArrow, "Highlight", true);
+    bridge::cSlider_Highlight(&mSlider);
+    if (base.base.mpLabel) FEngSetScript(base.base.mpLabel, "Highlight", true);
+}
+
+void FESliderWidget::UnsetFocus()
+{
+    FEngSetScript(base.mpObject, "UnHighlight", true);   // PC: inlined
+    FEngSetScript(mpLeftArrow, "UnHighlight", true);
+    FEngSetScript(mpRightArrow, "UnHighlight", true);
+    bridge::cSlider_UnHighlight(&mSlider);
+    if (base.base.mpLabel) FEngSetScript(base.base.mpLabel, "UnHighlight", true);
+}

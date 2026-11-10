@@ -1849,6 +1849,86 @@ static void CheckScrollBar(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FESliderWidget: ctor, sound events, Position / Show / Hide / SetFocus / UnsetFocus on synthetic boxes with a fake
+// cSlider vtable that logs its calls (both sides must make the same calls in the same order).
+namespace slider_fake {
+std::vector<std::pair<int, uint32_t>> log;
+void __thiscall Toggle(void *s, uint32_t on) { log.push_back({0x0C, (on & 0xFF) | (static_cast<uint32_t>(reinterpret_cast<uintptr_t>(s)) << 8)}); }
+void __thiscall Hi(void *) { log.push_back({0x10, 0}); }
+void __thiscall Unhi(void *) { log.push_back({0x14, 0}); }
+void __thiscall Draw(void *) { log.push_back({0x18, 0}); }
+void *vtable[7] = {nullptr, nullptr, nullptr, (void *)&Toggle, (void *)&Hi, (void *)&Unhi, (void *)&Draw};
+}
+static void CheckSliderWidget(int iters)
+{
+    auto oCtor = ORIG<FESliderWidget *(THISCALL *)(FESliderWidget *, const float *, const float *, const float *, const float *, uint32_t)>(0x51E840);
+    auto oSound = ORIG<uint32_t(THISCALL *)(FESliderWidget *, uint32_t, uint32_t)>(0x50D6F0);
+    using M0 = void(THISCALL *)(FESliderWidget *);
+    const M0 o0[4] = {ORIG<M0>(0x52DEF0), ORIG<M0>(0x50D740), ORIG<M0>(0x50D780), ORIG<M0>(0x51E8D0)};
+    auto oFocus = ORIG<void(THISCALL *)(FESliderWidget *, const char *)>(0x52DFF0);
+    struct Arena { FESliderWidget w; unsigned char om[5][sizeof(FEObject)]; float d[5][20]; };
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&B, &A, sizeof A);
+            const float pos[2] = {RefCoord(), RefCoord()}, size[2] = {RefCoord(), RefCoord()};
+            const float vs[2] = {RefCoord(), RefCoord()}, vp[2] = {RefCoord(), RefCoord()};
+            const uint32_t en = (rng() & ~0xFFu) | (rng() & 1);
+            FESliderWidget *ra = oCtor(&A.w, pos, size, vs, vp, en), *rb = B.w.Construct(pos, size, vs, vp, en & 0xFF);
+            EXPECT(ra == &A.w && rb == &B.w && std::memcmp(&A.w, &B.w, sizeof A.w) == 0, "FESliderWidget ctor");
+            // members on a constructed widget
+            FEObject **slots[] = {&A.w.base.mpObject, &A.w.mpLeftArrow, &A.w.mpRightArrow, &A.w.mSlider.mpThumb, &A.w.base.base.mpLabel};
+            for (int k = 0; k < 5; ++k) {
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 3 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+                *slots[k] = (k == 0 || k == 3 || rng() % 5) ? o : nullptr;   // object / thumb always set (PC uses them unchecked in some paths)
+            }
+            A.w.mSlider.vtable = slider_fake::vtable;
+            A.w.mSlider._unknown24 = static_cast<float>(rng() % 3); A.w.mSlider._unknown28 = static_cast<float>(rng() % 3);
+            A.w.mSlider._unknown2C = static_cast<float>(rng() % 3);
+            std::memcpy(&B, &A, sizeof A);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            FEObject **bslots[] = {&B.w.base.mpObject, &B.w.mpLeftArrow, &B.w.mpRightArrow, &B.w.mSlider.mpThumb, &B.w.base.base.mpLabel};
+            for (int k = 0; k < 5; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) + delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            }
+            const int op = static_cast<int>(rng() % 6);
+            slider_fake::log.clear();
+            if (op == 5) {
+                const uint32_t ev = rng() % 7;
+                EXPECT(oSound(&A.w, rng(), ev) == B.w.DetermineSpecialSound(0, ev), "FESliderWidget sound %u", ev);
+                continue;
+            }
+            if (op < 4) o0[op](&A.w);
+            else oFocus(&A.w, "Pkg");
+            auto la = slider_fake::log;
+            slider_fake::log.clear();
+            if (op == 0) B.w.Position();
+            else if (op == 1) B.w.Show();
+            else if (op == 2) B.w.Hide();
+            else if (op == 3) B.w.UnsetFocus();
+            else B.w.SetFocus("Pkg");
+            auto lb = slider_fake::log;
+            for (auto &e : lb) if (e.first == 0x0C) e.second = (e.second & 0xFF) | (static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&A.w.mSlider)) << 8);
+            for (int k = 0; k < 5; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) - delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
+            }
+            EXPECT(la == lb && std::memcmp(&A, &B, offsetof(Arena, d)) == 0 && std::memcmp(A.d, B.d, sizeof A.d) == 0, "FESliderWidget op %d pc=%x", op, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -2726,6 +2806,7 @@ static int RunAll()
     REFEREE_RUN(CheckFEngPosition(iters * 3));
     REFEREE_RUN(CheckButtonWidget(iters));
     REFEREE_RUN(CheckScrollBar(iters));
+    REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckFEngFontMeasure(iters * 3));

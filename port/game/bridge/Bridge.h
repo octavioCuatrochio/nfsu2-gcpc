@@ -115,6 +115,15 @@ void *FEWidgetVTable();                          // PC 0x790B98
 void *FEButtonWidgetVTable();                    // PC 0x79B2F8
 void *FELabelWidgetVTable();                     // PC 0x79B338
 void *FEStatWidgetVTable();                      // PC 0x79B378
+void *FESliderWidgetVTable();                    // PC 0x79B400
+void *cSliderVTable();                           // PC 0x78F544
+const char *GameEmptyString();                   // PC 0x783FE5 ("")
+// cSlider virtuals (thiscall through the object's vtable): +0x0C Toggle(bool) 512240, +0x10 Highlight 526D90,
+// +0x14 UnHighlight 526F80, +0x18 Draw 4FF530.
+void cSlider_Toggle(void *slider, bool on);
+void cSlider_Highlight(void *slider);
+void cSlider_UnHighlight(void *slider);
+void cSlider_Draw(void *slider);
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04
 void PlayFrontendSound(uint32_t trigger);       // PC: idx = (int8) table 0x8380B8[trigger]; != -1 -> PlayUISoundFX 458520

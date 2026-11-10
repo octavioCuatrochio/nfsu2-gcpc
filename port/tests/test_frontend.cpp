@@ -2419,6 +2419,44 @@ static void TestScrollBar()
     CHECK(od[0][14] == 33 && od[0][15] == 44);
 }
 
+static void TestSliderWidget()
+{
+    alignas(8) unsigned char wm[sizeof(FESliderWidget)];
+    std::memset(wm, 0x5A, sizeof wm);
+    auto *w = reinterpret_cast<FESliderWidget *>(wm);
+    const float pos[2] = {100, 200}, size[2] = {300, 30}, vsize[2] = {80, 20}, vpos[2] = {150, 210};
+    CHECK(w->Construct(pos, size, vsize, vpos, true) == w);
+    CHECK(w->base.base.vtable == &teststub::feButtonWidgetVTable && w->mSlider.vtable == &teststub::fakeFont && w->mSlider._unknown40 == 46.0f);
+    CHECK(w->mpLeftArrow == nullptr && w->mSlider.mpThumb == nullptr && w->mSlider._unknown04[0] == 0 && w->mSlider._unknown2C == 0 && w->base.mValuePosX == 150);
+    CHECK(w->mSlider._unknown04[1] == 0x5A);   // untouched
+    // sound events
+    w->mSlider._unknown24 = 1; w->mSlider._unknown28 = 2; w->mSlider._unknown2C = 2;
+    CHECK(w->DetermineSpecialSound(0, 4) == 0 && w->DetermineSpecialSound(0, 5) == 5 && w->DetermineSpecialSound(0, 7) == 7);
+    w->mSlider._unknown2C = 1;
+    CHECK(w->DetermineSpecialSound(0, 4) == 4 && w->DetermineSpecialSound(0, 5) == 0);
+    // objects: boxes
+    alignas(8) unsigned char om[5][sizeof(FEObject)] = {};
+    float od[5][20] = {};
+    FEObject *o[5];
+    for (int i = 0; i < 5; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mu32Type = 1; o[i]->mpData = od[i]; od[i][14] = 10; od[i][15] = 4; }
+    w->base.mpObject = o[0]; w->mpLeftArrow = o[1]; w->mpRightArrow = o[2]; w->mSlider.mpThumb = o[3]; w->base.base.mpLabel = o[4];
+    teststub::delivered.clear();
+    w->Position();   // value box centre x 190: thumb 185, left arrow 190 - (40 + 10) = 140, right 230 (top-left)
+    CHECK(od[0][7] == 105 && od[0][8] == 202 && od[3][7] == 190 && od[3][8] == 212 && od[1][7] == 145 && od[2][7] == 235 && od[2][8] == 212);
+    CHECK(od[4][7] == 381 && od[4][8] == 212);   // label: position - (-276, -10)
+    CHECK(teststub::delivered.size() == 1 && std::string(teststub::delivered[0].kind) == "slider draw" && teststub::delivered[0].a == &w->mSlider);
+    w->Hide();
+    CHECK((o[0]->mu32Flags & 1) && (o[1]->mu32Flags & 1) && (o[2]->mu32Flags & 1) && !(o[3]->mu32Flags & 1) && (o[4]->mu32Flags & 1));
+    CHECK(teststub::delivered.back().msg == 0 && std::string(teststub::delivered.back().kind) == "slider toggle");
+    w->base.base.mpLabel = nullptr;
+    w->Show();
+    CHECK(!(o[0]->mu32Flags & 1) && !(o[2]->mu32Flags & 1) && (o[4]->mu32Flags & 1) && teststub::delivered.back().msg == 1);
+    w->UnsetFocus();
+    CHECK(std::string(teststub::delivered.back().kind) == "slider unhighlight");
+    w->SetFocus("Pkg");
+    CHECK(std::string(teststub::delivered.back().kind) == "slider highlight");
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -2774,6 +2812,7 @@ int main()
     TestFEngPosition();
     TestButtonWidget();
     TestScrollBar();
+    TestSliderWidget();
     TestFEngExtents();
     TestFEngFontMeasure();
     TestProcessPads();

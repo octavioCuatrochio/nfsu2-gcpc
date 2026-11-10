@@ -242,11 +242,25 @@ void *FEWidgetVTable() { return reinterpret_cast<void *>(0x790B98); }
 void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
 void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
 void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
+void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
+void *cSliderVTable() { return reinterpret_cast<void *>(0x78F544); }
+const char *GameEmptyString() { return reinterpret_cast<const char *>(0x783FE5); }
+void cSlider_Toggle(void *s, bool on) { (*reinterpret_cast<void(__thiscall ***)(void *, uint32_t)>(s))[0x0C / 4](s, on); }
+void cSlider_Highlight(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x10 / 4](s); }
+void cSlider_UnHighlight(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x14 / 4](s); }
+void cSlider_Draw(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x18 / 4](s); }
 #else
 void *FEWidgetVTable() { return &teststub::feWidgetVTable; }
 void *FEButtonWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FELabelWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FEStatWidgetVTable() { return &teststub::feWidgetVTable; }
+void *FESliderWidgetVTable() { return &teststub::feButtonWidgetVTable; }
+void *cSliderVTable() { return &teststub::fakeFont; }
+const char *GameEmptyString() { return ""; }
+void cSlider_Toggle(void *s, bool on) { teststub::delivered.push_back({"slider toggle", s, nullptr, on, 0}); }
+void cSlider_Highlight(void *s) { teststub::delivered.push_back({"slider highlight", s, nullptr, 0, 0}); }
+void cSlider_UnHighlight(void *s) { teststub::delivered.push_back({"slider unhighlight", s, nullptr, 0, 0}); }
+void cSlider_Draw(void *s) { teststub::delivered.push_back({"slider draw", s, nullptr, 0, 0}); }
 #endif
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
 void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
