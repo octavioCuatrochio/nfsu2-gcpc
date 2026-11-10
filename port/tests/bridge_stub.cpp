@@ -115,6 +115,7 @@ void (*loadCallback)(void *) = nullptr;
 void *loadParam = nullptr;
 const void *currentTrackInfo = nullptr;
 int iconOptionsAdded = 0;
+uint8_t showcaseRecords[0x40 * 8] = {}, unlockEntries[8 * 8] = {};
 bool carTuneActive = false, carTuneChanged = false, carTuneDirty = false;
 bool autoSaveAccepted = false, nextEventExists = false, postRaceReplay = false;
 uint32_t lastJoyTypes[2] = {};
@@ -1209,4 +1210,14 @@ void CarTune_5B7ED0(int32_t) {}
 void PresetCarSlot_DefaultCustomTuningSpecs(int32_t) {}
 void CarTune_CopyStoredSpecs() {}
 void Race_SimulateRaceFinish() {}
+// ---- UIMagazineSelect / MagazineViewer ----
+#ifdef NFSU2_REFEREE
+char *GameChars(uint32_t a) { return reinterpret_cast<char *>(static_cast<uintptr_t>(a)); }
+#else
+char *GameChars(uint32_t a) { static char bufs[4][0x100]; return bufs[a == 0x837CA0 ? 0 : a == 0x83A9E0 ? 1 : a == 0x837B80 ? 2 : 3]; }
+#endif
+uint8_t *ShowcaseRecords() { return teststub::showcaseRecords; }
+uint8_t *UnlockEntries() { return teststub::unlockEntries; }
+void MagazineTextureHandler_Reset() {}
+void MagazineTextureHandler_Unload(uint32_t f) { teststub::delivered.push_back({"magunload", nullptr, nullptr, f, 0}); }
 }  // namespace bridge

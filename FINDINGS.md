@@ -185,8 +185,12 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   tuning, *0x83A63C category (0xFF none), byte 0x83A7A4 from crib, *0x83A640 entry (0 crib, 1 performance, 2
   customize -> next screen *0x8384C8). 59AE90 result is inverted (`neg; sbb; inc`): GoToSetting acts directly / asks
   only when it returned 0. CarTuneManager (0x839C40) methods bridged by address (not rewritten). Not tested in-game.
+  Magazine select done (MagazineSelect.cpp: UIMagazineSelect 0x158 vtable 79CE04, MagazineThing 0x4C vtable 79B840,
+  MagazineViewer.c whole, SCMagazineDatabase lookups). Records *0x83840C (0x40: +0x20 unlock key, +0x24 kind 1/3 mag 2/4
+  DVD, +0x28 hash), unlocks 0x862840 (8: key, +6 unlocked), mode *0x838578, return package 0x837CA0, hash *0x837FD8.
+  Process note: work by whole decomp files, wire everything, then test in batches.
   Next: other ThumbnailScroller users (PartSelectionScreen 55E820, RimsBrowser 5678E0, ChooseDecalScreen 568450, CribWorld-
-  MapScreen 4EE690), UIMagazineSelect, CarTuneManager (0x839C40), 797564 screen.
+  MapScreen 4EE690), magazine group rest (MagazineTextureHandler, UIMagazineBack, UIMagazineReward, MagazineView, ShowcaseMagazineDialog), CarTuneManager (0x839C40), 797564 screen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

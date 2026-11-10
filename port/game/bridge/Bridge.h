@@ -593,4 +593,10 @@ void CarTune_5B7ED0(int32_t v);                  // PC 5B7ED0 (__cdecl)
 void PresetCarSlot_DefaultCustomTuningSpecs(int32_t v);   // PC 59AFE0 (__thiscall on 0x83A611, ret 4)
 void CarTune_CopyStoredSpecs();                  // PC 53C901..: 0x83A611 <- *(0x83A540) + 0x14 (0x29 bytes) when set
 void Race_SimulateRaceFinish();                  // PC 608CA0 (__thiscall on *(0x890118))
+// ---- UIMagazineSelect / MagazineViewer ----
+char *GameChars(uint32_t addr);                  // a game char array by address (0x837CA0 return package, 0x83A9E0 profile name, 0x837B80)
+uint8_t *ShowcaseRecords();                      // PC *(uint8_t **)0x83840C (0x40-byte records, count *0x838408)
+uint8_t *UnlockEntries();                        // PC 0x862840 (8-byte unlock entries, count *0x86283C)
+void MagazineTextureHandler_Reset();             // PC 488AE0 (__thiscall on 0x832DAC)
+void MagazineTextureHandler_Unload(uint32_t flags);   // PC 488AA0 (__thiscall on 0x832DAC, ret 4)
 }  // namespace bridge

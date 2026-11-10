@@ -764,4 +764,10 @@ void CarTune_CopyStoredSpecs()
     if (const uint8_t *s = CarTuneStoredSpecs()) std::memcpy(reinterpret_cast<void *>(0x83A611), s + 0x14, 0x29);
 }
 void Race_SimulateRaceFinish() { reinterpret_cast<void(THISCALL *)(void *)>(0x608CA0)(*reinterpret_cast<void **>(0x890118)); }
+// ---- UIMagazineSelect / MagazineViewer ----
+char *GameChars(uint32_t a) { return reinterpret_cast<char *>(static_cast<uintptr_t>(a)); }
+uint8_t *ShowcaseRecords() { return *reinterpret_cast<uint8_t **>(0x83840C); }
+uint8_t *UnlockEntries() { return reinterpret_cast<uint8_t *>(0x862840); }
+void MagazineTextureHandler_Reset() { reinterpret_cast<void(THISCALL *)(void *)>(0x488AE0)(reinterpret_cast<void *>(0x832DAC)); }
+void MagazineTextureHandler_Unload(uint32_t f) { reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x488AA0)(reinterpret_cast<void *>(0x832DAC), f); }
 }  // namespace bridge

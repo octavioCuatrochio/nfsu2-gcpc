@@ -25,6 +25,7 @@
 #include "frontend/QRModeOptions.h"
 #include "frontend/PostRaceMenu.h"
 #include "frontend/CarTunePause.h"
+#include "frontend/MagazineSelect.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/StartCareer.h"
 #include "frontend/ProfileManager.h"
@@ -4874,6 +4875,79 @@ static void TestCarTunePause()
     bridge::cFEngInstance()->mpEngine = savedEngine;
 }
 
+static void TestMagazineSelect()
+{
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    // database lookups
+    alignas(8) static uint8_t db[0xC8C + 0x38 * 4];
+    std::memset(db, 0, sizeof db);
+    auto *d = reinterpret_cast<SCMagazineDatabase *>(db);
+    d->mNumCarSetups = 2; d->mNumRenderSetups = 1; d->mNumMagazineSetups = 3;
+    *reinterpret_cast<uint32_t *>(db + 0xC + 0x2C) = 0x55;
+    *reinterpret_cast<uint32_t *>(db + 0xB0C) = 0x66;
+    *reinterpret_cast<uint32_t *>(db + 0xC8C + 0x38 * 2) = 0x77;
+    CHECK(d->GetCarSetupByHash(0x55) == db + 0xC + 0x2C && d->GetCarSetupByHash(0x56) == nullptr);
+    CHECK(d->GetRenderSetupByHash(0x66) == db + 0xB0C && d->GetMagazineSetupByHash(0x77) == db + 0xC8C + 0x70);
+    CHECK(d->GetMagazineSetupByIndex(1) == db + 0xC8C + 0x38 && d->GetNumMagazineSetups() == 3);
+    // showcase records: 0 magazine (unlocked), 1 DVD (unlocked), 2 magazine (locked), 3 kind 3 magazine (unlocked)
+    std::memset(teststub::showcaseRecords, 0, sizeof teststub::showcaseRecords);
+    std::memset(teststub::unlockEntries, 0, sizeof teststub::unlockEntries);
+    const uint8_t kinds[4] = {1, 2, 1, 3};
+    for (int i = 0; i < 4; ++i) {
+        uint8_t *r = teststub::showcaseRecords + 0x40 * i;
+        *reinterpret_cast<int32_t *>(r + 0x20) = 100 + i;
+        r[0x24] = kinds[i];
+        *reinterpret_cast<uint32_t *>(r + 0x28) = 0x1000u + static_cast<uint32_t>(i);
+        *reinterpret_cast<int32_t *>(teststub::unlockEntries + 8 * i) = 100 + i;
+        teststub::unlockEntries[8 * i + 6] = i == 2 ? 0 : 1;
+    }
+    *bridge::GameInt(0x838408) = 4;
+    *bridge::GameInt(0x86283C) = 4;
+    char name[32];
+    MagazineViewer::GetImageNameFromShowcaseDataIndex(3, name, 32);
+    CHECK(std::string(name) == "Magazine 3");
+    MagazineViewer::GetImageNameFromShowcaseDataIndex(1, name, 32);
+    CHECK(std::string(name) == "DVD 1");
+    MagazineViewer::GetImageNameFromFileName("Player_3", name, 32);   // index '3'
+    CHECK(std::string(name) == "Magazine 3");
+    std::strcpy(bridge::GameChars(0x83A9E0), "Bob");
+    CHECK(std::string(MagazineViewer::MakeProfileImageName(11)) == "Bob____B");
+    std::strcpy(bridge::GameChars(0x83A9E0), "LongProfile");
+    CHECK(std::string(MagazineViewer::MakeProfileImageName(2)) == "LongPro2");
+    *reinterpret_cast<uint32_t *>(bridge::GameInt(0x837FD8)) = 0x1001u;
+    std::strcpy(bridge::GameChars(0x83A9E0), "Bob");
+    CHECK(std::string(MagazineViewer::GetCurrentImageName()) == "Bob____1");
+    MagazineViewer::EnterIngameDvdReward();
+    CHECK(MagazineViewer::GetCurrentMode() == 2 && MagazineViewer::GetMagSetupHash() == 0x1001u);
+    // list: magazines mode -> records 0 and 3 (2 is locked, 1 is a DVD)
+    *bridge::GameInt(0x838578) = 1;
+    alignas(8) static unsigned char mem[sizeof(UIMagazineSelect)];
+    std::memset(mem, 0, sizeof mem);
+    auto *m = reinterpret_cast<UIMagazineSelect *>(mem);
+    ScreenConstructorData sd{nullptr, nullptr, 0, 0, 0};
+    m->base.Construct(&sd);
+    int before = teststub::iconOptionsAdded;
+    m->BuildShowcaseList();
+    CHECK(teststub::iconOptionsAdded - before == 2);
+    *bridge::GameInt(0x838578) = 2;
+    before = teststub::iconOptionsAdded;
+    m->BuildShowcaseList();
+    CHECK(teststub::iconOptionsAdded - before == 1);
+    // screen shot release
+    m->mbScreenShotLoaded = 1;
+    m->mScreenShot = 2;
+    teststub::delivered.clear();
+    m->DeallocateScreenShot();
+    CHECK(m->mbScreenShotLoaded == 0 && !teststub::delivered.empty() && teststub::delivered[0].msg == 2);
+    m->DeallocateScreenShot();
+    CHECK(teststub::delivered.size() == 1);
+    MagazineViewer::ReturnFromIngameReward();
+    *bridge::GameInt(0x838408) = 0;
+    *bridge::GameInt(0x86283C) = 0;
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
 int main()
 {
     TestLevelSorter();
@@ -4912,6 +4986,7 @@ int main()
     TestQRModeOptions();
     TestPostRaceMenu();
     TestCarTunePause();
+    TestMagazineSelect();
     TestOptionsMain();
     TestPauseMenu();
     TestMenuIcons();

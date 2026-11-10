@@ -67,6 +67,7 @@
 #include "frontend/QRTrackSelect.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/CarTunePause.h"
+#include "frontend/MagazineSelect.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/MainMenu.h"
 #define THISCALL __attribute__((thiscall))
@@ -4376,6 +4377,48 @@ static int TSIndex(const ThumbnailNode *p, const ThumbnailNode *base) { return p
 // UIQRTrackSelect / SelectableTrack / TrackMapScroller pure functions: icon hash, availability, sort compare,
 // SetTrackMap, InitZoom / ZoomIn (synthetic image without scripts). The mode globals are set and restored.
 // QuickRaceSettings accessors on two synthetic copies (modes 0..12, incl. the mode-12 fields).
+// SCMagazineDatabase lookups on a synthetic block; MakeProfileImageName with saved / restored globals.
+static void CheckMagazine(int iters)
+{
+    using L = void *(THISCALL *)(SCMagazineDatabase *, uint32_t);
+    const uint32_t fns[] = {0x5107D0, 0x510800, 0x510840, 0x510880};
+    auto oName = ORIG<const char *(__cdecl *)(int32_t)>(0x510AF0);
+    alignas(8) static uint8_t db[0xC8C + 0x38 * 8];
+    char *profile = reinterpret_cast<char *>(0x83A9E0), *out = reinterpret_cast<char *>(0x837B80);
+    char savedProfile[0x40], savedOut[0x10];
+    std::memcpy(savedProfile, profile, sizeof savedProfile);
+    std::memcpy(savedOut, out, sizeof savedOut);
+    for (int it = 0; it < iters; ++it) {
+        for (uint8_t &b : db) b = static_cast<uint8_t>(rng() % 4);
+        auto *d = reinterpret_cast<SCMagazineDatabase *>(db);
+        d->mNumCarSetups = rng() % 8; d->mNumRenderSetups = rng() % 8; d->mNumMagazineSetups = rng() % 8;
+        const int k = static_cast<int>(rng() % 4);
+        const uint32_t key = k == 3 ? rng() % 8 : rng() % 4;
+        void *a = ORIG<L>(fns[k])(d, key);
+        void *b;
+        switch (k) {
+        case 0: b = d->GetCarSetupByHash(key); break;
+        case 1: b = d->GetRenderSetupByHash(key); break;
+        case 2: b = d->GetMagazineSetupByHash(key); break;
+        default: b = d->GetMagazineSetupByIndex(key); break;
+        }
+        EXPECT(a == b, "SCMagazineDatabase op %d key %u", k, key);
+        const int len = static_cast<int>(rng() % 12);
+        for (int i = 0; i < len; ++i) profile[i] = static_cast<char>('a' + rng() % 26);
+        profile[len] = 0;
+        const int32_t idx = static_cast<int32_t>(rng() % 40) - 2;
+        std::memset(out, 0x11, 0x10);
+        oName(idx);
+        char ref[0x10];
+        std::memcpy(ref, out, sizeof ref);
+        std::memset(out, 0x11, 0x10);
+        MagazineViewer::MakeProfileImageName(idx);
+        EXPECT(std::memcmp(ref, out, sizeof ref) == 0, "MakeProfileImageName len %d idx %d: %.16s | %.16s", len, idx, ref, out);
+    }
+    std::memcpy(profile, savedProfile, sizeof savedProfile);
+    std::memcpy(out, savedOut, sizeof savedOut);
+}
+
 static void CheckCarTunePauseSound(int iters)
 {
     auto o = ORIG<uint32_t(THISCALL *)(void *, uint32_t, void *, uint32_t, uint32_t, uint32_t)>(0x510EB0);
@@ -4750,6 +4793,7 @@ static int RunAll()
     REFEREE_RUN(CheckQRTrackSelect(iters));
     REFEREE_RUN(CheckQuickRaceSettings(iters));
     REFEREE_RUN(CheckCarTunePauseSound(iters));
+    REFEREE_RUN(CheckMagazine(iters));
     REFEREE_RUN(CheckOptionsMain(iters));
     REFEREE_RUN(CheckMenuHelpers(iters));
     REFEREE_RUN(CheckScrollBar(iters));

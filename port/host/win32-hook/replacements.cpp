@@ -33,6 +33,7 @@
 #include "frontend/QRModeOptions.h"
 #include "frontend/PostRaceMenu.h"
 #include "frontend/CarTunePause.h"
+#include "frontend/MagazineSelect.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
@@ -822,6 +823,21 @@ void THISCALL CTP_SetupTuning(CarTunePauseScreen *m) { m->SetupTuningPause(); }
 void THISCALL CTP_RefreshHeader(CarTunePauseScreen *m) { m->RefreshHeader(); }
 void THISCALL CTP_DoQuitTuning(CarTunePauseScreen *m) { m->DoQuitTuning(); }
 template <CTKind K> void THISCALL CT_React(void *, const char *p, uint32_t m, void *, uint32_t a, uint32_t) { CTReact(K, p, m, a); }
+
+// ---- UIMagazineSelect / MagazineThing / MagazineViewer / SCMagazineDatabase ----
+void *THISCALL MDB_Car(SCMagazineDatabase *d, uint32_t h) { return d->GetCarSetupByHash(h); }
+void *THISCALL MDB_Render(SCMagazineDatabase *d, uint32_t h) { return d->GetRenderSetupByHash(h); }
+void *THISCALL MDB_Mag(SCMagazineDatabase *d, uint32_t h) { return d->GetMagazineSetupByHash(h); }
+void *THISCALL MDB_MagIndex(SCMagazineDatabase *d, uint32_t i) { return d->GetMagazineSetupByIndex(i); }
+void THISCALL MAG_ThingReact(MagazineThing *t, const char *p, uint32_t m, void *, uint32_t, uint32_t) { t->React(p, m); }
+UIMagazineSelect *THISCALL MAG_Ctor(UIMagazineSelect *m, const ScreenConstructorData *d) { return m->Construct(d); }
+void THISCALL MAG_Dtor(UIMagazineSelect *m) { m->Destruct(); }
+UIMagazineSelect *THISCALL MAG_ScalarDtor(UIMagazineSelect *m, uint32_t f) { return m->ScalarDeletingDestructor(f); }
+void THISCALL MAG_Notify(UIMagazineSelect *m, uint32_t msg, FEObject *o, uint32_t a, uint32_t p) { m->NotificationMessage(msg, o, a, p); }
+void THISCALL MAG_Setup(UIMagazineSelect *m) { m->Setup(); }
+void THISCALL MAG_Build(UIMagazineSelect *m) { m->BuildShowcaseList(); }
+void THISCALL MAG_Populate(UIMagazineSelect *m) { m->PopulateDataInfoStuff(); }
+void THISCALL MAG_Dealloc(UIMagazineSelect *m) { m->DeallocateScreenShot(); }
 
 FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
 uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
@@ -1764,6 +1780,33 @@ const Replacement kReplacements[] = {
     {0x5227E0, (const void *)&CTP_SetupTuning, "CarTunePauseScreen::SetupTuningPause", {0x6A, 0xFF, 0x68, 0xE4, 0x72, 0x77}},
     {0x549760, (const void *)&CTP_RefreshHeader, "CarTunePauseScreen::RefreshHeader", {0x56, 0x8B, 0xF1, 0xE8, 0xE8, 0x42}},
     {0x53CC70, (const void *)&CTP_DoQuitTuning, "CarTunePauseScreen::DoQuitTuning", {0x53, 0x56, 0x68, 0x00, 0x00, 0x79}},
+    {0x5107D0, (const void *)&MDB_Car, "SCMagazineDatabase::GetCarSetupByHash", {0x56, 0x8B, 0x31, 0x33, 0xC0, 0x85}},
+    {0x510800, (const void *)&MDB_Render, "SCMagazineDatabase::GetRenderSetupByHash", {0x56, 0x8B, 0x71, 0x04, 0x33, 0xC0}},
+    {0x510840, (const void *)&MDB_Mag, "SCMagazineDatabase::GetMagazineSetupByHash", {0x56, 0x8B, 0x71, 0x08, 0x33, 0xC0}},
+    {0x510880, (const void *)&MDB_MagIndex, "SCMagazineDatabase::GetMagazineSetupByIndex", {0x8B, 0x44, 0x24, 0x04, 0x6B, 0xC0}},
+    {0x510B80, (const void *)&MagazineViewer::GetImageNameFromShowcaseDataIndex, "MagazineViewer::GetImageNameFromShowcaseDataIndex", {0x53, 0x55, 0x56, 0x8B, 0x74, 0x24}},
+    {0x523CB0, (const void *)&MagazineViewer::GetImageNameFromFileName, "MagazineViewer::GetImageNameFromFileName", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x56}},
+    {0x510AF0, (const void *)&MagazineViewer::MakeProfileImageName, "MagazineViewer::MakeProfileImageName", {0x56, 0x57, 0x68, 0xE0, 0xA9, 0x83}},
+    {0x523C70, (const void *)&MagazineViewer::GetCurrentImageName, "MagazineViewer::SetMagSetupHash", {0x8B, 0x15, 0x08, 0x84, 0x83, 0x00}},
+    {0x510C30, (const void *)&MagazineViewer::GetCurrentMode, "MagazineViewer::GetCurrentMode", {0xA1, 0x78, 0x85, 0x83, 0x00, 0xC3}},
+    {0x510C40, (const void *)&MagazineViewer::GetMagSetupHash, "MagazineViewer::GetMagSetupHash", {0xA1, 0xD8, 0x7F, 0x83, 0x00, 0xC3}},
+    {0x510C50, (const void *)&MagazineViewer::EnterIngameMagazineReward, "MagazineViewer::EnterIngameMagazineReward", {0xC7, 0x05, 0x78, 0x85, 0x83, 0x00}},
+    {0x510C60, (const void *)&MagazineViewer::EnterIngameDvdReward, "MagazineViewer::EnterIngameDvdReward", {0xC7, 0x05, 0x78, 0x85, 0x83, 0x00}},
+    {0x510C70, (const void *)&MagazineViewer::ReturnFromIngameReward, "MagazineViewer::ReturnFromIngameReward", {0xC7, 0x05, 0x78, 0x85, 0x83, 0x00}},
+    {0x53DD30, (const void *)&MagazineViewer::EnterFrontendMagazineReward, "MagazineViewer::EnterFrontendMagazineReward", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x53DD70, (const void *)&MagazineViewer::EnterFrontendDvdReward, "MagazineViewer::EnterFrontendDvdReward", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x53DDB0, (const void *)&MagazineViewer::EnterFrontendMagazineSelect, "MagazineViewer::EnterFrontendMagazineSelect", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x68}},
+    {0x53DDF0, (const void *)&MagazineViewer::EnterFrontendDvdSelect, "MagazineViewer::EnterFrontendDvdSelect", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x68}},
+    {0x53DE30, (const void *)&MagazineViewer::ReturnToFrontend, "MagazineViewer::ReturnToFrontend", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x53DE60, (const void *)&MAG_ThingReact, "MagazineThing::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x557F20, (const void *)&MAG_Ctor, "UIMagazineSelect::UIMagazineSelect", {0x6A, 0xFF, 0x68, 0x78, 0x7D, 0x77}},
+    {0x558010, (const void *)&MAG_Dtor, "UIMagazineSelect::~UIMagazineSelect", {0xC7, 0x01, 0x04, 0xCE, 0x79, 0x00}},
+    {0x557FF0, (const void *)&MAG_ScalarDtor, "UIMagazineSelect scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x54B210, (const void *)&MAG_Notify, "UIMagazineSelect::NotificationMessage", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54}},
+    {0x550DD0, (const void *)&MAG_Setup, "UIMagazineSelect::Setup", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x04}},
+    {0x523F60, (const void *)&MAG_Build, "UIMagazineSelect::BuildShowcaseList", {0x6A, 0xFF, 0x68, 0x24, 0x73, 0x77}},
+    {0x54B150, (const void *)&MAG_Populate, "UIMagazineSelect::PopulateDataInfoStuff", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x510E10, (const void *)&MAG_Dealloc, "UIMagazineSelect::DeallocateScreenShot", {0x56, 0x8B, 0xF1, 0x8A, 0x86, 0x54}},
     {0x53C7D0, (const void *)&CT_React<CTKind::Resume>, "ct Resume React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x564C80, (const void *)&CT_React<CTKind::Restart>, "ct Restart React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x53C830, (const void *)&CT_React<CTKind::DynoChart>, "ct DynoChart React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
