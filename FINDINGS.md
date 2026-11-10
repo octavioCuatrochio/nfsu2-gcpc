@@ -157,7 +157,15 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   React 4AF630..4AF7D0) done; native tests only (the crib needs a saved profile: don't create one in the user's saves).
   Flag 0x836324 = came from main menu (back dialog text), 0x863480 = crib car handle (BeginCarCustomize 552CC0,
   BeginCarTuning 5309E0). 4DF570 (vtable 797564, Setup 4AFB70) is a sibling crib-style screen (same car code).
-  Next: UIMagazineSelect, PostRaceMenu, QRCarSelectScreen, CarTunePauseScreen, 797564 screen.
+  Next: ThumbnailScroller (IN PROGRESS) then QRCarSelectScreen (PC 0xE4?, vtable 7964F4, ctor 4D8F20, dtor 4D9050, Notify
+  4EB220, ScrollCars 4D90D0, DrawCarName 4A7A50, MaybeOverrideActiveButtons 4C2160, NotifySound 4A4750; MenuScreen + car
+  list +0x4C + ThumbnailScroller +0x64 ("car_thumb3", "car_thumb", 1, "", "")), UIMagazineSelect, PostRaceMenu,
+  CarTunePauseScreen, 797564 screen.
+  ThumbnailScroller (GC 80157208.., PC ThumbnailScroller.c 16 funcs: ctor 5435D0 ret 0x18 (pkg, master, prefix, arg4,
+  image, obj6), vtable 79B948; +4 node list, +0xC current, +0x10 new tCubic1D (0x30, duration 0.3), +0x14 pkg, +0x18
+  prefix, +0x1C master obj (size -> +0x48/+0x4C, centre -> +0x58/+0x5C and +0x40/+0x44, then hidden; becomes current
+  button), +0x20 FEngFindImage(pkg, image), +0x24 obj6, +0x28 GetNextNode(0), +0x2C..+0x2F 0, +0x30/+0x31 1, +0x34 arg4,
+  +0x50 480, +0x54 100, +0x60 0). MoveObjectsTo 52EEA0 is 1.2 KB of x87.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
