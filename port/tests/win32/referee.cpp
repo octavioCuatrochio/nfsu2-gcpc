@@ -26,6 +26,7 @@
 #include "frontend/FETypeLib.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/TuningSlidersMenu.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FEScript.h"
@@ -2999,6 +3000,21 @@ static void CheckInputWidget(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// TuningSlidersMenu::GetTipHash and FEngMapPortToControlMask (pure __cdecl tables).
+static void CheckTuningPure(int iters)
+{
+    auto oTip = ORIG<uint32_t(__cdecl *)(int32_t)>(0x510120);
+    auto oMask = ORIG<uint32_t(__cdecl *)(int32_t)>(0x50D2D0);
+    for (int32_t v = -3; v < 40; ++v) {
+        EXPECT(oTip(v) == TuningSlidersMenu::GetTipHash(v), "GetTipHash %d", v);
+        EXPECT(oMask(v) == FEngMapPortToControlMask(v), "FEngMapPortToControlMask %d", v);
+    }
+    for (int it = 0; it < iters; ++it) {
+        const int32_t v = static_cast<int32_t>(rng());
+        EXPECT(oTip(v) == TuningSlidersMenu::GetTipHash(v) && oMask(v) == FEngMapPortToControlMask(v), "tuning pure %d", v);
+    }
+}
+
 static void CheckButtonWidget(int iters)
 {
     auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
@@ -3876,6 +3892,7 @@ static int RunAll()
     REFEREE_RUN(CheckButtonWidget(iters));
     REFEREE_RUN(CheckWidgetSmall(iters));
     REFEREE_RUN(CheckInputWidget(iters));
+    REFEREE_RUN(CheckTuningPure(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));

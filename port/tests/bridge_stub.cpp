@@ -73,6 +73,8 @@ std::vector<HitTest> hitTests;
 bool textInputFocused = false;
 int fakeFont = 0;
 int32_t joyPluggedPort = -1;
+int32_t tuningCategory = 0, allPortsFlag = 0, activePort = 0, lastButton = 0;
+bool speedMetric = false, hasLastButton = false;
 int32_t discError = 0;
 const char *singlePackage = nullptr;
 uint8_t mouseGlobals[0x24] = {};
@@ -822,4 +824,22 @@ FEMultiPool *ObjDataPool() { return &teststub::objDataPool; }
 void *FESlotNodeVTable() { return &teststub::feSlotNodeVTable; }
 void *FESlotPoolVTable() { return &teststub::feSlotPoolVTable; }
 void CallDestructorCallback(void *o) { teststub::lastDestructorCallback = o; }
+// ---- TuningSlidersMenu (native tests: recorded / configurable) ----
+void *TuningSlidersMenuVTable() { return &teststub::fakeFont; }
+void HelpBar_SetFlag6C(uint8_t v) { teststub::delivered.push_back({"helpbar6c", nullptr, nullptr, v, 0}); }
+void HelpBar_542990(bool on) { teststub::delivered.push_back({"helpbar542990", nullptr, nullptr, on, 0}); }
+int32_t TuningCategory() { return teststub::tuningCategory; }
+int32_t FEngAllPortsFlag() { return teststub::allPortsFlag; }
+int32_t FEngActivePort() { return teststub::activePort; }
+bool TuningAcceptBlocked() { return false; }
+bool SpeedUnitsMetric() { return teststub::speedMetric; }
+const char *TuningSlidersScreenName() { return "UI_PerformanceTuning_Sliders.fng"; }
+int32_t *ScreenLastButtonSlot(uint32_t) { return teststub::hasLastButton ? &teststub::lastButton : nullptr; }
+void FEngPrintfInt(const char *, uint32_t h, const char *, int32_t v) { teststub::delivered.push_back({"fengprintf", nullptr, nullptr, h, static_cast<uint32_t>(v)}); }
+void TuneManager_ResetToDefault(int32_t t) { teststub::delivered.push_back({"resetdefault", nullptr, nullptr, static_cast<uint32_t>(t), 0}); }
+void TuneManager_RebuildTheRideInfo() { teststub::delivered.push_back({"rebuildride", nullptr, nullptr, 0, 0}); }
+void TuneManager_RebuildPlayersRideInfo() { teststub::delivered.push_back({"rebuildplayers", nullptr, nullptr, 0, 0}); }
+void BuildPlayerCarPhysicsInfo() { teststub::delivered.push_back({"buildphysics", nullptr, nullptr, 0, 0}); }
+void RaceCoordinator_RequestUnPause(int32_t v) { teststub::delivered.push_back({"unpause", nullptr, nullptr, static_cast<uint32_t>(v), 0}); }
+void DialogInterface_ShowOk(const char *, const char *, uint32_t h) { teststub::delivered.push_back({"showok", nullptr, nullptr, h, 0}); }
 }  // namespace bridge

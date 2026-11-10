@@ -21,6 +21,7 @@
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/TuningSlidersMenu.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -535,6 +536,18 @@ void THISCALL FEInputWidget_UnsetFocus(FEInputWidget *self) { self->UnsetFocus()
 void THISCALL FEInputWidget_SetInputFocus(FEInputWidget *self) { self->SetInputFocus(); }
 FEDateWidget *THISCALL FEDateWidget_Ctor(FEDateWidget *self, const float *p, const float *sz, const float *vs, const float *vp, uint32_t en) { return self->Construct(p, sz, vs, vp, (en & 0xFF) != 0); }
 void THISCALL FEDateWidget_SetDate(FEDateWidget *self) { self->SetDate(); }
+TuningSlidersMenu *THISCALL TSM_Ctor(TuningSlidersMenu *self, const ScreenConstructorData *d) { return self->Construct(d); }
+TuningSlidersMenu *THISCALL TSM_ScalarDtor(TuningSlidersMenu *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL TSM_Dtor(TuningSlidersMenu *self) { self->Destruct(); }
+void THISCALL TSM_Notify(TuningSlidersMenu *self, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { self->NotificationMessage(m, o, a, p); }
+uint32_t __cdecl TSM_GetTipHash(int32_t t) { return TuningSlidersMenu::GetTipHash(t); }
+int32_t THISCALL TSM_AddTuningSlider(TuningSlidersMenu *self, int32_t t, uint32_t lo, uint32_t hi, uint32_t plain, float y) { return self->AddTuningSlider(t, lo, hi, (plain & 0xFF) != 0, y); }
+void THISCALL TSM_Setup(TuningSlidersMenu *self) { self->Setup(); }
+void THISCALL TSM_SetupSuspension(TuningSlidersMenu *self) { self->SetupSuspension(); }
+void THISCALL TSM_SetupDrivetrain(TuningSlidersMenu *self) { self->SetupDrivetrain(); }
+void THISCALL TSM_SetupAero(TuningSlidersMenu *self) { self->SetupAero(); }
+void THISCALL TSM_SetupWheelBrakes(TuningSlidersMenu *self) { self->SetupWheelBrakes(); }
+uint32_t __cdecl FEngMapPortToControlMask_Hook(int32_t p) { return FEngMapPortToControlMask(p); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1140,6 +1153,18 @@ const Replacement kReplacements[] = {
     {0x51EB60, (const void *)&FEInputWidget_SetInputFocus, "FEInputWidget::SetInputFocus", {0x53, 0x8B, 0xD9, 0x57, 0x8B, 0x7B}},
     {0x51EBD0, (const void *)&FEDateWidget_Ctor, "FEDateWidget::FEDateWidget", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
     {0x538060, (const void *)&FEDateWidget_SetDate, "FEDateWidget::SetDate", {0x8B, 0x41, 0x54, 0x8B, 0x51, 0x4C}},
+    {0x55AC10, (const void *)&TSM_Ctor, "TuningSlidersMenu::TuningSlidersMenu", {0x55, 0x8B, 0xEC, 0x6A, 0xFF, 0x68}},
+    {0x55AD00, (const void *)&TSM_ScalarDtor, "TuningSlidersMenu scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x55AD20, (const void *)&TSM_Dtor, "TuningSlidersMenu::~TuningSlidersMenu", {0x6A, 0xFF, 0x68, 0xE8, 0x6F, 0x77}},
+    {0x5650C0, (const void *)&TSM_Notify, "TuningSlidersMenu::NotificationMessage", {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x14}},
+    {0x510120, (const void *)&TSM_GetTipHash, "TuningSlidersMenu::GetTipHash", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xF8}},
+    {0x549850, (const void *)&TSM_AddTuningSlider, "TuningSlidersMenu::AddTuningSlider", {0x55, 0x8B, 0xEC, 0x64, 0xA1, 0x00}},
+    {0x557780, (const void *)&TSM_Setup, "TuningSlidersMenu::Setup", {0xA1, 0x48, 0xA6, 0x83, 0x00, 0x83}},
+    {0x549B40, (const void *)&TSM_SetupSuspension, "TuningSlidersMenu::SetupSuspension", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
+    {0x549C20, (const void *)&TSM_SetupDrivetrain, "TuningSlidersMenu::SetupDrivetrain", {0x53, 0x56, 0x6A, 0x00, 0x6A, 0x00}},
+    {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
+    {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
+    {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x51D8A0, (const void *)&FEngGetObjBBox, "FEngGetObjBBox", {0x81, 0xEC, 0x10, 0x08, 0x00, 0x00}},
     {0x51D9F0, (const void *)&FEngGet2DExtents, "FEngGet2DExtents", {0x83, 0xEC, 0x18, 0x53, 0x55, 0x8B}},
     {0x52D020, (const void *)static_cast<bool (*)(float, float, const FEObject *)>(&FEngTestForIntersection), "FEngTestForIntersection", {0x8B, 0x44, 0x24, 0x0C, 0x83, 0xEC}},

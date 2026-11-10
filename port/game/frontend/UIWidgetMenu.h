@@ -105,3 +105,12 @@ static_assert(offsetof(UIWidgetMenu, mTitleX) == 0xF4 && offsetof(UIWidgetMenu, 
 void DeleteAllNodeOwners(WidgetListNode *head);
 // bList::GetNode (PC 43BE60, __thiscall, ret 4): the index-th node (0-based); past the end -> the head itself.
 WidgetListNode *ListGetNode(WidgetListNode *head, uint32_t index);
+
+// Shared row helpers (UIWidgetMenu.cpp; also used by the screens that inline Add*Option, e.g. TuningSlidersMenu).
+namespace uiwm {
+FEWidget *FromNode(const WidgetListNode *n);   // node -> widget (node - 4); null stays null
+WidgetListNode *NextOf(FEWidget *w);
+void Append(UIWidgetMenu &m, FEWidget *w);     // at the list tail
+float RowWidth(const FEWidget *w, const FEObject *obj);   // |w.x - (obj right edge)|
+void SetArrowTextures(FEObject *left, FEObject *right, int32_t style);
+}  // namespace uiwm

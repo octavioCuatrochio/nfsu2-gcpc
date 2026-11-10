@@ -358,4 +358,22 @@ uint32_t HoldDirtyFlags();                                             // uHoldD
 void *FERefListVTable();                                               // PC 0x79AA30
 void *FEMessageResponseVTable();                                       // PC 0x79AA38
 
+// ---- TuningSlidersMenu (game state) ----
+void *TuningSlidersMenuVTable();                 // PC 0x79D360
+void HelpBar_SetFlag6C(uint8_t v);               // PC byte *(0x8384D8) + 0x6C (set before 542990 by help-bar screens)
+void HelpBar_542990(bool on);                    // PC 542990 (__thiscall on *(0x8384D8), ret 4; walks the bar's buttons)
+int32_t TuningCategory();                        // PC *(int*)0x83A648: 0 suspension, 1 drivetrain, 2 aero, 3 wheels/brakes
+int32_t FEngAllPortsFlag();                      // PC *(int*)0x83A644: nonzero -> control mask 0xFF, else the active port's
+int32_t FEngActivePort();                        // PC *(int*)0x83A7A0 (FEngMapPortToControlMask argument)
+bool TuningAcceptBlocked();                      // PC byte 0x83A7A4: set -> TuningSlidersMenu ignores accept
+bool SpeedUnitsMetric();                         // PC byte 0x83AA1A == 1 (drivetrain speed labels 60-step, else 35)
+const char *TuningSlidersScreenName();           // PC *(const char**)0x7FA220 "UI_PerformanceTuning_Sliders.fng"
+int32_t *ScreenLastButtonSlot(uint32_t nameHash);   // PC FindScreenCreateData 50B840 -> &record->+0x10 (null if none)
+void FEngPrintfInt(const char *pkg, uint32_t objHash, const char *fmt, int32_t v);   // PC 537B80 (__cdecl varargs)
+void TuneManager_ResetToDefault(int32_t type);   // PC 50F9B0 (__thiscall on 0x839C40, ret 4)
+void TuneManager_RebuildTheRideInfo();           // PC 50FDA0 (__thiscall on 0x839C40)
+void TuneManager_RebuildPlayersRideInfo();       // PC 50FDD0 (__thiscall on 0x839C40)
+void BuildPlayerCarPhysicsInfo();                // PC Car::BuildCarPhysicsInfo 5F6C20(true) on Player::pPlayersByNumber[*(0x83A64C)] (0x8900AC) +4
+void RaceCoordinator_RequestUnPause(int32_t v);  // PC 5F4240 (__thiscall on *(0x8900D8), ret 4)
+void DialogInterface_ShowOk(const char *pkg, const char *fmt, uint32_t textHash);   // PC 558430 (__cdecl varargs)
 }  // namespace bridge

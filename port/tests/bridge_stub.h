@@ -59,6 +59,8 @@ extern std::vector<HitTest> hitTests;
 extern bool textInputFocused;
 extern int fakeFont;
 extern int32_t joyPluggedPort;
+extern int32_t tuningCategory, allPortsFlag, activePort, lastButton;   // TuningSlidersMenu globals
+extern bool speedMetric, hasLastButton;
 extern int32_t discError;
 extern const char *singlePackage;
 extern uint8_t mouseGlobals[0x24];

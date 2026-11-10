@@ -11,7 +11,7 @@
 #include "bWare/bString.h"
 #include "FEScrollBar.h"
 
-namespace {
+namespace uiwm {
 using L = long double;
 constexpr size_t kNodeOffset = offsetof(FEWidget, _unknown04);   // PC 4
 // node -> owning widget (PC: lea r,[node-4] when the node is non-null, else null); the head maps to this - 4 too
@@ -21,7 +21,8 @@ FEWidget *FromNode(const WidgetListNode *n)
 }
 WidgetListNode *NextOf(FEWidget *w) { return *reinterpret_cast<WidgetListNode **>(reinterpret_cast<uint8_t *>(w) + kNodeOffset); }
 WidgetListNode *PrevOf(FEWidget *w) { return reinterpret_cast<WidgetListNode **>(reinterpret_cast<uint8_t *>(w) + kNodeOffset)[1]; }
-}  // namespace
+}  // namespace uiwm
+using namespace uiwm;
 
 void DeleteAllNodeOwners(WidgetListNode *head)
 {
@@ -332,7 +333,7 @@ void UIWidgetMenu::ScrollWrapped(int32_t dir)
     ApplySelection(*this, w);
 }
 
-namespace {
+namespace uiwm {
 // "<prefix>%d" formatted with the current row index (PC: bStrCat + FEngSNPrintf, 0x20-byte buffers)
 void OptionName(char (&out)[64], const char *prefix, uint32_t index)
 {
@@ -385,7 +386,7 @@ void SetArrowTextures(FEObject *left, FEObject *right, int32_t style)
     if (left) FEngSetTextureHash(left, l);
     if (right) FEngSetTextureHash(right, r);
 }
-}  // namespace
+}  // namespace uiwm
 
 FEObject *UIWidgetMenu::GetCurrentFEObject(const char *prefix)
 {

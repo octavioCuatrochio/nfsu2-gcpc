@@ -439,4 +439,30 @@ uint32_t HoldDirtyFlags() { return *reinterpret_cast<const uint32_t *>(0x7F7C8C)
 void *FERefListVTable() { return reinterpret_cast<void *>(0x79AA30); }
 void *FEMessageResponseVTable() { return reinterpret_cast<void *>(0x79AA38); }
 
+// ---- TuningSlidersMenu ----
+void *TuningSlidersMenuVTable() { return reinterpret_cast<void *>(0x79D360); }
+void HelpBar_SetFlag6C(uint8_t v) { (*reinterpret_cast<uint8_t **>(0x8384D8))[0x6C] = v; }
+void HelpBar_542990(bool on) { reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x542990)(*reinterpret_cast<void **>(0x8384D8), on); }
+int32_t TuningCategory() { return *reinterpret_cast<int32_t *>(0x83A648); }
+int32_t FEngAllPortsFlag() { return *reinterpret_cast<int32_t *>(0x83A644); }
+int32_t FEngActivePort() { return *reinterpret_cast<int32_t *>(0x83A7A0); }
+bool TuningAcceptBlocked() { return *reinterpret_cast<uint8_t *>(0x83A7A4) != 0; }
+bool SpeedUnitsMetric() { return *reinterpret_cast<uint8_t *>(0x83AA1A) == 1; }
+const char *TuningSlidersScreenName() { return *reinterpret_cast<const char **>(0x7FA220); }
+int32_t *ScreenLastButtonSlot(uint32_t h)
+{
+    auto *d = reinterpret_cast<uint8_t *(__cdecl *)(uint32_t)>(0x50B840)(h);
+    return d ? reinterpret_cast<int32_t *>(d + 0x10) : nullptr;
+}
+void FEngPrintfInt(const char *pkg, uint32_t h, const char *f, int32_t v) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(pkg, h, f, v); }
+void TuneManager_ResetToDefault(int32_t t) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x50F9B0)(reinterpret_cast<void *>(0x839C40), t); }
+void TuneManager_RebuildTheRideInfo() { reinterpret_cast<void(THISCALL *)(void *)>(0x50FDA0)(reinterpret_cast<void *>(0x839C40)); }
+void TuneManager_RebuildPlayersRideInfo() { reinterpret_cast<void(THISCALL *)(void *)>(0x50FDD0)(reinterpret_cast<void *>(0x839C40)); }
+void BuildPlayerCarPhysicsInfo()
+{
+    uint8_t *player = reinterpret_cast<uint8_t **>(0x8900AC)[*reinterpret_cast<int32_t *>(0x83A64C)];
+    reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x5F6C20)(*reinterpret_cast<void **>(player + 4), 1);
+}
+void RaceCoordinator_RequestUnPause(int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x5F4240)(*reinterpret_cast<void **>(0x8900D8), v); }
+void DialogInterface_ShowOk(const char *pkg, const char *f, uint32_t h) { reinterpret_cast<void(__cdecl *)(const char *, const char *, ...)>(0x558430)(pkg, f, h); }
 }  // namespace bridge

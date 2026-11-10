@@ -69,7 +69,14 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   SetFocus 52E120 / UnsetFocus 51ED60 (FEngSetScript inlined), Show/Hide = FEStatWidget's. PC CheckMouse box = widget pos
   to value bottom-right (GC passes the corner as size); null value reads stack garbage. Only online screens use them
   (BoilerPlateOnline 4B41C0...): referee only. FE*Widget namespace complete except GC-only FEMemWidget.
-  Next (whole files): TuningSlidersMenu.
+- TuningSlidersMenu (TuningSlidersMenu.cpp; PC 0x154, vtable 79D360: UIWidgetMenu + +0x14C leaving flag, +0x150 start
+  RealTimer) done: ctor 55AC10 (inlined help-bar push: Pusher, *(8384D8)+0x6C = 1, 542990(1), SyncByMask), dtors 55AD20/
+  55AD00, Notify 5650C0, Setup 557780 (category 0x83A648: 549B40/549C20/549DC0/549E00), AddTuningSlider 549850 (inlined
+  AddToggleOption, row step (spacing + y) + height, margin 4), GetTipHash 510120, FEngMapPortToControlMask 50D2D0.
+  Globals: 0x83A644 all-ports flag (mask 0xFF), 0x83A7A0 active port, 0x83A7A4 accept block, 0x83AA1A speed units
+  (1 = km/h labels 60..420, else 35..245). FindScreenCreateData(hash)+0x10 = last button. Career-only screen (not in
+  the quick-race pause menu): native tests only. UIWidgetMenu row helpers now shared via namespace uiwm.
+  Next (whole files): pick the next zFe2 screen class whose callees are done (UIWidgetMenu subclasses).
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

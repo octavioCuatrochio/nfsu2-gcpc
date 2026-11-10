@@ -10,6 +10,7 @@
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/TuningSlidersMenu.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -2742,6 +2743,77 @@ static void TestFEngPosition()
     CHECK(gd[7] == 7);
 }
 
+// TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
+static void TestTuningSlidersMenu()
+{
+    CHECK(TuningSlidersMenu::GetTipHash(4) == 0xD7C2416Au && TuningSlidersMenu::GetTipHash(15) == 0xE2E98554u &&
+          TuningSlidersMenu::GetTipHash(16) == 0 && TuningSlidersMenu::GetTipHash(0x12) == 0x76E721C7u &&
+          TuningSlidersMenu::GetTipHash(0x16) == 0x9DCC6E8Bu && TuningSlidersMenu::GetTipHash(0x17) == 0 && TuningSlidersMenu::GetTipHash(-1) == 0);
+    CHECK(FEngMapPortToControlMask(0) == 1 && FEngMapPortToControlMask(3) == 8 && FEngMapPortToControlMask(4) == 0 && FEngMapPortToControlMask(-1) == 0);
+    alignas(8) static unsigned char mm[sizeof(TuningSlidersMenu)];
+    std::memset(mm, 0, sizeof mm);
+    auto *t = reinterpret_cast<TuningSlidersMenu *>(mm);
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+    teststub::profileState = 0;
+    const int live = teststub::liveAllocations;
+    t->base.Construct(&d);
+    t->base.mRowHeight = 20; t->base.mSpacing = 2; t->base.mStartY = 100; t->base.mDataY = 50;
+    teststub::tuningUnavailableType = 7;
+    teststub::delivered.clear();
+    t->SetupSuspension();   // 9 types, 7 unavailable
+    CHECK(t->base.mCurrentIndex == 9 && t->base.mStartY == 100 + 8 * 22 && t->base.mDataY == 50 + 8 * 22);
+    CHECK(t->AddTuningSlider(7, 0, 0, false, 0) == -1 && t->AddTuningSlider(9, 1, 2, true, 10.0f) == 9);
+    auto *last = reinterpret_cast<TuningSlider *>(uiwm::FromNode(t->base.mWidgets.prev));
+    CHECK(last->mTuningType == 9 && last->mMinHash == 1 && last->mMaxHash == 2 && last->mYOffset == 10.0f && last->mSlider.base.base.mMargin == 4.0f);
+    CHECK(last->mpExtra == nullptr);   // types 9..15 get no tip text
+    int draws = 0;
+    for (const auto &e : teststub::delivered) draws += std::string(e.kind) == "draw";
+    CHECK(draws == 9);
+    teststub::delivered.clear();
+    t->SetupDrivetrain();   // 6 + speed labels + type 9
+    int prints = 0; uint32_t lastPrint = 0;
+    for (const auto &e : teststub::delivered) if (std::string(e.kind) == "fengprintf") { ++prints; lastPrint = e.arg; }
+    CHECK(prints == 8 && lastPrint == 245 && t->base.mCurrentIndex == 17);
+    teststub::speedMetric = true;
+    teststub::delivered.clear();
+    t->SetupDrivetrain();
+    for (const auto &e : teststub::delivered) if (std::string(e.kind) == "fengprintf") lastPrint = e.arg;
+    CHECK(lastPrint == 420);
+    teststub::speedMetric = false;
+    // notifications
+    t->base.mpCurrent = &last->base.base.base;
+    teststub::delivered.clear();
+    t->NotificationMessage(0xC519BFC0u, nullptr, 0, 0);   // reset type 9: rebuild ride info, every row redrawn
+    bool reset = false, rebuild = false; draws = 0;
+    for (const auto &e : teststub::delivered) {
+        reset |= std::string(e.kind) == "resetdefault" && e.msg == 9;
+        rebuild |= std::string(e.kind) == "rebuildplayers";
+        draws += std::string(e.kind) == "draw";
+    }
+    CHECK(reset && rebuild && draws == 23);
+    teststub::delivered.clear();
+    t->NotificationMessage(0xC519BFC3u, nullptr, 0, 0);
+    CHECK(!teststub::delivered.empty() && std::string(teststub::delivered.back().kind) == "showok" && teststub::delivered.back().msg == 0x2EA43025u);
+    t->mStartTime = bridge::RealTimer() + 1;
+    teststub::delivered.clear();
+    t->NotificationMessage(0xB5AF2461u, nullptr, 0, 0);
+    CHECK(t->mbLeaving == 1 && std::string(teststub::delivered.back().kind) == "unpause");
+    t->mbLeaving = 0;
+    t->mStartTime = bridge::RealTimer();
+    t->NotificationMessage(0xB5AF2461u, nullptr, 0, 0);   // same tick as construction: ignored
+    CHECK(t->mbLeaving == 0 && !t->IsOkToResume());
+    teststub::hasLastButton = true; teststub::lastButton = 5;
+    t->NotificationMessage(0xE1FDE1D1u, nullptr, 0, 0);
+    CHECK(t->mbLeaving == 1 && teststub::lastButton == 0);
+    teststub::hasLastButton = false;
+    teststub::tuningUnavailableType = -1;
+    t->Destruct();
+    CHECK(teststub::liveAllocations == live);
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
 // FEInputWidget / FEDateWidget: ctor buffers, mouse box (value bottom-right), enable flags, SetDate argument order.
 static void TestInputWidget()
 {
@@ -3780,6 +3852,7 @@ int main()
     TestScrollBar();
     TestWidgetSmall();
     TestInputWidget();
+    TestTuningSlidersMenu();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();
