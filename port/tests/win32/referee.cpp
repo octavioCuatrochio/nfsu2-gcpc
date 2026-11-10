@@ -29,6 +29,7 @@
 #include "frontend/FEWidget.h"
 #include "frontend/TuningSlidersMenu.h"
 #include "frontend/UIWheelOptionsMenu.h"
+#include "frontend/ChooseBrandsScreen.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FEScript.h"
@@ -3058,6 +3059,66 @@ static void CheckWheelOptions(int iters)
     std::memcpy(reinterpret_cast<void *>(0x83AA64), saved, sizeof saved);
 }
 
+// BrandScrollerThing ctor / Act (fake widget vtable records BlinkArrows + Draw) and ChooseBrandsScreen::
+// SetChosenBrands into the real global 0x8389B4 (saved / restored) over a synthetic widget list.
+namespace brand_fake {
+static std::vector<uint32_t> log;
+static void THISCALL Draw(void *) { log.push_back(0xD); }
+static void THISCALL Blink(void *, uint32_t m) { log.push_back(m); }
+static void *vtable[17] = {nullptr, nullptr, nullptr, reinterpret_cast<void *>(&Draw), nullptr, nullptr, nullptr, nullptr,
+                           nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, reinterpret_cast<void *>(&Blink)};
+}
+static void CheckBrandScroller(int iters)
+{
+    auto oCtor = ORIG<BrandScrollerThing *(THISCALL *)(BrandScrollerThing *, const uint8_t *, const float *, const float *, const float *, const float *, uint32_t)>(0x521E30);
+    auto oAct = ORIG<void(THISCALL *)(BrandScrollerThing *, const char *, uint32_t)>(0x521E90);
+    auto oChosen = ORIG<void(THISCALL *)(ChooseBrandsScreen *)>(0x521EF0);
+    alignas(8) static uint8_t part[0x5C];
+    static BrandScrollerThing A, B;
+    for (int it = 0; it < iters; ++it) {
+        for (auto &b : part) b = static_cast<uint8_t>(rng());
+        *reinterpret_cast<int32_t *>(part + 0x0C) = static_cast<int32_t>(rng() % 6) - 1;   // includes 0 and -1
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        std::memcpy(&B, &A, sizeof A);
+        const float pos[2] = {RefCoord(), RefCoord()}, size[2] = {RefCoord(), RefCoord()};
+        const float vs[2] = {RefCoord(), RefCoord()}, vp[2] = {RefCoord(), RefCoord()};
+        const uint32_t en = (rng() & ~0xFFu) | (rng() & 1);
+        EXPECT(oCtor(&A, part, pos, size, vs, vp, en) == &A && B.Construct(part, pos, size, vs, vp, en & 0xFF) == &B &&
+               std::memcmp(&A, &B, sizeof A) == 0, "BrandScrollerThing ctor");
+        A.mIndex = B.mIndex = static_cast<int32_t>(rng() % 7) - 1;
+        A.base.base.base.base.vtable = B.base.base.base.base.vtable = brand_fake::vtable;
+        const uint32_t msgs[3] = {0x9120409Eu, 0xB5971BF1u, rng()};
+        const uint32_t m = msgs[rng() % 3];
+        brand_fake::log.clear(); oAct(&A, "Pkg", m); auto la = brand_fake::log;
+        brand_fake::log.clear(); B.Act("Pkg", m); auto lb = brand_fake::log;
+        EXPECT(la == lb && std::memcmp(&A, &B, sizeof A) == 0, "BrandScrollerThing::Act %x", m);
+    }
+    // SetChosenBrands over 0..4 rows
+    uint32_t saved[8];
+    std::memcpy(saved, reinterpret_cast<void *>(0x8389B4), sizeof saved);
+    static ChooseBrandsScreen S;
+    static BrandScrollerThing rows[4];
+    for (int it = 0; it < iters; ++it) {
+        std::memset(&S, 0, sizeof S);
+        S.base.mWidgets.next = S.base.mWidgets.prev = &S.base.mWidgets;
+        const int n = static_cast<int>(rng() % 5);
+        for (auto &b : part) b = static_cast<uint8_t>(rng());
+        for (int k = 0; k < n; ++k) {
+            rows[k].mpPart = part;
+            rows[k].mIndex = static_cast<int32_t>(rng() % 8);
+            uiwm::Append(S.base, &rows[k].base.base.base.base);
+        }
+        std::memset(reinterpret_cast<void *>(0x8389B4), 0x5A, 32);
+        oChosen(&S);
+        uint32_t a[8]; std::memcpy(a, reinterpret_cast<void *>(0x8389B4), sizeof a);
+        std::memset(reinterpret_cast<void *>(0x8389B4), 0x5A, 32);
+        S.SetChosenBrands();
+        EXPECT(std::memcmp(a, reinterpret_cast<void *>(0x8389B4), sizeof a) == 0, "SetChosenBrands %d", n);
+    }
+    std::memcpy(reinterpret_cast<void *>(0x8389B4), saved, sizeof saved);
+}
+
 static void CheckButtonWidget(int iters)
 {
     auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
@@ -3961,6 +4022,7 @@ static int RunAll()
     REFEREE_RUN(CheckInputWidget(iters));
     REFEREE_RUN(CheckTuningPure(iters));
     REFEREE_RUN(CheckWheelOptions(iters));
+    REFEREE_RUN(CheckBrandScroller(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));

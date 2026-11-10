@@ -23,6 +23,7 @@
 #include "frontend/FEWidget.h"
 #include "frontend/TuningSlidersMenu.h"
 #include "frontend/UIWheelOptionsMenu.h"
+#include "frontend/ChooseBrandsScreen.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -567,6 +568,13 @@ void THISCALL WCOWheelRange_SetInit(WCOWheelRange *self) { self->SetInitialValue
 void THISCALL WCOStrengthOfForce_SetInit(WCOStrengthOfForce *self) { self->SetInitialValues(); }
 void THISCALL WCOOverall_SetInit(WCOOverallForceStrength *self) { self->SetInitialValues(); }
 long double THISCALL WCOStrengthOfForce_GetValue(const WCOStrengthOfForce *self) { return self->GetValue(); }
+ChooseBrandsScreen *THISCALL CBS_Ctor(ChooseBrandsScreen *self, const ScreenConstructorData *d) { return self->Construct(d); }
+void THISCALL CBS_Notify(ChooseBrandsScreen *self, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { self->NotificationMessage(m, o, a, p); }
+void THISCALL CBS_Setup(ChooseBrandsScreen *self) { self->Setup(); }
+void THISCALL CBS_SetChosenBrands(ChooseBrandsScreen *self) { self->SetChosenBrands(); }
+BrandScrollerThing *THISCALL BST_Ctor(BrandScrollerThing *self, const uint8_t *part, const float *p, const float *sz, const float *vs, const float *vp, uint32_t en) { return self->Construct(part, p, sz, vs, vp, (en & 0xFF) != 0); }
+void THISCALL BST_Act(BrandScrollerThing *self, const char *p, uint32_t m) { self->Act(p, m); }
+void THISCALL BST_Draw(BrandScrollerThing *self) { self->Draw(); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1190,6 +1198,13 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x5532B0, (const void *)&CBS_Ctor, "ChooseBrandsScreen::ChooseBrandsScreen", {0x6A, 0xFF, 0x68, 0x98, 0x7D, 0x77}},
+    {0x55C930, (const void *)&CBS_Notify, "ChooseBrandsScreen::NotificationMessage", {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x10}},
+    {0x550330, (const void *)&CBS_Setup, "ChooseBrandsScreen::Setup", {0xA0, 0x5D, 0x85, 0x83, 0x00, 0x83}},
+    {0x521EF0, (const void *)&CBS_SetChosenBrands, "ChooseBrandsScreen::SetChosenBrands", {0x8B, 0x41, 0x4C, 0x85, 0xC0, 0x56}},
+    {0x521E30, (const void *)&BST_Ctor, "BrandScrollerThing::BrandScrollerThing", {0x8B, 0x44, 0x24, 0x18, 0x8B, 0x54}},
+    {0x521E90, (const void *)&BST_Act, "BrandScrollerThing::Act", {0x8B, 0x54, 0x24, 0x08, 0x81, 0xFA}},
+    {0x53B960, (const void *)&BST_Draw, "BrandScrollerThing::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x58}},
     {0x4CFBA0, (const void *)&UWOM_Ctor, "UIWheelOptionsMenu::UIWheelOptionsMenu", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4CFC80, (const void *)&UWOM_ScalarDtor, "UIWheelOptionsMenu scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
     {0x4CFCA0, (const void *)&UWOM_Dtor, "UIWheelOptionsMenu::~UIWheelOptionsMenu", {0xC7, 0x01, 0x4C, 0x5E, 0x79, 0x00}},

@@ -76,6 +76,9 @@ int32_t joyPluggedPort = -1;
 int32_t tuningCategory = 0, allPortsFlag = 0, activePort = 0, lastButton = 0;
 bool speedMetric = false, hasLastButton = false, drawFEng = true, cursorEnabled = false;
 int32_t playerToEdit = 0;
+uint32_t chosenBrands[8] = {};
+bool browsingParts = false;
+const uint8_t *perfPackage = nullptr, *perfPart = nullptr;
 uint8_t controllerOptions[0x28 * 2] = {};
 int32_t discError = 0;
 const char *singlePackage = nullptr;
@@ -870,4 +873,28 @@ float FEWidget_GetValue(void *w) { teststub::delivered.push_back({"getvalue", w,
 uint8_t *PlayerControllerOptions(int32_t p) { return teststub::controllerOptions + p * 0x28; }
 #endif
 int32_t PlayerToEditForOptions() { return teststub::playerToEdit; }
+// ---- ChooseBrandsScreen / customization ----
+#ifdef NFSU2_REFEREE
+void *BrandScrollerThingVTable() { return reinterpret_cast<void *>(0x79B6A0); }
+#else
+void *BrandScrollerThingVTable() { return &teststub::feButtonWidgetVTable; }
+#endif
+void *ChooseBrandsScreenVTable() { return &teststub::fakeFont; }
+void FEPrintfFormat(FEObject *o, const char *) { teststub::delivered.push_back({"printfformat", o, nullptr, 0, 0}); }
+const char *BrandDisplayName(uint32_t) { return "Brand"; }
+const char *BrandStringFromHash(uint32_t) { return "BRAND"; }
+uint32_t FEngHashStringArg(const char *, const char *) { return 0x1234u; }
+#ifdef NFSU2_REFEREE
+uint32_t *ChosenBrands() { return reinterpret_cast<uint32_t *>(0x8389B4); }
+#else
+uint32_t *ChosenBrands() { return teststub::chosenBrands; }
+#endif
+bool BrowsingIndividualParts() { return teststub::browsingParts; }
+const uint8_t *SelectedPerfPackage() { return teststub::perfPackage; }
+const uint8_t *SelectedPerfPart() { return teststub::perfPart; }
+void CCM_BuyPerfPackage(const uint8_t *) { teststub::delivered.push_back({"buypackage", nullptr, nullptr, 0, 0}); }
+void CCM_InstallPerfPackage(const uint8_t *) { teststub::delivered.push_back({"installpackage", nullptr, nullptr, 0, 0}); }
+void CCM_BuyPerfPart(const uint8_t *) { teststub::delivered.push_back({"buypart", nullptr, nullptr, 0, 0}); }
+void CCM_InstallPerfPart(const uint8_t *) { teststub::delivered.push_back({"installpart", nullptr, nullptr, 0, 0}); }
+void CustomizationScreenManager_ChangeToNextScreen() { teststub::delivered.push_back({"nextscreen", nullptr, nullptr, 0, 0}); }
 }  // namespace bridge

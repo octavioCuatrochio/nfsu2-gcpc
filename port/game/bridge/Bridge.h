@@ -389,4 +389,20 @@ void *WCOOverallForceStrengthVTable();           // PC 0x791EE0
 int32_t PlayerToEditForOptions();                // PC *(int*)0x836364 (GC GetPlayerToEditForOptions)
 uint8_t *PlayerControllerOptions(int32_t player);   // PC 0x83AA64 + player * 0x28
 float FEWidget_GetValue(void *widget);           // slider widget vtable +0x48 (x87 result, rounded to float)
+// ---- ChooseBrandsScreen / customization ----
+void *BrandScrollerThingVTable();                // PC 0x79B6A0
+void *ChooseBrandsScreenVTable();                // PC 0x79CACC
+void FEPrintfFormat(FEObject *str, const char *fmt);   // PC 537BE0 with no arguments (the text is the format)
+const char *BrandDisplayName(uint32_t brand);    // PC 4FFF00 (__cdecl)
+const char *BrandStringFromHash(uint32_t brand); // PC 4FFF40 GetBrandStringFromHash (__cdecl)
+uint32_t FEngHashStringArg(const char *fmt, const char *s);   // PC 50B990 FEngHashString (__cdecl varargs)
+uint32_t *ChosenBrands();                        // PC 0x8389B4 (one per package part)
+bool BrowsingIndividualParts();                  // PC byte 0x83855D (GC ChoosePerformancePackages::bBrowsingIndividualParts)
+const uint8_t *SelectedPerfPackage();            // PC *(0x839BB4)
+const uint8_t *SelectedPerfPart();               // PC *(0x839BB0)
+void CCM_BuyPerfPackage(const uint8_t *p);       // PC 54FE50 (__thiscall on gCarCustomizeManager 0x838980, ret 4)
+void CCM_InstallPerfPackage(const uint8_t *p);   // PC 521340 (p, null ride info; ret 8)
+void CCM_BuyPerfPart(const uint8_t *p);          // PC 521B00 (ret 4)
+void CCM_InstallPerfPart(const uint8_t *p);      // PC 5213D0 (p, null; ret 8)
+void CustomizationScreenManager_ChangeToNextScreen();   // PC 54F980 Instance() -> 55BD60
 }  // namespace bridge

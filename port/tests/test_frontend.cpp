@@ -12,6 +12,7 @@
 #include "frontend/FEWidget.h"
 #include "frontend/TuningSlidersMenu.h"
 #include "frontend/UIWheelOptionsMenu.h"
+#include "frontend/ChooseBrandsScreen.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -2814,6 +2815,52 @@ static void TestWheelOptions()
     CHECK(opt(2) == 0.5f && std::string(teststub::delivered.back().kind) == "draw");
 }
 
+// ChooseBrandsScreen: one row per part with brands (<= 4), enabled for > 1 brand; accept buys + installs.
+static void TestChooseBrands()
+{
+    alignas(8) static uint8_t package[0x0C + 5 * 0x5C];
+    std::memset(package, 0, sizeof package);
+    *reinterpret_cast<uint32_t *>(package + 8) = 5;
+    const uint32_t counts[5] = {2, 0, 1, 3, 4};   // the 5th part is past the cap of 4
+    for (int i = 0; i < 5; ++i) {
+        uint8_t *part = package + 0x0C + i * 0x5C;
+        *reinterpret_cast<uint32_t *>(part + 0x0C) = counts[i];
+        for (int b = 0; b < 4; ++b) reinterpret_cast<uint32_t *>(part + 0x10)[b] = 100 * i + b;
+    }
+    teststub::perfPackage = package;
+    alignas(8) static unsigned char mm[sizeof(ChooseBrandsScreen)];
+    std::memset(mm, 0, sizeof mm);
+    auto *c = reinterpret_cast<ChooseBrandsScreen *>(mm);
+    FEngine *saved = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+    teststub::profileState = 0;
+    const int live = teststub::liveAllocations;
+    c->base.Construct(&d);
+    c->Setup();
+    CHECK(c->base.mCurrentIndex == 4);   // 3 rows (1-based next index)
+    auto *r0 = reinterpret_cast<BrandScrollerThing *>(uiwm::FromNode(c->base.mWidgets.next));
+    CHECK(r0->mpPart == package + 0x0C && r0->base.base.base.base.mbEnabled == 1 && r0->base.base.base.base.mLabelOffsetX == -232.0f);
+    auto *r1 = reinterpret_cast<BrandScrollerThing *>(uiwm::FromNode(uiwm::NextOf(&r0->base.base.base.base)));
+    CHECK(r1->mpPart == package + 0x0C + 2 * 0x5C && r1->base.base.base.base.mbEnabled == 0);
+    r0->mIndex = 1;
+    teststub::delivered.clear();
+    r0->Act("Pkg", 0x9120409Eu);   // wraps 1 -> 0 (2 brands)
+    CHECK(r0->mIndex == 0);
+    r0->Act("Pkg", 0xB5971BF1u);   // 0 -> 1
+    CHECK(r0->mIndex == 1);
+    c->SetChosenBrands();
+    CHECK(teststub::chosenBrands[0] == 1 && teststub::chosenBrands[1] == 200 && teststub::chosenBrands[2] == 300);
+    c->base.mPrevMsg = 0x0C407210u;
+    teststub::delivered.clear();
+    c->NotificationMessage(0xE1FDE1D1u, nullptr, 0, 0);
+    CHECK(teststub::delivered.size() >= 3 && std::string(teststub::delivered.back().kind) == "nextscreen");
+    teststub::perfPackage = nullptr;
+    c->base.DestructBody();
+    CHECK(teststub::liveAllocations == live);
+    bridge::cFEngInstance()->mpEngine = saved;
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -3926,6 +3973,7 @@ int main()
     TestTuningSlidersMenu();
     TestRenderEntryPoints();
     TestWheelOptions();
+    TestChooseBrands();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

@@ -478,4 +478,24 @@ void *WCOOverallForceStrengthVTable() { return reinterpret_cast<void *>(0x791EE0
 int32_t PlayerToEditForOptions() { return *reinterpret_cast<const int32_t *>(0x836364); }
 uint8_t *PlayerControllerOptions(int32_t p) { return reinterpret_cast<uint8_t *>(0x83AA64 + p * 0x28); }
 float FEWidget_GetValue(void *w) { return (*reinterpret_cast<float(THISCALL ***)(void *)>(w))[0x48 / 4](w); }
+// ---- ChooseBrandsScreen / customization ----
+void *BrandScrollerThingVTable() { return reinterpret_cast<void *>(0x79B6A0); }
+void *ChooseBrandsScreenVTable() { return reinterpret_cast<void *>(0x79CACC); }
+void FEPrintfFormat(FEObject *o, const char *f) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f); }
+const char *BrandDisplayName(uint32_t b) { return reinterpret_cast<const char *(__cdecl *)(uint32_t)>(0x4FFF00)(b); }
+const char *BrandStringFromHash(uint32_t b) { return reinterpret_cast<const char *(__cdecl *)(uint32_t)>(0x4FFF40)(b); }
+uint32_t FEngHashStringArg(const char *f, const char *s) { return reinterpret_cast<uint32_t(__cdecl *)(const char *, ...)>(0x50B990)(f, s); }
+uint32_t *ChosenBrands() { return reinterpret_cast<uint32_t *>(0x8389B4); }
+bool BrowsingIndividualParts() { return *reinterpret_cast<const uint8_t *>(0x83855D) != 0; }
+const uint8_t *SelectedPerfPackage() { return *reinterpret_cast<const uint8_t *const *>(0x839BB4); }
+const uint8_t *SelectedPerfPart() { return *reinterpret_cast<const uint8_t *const *>(0x839BB0); }
+void CCM_BuyPerfPackage(const uint8_t *p) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x54FE50)(reinterpret_cast<void *>(0x838980), p); }
+void CCM_InstallPerfPackage(const uint8_t *p) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *, void *)>(0x521340)(reinterpret_cast<void *>(0x838980), p, nullptr); }
+void CCM_BuyPerfPart(const uint8_t *p) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x521B00)(reinterpret_cast<void *>(0x838980), p); }
+void CCM_InstallPerfPart(const uint8_t *p) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *, void *)>(0x5213D0)(reinterpret_cast<void *>(0x838980), p, nullptr); }
+void CustomizationScreenManager_ChangeToNextScreen()
+{
+    void *m = reinterpret_cast<void *(__cdecl *)()>(0x54F980)();
+    reinterpret_cast<void(THISCALL *)(void *)>(0x55BD60)(m);
+}
 }  // namespace bridge
