@@ -599,4 +599,21 @@ uint8_t *ShowcaseRecords();                      // PC *(uint8_t **)0x83840C (0x
 uint8_t *UnlockEntries();                        // PC 0x862840 (8-byte unlock entries, count *0x86283C)
 void MagazineTextureHandler_Reset();             // PC 488AE0 (__thiscall on 0x832DAC)
 void MagazineTextureHandler_Unload(uint32_t flags);   // PC 488AA0 (__thiscall on 0x832DAC, ret 4)
+// ---- magazine batch 2 (streaming / screen shot / memory card internals, bridged) ----
+bool IsResourceLoadingComplete();                // PC 571060 (__cdecl)
+bool eIsStreamingTexturePackLoaded(const char *name);   // PC 4901B0
+void eLoadStreamingTexturePack(const char *name);       // PC 4944D0 (name, 0, 0, 0)
+void eWaitForStreamingTexturePackLoading(const char *name);   // PC 490170
+void eUnloadStreamingTexturePack(const char *name);     // PC 494550 (name, 0, 0)
+void eLoadStreamingTexture(uint32_t hash, void (*cb)(void *), void *param, int32_t flag);   // PC 494D30
+void eUnloadStreamingTexture(uint32_t hash);            // PC 490130
+void *TrackStreamer_AllocateUserMemory(int32_t a, const char *name, int32_t b);   // PC 5E8670 (__thiscall on 0x88EB00)
+void TrackStreamer_FreeUserMemory(void *mem);           // PC 5D6130 (__thiscall on 0x88EB00)
+const char *HelpBarPackageName();                // PC *(*(0x8384D8) + 4)
+void ScreenShot_488B10();                        // PC 488B10 (__thiscall on 0x832DAC)
+const uint8_t *ScreenShot_Get(uint32_t slot);    // PC 4889D0 (__thiscall on 0x832DAC, ret 4): +0x24 texture hash
+bool ScreenShot_Allocate(int32_t w, int32_t h, uint32_t slot, const char *hashName);   // PC 4889F0 (ret 0x10)
+uint32_t ScreenShot_Buffer();                    // PC *(0x832DB4)
+uint32_t ScreenShot_5BA030(uint32_t slot);       // PC 5BA030 (__thiscall on 0x832DAC, ret 4)
+void Memcard_4A95B0(int32_t op, const char *name, uint32_t buffer, uint32_t slot);   // PC 4A95B0 (__cdecl)
 }  // namespace bridge

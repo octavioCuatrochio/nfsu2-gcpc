@@ -189,8 +189,15 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   MagazineViewer.c whole, SCMagazineDatabase lookups). Records *0x83840C (0x40: +0x20 unlock key, +0x24 kind 1/3 mag 2/4
   DVD, +0x28 hash), unlocks 0x862840 (8: key, +6 unlocked), mode *0x838578, return package 0x837CA0, hash *0x837FD8.
   Process note: work by whole decomp files, wire everything, then test in batches.
+  Referee: parallel shards (REFEREE_JOBS, default CPUs <= 8; REFEREE_SHARD=k/n), per-check rng seed from the check
+  name, per-check times in referee.progress (a hang names its check) and the slowest five in the summary. Full run
+  ~4 s. bStrToFloat loops once per exponent unit on PC too (faithful): CheckStrToNumber skips |exponent| > 5000.
+  Magazine batch 2 done (MagazineScreens.cpp): MagazineTextureHandler (0x863780: +0 pack index -> *(0x7FA294 + 4i),
+  +4 alloc TrackStreamer memory, +0xC loaded, +0x10 four textures), SCMagazineSetup / FEMagazineSetup (bRandom picks),
+  MagazineBack (0x4C) and MagazineView (0x54, screen shot handler 0x832DAC + memory card op 0xCC1 bridged). Left:
+  UIMagazineReward (RideInfo / garage), ShowcaseMagazineDialog (23 funcs), the 0x832DAC screen shot handler (488xxx).
   Next: other ThumbnailScroller users (PartSelectionScreen 55E820, RimsBrowser 5678E0, ChooseDecalScreen 568450, CribWorld-
-  MapScreen 4EE690), magazine group rest (MagazineTextureHandler, UIMagazineBack, UIMagazineReward, MagazineView, ShowcaseMagazineDialog), CarTuneManager (0x839C40), 797564 screen.
+  MapScreen 4EE690), magazine group rest (UIMagazineReward, ShowcaseMagazineDialog, 0x832DAC handler), CarTuneManager (0x839C40), 797564 screen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

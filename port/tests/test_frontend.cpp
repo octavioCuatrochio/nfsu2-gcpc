@@ -26,6 +26,7 @@
 #include "frontend/PostRaceMenu.h"
 #include "frontend/CarTunePause.h"
 #include "frontend/MagazineSelect.h"
+#include "frontend/MagazineScreens.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/StartCareer.h"
 #include "frontend/ProfileManager.h"
@@ -4948,6 +4949,67 @@ static void TestMagazineSelect()
     bridge::cFEngInstance()->mpEngine = savedEngine;
 }
 
+static void TestMagazineScreens()
+{
+    auto has = [](const char *kind, uint32_t msg) {
+        for (const auto &e : teststub::delivered) if (std::string(e.kind) == kind && e.msg == msg) return true;
+        return false;
+    };
+    // texture handler: load only the non-zero hashes, loaded flag from the texture infos, unload clears
+    MagazineTextureHandler h{};
+    teststub::packLoaded = false;
+    teststub::delivered.clear();
+    h.Init(1, true);
+    CHECK(h.mPack == 1 && h.mpMemory != nullptr && has("loadpack", 0));
+    h.LoadTextures(0, 0, 0, 0);
+    CHECK(h.mbLoaded == 1);
+    h.mbLoaded = 0;
+    teststub::delivered.clear();
+    h.LoadTextures(0x11, 0, 0x33, 0);
+    CHECK(has("loadtex", 0x11) && has("loadtex", 0x33) && !has("loadtex", 0) && h.mTextures[2] == 0x33);
+    void *savedTex = teststub::movieTexture;
+    MagazineTextureHandler_LoadedCallback(&h);
+    CHECK(h.mbLoaded == 1);
+    teststub::delivered.clear();
+    h.UnloadTextures();
+    CHECK(has("unloadtex", 0x11) && has("unloadtex", 0x33) && h.mTextures[0] == 0 && h.mbLoaded == 0);
+    teststub::packLoaded = true;
+    teststub::delivered.clear();
+    h.Close();
+    CHECK(has("unloadpack", 0) && has("freemem", 0) && h.mpMemory == nullptr);
+    teststub::packLoaded = false;
+    (void)savedTex;
+    // setups: single entries are always picked; CycleCarSetups wraps
+    SCMagazineSetup sc{};
+    auto put = [](uint8_t *d, uint32_t off, uint32_t v) { *reinterpret_cast<uint32_t *>(d + off) = v; };
+    put(sc.data, 0x8, 1); put(sc.data, 0xC, 1); put(sc.data, 0x10, 3); put(sc.data, 0x14, 0);
+    put(sc.data, 0x18, 0xA0); put(sc.data, 0x20, 0xB0); put(sc.data, 0x24, 0xC0); put(sc.data, 0x28, 0xC1); put(sc.data, 0x2C, 0xC2);
+    put(sc.data, 0x30, 0xD0);
+    uint32_t out[6] = {};
+    sc.GenerateMagazineSelection(out);
+    CHECK(out[0] == 0xA0 && out[1] == 0xB0 && out[3] < 3 && out[2] == 0xC0 + out[3] && out[4] == 0xD0);
+    out[3] = 1;
+    sc.CycleCarSetups(out);
+    CHECK(out[3] == 2 && out[2] == 0xC2);
+    sc.CycleCarSetups(out);
+    CHECK(out[3] == 0 && out[2] == 0xC0);
+    FEMagazineSetup fe{};
+    put(fe.data, 0x20, 0x1); put(fe.data, 0x2C, 0x2); put(fe.data, 0x34, 0x3); put(fe.data, 0x48, 0x4); put(fe.data, 0x54, 0x5); put(fe.data, 0x60, 0x6);
+    fe.GenerateMagazineSelection(out);
+    CHECK(out[0] == 1 && out[1] == 2 && out[2] == 3 && out[3] == 4 && out[4] == 5 && out[5] == 6);
+    // view screen: back with an allocated screen shot frees it on a failed read
+    alignas(8) static unsigned char mem[sizeof(MagazineViewScreen)];
+    std::memset(mem, 0, sizeof mem);
+    auto *v = reinterpret_cast<MagazineViewScreen *>(mem);
+    v->mScreenShot = 1;
+    v->NotificationMessage(0x42317A19u);
+    CHECK(v->mbReady == 1);
+    v->mbLoaded = 1;
+    teststub::delivered.clear();
+    v->Destruct();
+    CHECK(v->mbLoaded == 0 && v->mbReady == 0 && has("magunload", 1));
+}
+
 int main()
 {
     TestLevelSorter();
@@ -4987,6 +5049,7 @@ int main()
     TestPostRaceMenu();
     TestCarTunePause();
     TestMagazineSelect();
+    TestMagazineScreens();
     TestOptionsMain();
     TestPauseMenu();
     TestMenuIcons();

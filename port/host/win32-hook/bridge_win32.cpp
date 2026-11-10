@@ -770,4 +770,22 @@ uint8_t *ShowcaseRecords() { return *reinterpret_cast<uint8_t **>(0x83840C); }
 uint8_t *UnlockEntries() { return reinterpret_cast<uint8_t *>(0x862840); }
 void MagazineTextureHandler_Reset() { reinterpret_cast<void(THISCALL *)(void *)>(0x488AE0)(reinterpret_cast<void *>(0x832DAC)); }
 void MagazineTextureHandler_Unload(uint32_t f) { reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x488AA0)(reinterpret_cast<void *>(0x832DAC), f); }
+// ---- magazine batch 2 ----
+bool IsResourceLoadingComplete() { return reinterpret_cast<int32_t(__cdecl *)()>(0x571060)() != 0; }
+bool eIsStreamingTexturePackLoaded(const char *n) { return reinterpret_cast<int32_t(__cdecl *)(const char *)>(0x4901B0)(n) != 0; }
+void eLoadStreamingTexturePack(const char *n) { reinterpret_cast<void(__cdecl *)(const char *, int32_t, int32_t, int32_t)>(0x4944D0)(n, 0, 0, 0); }
+void eWaitForStreamingTexturePackLoading(const char *n) { reinterpret_cast<void(__cdecl *)(const char *)>(0x490170)(n); }
+void eUnloadStreamingTexturePack(const char *n) { reinterpret_cast<void(__cdecl *)(const char *, int32_t, int32_t)>(0x494550)(n, 0, 0); }
+void eLoadStreamingTexture(uint32_t h, void (*cb)(void *), void *p, int32_t f) { reinterpret_cast<void(__cdecl *)(uint32_t, void (*)(void *), void *, int32_t)>(0x494D30)(h, cb, p, f); }
+void eUnloadStreamingTexture(uint32_t h) { reinterpret_cast<void(__cdecl *)(uint32_t)>(0x490130)(h); }
+void *TrackStreamer_AllocateUserMemory(int32_t a, const char *n, int32_t b) { return reinterpret_cast<void *(THISCALL *)(void *, int32_t, const char *, int32_t)>(0x5E8670)(reinterpret_cast<void *>(0x88EB00), a, n, b); }
+void TrackStreamer_FreeUserMemory(void *m) { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x5D6130)(reinterpret_cast<void *>(0x88EB00), m); }
+const char *HelpBarPackageName() { return *reinterpret_cast<const char **>(*reinterpret_cast<uint8_t **>(0x8384D8) + 4); }
+static void *SSH() { return reinterpret_cast<void *>(0x832DAC); }
+void ScreenShot_488B10() { reinterpret_cast<void(THISCALL *)(void *)>(0x488B10)(SSH()); }
+const uint8_t *ScreenShot_Get(uint32_t s) { return reinterpret_cast<const uint8_t *(THISCALL *)(void *, uint32_t)>(0x4889D0)(SSH(), s); }
+bool ScreenShot_Allocate(int32_t w, int32_t h, uint32_t s, const char *n) { return reinterpret_cast<int32_t(THISCALL *)(void *, int32_t, int32_t, uint32_t, const char *)>(0x4889F0)(SSH(), w, h, s, n) != 0; }
+uint32_t ScreenShot_Buffer() { return *reinterpret_cast<uint32_t *>(0x832DB4); }
+uint32_t ScreenShot_5BA030(uint32_t s) { return reinterpret_cast<uint32_t(THISCALL *)(void *, uint32_t)>(0x5BA030)(SSH(), s); }
+void Memcard_4A95B0(int32_t op, const char *n, uint32_t b, uint32_t s) { reinterpret_cast<void(__cdecl *)(int32_t, const char *, uint32_t, uint32_t)>(0x4A95B0)(op, n, b, s); }
 }  // namespace bridge

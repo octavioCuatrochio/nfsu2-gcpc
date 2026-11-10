@@ -99,6 +99,7 @@ extern void *loadParam;
 extern const void *currentTrackInfo;
 extern int iconOptionsAdded;
 extern uint8_t showcaseRecords[0x40 * 8], unlockEntries[8 * 8];   // magazine bridges
+extern bool packLoaded;   // eIsStreamingTexturePackLoaded
 extern bool carTuneActive, carTuneChanged, carTuneDirty;   // CarTunePauseScreen bridges   // IconScrollerMenu_AddOption calls
 extern bool autoSaveAccepted, nextEventExists, postRaceReplay;   // PostRaceMenu bridges   // TrackInfo_GetTrackInfo result
 extern uint32_t lastJoyTypes[2];

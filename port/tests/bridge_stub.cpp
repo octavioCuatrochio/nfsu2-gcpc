@@ -116,6 +116,7 @@ void *loadParam = nullptr;
 const void *currentTrackInfo = nullptr;
 int iconOptionsAdded = 0;
 uint8_t showcaseRecords[0x40 * 8] = {}, unlockEntries[8 * 8] = {};
+bool packLoaded = false;
 bool carTuneActive = false, carTuneChanged = false, carTuneDirty = false;
 bool autoSaveAccepted = false, nextEventExists = false, postRaceReplay = false;
 uint32_t lastJoyTypes[2] = {};
@@ -1220,4 +1221,21 @@ uint8_t *ShowcaseRecords() { return teststub::showcaseRecords; }
 uint8_t *UnlockEntries() { return teststub::unlockEntries; }
 void MagazineTextureHandler_Reset() {}
 void MagazineTextureHandler_Unload(uint32_t f) { teststub::delivered.push_back({"magunload", nullptr, nullptr, f, 0}); }
+// ---- magazine batch 2 ----
+bool IsResourceLoadingComplete() { return true; }
+bool eIsStreamingTexturePackLoaded(const char *) { return teststub::packLoaded; }
+void eLoadStreamingTexturePack(const char *) { teststub::delivered.push_back({"loadpack", nullptr, nullptr, 0, 0}); }
+void eWaitForStreamingTexturePackLoading(const char *) {}
+void eUnloadStreamingTexturePack(const char *) { teststub::delivered.push_back({"unloadpack", nullptr, nullptr, 0, 0}); }
+void eLoadStreamingTexture(uint32_t h, void (*)(void *), void *, int32_t f) { teststub::delivered.push_back({"loadtex", nullptr, nullptr, h, static_cast<uint32_t>(f)}); }
+void eUnloadStreamingTexture(uint32_t h) { teststub::delivered.push_back({"unloadtex", nullptr, nullptr, h, 0}); }
+void *TrackStreamer_AllocateUserMemory(int32_t, const char *, int32_t) { return &teststub::packLoaded; }
+void TrackStreamer_FreeUserMemory(void *) { teststub::delivered.push_back({"freemem", nullptr, nullptr, 0, 0}); }
+const char *HelpBarPackageName() { return nullptr; }
+void ScreenShot_488B10() {}
+const uint8_t *ScreenShot_Get(uint32_t) { static uint8_t s[0x30]; return s; }
+bool ScreenShot_Allocate(int32_t, int32_t, uint32_t, const char *) { return true; }
+uint32_t ScreenShot_Buffer() { return 0; }
+uint32_t ScreenShot_5BA030(uint32_t) { return 0; }
+void Memcard_4A95B0(int32_t, const char *, uint32_t, uint32_t) {}
 }  // namespace bridge

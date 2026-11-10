@@ -34,6 +34,7 @@
 #include "frontend/PostRaceMenu.h"
 #include "frontend/CarTunePause.h"
 #include "frontend/MagazineSelect.h"
+#include "frontend/MagazineScreens.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
@@ -838,6 +839,23 @@ void THISCALL MAG_Setup(UIMagazineSelect *m) { m->Setup(); }
 void THISCALL MAG_Build(UIMagazineSelect *m) { m->BuildShowcaseList(); }
 void THISCALL MAG_Populate(UIMagazineSelect *m) { m->PopulateDataInfoStuff(); }
 void THISCALL MAG_Dealloc(UIMagazineSelect *m) { m->DeallocateScreenShot(); }
+
+// ---- magazine batch 2: texture handler, setups, MagazineBack / MagazineView screens ----
+void THISCALL MTH_Init(MagazineTextureHandler *h, int32_t pack, uint32_t alloc) { h->Init(pack, static_cast<uint8_t>(alloc) != 0); }
+void THISCALL MTH_Loaded(MagazineTextureHandler *h) { h->TexturesLoaded(); }
+void THISCALL MTH_Unload(MagazineTextureHandler *h) { h->UnloadTextures(); }
+void THISCALL MTH_Close(MagazineTextureHandler *h) { h->Close(); }
+void THISCALL MTH_Load(MagazineTextureHandler *h, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { h->LoadTextures(a, b, c, d); }
+void THISCALL SCMS_Generate(SCMagazineSetup *s, uint32_t *o) { s->GenerateMagazineSelection(o); }
+void THISCALL SCMS_Cycle(SCMagazineSetup *s, uint32_t *o) { s->CycleCarSetups(o); }
+void THISCALL FEMS_Generate(FEMagazineSetup *s, uint32_t *o) { s->GenerateMagazineSelection(o); }
+MagazineBackScreen *THISCALL MBK_Ctor(MagazineBackScreen *m, const ScreenConstructorData *d) { return m->Construct(d); }
+MagazineBackScreen *THISCALL MBK_ScalarDtor(MagazineBackScreen *m, uint32_t f) { return m->ScalarDeletingDestructor(f); }
+void THISCALL MBK_Notify(MagazineBackScreen *m, uint32_t msg, void *, uint32_t, uint32_t) { m->NotificationMessage(msg); }
+MagazineViewScreen *THISCALL MVW_Ctor(MagazineViewScreen *m, const ScreenConstructorData *d) { return m->Construct(d); }
+void THISCALL MVW_Dtor(MagazineViewScreen *m) { m->Destruct(); }
+MagazineViewScreen *THISCALL MVW_ScalarDtor(MagazineViewScreen *m, uint32_t f) { return m->ScalarDeletingDestructor(f); }
+void THISCALL MVW_Notify(MagazineViewScreen *m, uint32_t msg, void *, uint32_t, uint32_t) { m->NotificationMessage(msg); }
 
 FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
 uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
@@ -1807,6 +1825,22 @@ const Replacement kReplacements[] = {
     {0x523F60, (const void *)&MAG_Build, "UIMagazineSelect::BuildShowcaseList", {0x6A, 0xFF, 0x68, 0x24, 0x73, 0x77}},
     {0x54B150, (const void *)&MAG_Populate, "UIMagazineSelect::PopulateDataInfoStuff", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
     {0x510E10, (const void *)&MAG_Dealloc, "UIMagazineSelect::DeallocateScreenShot", {0x56, 0x8B, 0xF1, 0x8A, 0x86, 0x54}},
+    {0x510940, (const void *)&MTH_Init, "MagazineTextureHandler::Init", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x8B}},
+    {0x5109D0, (const void *)&MTH_Loaded, "MagazineTextureHandler::TexturesLoaded", {0x57, 0x8B, 0xF9, 0x8B, 0x47, 0x10}},
+    {0x523B30, (const void *)&MagazineTextureHandler_LoadedCallback, "MagazineTextureHandler loaded callback", {0x8B, 0x4C, 0x24, 0x04, 0xE9, 0x97}},
+    {0x510A70, (const void *)&MTH_Unload, "MagazineTextureHandler::UnloadTextures", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x10}},
+    {0x523B40, (const void *)&MTH_Close, "MagazineTextureHandler::Close", {0x56, 0x8B, 0xF1, 0xE8, 0x28, 0xCF}},
+    {0x523BC0, (const void *)&MTH_Load, "MagazineTextureHandler::LoadTextures", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x510680, (const void *)&SCMS_Generate, "SCMagazineSetup::GenerateMagazineSelection", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x08}},
+    {0x510710, (const void *)&SCMS_Cycle, "SCMagazineSetup::CycleCarSetups", {0x8B, 0x41, 0x10, 0x56, 0x8B, 0x74}},
+    {0x5105C0, (const void *)&FEMS_Generate, "FEMagazineSetup::GenerateMagazineSelection", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x08}},
+    {0x553B60, (const void *)&MBK_Ctor, "MagazineBack ctor", {0x6A, 0xFF, 0x68, 0xE8, 0x6F, 0x77}},
+    {0x553BC0, (const void *)&MBK_ScalarDtor, "MagazineBack scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x78, 0xD1}},
+    {0x54B0E0, (const void *)&MBK_Notify, "MagazineBack::NotificationMessage", {0x81, 0x7C, 0x24, 0x04, 0xBA, 0x56}},
+    {0x553BE0, (const void *)&MVW_Ctor, "MagazineView ctor", {0x6A, 0xFF, 0x68, 0xE8, 0x6F, 0x77}},
+    {0x510E50, (const void *)&MVW_Dtor, "MagazineView dtor", {0x6A, 0xFF, 0x68, 0xE8, 0x6F, 0x77}},
+    {0x524100, (const void *)&MVW_ScalarDtor, "MagazineView scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x48, 0xCD}},
+    {0x565B50, (const void *)&MVW_Notify, "MagazineView::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x64}},
     {0x53C7D0, (const void *)&CT_React<CTKind::Resume>, "ct Resume React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x564C80, (const void *)&CT_React<CTKind::Restart>, "ct Restart React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x53C830, (const void *)&CT_React<CTKind::DynoChart>, "ct DynoChart React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},

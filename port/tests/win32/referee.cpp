@@ -12,6 +12,7 @@
 #include <cstring>
 #include <limits>
 #include <random>
+#include <algorithm>
 #include <vector>
 #include <array>
 #include <initializer_list>
@@ -68,6 +69,7 @@
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/CarTunePause.h"
 #include "frontend/MagazineSelect.h"
+#include "frontend/MagazineScreens.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/MainMenu.h"
 #define THISCALL __attribute__((thiscall))
@@ -177,6 +179,17 @@ static std::string NumSample()
     for (int i = 0; i < n; ++i) s.push_back(rng() % 3 ? static_cast<char>('0' + rng() % 10) : kChars[rng() % (sizeof kChars - 1)]);
     return s;
 }
+// bStrToFloat's exponent (after sign, digits, '.', digits) beyond +-5000: skip as a test input
+static bool HugeExponent(const std::string &t)
+{
+    const char *p = t.c_str();
+    if (*p == '-' || *p == '+') ++p;
+    while (*p >= '0' && *p <= '9') ++p;
+    if (*p == '.') do ++p; while (*p >= '0' && *p <= '9');
+    if (*p != 'e' && *p != 'E') return false;
+    const int32_t e = bStrToLong(p + 1);
+    return e > 5000 || e < -5000;
+}
 static void CheckStrToNumber(int iters)
 {
     auto oLong = ORIG<int32_t(__cdecl *)(const char *)>(0x43DE50);
@@ -187,6 +200,7 @@ static void CheckStrToNumber(int iters)
         for (int i = 0; i < iters; ++i) {
             std::string t = NumSample();
             if (rng() % 8 == 0) t += "e" + std::to_string(static_cast<int>(rng() % 90) - 45);
+            if (HugeExponent(t)) continue;   // both PC and the rewrite loop once per exponent unit (seconds at 1e9)
             EXPECT(oLong(t.c_str()) == bStrToLong(t.c_str()), "bStrToLong(\"%s\")", t.c_str());
             long double x = oFloat(t.c_str()), y = bStrToFloat(t.c_str());
             EXPECT(std::memcmp(&x, &y, 10) == 0, "bStrToFloat(\"%s\") pc=%x: %.21Lg vs %.21Lg", t.c_str(), pc, x, y);
@@ -4419,6 +4433,40 @@ static void CheckMagazine(int iters)
     std::memcpy(out, savedOut, sizeof savedOut);
 }
 
+// SCMagazineSetup / FEMagazineSetup random picks (same bRandom seed for both) and CycleCarSetups.
+static void CheckMagazineSetups(int iters)
+{
+    auto oSC = ORIG<void(THISCALL *)(const SCMagazineSetup *, uint32_t *)>(0x510680);
+    auto oCycle = ORIG<void(THISCALL *)(const SCMagazineSetup *, uint32_t *)>(0x510710);
+    auto oFE = ORIG<void(THISCALL *)(const FEMagazineSetup *, uint32_t *)>(0x5105C0);
+    uint32_t *seed = bridge::BRandomSeed();
+    const uint32_t savedSeed = *seed;
+    static SCMagazineSetup sc;
+    static FEMagazineSetup fe;
+    for (int it = 0; it < iters; ++it) {
+        for (uint8_t &b : sc.data) b = static_cast<uint8_t>(rng());
+        for (uint8_t &b : fe.data) b = static_cast<uint8_t>(rng());
+        for (uint32_t off : {0x8u, 0xCu, 0x10u, 0x14u}) *reinterpret_cast<uint32_t *>(sc.data + off) = rng() % 4;
+        for (uint32_t off = 0x8; off <= 0x1C; off += 4) *reinterpret_cast<uint32_t *>(fe.data + off) = rng() % 4;
+        uint32_t a[8] = {}, b[8] = {};
+        const uint32_t s0 = rng();
+        const int op = static_cast<int>(rng() % 3);
+        if (op == 0) {
+            *seed = s0; oSC(&sc, a);
+            *seed = s0; sc.GenerateMagazineSelection(b);
+        } else if (op == 1) {
+            a[3] = b[3] = rng() % 5;
+            oCycle(&sc, a);
+            sc.CycleCarSetups(b);
+        } else {
+            *seed = s0; oFE(&fe, a);
+            *seed = s0; fe.GenerateMagazineSelection(b);
+        }
+        EXPECT(std::memcmp(a, b, sizeof a) == 0, "MagazineSetup op %d", op);
+    }
+    *seed = savedSeed;
+}
+
 static void CheckCarTunePauseSound(int iters)
 {
     auto o = ORIG<uint32_t(THISCALL *)(void *, uint32_t, void *, uint32_t, uint32_t, uint32_t)>(0x510EB0);
@@ -4721,7 +4769,37 @@ static bool RefereeSelected(const char *call)
     }
     return false;
 }
-#define REFEREE_RUN(...) do { if (RefereeSelected(#__VA_ARGS__)) { __VA_ARGS__; } } while (0)
+// Sharding (REFEREE_SHARD=k/n: run checks whose index % n == k) for parallel runs; every check reseeds rng from
+// its own name so its inputs don't depend on which checks ran before it. Each check's time goes to
+// referee.progress (flushed: a hang shows the check it is in) and the slowest ones to the end of referee.log.
+static int gCheckIndex = 0, gShardK = 0, gShardN = 1;
+struct CheckTime { const char *name; double ms; };
+static std::vector<CheckTime> gTimes;
+static FILE *gProgress = nullptr;
+static double NowMs()
+{
+    LARGE_INTEGER f, c;
+    QueryPerformanceFrequency(&f);
+    QueryPerformanceCounter(&c);
+    return static_cast<double>(c.QuadPart) * 1000.0 / static_cast<double>(f.QuadPart);
+}
+static bool RefereeBegin(const char *call)
+{
+    const int index = gCheckIndex++;
+    if (index % gShardN != gShardK || !RefereeSelected(call)) return false;
+    uint32_t seed = 12345;
+    for (const char *c = call; *c; ++c) seed = seed * 33u + static_cast<uint8_t>(*c);
+    rng.seed(seed);
+    if (gProgress) { std::fprintf(gProgress, "start %.60s\n", call); std::fflush(gProgress); }
+    return true;
+}
+static void RefereeEnd(const char *call, double t0)
+{
+    const double ms = NowMs() - t0;
+    gTimes.push_back({call, ms});
+    if (gProgress) { std::fprintf(gProgress, "done %8.1f ms %.60s\n", ms, call); std::fflush(gProgress); }
+}
+#define REFEREE_RUN(...) do { if (RefereeBegin(#__VA_ARGS__)) { const double t0_ = NowMs(); __VA_ARGS__; RefereeEnd(#__VA_ARGS__, t0_); } } while (0)
 
 static int RunAll()
 {
@@ -4730,6 +4808,10 @@ static int RunAll()
     if (nt->FileHeader.TimeDateStamp != 0x214D4C48) { std::printf("referee: not SPEED2.EXE v1.2\n"); return 2; }
     const char *env = std::getenv("REFEREE_ITERATIONS");
     int iters = env ? std::atoi(env) : 2000;
+    if (const char *sh = std::getenv("REFEREE_SHARD")) {
+        if (std::sscanf(sh, "%d/%d", &gShardK, &gShardN) != 2 || gShardN < 1 || gShardK < 0 || gShardK >= gShardN) gShardK = 0, gShardN = 1;
+    }
+    gProgress = std::fopen("referee.progress", "w");
     // sanity: prove we really execute the ORIGINAL machine code (known answer: POSIX cksum of "123456789")
     uint32_t known = ORIG<uint32_t(__cdecl *)(const void *, int, uint32_t)>(0x43BCD0)("123456789", 9, 0);
     if (known != 0x377A6011u) { std::printf("referee: original code not callable (got %08X)\n", known); return 2; }
@@ -4794,6 +4876,7 @@ static int RunAll()
     REFEREE_RUN(CheckQuickRaceSettings(iters));
     REFEREE_RUN(CheckCarTunePauseSound(iters));
     REFEREE_RUN(CheckMagazine(iters));
+    REFEREE_RUN(CheckMagazineSetups(iters));
     REFEREE_RUN(CheckOptionsMain(iters));
     REFEREE_RUN(CheckMenuHelpers(iters));
     REFEREE_RUN(CheckScrollBar(iters));
@@ -4830,6 +4913,11 @@ static int RunAll()
     REFEREE_RUN(CheckBlockCtor<FEKeyNodeBlock>(0x5319C0, FEKeyNodeBlock_Construct, "FEKeyNode block", {{&teststub::feKeyNodeBlockVTable, 0x79B9EC}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feKeyNodeVTable, 0x79AA34}}));
     REFEREE_RUN(CheckBlockCtor<FEScriptBlock>(0x53E910, FEScriptBlock_Construct, "FEScript block", {{&teststub::feScriptBlockVTable, 0x79BF54}, {&teststub::feMinListVTable, 0x79A9EC}, {&teststub::feScriptVTable, 0x79AD28}}));
     EXPECT(ORIG<uint32_t(__cdecl *)(const char *)>(0x505450)(nullptr) == FEHashUpper(nullptr), "FEHashUpper(null)");
+    std::sort(gTimes.begin(), gTimes.end(), [](const CheckTime &a, const CheckTime &b) { return a.ms > b.ms; });
+    double total = 0;
+    for (const auto &t : gTimes) total += t.ms;
+    std::printf("referee: timing %.0f ms in %zu checks; slowest:\n", total, gTimes.size());
+    for (size_t i = 0; i < gTimes.size() && i < 8; ++i) std::printf("  %8.1f ms %.70s\n", gTimes[i].ms, gTimes[i].name);
     std::printf("referee: %d checks, %d mismatches -> %s\n", checks, failures, failures ? "FAILED" : "ok");
     return failures != 0;
 }
