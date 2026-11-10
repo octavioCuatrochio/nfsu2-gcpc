@@ -58,6 +58,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   (in-game unreached); referee uses a fake cSlider vtable. cSlider (vtable 78F544) done too (Init/Update/Draw*/Toggle/SetCurValue/Highlight;
   in-game Init+DrawHorizontal run in the race). FEngFindString 537A10 done. PreviewSlider (79AE30, 0x4C) / ThreeStageSlider
   (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next: TuningSlider (79B7B0), FEToggleWidget.
+- cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
+  PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
+  PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. Left: 0 GetPackageData
+  51C990, 3 InitPackage 54E4A0, 4 PackageWillUnload 51C8C0, 8 BeginPackageRendering 51C690, 11 GetContextTransform
+  50C3D0, 17 GetMouseInfo 50C860, 25 5425E0; cFEngRender (51B7F0, 51B850, 5371F0...).
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.

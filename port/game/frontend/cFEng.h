@@ -27,8 +27,27 @@ struct FEngJoyMapEntry {
 };
 constexpr int kFEngJoyMapCount = 21;
 
+// GC FEResourceRequest (0x18; package "RsRq" chunk, given to the game interface).
+struct FEResourceRequest {
+    uint32_t _unknown00;             // +0x00
+    const char *mpcName;             // +0x04 file name (path / extension stripped by LoadResources)
+    uint32_t mu32Type;               // +0x08 4: the handle is a bMalloc'd copy of the name, else its bStringHash
+    uint32_t _unknown0C;             // +0x0C
+    uintptr_t mHandle;               // +0x10
+    uint32_t _unknown14;             // +0x14 0 after loading
+};
+#if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(FEResourceRequest) == 0x18, "FEResourceRequest");
+#endif
+
+// PC 50C250 (__cdecl; GC GetBaseName): `path` without directory ('\\' or '/') and extension (last '.' after index 0;
+// a '.' before the last separator yields "").
+void GetBaseName(char *out, const char *path);
+
 struct cFEng {
-    uint8_t _unknown00[8];
+    uint8_t _unknown00[6];
+    uint8_t mbRendering;             // +0x06 set by BeginPackageRendering
+    uint8_t _unknown07;
     FEngine *mpEngine;               // +0x08 (GC +0x10)
     void *mpRender;                  // +0x0C cFEngRender (GC +0x14)
     cFEngLevelSorter *mpSortHead;    // +0x10 (GC +0x18) list sentinel: {head, tail}; empty -> points at itself
@@ -75,6 +94,18 @@ struct cFEng {
     // GC 8014E798 / 8014E7F0, PC 51CB20 / 51CB60 (ret 0xC): parent looked up by name (null name -> no parent).
     void QueuePushPackage(const char *name, const char *parent, uint32_t mask);
     void QueuePushModalPackage(const char *name, const char *parent, uint32_t mask);
+    // FEGameInterface callbacks (vtable 0x79BCD8).
+    bool LoadResources(FEPackage *pkg, int32_t count, FEResourceRequest *req);     // GC 8014D644 / PC 50C300 (ret 0xC)
+    bool UnloadResources(FEPackage *pkg, int32_t count, FEResourceRequest *req);   // GC 8014D700 / PC 50C3A0: frees type 4
+    void EndPackageRendering(FEPackage *pkg);                     // GC 8014DA68 / PC 537480: cFEngRender::PackageFinished
+    void GenerateRenderContext(uint32_t context, FEObject *group);   // GC 8014D82C / PC 51C660: cFEngRender (ret 8)
+    void RenderObjectList(void *entries, uint32_t count);         // PC 50C2C0 (ret 8): RenderObject (virtual) last to first
+    // GC 8014D928 / PC 51C670 (ret 4): visible (flag 1 clear) objects go to the render list while +0x06 is set.
+    void RenderObject(FEObject *obj);
+    void GetViewTransformation(void *matrix);                     // GC 8014D978 / PC 50C490: identity
+    bool DoesPointTouchObject(float x, float y, FEObject *obj);   // GC 8014EC4C / PC 537690 (ret 0xC)
+    void OutputWarning(const char *text, int32_t level);          // GC 8014E328 / PC 50C7C0: nothing (release build)
+    void NotifySoundMessage(uint32_t a, uint32_t b, uint32_t c, uint32_t d);   // GC 8014D7FC / PC 52CDC0 -> manager
     cFEngLevelSorter *SortSentinel() { return reinterpret_cast<cFEngLevelSorter *>(&mpSortHead); }
 };
 

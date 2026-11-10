@@ -101,6 +101,11 @@ void FEGameInterface_BeginPackageRendering(void *gi, ::FEPackage *pkg, uint32_t 
 void FEGameInterface_EndPackageRendering(void *gi, ::FEPackage *pkg);                        // +0x24
 void FEGameInterface_GenerateRenderContext(void *gi, uint32_t context, ::FEObject *group);   // +0x28
 void FEGameInterface_RenderObjectList(void *gi, void *entries, uint32_t count);              // +0x30 ({obj, key} x count)
+void FEGameInterface_RenderObject(void *gi, ::FEObject *obj);                                // +0x34
+void cFEngRender_GenerateRenderContext(void *render, uint32_t context, ::FEObject *group);  // PC 51B7F0 (__thiscall, ret 8)
+void cFEngRender_AddToRenderList(void *render, ::FEObject *obj);                           // PC 51B850 (ret 4)
+void cFEngRender_PackageFinished(void *render, ::FEPackage *pkg);                          // PC 5371F0 (ret 4)
+void FEPackageManager_NotifySoundMessage(::FEPackageManager *m, uint32_t a, uint32_t b, uint32_t c, uint32_t d);   // PC 52CC90 (ret 0x10)
 void FEGameInterface_GetViewTransformation(void *gi, void *matrix);                          // +0x3C (FEMatrix4)
 ::FESortGlobals *FEngSortGlobals();   // PC 0x838488
 uint32_t FEngHashStringUpper(const char *fmt);   // PC 50B9C0 (__cdecl, varargs): bVSPrintf into 0x100 bytes, then FEHashUpper

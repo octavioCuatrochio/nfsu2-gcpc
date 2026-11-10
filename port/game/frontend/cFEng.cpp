@@ -7,6 +7,8 @@
 #include "FEPackageManager.h"
 #include "bridge/Bridge.h"
 #include "bWare/bSlotPool.h"
+#include "bWare/bMath.h"
+#include "FEngUtil.h"
 
 cFEngLevelSorter *cFEng::FindInLevelSortingList(const char *name)
 {
@@ -284,3 +286,62 @@ void cFEng::SetCurrentButton(const char *pkgName, uint32_t buttonHash)
         if (p->mppButtons[i]->mu32NameHash == buttonHash) button = p->mppButtons[i];
     if (button) p->SetCurrentButton(mpEngine, button, true);
 }
+
+void GetBaseName(char *out, const char *path)
+{
+    int32_t len = 0, start = 0;
+    while (path[len]) {
+        const char c = path[len++];
+        if (c == '\\' || c == '/') start = len;
+    }
+    int32_t end = len;
+    for (int32_t i = len; i != 0; --i)
+        if (path[i] == '.') { end = i; break; }
+    int32_t n = 0;
+    for (int32_t i = start; i < end; ++i) out[n++] = path[i];
+    out[n] = 0;
+}
+
+bool cFEng::LoadResources(FEPackage *, int32_t count, FEResourceRequest *req)
+{
+    for (int32_t i = 0; i < count; ++i, ++req) {
+        char name[0x100];
+        GetBaseName(name, req->mpcName);
+        bToUpper(name);
+        if (req->mu32Type == 4) {
+            char *copy = static_cast<char *>(bridge::bMalloc(0x100, 0));
+            bStrNCpy(copy, name, 0x100);
+            req->mHandle = reinterpret_cast<uintptr_t>(copy);
+        } else {
+            req->mHandle = bStringHash(name);
+        }
+        req->_unknown14 = 0;
+    }
+    return true;
+}
+
+bool cFEng::UnloadResources(FEPackage *, int32_t count, FEResourceRequest *req)
+{
+    for (int32_t i = 0; i < count; ++i, ++req)
+        if (req->mu32Type == 4) bridge::bWareFree(reinterpret_cast<void *>(req->mHandle));
+    return true;
+}
+
+void cFEng::EndPackageRendering(FEPackage *pkg) { bridge::cFEngRender_PackageFinished(mpRender, pkg); }
+void cFEng::GenerateRenderContext(uint32_t context, FEObject *group) { bridge::cFEngRender_GenerateRenderContext(mpRender, context, group); }
+
+void cFEng::RenderObjectList(void *entries, uint32_t count)
+{
+    auto *e = static_cast<FEObject *const *>(entries);   // {obj, key} pairs (two slots, as FEngine's sorter)
+    for (uint32_t i = count; i != 0; --i) bridge::FEGameInterface_RenderObject(this, e[(i - 1) * 2]);
+}
+
+void cFEng::RenderObject(FEObject *obj)
+{
+    if (!(obj->mu32Flags & 1) && mbRendering) bridge::cFEngRender_AddToRenderList(mpRender, obj);
+}
+
+void cFEng::GetViewTransformation(void *matrix) { bIdentity(static_cast<bMatrix4 *>(matrix)); }
+bool cFEng::DoesPointTouchObject(float x, float y, FEObject *obj) { return FEngTestForIntersection(x, y, obj); }
+void cFEng::OutputWarning(const char *, int32_t) {}
+void cFEng::NotifySoundMessage(uint32_t a, uint32_t b, uint32_t c, uint32_t d) { bridge::FEPackageManager_NotifySoundMessage(bridge::TheFEPackageManager(), a, b, c, d); }

@@ -2211,6 +2211,40 @@ static void TestEngineConstructTypes()
 }
 
 // cFEng joystick registration: handlers per mapped event, per-port state, pad masks.
+static void TestCFEngInterface()
+{
+    char out[64];
+    GetBaseName(out, "DATA\\FE\\Button.tga"); CHECK(std::string(out) == "Button");
+    GetBaseName(out, "a/b.c/name"); CHECK(std::string(out) == "");          // '.' before the separator
+    GetBaseName(out, ".hidden"); CHECK(std::string(out) == ".hidden");    // index 0 not checked
+    GetBaseName(out, "x.y.z"); CHECK(std::string(out) == "x.y");
+    GetBaseName(out, ""); CHECK(out[0] == 0);
+    alignas(8) unsigned char fm[sizeof(cFEng)] = {};
+    auto *fe = reinterpret_cast<cFEng *>(fm);
+    FEResourceRequest rq[2] = {};
+    rq[0].mpcName = "fe/Tex.tga"; rq[0].mu32Type = 1; rq[0]._unknown14 = 7;
+    rq[1].mpcName = "Font.fnt"; rq[1].mu32Type = 4;
+    CHECK(fe->LoadResources(nullptr, 2, rq));
+    CHECK(rq[0].mHandle == bStringHash("TEX") && rq[0]._unknown14 == 0 && std::string(reinterpret_cast<const char *>(rq[1].mHandle)) == "FONT");
+    CHECK(fe->UnloadResources(nullptr, 2, rq));
+    // render list: last to first through the interface's own vtable
+    alignas(8) unsigned char om[2][sizeof(FEObject)] = {};
+    void *entries[4] = {om[0], nullptr, om[1], nullptr};
+    teststub::delivered.clear();
+    fe->RenderObjectList(entries, 2);
+    CHECK(teststub::delivered.size() == 2 && teststub::delivered[0].pkg == reinterpret_cast<FEPackage *>(om[1]) && teststub::delivered[1].pkg == reinterpret_cast<FEPackage *>(om[0]));
+    teststub::delivered.clear();
+    auto *o = reinterpret_cast<FEObject *>(om[0]);
+    fe->RenderObject(o);                      // not rendering
+    fe->mbRendering = 1;
+    o->mu32Flags = 1; fe->RenderObject(o);    // hidden
+    o->mu32Flags = 0; fe->RenderObject(o);
+    CHECK(teststub::delivered.size() == 1 && std::string(teststub::delivered[0].kind) == "render add");
+    float m[16] = {};
+    fe->GetViewTransformation(m);
+    CHECK(m[0] == 1 && m[5] == 1 && m[10] == 1 && m[15] == 1 && m[1] == 0);
+}
+
 static void TestCFEngJoy()
 {
     auto *map = teststub::joyMap;
@@ -2885,6 +2919,7 @@ int main()
     TestRender();
     TestEngineConstructTypes();
     TestCFEngJoy();
+    TestCFEngInterface();
     TestFEngUtil();
     TestFEngPosition();
     TestButtonWidget();

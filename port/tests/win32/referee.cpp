@@ -2007,6 +2007,57 @@ static void CheckStageSliders(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// cFEng interface pieces that need no heap / renderer: GetBaseName, Load/UnloadResources (non-type-4),
+// GetViewTransformation, RenderObject while not rendering or hidden.
+static void CheckCFEngInterface(int iters)
+{
+    auto oBase = ORIG<void(__cdecl *)(char *, const char *)>(0x50C250);
+    auto oLoad = ORIG<uint32_t(THISCALL *)(cFEng *, FEPackage *, int32_t, FEResourceRequest *)>(0x50C300);
+    auto oUnload = ORIG<uint32_t(THISCALL *)(cFEng *, FEPackage *, int32_t, FEResourceRequest *)>(0x50C3A0);
+    auto oView = ORIG<void(THISCALL *)(cFEng *, void *)>(0x50C490);
+    auto oRender = ORIG<void(THISCALL *)(cFEng *, FEObject *)>(0x51C670);
+    static const char alpha[] = "ab./\\.xY";
+    for (int it = 0; it < iters; ++it) {
+        char path[40];
+        const int n = static_cast<int>(rng() % 30);
+        for (int i = 0; i < n; ++i) path[i] = alpha[rng() % (sizeof alpha - 1)];
+        path[n] = 0;
+        char a[64], b[64];
+        std::memset(a, 0x5A, sizeof a); std::memset(b, 0x5A, sizeof b);
+        oBase(a, path); GetBaseName(b, path);
+        EXPECT(std::memcmp(a, b, sizeof a) == 0, "GetBaseName '%s'", path);
+        static char names[3][40];
+        FEResourceRequest ra[3], rb[3];
+        for (auto &r : ra) { uint8_t *q = reinterpret_cast<uint8_t *>(&r); for (size_t i = 0; i < sizeof r; ++i) q[i] = static_cast<uint8_t>(rng()); }
+        for (int k = 0; k < 3; ++k) {
+            const int m = static_cast<int>(rng() % 30);
+            for (int i = 0; i < m; ++i) names[k][i] = alpha[rng() % (sizeof alpha - 1)];
+            names[k][m] = 0;
+            ra[k].mpcName = names[k];
+            ra[k].mu32Type = rng() % 4;   // 4 would bMalloc / bFree (no heap here)
+        }
+        std::memcpy(rb, ra, sizeof ra);
+        alignas(4) static unsigned char fa[sizeof(cFEng)], fb[sizeof(cFEng)];
+        const int32_t cnt = static_cast<int32_t>(rng() % 4) - 1;
+        const int op = static_cast<int>(rng() % 2);
+        uint32_t x = op ? oUnload(reinterpret_cast<cFEng *>(fa), nullptr, cnt, ra) : oLoad(reinterpret_cast<cFEng *>(fa), nullptr, cnt, ra);
+        bool y = op ? reinterpret_cast<cFEng *>(fb)->UnloadResources(nullptr, cnt, rb) : reinterpret_cast<cFEng *>(fb)->LoadResources(nullptr, cnt, rb);
+        EXPECT((x & 0xFF) == y && std::memcmp(ra, rb, sizeof ra) == 0, "cFEng resources op %d n %d", op, cnt);
+        float ma[16], mb[16];
+        for (int i = 0; i < 16; ++i) ma[i] = mb[i] = RefCoord();
+        oView(reinterpret_cast<cFEng *>(fa), ma);
+        reinterpret_cast<cFEng *>(fb)->GetViewTransformation(mb);
+        EXPECT(std::memcmp(ma, mb, sizeof ma) == 0, "cFEng view");
+        alignas(4) unsigned char om[sizeof(FEObject)] = {};
+        auto *o = reinterpret_cast<FEObject *>(om);
+        o->mu32Flags = rng() % 2 ? 1 : 0;
+        reinterpret_cast<cFEng *>(fa)->mbRendering = o->mu32Flags ? static_cast<uint8_t>(rng()) : 0;
+        oRender(reinterpret_cast<cFEng *>(fa), o);   // must not reach the renderer
+        reinterpret_cast<cFEng *>(fb)->mbRendering = reinterpret_cast<cFEng *>(fa)->mbRendering;
+        reinterpret_cast<cFEng *>(fb)->RenderObject(o);
+    }
+}
+
 // FESliderWidget: ctor, sound events, Position / Show / Hide / SetFocus / UnsetFocus on synthetic boxes with a fake
 // cSlider vtable that logs its calls (both sides must make the same calls in the same order).
 namespace slider_fake {
@@ -2967,6 +3018,7 @@ static int RunAll()
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckStageSliders(iters));
+    REFEREE_RUN(CheckCFEngInterface(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckFEngFontMeasure(iters * 3));

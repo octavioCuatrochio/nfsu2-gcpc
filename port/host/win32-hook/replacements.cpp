@@ -346,6 +346,16 @@ void THISCALL PreviewSlider_Toggle(PreviewSlider *self, uint32_t on) { self->Tog
 void THISCALL PreviewSlider_Draw(PreviewSlider *self) { self->Draw(); }
 uint32_t THISCALL ThreeStageSlider_Update(ThreeStageSlider *self, uint32_t msg) { return self->Update(msg); }
 void THISCALL ThreeStageSlider_Draw(ThreeStageSlider *self) { self->Draw(); }
+uint32_t THISCALL cFEng_LoadResources(cFEng *self, FEPackage *p, int32_t n, FEResourceRequest *r) { return self->LoadResources(p, n, r); }
+uint32_t THISCALL cFEng_UnloadResources(cFEng *self, FEPackage *p, int32_t n, FEResourceRequest *r) { return self->UnloadResources(p, n, r); }
+void THISCALL cFEng_EndPackageRendering(cFEng *self, FEPackage *p) { self->EndPackageRendering(p); }
+void THISCALL cFEng_GenerateRenderContext(cFEng *self, uint32_t c, FEObject *g) { self->GenerateRenderContext(c, g); }
+void THISCALL cFEng_RenderObjectList(cFEng *self, void *e, uint32_t n) { self->RenderObjectList(e, n); }
+void THISCALL cFEng_RenderObject(cFEng *self, FEObject *o) { self->RenderObject(o); }
+void THISCALL cFEng_GetViewTransformation(cFEng *self, void *m) { self->GetViewTransformation(m); }
+uint32_t THISCALL cFEng_DoesPointTouchObject(cFEng *self, float x, float y, FEObject *o) { return self->DoesPointTouchObject(x, y, o); }
+void THISCALL cFEng_OutputWarning(cFEng *self, const char *t, int32_t l) { self->OutputWarning(t, l); }
+void THISCALL cFEng_NotifySoundMessage(cFEng *self, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { self->NotifySoundMessage(a, b, c, d); }
 FEButtonWidget *THISCALL FEButtonWidget_Ctor(FEButtonWidget *self, const float *pos, const float *size, bool en) { return self->Construct(pos, size, en); }
 void THISCALL FEButtonWidget_Show(FEButtonWidget *self) { self->Show(); }
 void THISCALL FEButtonWidget_Hide(FEButtonWidget *self) { self->Hide(); }
@@ -778,6 +788,17 @@ const Replacement kReplacements[] = {
     {0x527170, (const void *)&PreviewSlider_Draw, "PreviewSlider::Draw", {0x83, 0xEC, 0x14, 0x56, 0x8B, 0xF1}},
     {0x4FF590, (const void *)&ThreeStageSlider_Update, "ThreeStageSlider::Update", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x32}},
     {0x5273A0, (const void *)&ThreeStageSlider_Draw, "ThreeStageSlider::Draw", {0x83, 0xEC, 0x18, 0x53, 0x56, 0x8B}},
+    {0x50C300, (const void *)&cFEng_LoadResources, "cFEng::LoadResources", {0x8B, 0x44, 0x24, 0x08, 0x81, 0xEC}},
+    {0x50C3A0, (const void *)&cFEng_UnloadResources, "cFEng::UnloadResources", {0x57, 0x8B, 0x7C, 0x24, 0x0C, 0x85}},
+    {0x537480, (const void *)&cFEng_EndPackageRendering, "cFEng::EndPackageRendering", {0x8B, 0x49, 0x0C, 0xE9, 0x68, 0xFD}},
+    {0x51C660, (const void *)&cFEng_GenerateRenderContext, "cFEng::GenerateRenderContext", {0x8B, 0x49, 0x0C, 0xE9, 0x88, 0xF1}},
+    {0x50C2C0, (const void *)&cFEng_RenderObjectList, "cFEng::RenderObjectList", {0x56, 0x8B, 0x74, 0x24, 0x0C, 0x85}},
+    {0x51C670, (const void *)&cFEng_RenderObject, "cFEng::RenderObject", {0x8B, 0x44, 0x24, 0x04, 0xF6, 0x40}},
+    {0x50C490, (const void *)&cFEng_GetViewTransformation, "cFEng::GetViewTransformation", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
+    {0x537690, (const void *)&cFEng_DoesPointTouchObject, "cFEng::DoesPointTouchObject", {0x8B, 0x44, 0x24, 0x0C, 0x8B, 0x4C}},
+    {0x50C7C0, (const void *)&cFEng_OutputWarning, "cFEng::OutputWarning", {0x8B, 0x44, 0x24, 0x04, 0x50, 0x68}},
+    {0x52CDC0, (const void *)&cFEng_NotifySoundMessage, "cFEng::NotifySoundMessage", {0xB9, 0xB0, 0x37, 0x86, 0x00, 0xE9}},
+    {0x50C250, (const void *)&GetBaseName, "GetBaseName", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
     {0x51DFC0, (const void *)&FEButtonWidget_Ctor, "FEButtonWidget::FEButtonWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50D530, (const void *)&FEButtonWidget_Show, "FEButtonWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x50D550, (const void *)&FEButtonWidget_Hide, "FEButtonWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
