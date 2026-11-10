@@ -45,6 +45,27 @@ void OptionToggleDraw(const OptionToggle &t, const OptionToggleInfo &info);
 void OptionToggleEnable(OptionToggle &t);
 void OptionToggleDisable(OptionToggle &t);
 
+// Multi-value toggles (FEToggleWidget layout, 0x54). Act: left (0x9120409E) = previous, right (0xB5971BF1) = next,
+// wrapping in [0, max]; then BlinkArrows and Draw (virtual). Draw: name hash, value hash by the value (else 0).
+//   AOAudioMode        791B28: Act 49AB80 / Draw 49ABD0  int 0x83AA50, max 1 (stored after BlinkArrows), name 0x2881AB87,
+//                      values 0xC50FA35F 0x55DA8BF8
+//   GOSpeedoUnits      791C90: 49AE80 / 49AEE0  byte 0x83AA1A: 0 <-> 1 (other values kept), name 0xF86A6272,
+//                      value 0x8569A25F if set else 0x8569AB44
+//   GORacingMiniMap    791CD8: 49AFE0 / 49B040  byte 0x83AA1B, max 1 in game mode 4 else 2, name 0x9FA5EC9E,
+//                      values 0xCCFA 0xF75595F2 0xF4B00E99
+//   GOCareerDifficulty 791D20: 49AF20 / 49AF70  int 0x83AC30, max 2, name 0xBC0E6C55, values 0xDBBB4E8F 0xCAB262DE
+//                      0xDBBCF37C
+//   GOExploringMiniMap 791D68: 49B0B0 / 49B100  byte 0x83AA1C, max 2, name 0xC6269082, values as GORacingMiniMap
+struct OptionCycle {
+    FEToggleWidget base;
+    void AudioModeAct(uint32_t msg);       void AudioModeDraw() const;
+    void SpeedoUnitsAct(uint32_t msg);     void SpeedoUnitsDraw() const;
+    void RacingMiniMapAct(uint32_t msg);   void RacingMiniMapDraw() const;
+    void DifficultyAct(uint32_t msg);      void DifficultyDraw() const;
+    void ExploringMiniMapAct(uint32_t msg); void ExploringMiniMapDraw() const;
+};
+
 #if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(OptionCycle) == 0x54);
 static_assert(sizeof(AOVolumeSlider) == 0x98 && offsetof(OptionToggle, mPlayer) == 0x54);
 #endif

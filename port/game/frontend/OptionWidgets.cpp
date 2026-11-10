@@ -1,6 +1,7 @@
 #include "OptionWidgets.h"
 #include "bridge/Bridge.h"
 #include "FEngUtil.h"
+#include <initializer_list>
 
 const AOVolumeInfo kAOVolumes[7] = {
     {0x7918F8, 0x49A720, 0x49A770, 0x49A790, 0x00, 0x26782C3Eu, "AOMasterVol"},
@@ -87,3 +88,72 @@ void OptionToggleDisable(OptionToggle &t)
     FEngSetScript(t.base.base.mpObject, "Disabled", true);
     FEngSetScript(t.base.base.mpValue, "Disabled", true);
 }
+
+namespace {
+constexpr uint32_t kLeft = 0x9120409Eu, kRight = 0xB5971BF1u;
+int32_t Cycle(int32_t v, uint32_t msg, int32_t max)
+{
+    if (msg == kLeft) { if (--v < 0) v = max; }
+    else if (msg == kRight) { if (++v > max) v = 0; }
+    return v;
+}
+void BlinkDraw(void *w, uint32_t msg)
+{
+    bridge::FEWidget_BlinkArrows(w, msg);   // +0x40
+    bridge::FEWidget_Draw(w);               // +0x0C
+}
+void SetNameValue(const FEToggleWidget &t, uint32_t name, uint32_t value)
+{
+    FEngSetLanguageHash(t.base.mpObject, name);
+    FEngSetLanguageHash(t.base.mpValue, value);
+}
+uint32_t Pick(int32_t v, std::initializer_list<uint32_t> values)
+{
+    return v >= 0 && static_cast<size_t>(v) < values.size() ? values.begin()[v] : 0u;
+}
+int32_t &GameInt(uint32_t a) { return *reinterpret_cast<int32_t *>(bridge::GameByte(a)); }
+}  // namespace
+
+void OptionCycle::AudioModeAct(uint32_t msg)
+{
+    const int32_t v = Cycle(GameInt(0x83AA50), msg, 1);
+    bridge::FEWidget_BlinkArrows(this, msg);
+    GameInt(0x83AA50) = v;
+    bridge::FEWidget_Draw(this);
+}
+void OptionCycle::AudioModeDraw() const { SetNameValue(base, 0x2881AB87u, Pick(GameInt(0x83AA50), {0xC50FA35Fu, 0x55DA8BF8u})); }
+
+void OptionCycle::SpeedoUnitsAct(uint32_t msg)
+{
+    if (msg == kLeft || msg == kRight) {
+        uint8_t &f = *bridge::GameByte(0x83AA1A);
+        if (f == 0) f = 1;
+        else if (f == 1) f = 0;
+    }
+    BlinkDraw(this, msg);
+}
+void OptionCycle::SpeedoUnitsDraw() const { SetNameValue(base, 0xF86A6272u, *bridge::GameByte(0x83AA1A) ? 0x8569A25Fu : 0x8569AB44u); }
+
+void OptionCycle::RacingMiniMapAct(uint32_t msg)
+{
+    const int32_t max = bridge::GameModeFlags() != 4 ? 2 : 1;
+    uint8_t &f = *bridge::GameByte(0x83AA1B);
+    f = static_cast<uint8_t>(Cycle(f, msg, max));
+    BlinkDraw(this, msg);
+}
+void OptionCycle::RacingMiniMapDraw() const { SetNameValue(base, 0x9FA5EC9Eu, Pick(*bridge::GameByte(0x83AA1B), {0xCCFAu, 0xF75595F2u, 0xF4B00E99u})); }
+
+void OptionCycle::DifficultyAct(uint32_t msg)
+{
+    GameInt(0x83AC30) = Cycle(GameInt(0x83AC30), msg, 2);
+    BlinkDraw(this, msg);
+}
+void OptionCycle::DifficultyDraw() const { SetNameValue(base, 0xBC0E6C55u, Pick(GameInt(0x83AC30), {0xDBBB4E8Fu, 0xCAB262DEu, 0xDBBCF37Cu})); }
+
+void OptionCycle::ExploringMiniMapAct(uint32_t msg)
+{
+    uint8_t &f = *bridge::GameByte(0x83AA1C);
+    f = static_cast<uint8_t>(Cycle(f, msg, 2));
+    BlinkDraw(this, msg);
+}
+void OptionCycle::ExploringMiniMapDraw() const { SetNameValue(base, 0xC6269082u, Pick(*bridge::GameByte(0x83AA1C), {0xCCFAu, 0xF75595F2u, 0xF4B00E99u})); }

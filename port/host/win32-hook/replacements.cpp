@@ -583,6 +583,16 @@ template <int I> void THISCALL OptToggle_Act(OptionToggle *self, const char *, u
 template <int I> void THISCALL OptToggle_Draw(OptionToggle *self) { OptionToggleDraw(*self, kOptionToggles[I]); }
 void THISCALL OptToggle_Enable(OptionToggle *self) { OptionToggleEnable(*self); }
 void THISCALL OptToggle_Disable(OptionToggle *self) { OptionToggleDisable(*self); }
+void THISCALL OC_AudioMode_Act(OptionCycle *self, const char *, uint32_t msg) { self->AudioModeAct(msg); }
+void THISCALL OC_AudioMode_Draw(OptionCycle *self) { self->AudioModeDraw(); }
+void THISCALL OC_SpeedoUnits_Act(OptionCycle *self, const char *, uint32_t msg) { self->SpeedoUnitsAct(msg); }
+void THISCALL OC_SpeedoUnits_Draw(OptionCycle *self) { self->SpeedoUnitsDraw(); }
+void THISCALL OC_RacingMiniMap_Act(OptionCycle *self, const char *, uint32_t msg) { self->RacingMiniMapAct(msg); }
+void THISCALL OC_RacingMiniMap_Draw(OptionCycle *self) { self->RacingMiniMapDraw(); }
+void THISCALL OC_Difficulty_Act(OptionCycle *self, const char *, uint32_t msg) { self->DifficultyAct(msg); }
+void THISCALL OC_Difficulty_Draw(OptionCycle *self) { self->DifficultyDraw(); }
+void THISCALL OC_ExploringMiniMap_Act(OptionCycle *self, const char *, uint32_t msg) { self->ExploringMiniMapAct(msg); }
+void THISCALL OC_ExploringMiniMap_Draw(OptionCycle *self) { self->ExploringMiniMapDraw(); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1206,6 +1216,16 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x49AB80, (const void *)&OC_AudioMode_Act, "AOAudioMode::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x49ABD0, (const void *)&OC_AudioMode_Draw, "AOAudioMode::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x49AE80, (const void *)&OC_SpeedoUnits_Act, "GOSpeedoUnits::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x49AEE0, (const void *)&OC_SpeedoUnits_Draw, "GOSpeedoUnits::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x49AFE0, (const void *)&OC_RacingMiniMap_Act, "GORacingMiniMap::Act", {0x8B, 0x15, 0x78, 0x00, 0x85, 0x00}},
+    {0x49B040, (const void *)&OC_RacingMiniMap_Draw, "GORacingMiniMap::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x49AF20, (const void *)&OC_Difficulty_Act, "GOCareerDifficulty::Act", {0xA1, 0x30, 0xAC, 0x83, 0x00, 0x56}},
+    {0x49AF70, (const void *)&OC_Difficulty_Draw, "GOCareerDifficulty::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x49B0B0, (const void *)&OC_ExploringMiniMap_Act, "GOExploringMiniMap::Act", {0x0F, 0xB6, 0x05, 0x1C, 0xAA, 0x83}},
+    {0x49B100, (const void *)&OC_ExploringMiniMap_Draw, "GOExploringMiniMap::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x49AC20, (const void *)&OptToggle_Act<0>, "OOShowPlayers::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
     {0x49AC60, (const void *)&OptToggle_Draw<0>, "OOShowPlayers::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x49ACB0, (const void *)&OptToggle_Act<1>, "OOBadConnectionWarning::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},

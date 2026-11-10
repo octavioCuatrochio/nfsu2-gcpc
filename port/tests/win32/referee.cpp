@@ -3174,6 +3174,41 @@ static void CheckOptionToggles(int iters)
     std::memcpy(reinterpret_cast<void *>(0x836364), &savedP, 4);
 }
 
+// Multi-value option toggles: Act on the real globals (saved / restored; values include out-of-range ones and game
+// mode 4 for the racing mini map) through the fake vtable.
+static void CheckOptionCycles(int iters)
+{
+    struct G { uint32_t addr, size; };
+    const G gs[6] = {{0x83AA50, 4}, {0x83AA1A, 1}, {0x83AA1B, 1}, {0x83AC30, 4}, {0x83AA1C, 1}, {0x850078, 4}};
+    uint8_t saved[6][4];
+    for (int k = 0; k < 6; ++k) std::memcpy(saved[k], reinterpret_cast<void *>(gs[k].addr), gs[k].size);
+    using Act = void (OptionCycle::*)(uint32_t);
+    const struct { uint32_t pc; Act act; const char *name; } fs[5] = {
+        {0x49AB80, &OptionCycle::AudioModeAct, "AOAudioMode"}, {0x49AE80, &OptionCycle::SpeedoUnitsAct, "GOSpeedoUnits"},
+        {0x49AFE0, &OptionCycle::RacingMiniMapAct, "GORacingMiniMap"}, {0x49AF20, &OptionCycle::DifficultyAct, "GOCareerDifficulty"},
+        {0x49B0B0, &OptionCycle::ExploringMiniMapAct, "GOExploringMiniMap"}};
+    static OptionCycle A, B;
+    for (int it = 0; it < iters; ++it) {
+        const auto &f = fs[rng() % 5];
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        A.base.base.base.vtable = brand_fake::vtable;
+        std::memcpy(&B, &A, sizeof A);
+        uint32_t vals[6];
+        for (int k = 0; k < 5; ++k) vals[k] = rng() % 4 ? rng() % 4 : rng();
+        vals[5] = rng() % 2 ? 4u : rng() % 8;
+        auto set = [&] { for (int k = 0; k < 6; ++k) std::memcpy(reinterpret_cast<void *>(gs[k].addr), &vals[k], gs[k].size); };
+        auto get = [&](uint32_t *o) { for (int k = 0; k < 6; ++k) { o[k] = 0; std::memcpy(&o[k], reinterpret_cast<void *>(gs[k].addr), gs[k].size); } };
+        const uint32_t msgs[3] = {0x9120409Eu, 0xB5971BF1u, rng()};
+        const uint32_t m = msgs[rng() % 3];
+        uint32_t sa[6], sb[6];
+        set(); brand_fake::log.clear(); ORIG<void(THISCALL *)(void *, const char *, uint32_t)>(f.pc)(&A, "Pkg", m); auto la = brand_fake::log; get(sa);
+        set(); brand_fake::log.clear(); (B.*f.act)(m); auto lb = brand_fake::log; get(sb);
+        EXPECT(la == lb && std::memcmp(sa, sb, sizeof sa) == 0, "%s::Act %x", f.name, m);
+    }
+    for (int k = 0; k < 6; ++k) std::memcpy(reinterpret_cast<void *>(gs[k].addr), saved[k], gs[k].size);
+}
+
 static void CheckButtonWidget(int iters)
 {
     auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
@@ -4080,6 +4115,7 @@ static int RunAll()
     REFEREE_RUN(CheckBrandScroller(iters));
     REFEREE_RUN(CheckAudioOptions(iters));
     REFEREE_RUN(CheckOptionToggles(iters));
+    REFEREE_RUN(CheckOptionCycles(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));
