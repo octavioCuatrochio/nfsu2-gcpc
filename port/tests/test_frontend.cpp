@@ -2749,7 +2749,7 @@ static void TestScrollBar()
     std::memset(bm, 0x5A, sizeof bm);
     auto *b = reinterpret_cast<FEScrollBar *>(bm);
     CHECK(b->Construct("Pkg", nullptr, true, true, true) == b);   // no base name: all zero
-    CHECK(b->mbVertical == 1 && b->mbResized == 1 && b->mbNoMove == 0 && b->_unknown03 == 1 && b->mpHandle == nullptr && b->mBackingH == 0 && b->_unknown38 == 0);
+    CHECK(b->mbVertical == 1 && b->mbResized == 1 && b->mbNoMove == 0 && b->mbMouseDisabled == 1 && b->mpHandle == nullptr && b->mBackingH == 0 && b->mArrowTime == 0);
     alignas(8) unsigned char om[6][sizeof(FEObject)] = {};
     float od[6][20] = {};
     FEObject *o[6];
@@ -3296,6 +3296,59 @@ static void TestMenuScreenMembers()
     bridge::cFEngInstance()->mpEngine = savedEngine;
 }
 
+static void TestScrollBarMouse()
+{
+    alignas(8) unsigned char bm[sizeof(FEScrollBar)] = {};
+    auto *b = reinterpret_cast<FEScrollBar *>(bm);
+    alignas(8) unsigned char om[4][sizeof(FEObject)] = {};
+    float od[4][20] = {};
+    FEObject *o[4];
+    for (int i = 0; i < 4; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mu32Type = 1; o[i]->mpData = od[i]; }
+    b->mpBacking = o[0]; b->mpHandle = o[1]; b->mpArrow1 = o[2]; b->mpArrow2 = o[3];
+    b->mbVertical = 1;
+    b->mBackingX = 0; b->mBackingY = 0; b->mBackingW = 10; b->mBackingH = 100;
+    od[0][7] = 5; od[0][8] = 50; od[0][14] = 10; od[0][15] = 100;   // backing box: centre (5, 50)
+    od[1][7] = 5; od[1][8] = 30; od[1][14] = 10; od[1][15] = 20;    // handle: y 20..40
+    b->mStep = 10; b->mHandleY = 20;
+    uint8_t *ms = teststub::mouseGlobals;
+    auto setMouse = [&](int32_t x, int32_t y, uint8_t click) { std::memcpy(ms, &x, 4); std::memcpy(ms + 4, &y, 4); ms[0x1C] = 0; ms[0x1E] = click; ms[0x1F] = 0; };
+    // click above the handle on the backing: page 10; below: -10
+    setMouse(325, 245, 1);   // FEng (5, 5)
+    b->HandleMouse();
+    CHECK(b->mHit == 10 && b->mbNoMove == 0);
+    setMouse(325, 285, 1);   // (5, 45)
+    b->HandleMouse();
+    CHECK(b->mHit == -10);
+    // grab the handle at (5, 25): grab offset 5; drag to y 60 -> top 55, clamped to 80 max; moved 35 > step -> 1
+    setMouse(325, 265, 1);
+    b->HandleMouse();
+    CHECK(b->mbNoMove == 1 && b->mDragStartY == 25 && b->mGrabY == 5);
+    setMouse(325, 300, 0);   // (5, 60)
+    b->HandleMouse();
+    CHECK(od[1][8] == 65 && b->mHit == 1);
+    setMouse(325, 400, 0);   // (5, 160): clamped at the bottom (100 - 20)
+    b->HandleMouse();
+    CHECK(od[1][8] == 90);
+    ms[0x1F] = 1;   // released
+    setMouse(325, 400, 0); ms[0x1F] = 1;
+    b->HandleMouse();
+    CHECK(b->mbNoMove == 0);
+    // arrows: arrow 1 clicked after the repeat delay -> -1 and a sound (event 4)
+    od[2][7] = 5; od[2][8] = -10; od[2][14] = 10; od[2][15] = 10;
+    teststub::realTimer = 1000;
+    b->mArrowTime = 0;
+    setMouse(325, 230, 1);   // (5, -10)
+    teststub::delivered.clear();
+    b->HandleMouse();
+    CHECK(b->mHit == -1 && b->mArrowTime == 1000 && teststub::delivered.back().msg == 4);
+    b->HandleMouse();   // within 0.0625 s: no repeat
+    CHECK(b->mHit == -9);
+    b->mbMouseDisabled = 1;
+    CHECK(FEngIsClickedOn(o[2]));
+    teststub::realTimer = 0;
+    std::memset(ms, 0, 0x24);
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -3652,6 +3705,7 @@ int main()
     TestFEngPosition();
     TestButtonWidget();
     TestScrollBar();
+    TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();
     TestTuningSlider();

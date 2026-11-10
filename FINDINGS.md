@@ -51,14 +51,15 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   index up to 32 entries before the glyph table (PC reads it). FEngFont unit complete: ctor/dtor/loader/FindFont,
   NotifyTextureLoading, RenderString 51C110 + glyph quad 51BFC0 (joy tokens are skipped, not drawn, on PC). In-game
   text pixel-identical to the original (A/B diff of a settled screen: grab 3 s and 9 s after input to avoid crossfades).
-- FEScrollBar (FEScrollBar.cpp, PC 0x58, bools at +0..+3; GC 0x64): done (ctor 542AC0, Update 538080, SetPos*
+- FEScrollBar (FEScrollBar.cpp, PC 0x58, bools at +0..+3; GC 0x64): done (+ PC mouse unit: HandleMouse 538130, ArrowClick 52E470,
+  Drag 52E4E0, PageClick 52E670, BlinkArrow1/2 495810/495850; +0x02 = dragging, +0x3C mHit, +0x38 arrow time) (ctor 542AC0, Update 538080, SetPos*
   52E200/52E320, arrow/backing visibility). PC helpers: 4953E0 FindImage by name, 495590 SetWidth, 525DB0 SetHeight.
   FEngSNPrintf 50C960 ignores its size. Referee: originals copy bool bytes raw -> pass 0/1 low bytes.
 - FESliderWidget (FEWidget.cpp): PC 0x98 = FEStatWidget + arrows +0x4C/+0x50 + cSlider +0x54 (0x44, virtuals via
   bridge::cSlider_*). Done: ctor 51E840, sound 50D6F0, Position/Show/Hide/SetFocus/UnsetFocus. Only on options screens
   (in-game unreached); referee uses a fake cSlider vtable. cSlider (vtable 78F544) done too (Init/Update/Draw*/Toggle/SetCurValue/Highlight;
   in-game Init+DrawHorizontal run in the race). FEngFindString 537A10 done. PreviewSlider (79AE30, 0x4C) / ThreeStageSlider
-  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next (whole files): FEScrollBar PC mouse members (538130, 495810/495850, 52E670, 52D100), FEWidget file leftovers, then TuningSlidersMenu.
+  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next (whole files): FEWidget file leftovers (FEButtonWidget/FELabelWidget/FEStatWidget small members), then TuningSlidersMenu.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

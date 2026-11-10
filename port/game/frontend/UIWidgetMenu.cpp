@@ -605,8 +605,8 @@ void UIWidgetMenu::HandleMouse()
 
 void UIWidgetMenu::HandleScrollBarMouse()
 {
-    bridge::FEScrollBar_HandleMouse(&mScrollBar);   // 538130: sets _unknown3C (-1 up arrow, 1 down arrow, ...)
-    const int32_t hit = static_cast<int32_t>(mScrollBar._unknown3C);
+    mScrollBar.HandleMouse();   // sets mHit (-1 up arrow, 1 down arrow, ...)
+    const int32_t hit = mScrollBar.mHit;
     if (hit == -1) {
         if (mbWrapScroll) {
             ScrollWrapped(-1);
@@ -614,7 +614,7 @@ void UIWidgetMenu::HandleScrollBarMouse()
             Scroll(-1);
             if (mpCurrent == FromNode(mWidgets.next)) return;   // already at the top: no blink
         }
-        bridge::FEScrollBar_BlinkArrow1(&mScrollBar);
+        mScrollBar.BlinkArrow1();
     } else if (hit == 1) {
         if (mbWrapScroll) {
             ScrollWrapped(1);
@@ -622,7 +622,7 @@ void UIWidgetMenu::HandleScrollBarMouse()
             Scroll(1);
             if (mpCurrent == FromNode(mWidgets.prev)) return;
         }
-        bridge::FEScrollBar_BlinkArrow2(&mScrollBar);
+        mScrollBar.BlinkArrow2();
     } else {
         mScrollBar.Update(1, static_cast<int32_t>(mCurrentIndex - 1), static_cast<int32_t>(GetWidgetIndex(mpCurrent)));
     }

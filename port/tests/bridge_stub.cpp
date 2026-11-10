@@ -468,18 +468,12 @@ bool cSlider_Update(void *s, uint32_t m) { teststub::delivered.push_back({"slide
 #ifdef NFSU2_REFEREE
 void FEWidget_CheckMouse(void *w, const char *p, float x, float y) { (*reinterpret_cast<void(__thiscall ***)(void *, const char *, float, float)>(w))[0x08 / 4](w, p, x, y); }
 void MenuScreen_Setup(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x10 / 4](s); }
-void FEScrollBar_HandleMouse(void *b) { reinterpret_cast<void(__thiscall *)(void *)>(0x538130)(b); }
-void FEScrollBar_BlinkArrow1(void *b) { reinterpret_cast<void(__thiscall *)(void *)>(0x495810)(b); }
-void FEScrollBar_BlinkArrow2(void *b) { reinterpret_cast<void(__thiscall *)(void *)>(0x495850)(b); }
 int32_t RealTimer() { return *reinterpret_cast<const int32_t *>(0x8651AC); }
 int32_t KeyboardCreationTimer() { return *reinterpret_cast<const int32_t *>(0x83A9C8); }
 float KeyboardDelaySeconds() { return *reinterpret_cast<const float *>(0x7F942C); }
 #else
 void FEWidget_CheckMouse(void *w, const char *, float x, float y) { teststub::delivered.push_back({"checkmouse", w, nullptr, static_cast<uint32_t>(x), static_cast<uint32_t>(y)}); }
 void MenuScreen_Setup(void *s) { teststub::delivered.push_back({"setup", s, nullptr, 0, 0}); }
-void FEScrollBar_HandleMouse(void *b) { teststub::delivered.push_back({"sb mouse", b, nullptr, 0, 0}); }
-void FEScrollBar_BlinkArrow1(void *b) { teststub::delivered.push_back({"sb blink1", b, nullptr, 0, 0}); }
-void FEScrollBar_BlinkArrow2(void *b) { teststub::delivered.push_back({"sb blink2", b, nullptr, 0, 0}); }
 int32_t RealTimer() { return teststub::realTimer; }
 int32_t KeyboardCreationTimer() { return 0; }
 float KeyboardDelaySeconds() { return 0.75f; }

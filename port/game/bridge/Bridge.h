@@ -233,9 +233,6 @@ void FEWidget_UnsetFocus(void *widget);                         // widget vtable
 void FEWidget_SetPosY(void *widget, float y);                   // widget vtable +0x34
 void FEWidget_CheckMouse(void *widget, const char *pkg, float x, float y);   // widget vtable +0x08
 void MenuScreen_Setup(void *screen);                            // screen vtable +0x10 (UIWidgetMenu Setup)
-void FEScrollBar_HandleMouse(void *bar);                        // PC 538130 (__thiscall): sets +0x3C hit code
-void FEScrollBar_BlinkArrow1(void *bar);                        // PC 495810: "Blink" on +0x48 unless running
-void FEScrollBar_BlinkArrow2(void *bar);                        // PC 495850: "Blink" on +0x4C
 void FEDateWidget_SetDate(void *widget);                        // PC 538060 (__thiscall)
 void FEInputWidget_SetText(void *widget, const char *text);     // PC 4957D0 (__thiscall)
 void FEInputWidget_SetInputFocus(void *widget);                 // PC 51EB60 (__thiscall)

@@ -500,3 +500,15 @@ void FEngSetInvisible(const char *pkg, const char *obj) { FEngSetInvisible(FEngF
 void FEngSetInvisible(const char *pkg, uint32_t objHash) { FEngSetInvisible(FEngFindObject(pkg, objHash)); }
 void FEngSetVisible(const char *pkg, const char *obj) { FEngSetVisible(FEngFindObject(pkg, FEHashUpper(obj))); }
 void FEngSetVisible(const char *pkg, uint32_t objHash) { FEngSetVisible(FEngFindObject(pkg, objHash)); }
+
+bool FEngIsClickedOn(const FEObject *obj)
+{
+    const uint8_t *ms = bridge::MouseGlobals();
+    int32_t mxi, myi;
+    std::memcpy(&mxi, ms, 4);
+    std::memcpy(&myi, ms + 4, 4);
+    const float x = static_cast<float>(static_cast<long double>(mxi) - 320.0f);
+    const float y = static_cast<float>(static_cast<long double>(myi) - 240.0f);
+    const uint8_t clicked = ms[0x1C] ? ms[0x21] : ms[0x1E];
+    return clicked && FEngTestForIntersection(x, y, obj);
+}

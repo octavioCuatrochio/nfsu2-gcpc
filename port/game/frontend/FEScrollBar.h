@@ -9,19 +9,18 @@ struct FEObject;
 struct FEScrollBar {
     uint8_t mbVertical;        // +0x00 (GC +0x00) handle moves in y (else x)
     uint8_t mbResized;         // +0x01 (GC +0x04) handle size follows visible / total
-    uint8_t mbNoMove;          // +0x02 (GC +0x08) compute the position but don't move the handle
-    uint8_t _unknown03;        // +0x03 (GC +0x0C) 5th ctor argument, unused here
-    uint32_t _unknown04;       // +0x04 (GC +0x10)
-    uint32_t _unknown08;       // +0x08 (GC +0x14)
+    uint8_t mbNoMove;          // +0x02 (GC +0x08) PC: the handle is being dragged (Update doesn't move it then)
+    uint8_t mbMouseDisabled;   // +0x03 (GC +0x0C) 5th ctor argument: HandleMouse skips clicks
+    float mDragStartX;         // +0x04 (GC +0x10) mouse position when the drag started (FEng coordinates)
+    float mDragStartY;         // +0x08 (GC +0x14)
     float mHandleX, mHandleY;  // +0x0C (GC +0x18) last computed handle position (axis of travel only)
-    uint32_t _unknown14;       // +0x14 (GC +0x20)
-    uint32_t _unknown18;       // +0x18 (GC +0x24)
+    float mGrabX, mGrabY;      // +0x14 (GC +0x20) |handle top-left - drag start| at the click
     float mBackingX, mBackingY;   // +0x1C (GC +0x28) backing top-left
     float mBackingW, mBackingH;   // +0x24 (GC +0x30) backing size
     float mHandleW, mHandleH;     // +0x2C (GC +0x38) handle size
     float mStep;               // +0x34 (GC +0x40) travel per item (not set by the ctor)
-    uint32_t _unknown38;       // +0x38 (GC +0x44) always 0
-    uint32_t _unknown3C;       // +0x3C (GC +0x48) never set
+    int32_t mArrowTime;        // +0x38 (GC +0x44) RealTimer of the last arrow click (PC)
+    int32_t mHit;              // +0x3C (GC +0x48) PC mouse result: -1/1 arrow or drag step, -10/10 page, -9 none
     FEObject *mpBacking;       // +0x40 (GC +0x4C)
     FEObject *mpHandle;        // +0x44
     FEObject *mpArrow1;        // +0x48
@@ -42,6 +41,13 @@ struct FEScrollBar {
     void SetPosNonResized(int32_t visible, int32_t total, int32_t index);
     void SetArrowVisibility(int32_t arrow, bool visible);                    // GC 80155BB0 / PC 50D820: 1 or 2
     void SetBackingVisibility(bool visible);                                 // GC 80155C20 / PC 50D880
+    // PC-only mouse handling (screens read mHit afterwards)
+    void HandleMouse();        // PC 538130: handle click starts a drag, backing click pages; arrows repeat after 0.0625 s
+    void ArrowClick();         // PC 52E470: arrow 1 -> mHit -1 (sound event 4), arrow 2 -> 1 (event 5)
+    void Drag();               // PC 52E4E0: handle follows the mouse inside the backing; mHit +-1 per step moved
+    void PageClick();          // PC 52E670: click above / left of the handle -> 10, below / right -> -10
+    void BlinkArrow1();        // PC 495810: "Blink" on arrow 1 unless already blinking
+    void BlinkArrow2();        // PC 495850
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

@@ -2811,6 +2811,69 @@ static void CheckMenuScreenMembers(int iters)
     flag = savedFlag; handle = savedHandle;
 }
 
+// FEScrollBar PC mouse members on synthetic boxes with random mouse state (sound table entries for events 4/5 set to
+// -1: the sound player doesn't exist in DllMain), both precisions.
+static void CheckScrollBarMouse(int iters)
+{
+    using M0 = void(THISCALL *)(FEScrollBar *);
+    const M0 o0[4] = {ORIG<M0>(0x538130), ORIG<M0>(0x52E470), ORIG<M0>(0x52E4E0), ORIG<M0>(0x52E670)};
+    auto oClicked = ORIG<uint8_t(__cdecl *)(const FEObject *)>(0x52D100);
+    struct Arena { FEScrollBar b; unsigned char om[4][sizeof(FEObject)]; float d[4][20]; };
+    static Arena A, B;
+    uint8_t *mouse = reinterpret_cast<uint8_t *>(0x8763D4);
+    uint8_t savedMouse[0x24];
+    std::memcpy(savedMouse, mouse, sizeof savedMouse);
+    int8_t *snd = reinterpret_cast<int8_t *>(0x837FE0);
+    const int8_t s4 = snd[4 * 0x1B], s5 = snd[5 * 0x1B];
+    snd[4 * 0x1B] = snd[5 * 0x1B] = -1;
+    int32_t &timer = *reinterpret_cast<int32_t *>(0x8651AC);
+    const int32_t savedTimer = timer;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            A.b.mbVertical = rng() % 2; A.b.mbNoMove = rng() % 3 == 0; A.b.mbMouseDisabled = rng() % 4 == 0;
+            for (float *f : {&A.b.mBackingX, &A.b.mBackingY, &A.b.mBackingW, &A.b.mBackingH, &A.b.mHandleX, &A.b.mHandleY,
+                             &A.b.mGrabX, &A.b.mGrabY, &A.b.mStep}) *f = RefCoord() / 2.0f;
+            A.b.mArrowTime = static_cast<int32_t>(rng() % 2000);
+            for (int k = 0; k < 4; ++k) {
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                o->mu32Type = rng() % 3 ? 1 : 3;
+                for (float &f : A.d[k]) f = RefCoord() / 3.0f;
+            }
+            std::memcpy(&B, &A, sizeof A);
+            FEObject **sa[4] = {&A.b.mpBacking, &A.b.mpHandle, &A.b.mpArrow1, &A.b.mpArrow2};
+            FEObject **sb[4] = {&B.b.mpBacking, &B.b.mpHandle, &B.b.mpArrow1, &B.b.mpArrow2};
+            for (int k = 0; k < 4; ++k) {
+                *sa[k] = reinterpret_cast<FEObject *>(A.om[k]); reinterpret_cast<FEObject *>(A.om[k])->mpData = A.d[k];
+                *sb[k] = reinterpret_cast<FEObject *>(B.om[k]); reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            }
+            for (size_t i = 0; i < sizeof savedMouse; ++i) mouse[i] = static_cast<uint8_t>(rng() % 3 == 0);
+            int32_t mx = static_cast<int32_t>(rng() % 640), my = static_cast<int32_t>(rng() % 480);
+            std::memcpy(mouse, &mx, 4); std::memcpy(mouse + 4, &my, 4);
+            timer = static_cast<int32_t>(rng() % 3000);
+            const int op = static_cast<int>(rng() % 5);
+            uint32_t ra = 0, rb = 0;
+            if (op < 4) o0[op](&A.b); else ra = oClicked(*sa[rng() % 4]);
+            if (op == 0) B.b.HandleMouse(); else if (op == 1) B.b.ArrowClick(); else if (op == 2) B.b.Drag(); else if (op == 3) B.b.PageClick();
+            else rb = 0;
+            if (op == 4) {   // same object index on both sides
+                for (int k = 0; k < 4; ++k) if (static_cast<uint32_t>(FEngIsClickedOn(*sa[k])) != (oClicked(*sa[k]) & 1)) ra = 99;
+            }
+            for (int k = 0; k < 4; ++k) { *sb[k] = *sa[k]; reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k]; }
+            EXPECT(ra == rb || op == 4 ? ra != 99 : false, "FEScrollBar mouse result op %d", op);
+            EXPECT(std::memcmp(&A, &B, offsetof(Arena, d)) == 0 && std::memcmp(A.d, B.d, sizeof A.d) == 0, "FEScrollBar mouse op %d pc=%x", op, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+    std::memcpy(mouse, savedMouse, sizeof savedMouse);
+    snd[4 * 0x1B] = s4; snd[5 * 0x1B] = s5;
+    timer = savedTimer;
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -3694,6 +3757,7 @@ static int RunAll()
     REFEREE_RUN(CheckLocalize(iters));
     REFEREE_RUN(CheckMenuScreen(iters));
     REFEREE_RUN(CheckMenuScreenMembers(iters));
+    REFEREE_RUN(CheckScrollBarMouse(iters));
     REFEREE_RUN(CheckUIWidgetMenu(iters));
     REFEREE_RUN(CheckSliderObjects(iters));
     REFEREE_RUN(CheckCSlider(iters));

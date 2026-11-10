@@ -415,6 +415,13 @@ void __cdecl FEngSetInvisibleName_Hook(const char *p, const char *o) { FEngSetIn
 void __cdecl FEngSetInvisiblePkg_Hook(const char *p, uint32_t h) { FEngSetInvisible(p, h); }
 void __cdecl FEngSetVisibleName_Hook(const char *p, const char *o) { FEngSetVisible(p, o); }
 void __cdecl FEngSetVisiblePkg_Hook(const char *p, uint32_t h) { FEngSetVisible(p, h); }
+void THISCALL FEScrollBar_HandleMouse(FEScrollBar *self) { self->HandleMouse(); }
+void THISCALL FEScrollBar_ArrowClick(FEScrollBar *self) { self->ArrowClick(); }
+void THISCALL FEScrollBar_Drag(FEScrollBar *self) { self->Drag(); }
+void THISCALL FEScrollBar_PageClick(FEScrollBar *self) { self->PageClick(); }
+void THISCALL FEScrollBar_BlinkArrow1(FEScrollBar *self) { self->BlinkArrow1(); }
+void THISCALL FEScrollBar_BlinkArrow2(FEScrollBar *self) { self->BlinkArrow2(); }
+uint32_t __cdecl FEngIsClickedOn_Hook(const FEObject *o) { return FEngIsClickedOn(o); }
 MenuScreen *THISCALL MenuScreen_Ctor(MenuScreen *self, const ScreenConstructorData *d) { return self->Construct(d); }
 MenuScreen *THISCALL MenuScreen_ScalarDtor(MenuScreen *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 uint32_t __cdecl IsOverlayPackage_Hook(const char *p) { return IsOverlayPackage(p); }
@@ -997,6 +1004,13 @@ const Replacement kReplacements[] = {
     {0x4954E0, (const void *)&FEngSetInvisiblePkg_Hook, "FEngSetInvisible(pkg,hash)", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}},
     {0x495500, (const void *)&FEngSetVisibleName_Hook, "FEngSetVisible(pkg,name)", {0x8B, 0x44, 0x24, 0x08, 0x50, 0xE8}},
     {0x495520, (const void *)&FEngSetVisiblePkg_Hook, "FEngSetVisible(pkg,hash)", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}},
+    {0x538130, (const void *)&FEScrollBar_HandleMouse, "FEScrollBar::HandleMouse", {0x83, 0xEC, 0x08, 0x56, 0x8B, 0xF1}},
+    {0x52E470, (const void *)&FEScrollBar_ArrowClick, "FEScrollBar::ArrowClick", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x48}},
+    {0x52E4E0, (const void *)&FEScrollBar_Drag, "FEScrollBar::Drag", {0x83, 0xEC, 0x10, 0xDB, 0x05, 0xD4}},
+    {0x52E670, (const void *)&FEScrollBar_PageClick, "FEScrollBar::PageClick", {0x83, 0xEC, 0x10, 0xDB, 0x05, 0xD4}},
+    {0x495810, (const void *)&FEScrollBar_BlinkArrow1, "FEScrollBar::BlinkArrow1", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x48}},
+    {0x495850, (const void *)&FEScrollBar_BlinkArrow2, "FEScrollBar::BlinkArrow2", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x4C}},
+    {0x52D100, (const void *)&FEngIsClickedOn_Hook, "FEngIsClickedOn", {0x83, 0xEC, 0x08, 0xDB, 0x05, 0xD4}},
     {0x551DE0, (const void *)&MenuScreen_Ctor, "MenuScreen::MenuScreen", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x33}},
     {0x51DC60, (const void *)&MenuScreen_ScalarDtor, "MenuScreen::~MenuScreen", {0xF6, 0x44, 0x24, 0x04, 0x01, 0x56}},
     {0x49FFA0, (const void *)&IsOverlayPackage_Hook, "IsOverlayPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x68}},
