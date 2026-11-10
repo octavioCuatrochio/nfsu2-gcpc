@@ -8,6 +8,7 @@
 #include "frontend/FEMessageResponse.h"
 #include "frontend/FEButtonMap.h"
 #include "frontend/FERender.h"
+#include "frontend/FEngUtil.h"
 #include <cmath>
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
@@ -2234,6 +2235,50 @@ static void TestCFEngJoy()
     dl.clear();
 }
 
+// FEng helper functions: texture hash, visibility (group recursion, dirty flag), script finished, size.
+static void TestFEngUtil()
+{
+    alignas(8) unsigned char gm[sizeof(FEGroup)] = {}, om[2][sizeof(FEObject)] = {};
+    auto *g = reinterpret_cast<FEGroup *>(gm);
+    FEObject *o[2] = {reinterpret_cast<FEObject *>(om[0]), reinterpret_cast<FEObject *>(om[1])};
+    float data[3][20] = {};
+    g->obj.mu32Type = 5;
+    g->obj.mpData = data[0];
+    g->mChildren.vtable = &teststub::feMinListVTable;
+    for (int i = 0; i < 2; ++i) { o[i]->mpData = data[i + 1]; g->mChildren.AddTail(&o[i]->node); }
+    CHECK(FEngGetTextureHash(nullptr) == 0);
+    FEngSetTextureHash(o[0], 0);              // unchanged: not dirty
+    CHECK(o[0]->mu32Flags == 0);
+    FEngSetTextureHash(o[0], 0x1234);
+    CHECK(FEngGetTextureHash(o[0]) == 0x1234 && o[0]->mu32Flags == kFEObjectDirty);
+    o[0]->mu32Flags = 0;
+    CHECK(FEngIsVisible(&g->obj) == 1 && FEngIsVisible(nullptr) == 0);
+    o[1]->mu32Flags = 1;                      // already hidden: no dirty
+    FEngSetInvisible(&g->obj);
+    CHECK(g->obj.mu32Flags == (kFEObjectDirty | 1) && o[0]->mu32Flags == (kFEObjectDirty | 1) && o[1]->mu32Flags == 1 && !FEngIsVisible(o[0]));
+    for (FEObject *x : {&g->obj, o[0], o[1]}) x->mu32Flags &= 1;
+    FEngSetVisible(&g->obj);
+    CHECK(g->obj.mu32Flags == kFEObjectDirty && o[1]->mu32Flags == kFEObjectDirty);
+    teststub::useOldDirtyFlag = true;         // old dirty behaviour: always marks
+    o[1]->mu32Flags = 0;
+    FEngSetVisible(o[1]);
+    CHECK(o[1]->mu32Flags == kFEObjectDirty);
+    teststub::useOldDirtyFlag = false;
+    FEngSetSize(o[0], 3.0f, 4.0f);
+    CHECK(data[1][14] == 3.0f && data[1][15] == 4.0f);
+    FEngSetSize(nullptr, 1, 1);
+    alignas(8) unsigned char sm[sizeof(FEScript)] = {};
+    auto *sc = reinterpret_cast<FEScript *>(sm);
+    sc->mu32Id = FEHashUpper("Fade");
+    sc->mi32Length = 10;
+    sc->mi32Time = 9;
+    o[0]->mScripts.vtable = &teststub::feMinListVTable;
+    o[0]->mScripts.AddTail(&sc->node);
+    CHECK(!FEngIsScriptFinished(o[0], "fade") && !FEngIsScriptFinished(o[0], "Other") && !FEngIsScriptFinished(nullptr, "Fade"));
+    sc->mi32Time = 10;
+    CHECK(FEngIsScriptFinished(o[0], "FADE"));
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -2406,6 +2451,7 @@ int main()
     TestRender();
     TestEngineConstructTypes();
     TestCFEngJoy();
+    TestFEngUtil();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();

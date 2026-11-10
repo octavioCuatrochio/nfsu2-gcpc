@@ -23,6 +23,8 @@
 #include "frontend/FEButtonMap.h"
 #include "frontend/FERender.h"
 #include "frontend/FETypeLib.h"
+#include "frontend/FEngUtil.h"
+#include "frontend/FEScript.h"
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
@@ -1608,6 +1610,87 @@ static void CheckHandleJoy(int iters)
     }
 }
 
+// FEng helpers (texture hash, visibility with group recursion, script finished, size) on random object trees.
+static void CheckFEngUtil(int iters)
+{
+    auto oGetTex = ORIG<uint32_t(__cdecl *)(const FEObject *)>(0x50C980);
+    auto oSetTex = ORIG<void(__cdecl *)(FEObject *, uint32_t)>(0x50C990);
+    auto oIsVis = ORIG<int32_t(__cdecl *)(const FEObject *)>(0x50C9E0);
+    auto oInvis = ORIG<void(__cdecl *)(FEObject *)>(0x50CA00);
+    auto oVis = ORIG<void(__cdecl *)(FEObject *)>(0x50CA50);
+    auto oFin = ORIG<uint32_t(__cdecl *)(const FEObject *, const char *)>(0x50CAB0);
+    auto oSize = ORIG<void(__cdecl *)(FEObject *, float, float)>(0x50CB00);
+    static const char *const names[] = {"Fade_In", "fade_in", "Highlight", "Init", "", "UnHighlight"};
+    struct Arena { unsigned char om[6][sizeof(FEGroup)]; float data[6][20]; unsigned char sm[4][sizeof(FEScript)]; };
+    static Arena A, B;
+    for (int it = 0; it < iters; ++it) {
+        Arena &a = A;
+        std::memset(&a, 0, sizeof a);
+        FEObject *o[6];
+        for (int i = 0; i < 6; ++i) {
+            o[i] = reinterpret_cast<FEObject *>(a.om[i]);
+            o[i]->mpData = a.data[i];
+            o[i]->mu32Flags = rng() & 0x400003;
+            o[i]->mu32Type = rng() % 3 ? 1 : 5;
+            o[i]->_unknown24 = rng() % 3;
+        }
+        // o[0] group with children 1..3; o[1] group (if type 5) with children 4..5
+        auto link = [&](int grp, std::initializer_list<int> kids) {
+            auto *g = reinterpret_cast<FEGroup *>(o[grp]);
+            FEObject *prev = nullptr;
+            for (int k : kids) {
+                if (prev) prev->node.next = &o[k]->node; else g->mChildren.head = &o[k]->node;
+                prev = o[k];
+                ++g->mChildren.count;
+            }
+        };
+        o[0]->mu32Type = 5;
+        link(0, {1, 2, 3});
+        if (o[1]->mu32Type == 5) link(1, {4, 5});
+        for (int k = 0; k < 4; ++k) {   // scripts on o[2]
+            auto *sc = reinterpret_cast<FEScript *>(a.sm[k]);
+            sc->mu32Id = FEHashUpper(names[rng() % 6]);
+            sc->mi32Length = static_cast<int32_t>(rng() % 5) - 1;
+            sc->mi32Time = static_cast<int32_t>(rng() % 5) - 1;
+            if (k) reinterpret_cast<FEScript *>(a.sm[k - 1])->node.next = &sc->node; else o[2]->mScripts.head = &sc->node;
+        }
+        // B mirrors A at a different address: rebase every pointer
+        std::memcpy(&B, &A, sizeof A);
+        const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+        auto rb = [&](void *p) -> void * {
+            uint8_t *q = static_cast<uint8_t *>(p);
+            return (q >= reinterpret_cast<uint8_t *>(&A) && q < reinterpret_cast<uint8_t *>(&A) + sizeof A) ? q + delta : p;
+        };
+        FEObject *ob[6];
+        for (int i = 0; i < 6; ++i) {
+            ob[i] = reinterpret_cast<FEObject *>(B.om[i]);
+            ob[i]->mpData = rb(ob[i]->mpData);
+            ob[i]->node.next = static_cast<FEMinNode *>(rb(ob[i]->node.next));
+            ob[i]->mScripts.head = static_cast<FEMinNode *>(rb(ob[i]->mScripts.head));
+            auto *g = reinterpret_cast<FEGroup *>(ob[i]);
+            g->mChildren.head = static_cast<FEMinNode *>(rb(g->mChildren.head));
+        }
+        for (int k = 0; k < 4; ++k) { auto *sc = reinterpret_cast<FEScript *>(B.sm[k]); sc->node.next = static_cast<FEMinNode *>(rb(sc->node.next)); }
+        const int which = static_cast<int>(rng() % 6), op = static_cast<int>(rng() % 7);
+        const uint32_t v = rng() % 3;
+        const char *nm = names[rng() % 6];
+        const float w = static_cast<float>(rng() % 100), h = static_cast<float>(rng() % 100);
+        uint32_t ra = 0, rbv = 0;
+        switch (op) {
+        case 0: ra = oGetTex(o[which]); rbv = FEngGetTextureHash(ob[which]); break;
+        case 1: oSetTex(o[which], v); FEngSetTextureHash(ob[which], v); break;
+        case 2: ra = static_cast<uint32_t>(oIsVis(o[which])); rbv = static_cast<uint32_t>(FEngIsVisible(ob[which])); break;
+        case 3: oInvis(o[which]); FEngSetInvisible(ob[which]); break;
+        case 4: oVis(o[which]); FEngSetVisible(ob[which]); break;
+        case 5: ra = oFin(o[which], nm) & 0xFF; rbv = FEngIsScriptFinished(ob[which], nm); break;
+        default: oSize(o[which], w, h); FEngSetSize(ob[which], w, h); break;
+        }
+        bool same = ra == rbv;
+        for (int i = 0; i < 6; ++i) same &= o[i]->mu32Flags == ob[i]->mu32Flags && o[i]->_unknown24 == ob[i]->_unknown24 && std::memcmp(A.data[i], B.data[i], sizeof A.data[i]) == 0;
+        EXPECT(same, "FEng util op %d obj %d: %x vs %x", op, which, ra, rbv);
+    }
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2187,6 +2270,7 @@ static int RunAll()
     REFEREE_RUN(CheckRender(iters * 3));
     REFEREE_RUN(CheckTypeLib(iters * 5));
     REFEREE_RUN(CheckHandleJoy(iters));
+    REFEREE_RUN(CheckFEngUtil(iters * 5));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));
