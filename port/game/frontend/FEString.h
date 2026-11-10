@@ -24,6 +24,8 @@ struct FEString {
     FEString *Clone(bool deep) const;                                          // GC 8030D1B8 / PC 495710
 
     void SetLabel(const char *label);       // GC 801429EC / PC 519F40
+    // PC 4FE940 (GC: inlined): a new hash marks the object (flag 0x400000); the label callback runs either way.
+    void SetLabelHash(uint32_t hash);
     void SetString(const uint16_t *text);   // GC 8014290C / PC 535F40
     void SetString(const char *packed);     // GC 8014297C / PC 535FE0
 

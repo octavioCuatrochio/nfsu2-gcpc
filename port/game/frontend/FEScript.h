@@ -60,6 +60,9 @@ struct FEScriptEvent {               // 0xC bytes, sorted by time
 };
 
 // Resizable event array (count + new[] pointer).
+// new[] track array (count cookie at [-4]): destroy last to first and free (PC eh vector dtor + 52B960).
+void DestroyTrackArray(FEKeyTrack *tracks);
+
 struct FEScriptEventList {
     uint32_t mu32Count;              // +0x0
     FEScriptEvent *mpEvents;         // +0x4

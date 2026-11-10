@@ -25,6 +25,7 @@
 #include "frontend/FEScript.h"
 #include "frontend/FEMath.h"
 #include "frontend/FEPackage.h"
+#include "frontend/FEString.h"
 #include "frontend/FEPackageReader.h"
 #include "frontend/FEngine.h"
 #include "frontend/cFEng.h"
@@ -1096,6 +1097,27 @@ static void CheckReaderTypeSizes(int iters)
     }
 }
 
+// FEPackageReader::ProcessStringTag with the non-allocating tags (SH -> FEString::SetLabelHash, Sj/Sl/Sw, unknown).
+static void CheckReaderStringTags(int iters)
+{
+    auto oTag = ORIG<void(THISCALL *)(FEPackageReader *, const uint8_t *)>(0x534FC0);
+    static const uint16_t ids[] = {0x4853, 0x6A53, 0x6C53, 0x7753, 0x1234, 0x6253 + 1};
+    for (int it = 0; it < iters; ++it) {
+        alignas(8) uint8_t a[sizeof(FEString)], b[sizeof(FEString)];
+        for (size_t i = 0; i < sizeof a; ++i) a[i] = b[i] = static_cast<uint8_t>(rng());
+        FEPackageReader ra{}, rb{};
+        ra.mpCurrentObject = reinterpret_cast<FEObject *>(a);
+        rb.mpCurrentObject = reinterpret_cast<FEObject *>(b);
+        uint8_t tag[8];
+        const uint16_t id = ids[rng() % 6];
+        uint32_t v = rng() % 3 == 0 ? reinterpret_cast<FEString *>(a)->mu32LabelHash : rng();
+        std::memcpy(tag, &id, 2); tag[2] = 4; tag[3] = 0; std::memcpy(tag + 4, &v, 4);
+        oTag(&ra, tag);
+        rb.ProcessStringTag(tag);
+        EXPECT(std::memcmp(a, b, sizeof a) == 0, "ProcessStringTag %04X", id);
+    }
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1596,6 +1618,7 @@ static int RunAll()
     CheckPackageDataCtor(2000);
     CheckPackageCtor(500);
     CheckReaderTypeSizes(20000);
+    CheckReaderStringTags(5000);
     CheckPackageManager(iters);
     CheckFENodeFind(iters);
     CheckUpdateObjectTracks(iters);

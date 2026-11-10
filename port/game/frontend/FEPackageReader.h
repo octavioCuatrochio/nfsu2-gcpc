@@ -63,6 +63,15 @@ struct FEPackageReader {
     // GC 8013B2E0 / PC 534DF0 (ret 4): new object of factory `type` (0: null; 3, 8, >11: plain FEObject), type set,
     // data block from ObjDataPool sized by the "TypS" table (0 if absent). Type 6 gets the game interface at +0x5C.
     FEObject *CreateObject(uint32_t type);
+    // GC 8013BA78 / PC 534FC0 (ret 4): Sb buffer length, SL label (only with mbFlag09), SH label hash, St text,
+    // Sj/Sl/Sw string +0x6C/+0x70/+0x74.
+    void ProcessStringTag(const uint8_t *tag);
+    // GC 8013C44C / PC 5515E0 (ret 8): one script per chunk. Sn new (name only with mbFlag0A), Sh header (id,
+    // length, flags, track count), SI existing script by id, Sl/Sf/Sc length/flags/chained id, EV events; per track:
+    // FI header, Ti track by data index (missing ones are inserted from the type library, ordered by data offset),
+    // Ta/Tt/To flags/interp/data index, Tb base key, Kd keys (the first replaces the base key). Unless
+    // mbMergeResponses, the script is appended to the object; id 0x1744B3 becomes current (no move-to setup).
+    bool ReadScriptTags(const uint8_t *tags, uint32_t size);
     // GC 8013D134 / PC 5186C0 (ret 0xC): library reference -> library package (FEngine::FindLibraryPackage) -> object.
     bool FindReferencedObject(uint32_t refHash, FEObject **obj, FEPackage **pkg);
 };

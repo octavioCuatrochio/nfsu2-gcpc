@@ -241,6 +241,9 @@ bool THISCALL FEPackageReader_ReadReferencedPackagesChunk(FEPackageReader *self)
 bool THISCALL FEPackageReader_ReadObjectChunk(FEPackageReader *self) { return self->ReadObjectChunk(); }
 bool THISCALL FEPackageReader_ReadObjectTags(FEPackageReader *self, const uint8_t *t, uint32_t n) { return self->ReadObjectTags(t, n); }
 FEObject *THISCALL FEPackageReader_CreateObject(FEPackageReader *self, uint32_t t) { return self->CreateObject(t); }
+void THISCALL FEPackageReader_ProcessStringTag(FEPackageReader *self, const uint8_t *t) { self->ProcessStringTag(t); }
+bool THISCALL FEPackageReader_ReadScriptTags(FEPackageReader *self, const uint8_t *t, uint32_t n) { return self->ReadScriptTags(t, n); }
+void THISCALL FEString_SetLabelHash(FEString *self, uint32_t h) { self->SetLabelHash(h); }
 bool THISCALL FEPackageReader_FindReferencedObject(FEPackageReader *self, uint32_t h, FEObject **o, FEPackage **p) { return self->FindReferencedObject(h, o, p); }
 FEPackage *THISCALL FEngine_FindLibraryPackageHook(FEngine *self, uint32_t h) { return FEngine_FindLibraryPackage(self, h); }
 void THISCALL FEMessageTargets_SetCapacity(FEMessageTargets *self, uint32_t n) { self->SetCapacity(n); }
@@ -541,6 +544,9 @@ const Replacement kReplacements[] = {
     {0x54D1D0, (const void *)&FEPackageReader_ReadMessageResponseTags, "FEPackageReader::ReadMessageResponseTags", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x53}},
     {0x518190, (const void *)&FEPackage_SetNumLibraryRefs, "FEPackage::SetNumLibraryRefs", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
     {0x555800, (const void *)&FEngine_LoadPackageHook, "FEngine::LoadPackage", {0x83, 0xEC, 0x50, 0x33, 0xC0, 0x89}},
+    {0x5515E0, (const void *)&FEPackageReader_ReadScriptTags, "FEPackageReader::ReadScriptTags", {0x6A, 0xFF, 0x68, 0xAB, 0x7B, 0x77}},
+    {0x534FC0, (const void *)&FEPackageReader_ProcessStringTag, "FEPackageReader::ProcessStringTag", {0x8B, 0x54, 0x24, 0x04, 0x0F, 0xB7}},
+    {0x4FE940, (const void *)&FEString_SetLabelHash, "FEString::SetLabelHash", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x534DF0, (const void *)&FEPackageReader_CreateObject, "FEPackageReader::CreateObject", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x83}},
     {0x555140, (const void *)&FEPackageReader_ReadObjectTags, "FEPackageReader::ReadObjectTags", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
     {0x5554A0, (const void *)&FEPackageReader_ReadObjectChunk, "FEPackageReader::ReadObjectChunk", {0x83, 0xEC, 0x0C, 0x55, 0x56, 0x57}},

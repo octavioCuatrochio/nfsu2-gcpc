@@ -8,6 +8,7 @@
 #include "FEScript.h"
 #include "FEString.h"
 #include "FEMultiPool.h"
+#include "FEPool.h"
 #include "FEngine.h"
 #include "bridge/Bridge.h"
 
@@ -234,7 +235,7 @@ bool FEPackageReader::ReadObjectChunk()
             } else if (t[0] == 0x5267734Du) {   // "MsgR"
                 ReadMessageResponseTags(data, t[1], false);
             } else if (t[0] == 0x70726353u) {   // "Scrp"
-                bridge::FEPackageReader_ReadScriptTags(this, data, t[1]);
+                ReadScriptTags(data, t[1]);
             }
         }
         FEObject *obj = mpCurrentObject;
@@ -324,7 +325,7 @@ bool FEPackageReader::ReadObjectTags(const uint8_t *tags, uint32_t size)
             case 1: case 9: case 10:
                 if (id == 0x6649) reinterpret_cast<FEImage *>(obj)->mu32ImageFlags = v[0];   // "If": image flags
                 break;
-            case 2: bridge::FEPackageReader_ProcessStringTag(this, t); break;
+            case 2: ProcessStringTag(t); break;
             case 4: bridge::FEPackageReader_ProcessListBoxTag(this, t); break;
             case 6: bridge::FEPackageReader_ProcessCodeListBoxTag(this, t); break;
             default: break;
@@ -354,6 +355,186 @@ FEObject *FEPackageReader::CreateObject(uint32_t type)
     obj->mu32DataSize = size;
     obj->mpData = data;
     return obj;
+}
+
+void FEPackageReader::ProcessStringTag(const uint8_t *tag)
+{
+    auto *s = reinterpret_cast<FEString *>(mpCurrentObject);
+    const uint32_t v = *reinterpret_cast<const uint32_t *>(tag + 4);
+    switch (*reinterpret_cast<const uint16_t *>(tag)) {
+    case 0x6253: s->mstrText.SetLength(v); break;                                          // "Sb"
+    case 0x4C53: if (mbFlag09) s->SetLabel(reinterpret_cast<const char *>(tag + 4)); break;   // "SL"
+    case 0x4853: s->SetLabelHash(v); break;                                                // "SH"
+    case 0x6A53: s->_unknown6C = v; break;                                                 // "Sj"
+    case 0x6C53: s->_unknown70 = v; break;                                                 // "Sl"
+    case 0x7453: s->mstrText = reinterpret_cast<const uint16_t *>(tag + 4); break;         // "St"
+    case 0x7753: s->_unknown74 = v; break;                                                 // "Sw"
+    default: break;
+    }
+}
+
+namespace {
+void AppendKey(FERefList &l, FEMinNode *n)   // inlined AddTail (no count)
+{
+    FEMinNode *tail = l.tail;
+    if (tail) {
+        n->next = tail->next;
+        if (tail->next) tail->next->prev = n;
+        n->prev = tail;
+        tail->next = n;
+    } else {
+        n->next = l.head;
+        if (l.head) l.head->prev = n;
+        n->prev = nullptr;
+        l.head = n;
+    }
+    if (l.tail == tail) l.tail = n;
+}
+void SetLength24(FEKeyTrack &t, uint32_t v) { t._length[0] = uint8_t(v); t._length[1] = uint8_t(v >> 8); t._length[2] = uint8_t(v >> 16); }
+FETypeParam *FindTypeParam(FEngine *e, uint32_t type, uint32_t index)
+{
+    auto *tn = reinterpret_cast<FETypeNode *>(e->mTypes.head);
+    while (tn && tn->mu32Type != type) tn = reinterpret_cast<FETypeNode *>(tn->node.next);
+    FEMinNode *p = tn->mParams.head;   // PC: no null check on the type
+    for (uint32_t i = 0; p && i != index; ++i) p = p->next;
+    return reinterpret_cast<FETypeParam *>(p);
+}
+}  // namespace
+
+bool FEPackageReader::ReadScriptTags(const uint8_t *tags, uint32_t size)
+{
+    const uint8_t *end = tags + size;
+    FEScript *s = nullptr;
+    FEKeyTrack *track = nullptr;
+    int32_t trackIndex = -1;
+    uint32_t dataIndex = 0;
+    for (const uint8_t *t = tags; t < end; t += *reinterpret_cast<const uint16_t *>(t + 2) + 4) {
+        const uint16_t len = *reinterpret_cast<const uint16_t *>(t + 2);
+        const uint32_t *v = reinterpret_cast<const uint32_t *>(t + 4);
+        switch (*reinterpret_cast<const uint16_t *>(t)) {
+        case 0x6E53: {   // "Sn": new script
+            s = static_cast<FEScript *>(FEPoolNew<FEScript, 32>(*bridge::FEScriptPool(), FEScriptBlock_Construct));
+            s->node.next = s->node.prev = reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED);
+            s->node.vtable = bridge::FEScriptVTable();
+            s->mEvents.mu32Count = 0; s->mEvents.mpEvents = nullptr; s->mpcName = nullptr; s->mu32Id = 0;
+            s->mi32Length = 0; s->mu32Flags = 0; s->mpChainedScript = nullptr; s->mu32NumTracks = 0; s->mpTracks = nullptr;
+            s->mi32Time = 0;
+            if (mbFlag0A) s->SetName(reinterpret_cast<const char *>(v));
+            trackIndex = -1;
+            dataIndex = 0;
+            break;
+        }
+        case 0x6853:   // "Sh": header
+            if (!s) {
+                s = FEScript::Construct(FEPoolNew<FEScript, 32>(*bridge::FEScriptPool(), FEScriptBlock_Construct));
+                s->mi32Time = 0;
+                trackIndex = -1;
+                dataIndex = 0;
+            }
+            s->mu32Id = v[0];
+            s->mi32Length = static_cast<int32_t>(v[1]);
+            s->mu32Flags = v[2];
+            s->SetTrackCount(v[3]);
+            break;
+        case 0x4953:   // "SI": an existing script of the object
+            s = mpCurrentObject->FindScript(v[0]);
+            track = nullptr;
+            break;
+        case 0x6C53: s->mi32Length = static_cast<int32_t>(v[0]); break;            // "Sl"
+        case 0x6653: if (s) s->mu32Flags = v[0]; break;                           // "Sf"
+        case 0x6353: s->mpChainedScript = reinterpret_cast<FEScript *>(static_cast<uintptr_t>(v[0])); break;   // "Sc": id until ReadObjectChunk
+        case 0x5645: {   // "EV": events
+            const uint32_t n = len / 12;
+            s->mEvents.SetCount(n);
+            std::memcpy(s->mEvents.mpEvents, v, n * 12);   // PC: n == 0 would loop forever (do/while)
+            break;
+        }
+        case 0x4946: {   // "FI": next track's header
+            track = &s->mpTracks[++trackIndex];
+            const uint8_t *b = reinterpret_cast<const uint8_t *>(v);
+            track->mu8ParamType = b[0]; track->mu8ValueSize = b[1]; track->mu8InterpType = b[2]; track->mu8Flags = b[3];
+            SetLength24(*track, v[1]);
+            track->mi8DataIndex = static_cast<int8_t>(dataIndex);
+            dataIndex += track->mu8ValueSize >> 2;
+            break;
+        }
+        case 0x6154: if (s) track->mu8Flags = static_cast<uint8_t>(v[0]); break;        // "Ta"
+        case 0x7454: if (s) track->mu8InterpType = static_cast<uint8_t>(v[0]); break;   // "Tt"
+        case 0x6F54: track->mi8DataIndex = static_cast<int8_t>(v[0]); break;            // "To"
+        case 0x6254: {   // "Tb": base key
+            track->mBaseKey._data[0] = v[0];
+            for (uint32_t i = 0, n = track->mu8ValueSize >> 2; i < n; ++i) track->mBaseKey._data[1 + i] = v[1 + i];
+            break;
+        }
+        case 0x644B: {   // "Kd": keys {time, value}
+            const uint32_t stride = track->mu8ValueSize + 4u;
+            const uint32_t n = len / stride, words = (stride >> 2) - 1;
+            if (track->mKeys.mbIsReference) {
+                track->mKeys.head = track->mKeys.tail = nullptr;
+                track->mKeys.mbIsReference = 0;
+            }
+            const uint32_t *k = v;
+            uint32_t i = 0;
+            do {   // PC: the first key is written even when n == 0
+                FEKeyNode *key;
+                if (i == 0) {
+                    key = &track->mBaseKey;
+                } else {
+                    key = static_cast<FEKeyNode *>(FEKeyNode::PoolNew());
+                    if (key) {
+                        key->node.next = key->node.prev = reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED);
+                        key->node.vtable = bridge::FEKeyNodeVTable();
+                    }
+                }
+                key->_data[0] = k[0];
+                for (uint32_t w = 0; w < words; ++w) key->_data[1 + w] = k[1 + w];
+                if (i != 0) AppendKey(track->mKeys, &key->node);
+                k += stride / 4;
+            } while (++i < n);
+            break;
+        }
+        case 0x6954: {   // "Ti": track by data index; inserted from the type library when missing
+            if (!s) break;
+            const uint32_t index = *reinterpret_cast<const uint16_t *>(v);
+            if ((track = s->FindTrack(static_cast<int>(index))) != nullptr) break;
+            const uint32_t n = s->mu32NumTracks + 1;
+            auto *raw = static_cast<uint32_t *>(bridge::Alloc(static_cast<uint32_t>(n * sizeof(FEKeyTrack) + 4)));
+            FEKeyTrack *tracks = nullptr;
+            if (raw) {
+                raw[0] = n;
+                tracks = reinterpret_cast<FEKeyTrack *>(raw + 1);
+                for (uint32_t i = 0; i < n; ++i) FEKeyTrack::Construct(&tracks[i]);
+            }
+            const FETypeParam *param = FindTypeParam(mpEngine, mpCurrentObject->mu32Type, index);
+            FEKeyTrack *old = s->mpTracks;
+            uint32_t used = 0;
+            for (uint32_t k = 0; k <= s->mu32NumTracks; ++k) {
+                FEKeyTrack &dst = tracks[k];
+                if (old && used < s->mu32NumTracks && (!param || old[used].mi8DataIndex < static_cast<int32_t>(param->mu32Offset) / 4)) {
+                    dst.Assign(old[used]);
+                    ++used;
+                    continue;
+                }
+                dst.mu8ParamType = static_cast<uint8_t>(param->mu32ParamType);
+                dst.mu8ValueSize = static_cast<uint8_t>(param->mu32ValueSize);
+                dst.mu8InterpType = 1;
+                dst.mu8Flags = 0;
+                SetLength24(dst, static_cast<uint32_t>(s->mi32Length));
+                dst.mi8DataIndex = static_cast<int8_t>(param->mu32Offset >> 2);
+                track = &dst;
+                param = nullptr;
+            }
+            if (old) DestroyTrackArray(old);
+            s->mpTracks = tracks;
+            ++s->mu32NumTracks;
+            break;
+        }
+        default: break;
+        }
+    }
+    if (!mbMergeResponses && s) mpCurrentObject->mScripts.AddTail(&s->node);
+    if (s->mu32Id == 0x1744B3) mpCurrentObject->mpCurrentScript = s;   // PC: no null check
+    return true;
 }
 
 bool FEPackageReader::ReadMessageTargetListChunk()

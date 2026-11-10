@@ -27,6 +27,21 @@ struct FEPackageCommand {
     FEPackage *mpPackage;            // +0x1C package that queued it
 };
 
+// Type library entries (FETypeLib; PC 505480 finds a type, 5147F0 a parameter by index).
+struct FETypeParam {
+    FEMinNode node;
+    uint32_t _unknown0C[2];
+    uint32_t mu32ParamType;          // +0x14 (low byte used) FEKeyTrack::mu8ParamType
+    uint32_t mu32ValueSize;          // +0x18 (low byte used)
+    uint32_t mu32Offset;             // +0x1C byte offset in FEObject::mpData
+};
+struct FETypeNode {
+    FEMinNode node;
+    uint32_t _unknown0C[2];
+    FEMinList mParams;               // +0x14
+    uint32_t mu32Type;               // +0x24 FEObject factory type
+};
+
 struct FEngine {
     uint8_t _unknown000;
     uint8_t mbFlag01;                // +0x01 input enabled ("Enabling/Disabling inputs"); set by 0x59BED120 / 0x7E4D1288
@@ -42,7 +57,8 @@ struct FEngine {
     uint8_t _unknown110[0x4114 - 0x110];
     FEMinList mMessages;             // +0x4114 queued messages
     FEMinList mPackageCommands;      // +0x4124 queued package stack operations (FEPackageCommand)
-    uint8_t _unknown4134[0x4148 - 0x4134];
+    FEMinList mTypes;                // +0x4134 FETypeNode list (object types and their key-track parameters)
+    uint8_t _unknown4144[4];
     uint32_t mu32NumPackageMarkers;  // +0x4148
     char macPackageMarkers[16][0x100];  // +0x414C stack of package names (RecordPackageMarker)
     int32_t mi32LastButtonIndex;     // +0x514C next slot of mLastButtons (ring, 0..31)

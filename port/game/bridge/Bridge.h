@@ -78,12 +78,10 @@ const void *FEGameInterface_GetPackageData(void *gi, const char *name, void **bu
 void FEGameInterface_LibraryLoaded(void *gi, ::FEPackage *pkg);   // vtable slot 3 (+0xC)
 // constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)
 ::FEObject *FEObjectTypeConstruct(void *mem, uint32_t type);
-void FEPackageReader_ProcessStringTag(void *reader, const uint8_t *tag);    // PC 534FC0
 void FEPackageReader_ProcessListBoxTag(void *reader, const uint8_t *tag);   // PC 52B740
 void FEPackageReader_ProcessCodeListBoxTag(void *reader, const uint8_t *tag);   // PC 535060
 ::FEObject *FEObject_VirtualClone(::FEObject *obj, bool reference);       // vtable slot 1
 ::FEObject *FEGroup_CopyConstruct(void *mem, ::FEObject *src, bool a, bool b);   // PC 5548A0 (__thiscall, 0x6C bytes)
-bool FEPackageReader_ReadScriptTags(void *reader, const uint8_t *tags, uint32_t size);   // PC 5515E0 (GC 8013C44C)
 void FEListBox_RecalculateCummulative(void *listBox);              // PC 504360 (__thiscall)
 void FECodeListBox_FillAllCells(void *listBox);                    // PC 504C40 (__thiscall)
 void FEKeyInterpScript(void *script, uint8_t track, uint32_t time, void *obj);   // PC 541F60 (__cdecl; GC FEKeyInterp 4 args)

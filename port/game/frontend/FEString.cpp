@@ -91,3 +91,12 @@ void FEString::SetLabel(const char *label)
     base.mu32Flags |= FEOBJ_DIRTY;
     bridge::CallLabelCallback(this);
 }
+
+void FEString::SetLabelHash(uint32_t hash)
+{
+    if (mu32LabelHash != hash) {
+        base.mu32Flags |= 0x400000;
+        mu32LabelHash = hash;
+    }
+    bridge::CallLabelCallback(this);
+}

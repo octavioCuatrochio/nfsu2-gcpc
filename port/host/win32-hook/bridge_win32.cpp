@@ -127,12 +127,10 @@ FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
     }
     return reinterpret_cast<FEObject *(THISCALL *)(void *)>(ctor)(mem);
 }
-void FEPackageReader_ProcessStringTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x534FC0)(r, t); }
 void FEPackageReader_ProcessListBoxTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x52B740)(r, t); }
 void FEPackageReader_ProcessCodeListBoxTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x535060)(r, t); }
 FEObject *FEObject_VirtualClone(FEObject *o, bool ref) { return (*reinterpret_cast<FEObject *(THISCALL ***)(FEObject *, uint32_t)>(o))[1](o, ref); }
 FEObject *FEGroup_CopyConstruct(void *m, FEObject *s, bool a, bool b) { return reinterpret_cast<FEObject *(THISCALL *)(void *, FEObject *, uint32_t, uint32_t)>(0x5548A0)(m, s, a, b); }
-bool FEPackageReader_ReadScriptTags(void *r, const uint8_t *t, uint32_t n) { return reinterpret_cast<bool(THISCALL *)(void *, const uint8_t *, uint32_t)>(0x5515E0)(r, t, n); }
 void FEListBox_RecalculateCummulative(void *lb) { reinterpret_cast<void(THISCALL *)(void *)>(0x504360)(lb); }
 void FECodeListBox_FillAllCells(void *lb) { reinterpret_cast<void(THISCALL *)(void *)>(0x504C40)(lb); }
 void FEKeyInterpScript(void *s, uint8_t t, uint32_t time, void *o) { reinterpret_cast<void(__cdecl *)(void *, uint32_t, uint32_t, void *)>(0x541F60)(s, t, time, o); }

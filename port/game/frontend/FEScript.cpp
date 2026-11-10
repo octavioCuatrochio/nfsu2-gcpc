@@ -5,6 +5,13 @@
 #include "bridge/Bridge.h"
 #include <cstring>
 
+void DestroyTrackArray(FEKeyTrack *tracks)
+{
+    uint32_t *cookie = reinterpret_cast<uint32_t *>(tracks) - 1;
+    for (uint32_t i = *cookie; i-- > 0;) tracks[i].Destruct();
+    bridge::FreeArray(cookie);
+}
+
 namespace {
 FEMinNode *Unlinked() { return reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED); }
 

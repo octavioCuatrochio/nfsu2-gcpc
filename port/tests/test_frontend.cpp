@@ -1407,7 +1407,21 @@ std::vector<uint32_t> BuildFng(bool withLib, uint32_t badLibSize = 0, const char
           b.w.push_back(0x1111);
       }
       b.Close(od);
-      size_t sc = b.Open(0x70726353); b.w.push_back(0x2222); b.Close(sc);
+      if (objectTags) {
+          size_t sc = b.Open(0x70726353);   // script 0x1744B3: 2 tracks, chained to 0x99
+          b.Tag(0x6E53, "Init", 5);
+          { uint32_t h[4] = {0x1744B3, 100, 0, 2}; b.Tag(0x6853, h, 16); }
+          b.Tag32(0x6353, 0x99);
+          { uint32_t f[2] = {0x00010C04u, 100}; b.Tag(0x4946, f, 8); }   // vec3, 12 bytes, interp 1
+          { uint32_t tb[4] = {0, 1, 2, 3}; b.Tag(0x6254, tb, 16); }
+          { uint32_t kd[8] = {0, 4, 5, 6, 50, 7, 8, 9}; b.Tag(0x644B, kd, 32); }
+          { uint32_t f[2] = {0x00010402u, 100}; b.Tag(0x4946, f, 8); }   // float
+          { uint32_t ev[3] = {0xABC, 0, 10}; b.Tag(0x5645, ev, 12); }
+          b.Close(sc);
+          size_t s2 = b.Open(0x70726353);
+          { uint32_t h[4] = {0x99, 50, 1, 0}; b.Tag(0x6853, h, 16); }
+          b.Close(s2);
+      }
       b.Close(fo); }
     b.Close(ob);
     size_t pr = b.Open(0x52676B50);
@@ -1445,8 +1459,7 @@ static void TestPackageReader()
     dl.clear();
     FEPackage *pkg = FEngine_LoadPackage(e, data.data(), 3);
     CHECK(pkg && std::string(pkg->mpcName) == "Pkg.fng" && std::string(pkg->mpcFilename) == "dir\\pkg.fng" && pkg->_unknown15[1] == 3);
-    CHECK(dl.size() == 2 && std::string(dl[0].kind) == "scrtags");
-    CHECK(std::string(dl[1].kind) == "loadres" && dl[1].a == &ui && dl[1].msg == 2);   // no objects: nothing to connect
+    CHECK(dl.size() == 1 && std::string(dl[0].kind) == "loadres" && dl[0].a == &ui && dl[0].msg == 2);   // no objects: nothing to connect
     CHECK(pkg->mu32NumButtons == 3 && pkg->mppButtons != nullptr);
     CHECK(pkg->mu32NumLibraryRefs == 2 && pkg->mpLibraryRefs[1].mu32Hash == 0xBBBB && pkg->mpLibraryRefs[1]._unknown04[1] == 4);
     auto *res = static_cast<uint32_t *>(pkg->mpResources);
@@ -1498,20 +1511,23 @@ static void TestPackageReader()
     for (FEPackage *p : {p1, p2, libPkg}) bridge::VirtualScalarDelete(p);
     // an object: list box fixup, chained script id -> pointer, current script 0x1744B3, initial interpolation, linked
     {
-        alignas(8) unsigned char sb[2][sizeof(FEScript)] = {};
-        auto *s0 = reinterpret_cast<FEScript *>(sb[0]), *s1 = reinterpret_cast<FEScript *>(sb[1]);
-        alignas(8) unsigned char tb[2 * sizeof(FEKeyTrack)] = {};   // SetupMoveToTracks reads the tracks
-        s0->mu32Id = 0x1744B3; s0->mu32NumTracks = 2; s0->mi32Time = 55; s0->mpTracks = reinterpret_cast<FEKeyTrack *>(tb);
-        s0->mpChainedScript = reinterpret_cast<FEScript *>(uintptr_t{0x99});
-        s1->mu32Id = 0x99;
-        teststub::readerScripts = {s0, s1};
         auto od = BuildFng(true, 0, nullptr, true);
         dl.clear();
         FEPackage *po = FEngine_LoadPackage(e, od.data(), 0);
-        teststub::readerScripts.clear();
         CHECK(po && po->mObjects.count == 1);
         auto *o = reinterpret_cast<FEObject *>(po->mObjects.head);
-        CHECK(o->mu32Type == 4 && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1 && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1);
+        auto *s0 = reinterpret_cast<FEScript *>(o->mScripts.head);
+        auto *s1 = s0 ? reinterpret_cast<FEScript *>(s0->node.next) : nullptr;
+        CHECK(o->mScripts.count == 2 && s0->mu32Id == 0x1744B3 && s1 && s1->mu32Id == 0x99 && s1->mi32Length == 50);
+        CHECK(o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1 && s0->mi32Length == 100);
+        CHECK(s0->mu32NumTracks == 2 && s0->mpTracks[0].mu8ParamType == 4 && s0->mpTracks[0].mu8ValueSize == 12 && s0->mpTracks[0].Length() == 100);
+        CHECK(s0->mpTracks[0].mi8DataIndex == 0 && s0->mpTracks[1].mi8DataIndex == 3 && s0->mpTracks[1].mu8ParamType == 2);
+        CHECK(s0->mpTracks[0].mBaseKey._data[0] == 0 && s0->mpTracks[0].mBaseKey._data[1] == 4 && s0->mpTracks[0].mBaseKey._data[3] == 6);   // first key replaces Tb
+        auto *k1 = reinterpret_cast<FEKeyNode *>(s0->mpTracks[0].mKeys.head);
+        CHECK(k1 && k1->_data[0] == 50 && k1->_data[1] == 7 && k1->_data[3] == 9 && k1->node.next == nullptr);
+        CHECK(s0->mEvents.mu32Count == 1 && s0->mEvents.mpEvents[0].mu32MsgId == 0xABC && s0->mEvents.mpEvents[0].mu32Time == 10);
+        CHECK(s0->mpcName && std::string(s0->mpcName) == "Init");   // names only with mbFlag0A (engine +4 = 2 here)
+        CHECK(true && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1);
         int recalc = 0, interp = 0;
         for (auto &d : dl) { recalc += std::string(d.kind) == "recalc"; interp += std::string(d.kind) == "keyinterp" && d.a == s0; }
         CHECK(recalc == 1 && interp == 2);
@@ -1524,7 +1540,6 @@ static void TestPackageReader()
         bool ctor = false;
         for (auto &d : dl) ctor |= std::string(d.kind) == "typector" && d.msg == 4;
         CHECK(ctor);
-        o->mScripts.count = 0; o->mScripts.head = o->mScripts.tail = nullptr;   // scripts are on the stack
         bridge::VirtualScalarDelete(po);
     }
     // failures
@@ -1541,6 +1556,78 @@ static void TestPackageReader()
     CHECK(FEngine_LoadPackage(e, data.data(), 0) == nullptr);
     dl.clear();
     CHECK(teststub::liveAllocations == live0);
+}
+
+// FEPackageReader::ProcessStringTag on an FEString.
+static void TestReaderStringTags()
+{
+    const int live0 = teststub::liveAllocations;
+    alignas(8) unsigned char mem[sizeof(FEString)];
+    FEString *s = FEString::Construct(mem);
+    FEPackageReader r{};
+    r.mpCurrentObject = &s->base;
+    auto tag = [&](uint16_t id, const void *p, size_t n) {
+        std::vector<uint8_t> b(4 + n);
+        uint16_t h[2] = {id, static_cast<uint16_t>(n)};
+        std::memcpy(b.data(), h, 4); std::memcpy(b.data() + 4, p, n);
+        r.ProcessStringTag(b.data());
+    };
+    auto tag32 = [&](uint16_t id, uint32_t v) { tag(id, &v, 4); };
+    tag32(0x6A53, 1); tag32(0x6C53, 2); tag32(0x7753, 3);
+    CHECK(s->_unknown6C == 1 && s->_unknown70 == 2 && s->_unknown74 == 3);
+    s->base.mu32Flags = 0;
+    tag32(0x4853, s->mu32LabelHash);
+    CHECK(s->base.mu32Flags == 0);
+    tag32(0x4853, 0x1234);
+    CHECK(s->mu32LabelHash == 0x1234 && s->base.mu32Flags == 0x400000);
+    tag(0x4C53, "LBL", 4);
+    CHECK(s->mpcLabel == nullptr);                       // labels only with mbFlag09
+    r.mbFlag09 = 1;
+    tag(0x4C53, "LBL", 4);
+    CHECK(s->mpcLabel && std::string(s->mpcLabel) == "LBL");
+    const uint16_t w[] = {'h', 'i', 0};
+    tag(0x7453, w, sizeof w);
+    CHECK(s->mstrText.mpsString && s->mstrText.mpsString[0] == 'h' && s->mstrText.Length() == 2);
+    tag32(0x6253, 40);
+    CHECK(s->mstrText.mulBufferLength >= 40 && s->mstrText.mpsString[1] == 'i');
+    s->Destruct();
+    CHECK(teststub::liveAllocations == live0);
+}
+
+// ReadScriptTags "Ti": a missing track is inserted from the engine's type library, ordered by data offset.
+static void TestReaderInsertTrack()
+{
+    alignas(8) static unsigned char eb[sizeof(FEngine)] = {};
+    auto *e = reinterpret_cast<FEngine *>(eb);
+    FETypeParam params[3] = {};
+    params[0].mu32Offset = 0; params[1].mu32ParamType = 2; params[1].mu32ValueSize = 4; params[1].mu32Offset = 0x10;   // track 1 = data offset 0x10
+    params[2].mu32Offset = 16;
+    FETypeNode type{};
+    type.mu32Type = 7;
+    for (auto &pp : params) type.mParams.AddTail(&pp.node);
+    e->mTypes.AddTail(&type.node);
+    alignas(8) unsigned char ob[sizeof(FEObject)] = {};
+    auto *obj = reinterpret_cast<FEObject *>(ob);
+    obj->mu32Type = 7;
+    FEPackageReader r{};
+    r.mpEngine = e;
+    r.mpCurrentObject = obj;
+    r.mbMergeResponses = 1;   // keep the script out of the object's list
+    FngBuilder b;
+    { uint32_t h[4] = {0x1744B3, 30, 0, 2}; b.Tag(0x6853, h, 16); }
+    { uint32_t f[2] = {0x00010401u, 30}; b.Tag(0x4946, f, 8); }   // data index 0
+    { uint32_t f[2] = {0x00010401u, 30}; b.Tag(0x4946, f, 8); b.Tag32(0x6F54, 7); }   // data index 7 (offset 0x1C, track 2)
+    b.Tag32(0x6954, 1);        // track 1 (offset 0x10 -> index 4): inserted between
+    b.Tag32(0x7454, 3);        // applies to the inserted track
+    b.Tag32(0x6954, 0);        // existing (data index 0)
+    r.ReadScriptTags(reinterpret_cast<const uint8_t *>(b.w.data()), static_cast<uint32_t>(b.w.size() * 4));
+    FEScript *s = obj->mpCurrentScript;
+    CHECK(s && s->mu32NumTracks == 3);
+    CHECK(s->mpTracks[0].mi8DataIndex == 0 && s->mpTracks[1].mi8DataIndex == 4 && s->mpTracks[2].mi8DataIndex == 7);
+    CHECK(s->mpTracks[1].mu8ParamType == 2 && s->mpTracks[1].mu8ValueSize == 4 && s->mpTracks[1].mu8InterpType == 3 && s->mpTracks[1].Length() == 30);
+    CHECK(reinterpret_cast<uint32_t *>(s->mpTracks)[-1] == 3);
+    bridge::VirtualScalarDelete(s);
+    e->mTypes.head = e->mTypes.tail = nullptr; e->mTypes.count = 0;
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
@@ -1705,6 +1792,8 @@ int main()
     TestPackageDataLifecycle();
     TestPackageLifetime();
     TestPackageReader();
+    TestReaderStringTags();
+    TestReaderInsertTrack();
     TestSlotPool();
     TestATan();
     TestPackageCommands();
