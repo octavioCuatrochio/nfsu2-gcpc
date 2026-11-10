@@ -67,6 +67,9 @@ void *screenResult = nullptr;
 bool hotChunking = false;
 ::SlotPool *levelSorterSlots = nullptr;
 int renderDisconnectVTable = 0, renderDisconnects = 0, registerJoys = 0;
+FEngJoyMapEntry joyMap[kFEngJoyMapCount + 1] = {};   // +1: pads >= 4 index past the table like the original
+uint32_t joyRegistered = 0;
+bool joyPlugged = true;
 }  // namespace teststub
 
 namespace bridge {
@@ -275,7 +278,19 @@ void HackClearCache(FEPackage *p) { teststub::delivered.push_back({"clearcache",
 void FEngine_Update(void *e, uint32_t a, uint32_t b) { teststub::delivered.push_back({"update", e, nullptr, a, b}); }
 bool IsCurrentlyHotChunking() { return teststub::hotChunking; }
 SlotPool *LevelSorterSlots() { return teststub::levelSorterSlots; }
-void cFEng_RegisterJoy(cFEng *) { ++teststub::registerJoys; }
+#ifdef NFSU2_REFEREE
+FEngJoyMapEntry *FEngJoyMap() { return reinterpret_cast<FEngJoyMapEntry *>(0x7F91C8); }
+uint32_t *FEngJoyRegistered() { return reinterpret_cast<uint32_t *>(0x8384B8); }
+#else
+FEngJoyMapEntry *FEngJoyMap() { return teststub::joyMap; }
+uint32_t *FEngJoyRegistered() { return &teststub::joyRegistered; }
+#endif
+void *FEngHandleJoyFunction() { return reinterpret_cast<void *>(&cFEng::HandleJoy); }
+void AddJoyHandlerToAllPorts(uint32_t e, void *h, void *u) { teststub::delivered.push_back({"addjoy", h, static_cast<FEPackage *>(u), e, 0}); }
+void RemoveJoyHandlerFromAllPorts(uint32_t e) { teststub::delivered.push_back({"remjoy", nullptr, nullptr, e, 0}); }
+void InitDebugLanguageChange() { ++teststub::registerJoys; }
+void CloseDebugLanguageChange() { --teststub::registerJoys; }
+int32_t IsLiveJoystickPluggedIn(int32_t p) { return teststub::joyPlugged && p >= 0; }
 void *RenderObjectDisconnectVTable() { return &teststub::renderDisconnectVTable; }
 void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE

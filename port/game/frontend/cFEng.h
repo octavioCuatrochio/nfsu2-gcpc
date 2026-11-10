@@ -18,6 +18,15 @@ struct FEngine;
 struct FEObject;
 struct FEPackage;
 
+// PC 0x7F91C8 (GC MapJoyEventToFEPad): joystick event -> FEng pad bit, per-port state.
+struct FEngJoyMapEntry {
+    uint32_t mu32Event;              // +0x00 JoyEvent
+    uint32_t mu32Mask;               // +0x04 FEJoyPad bit
+    const char *mpcName;             // +0x08 "FEPad Up", ...
+    uint32_t mState[4];              // +0x0C last value per port
+};
+constexpr int kFEngJoyMapCount = 21;
+
 struct cFEng {
     uint8_t _unknown00[8];
     FEngine *mpEngine;               // +0x08 (GC +0x10)
@@ -27,6 +36,12 @@ struct cFEng {
 
     // GC 8014EC70 / PC 51CCD0 (__thiscall, ret 4): first entry whose name matches (bStrICmp); null if none.
     cFEngLevelSorter *FindInLevelSortingList(const char *name);
+    // Joystick event registration (PC table 0x7F91C8: 21 x FEngJoyMapEntry; registered flag 0x8384B8).
+    void RegisterJoy();                        // GC 8014E090 / PC 52CDD0: handlers for every mapped event + 0x34
+    void UnRegisterJoy();                      // GC 8014E1BC / PC 50C680 (`this` unused)
+    uint32_t GetJoyPadMask(uint8_t pad);       // GC 8014E240 / PC 50C6D0 (ret 4): mask bits of the events held on pad
+    // GC 8014E13C / PC 50C630 (__cdecl handler): records `state` for `port` on every entry mapped to `event`.
+    static void HandleJoy(uint32_t port, uint32_t event, uint8_t state, void *user);
     // GC 8014D75C / PC 55DD50 (ret 0x10): 0x05922615 disables / 0x7E4D1288 enables FEng input (FEngine +1),
     // anything else goes to FEPackageManager::NotificationMessage on the global manager.
     void NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg, FEPackage *pkg);

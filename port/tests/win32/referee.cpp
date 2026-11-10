@@ -1585,6 +1585,29 @@ static void CheckTypeLib(int iters)
     }
 }
 
+// cFEng::HandleJoy on the real event table (saved and restored).
+static void CheckHandleJoy(int iters)
+{
+    auto o = ORIG<void(__cdecl *)(uint32_t, uint32_t, uint32_t, void *)>(0x50C630);
+    FEngJoyMapEntry *map = bridge::FEngJoyMap();
+    FEngJoyMapEntry saved[kFEngJoyMapCount], a[kFEngJoyMapCount];
+    std::memcpy(saved, map, sizeof saved);
+    for (int it = 0; it < iters; ++it) {
+        const uint32_t port = rng() % 4, event = rng() % 3 ? map[rng() % kFEngJoyMapCount].mu32Event : rng() % 0x60;
+        const uint32_t state = rng();   // only the low byte counts
+        o(port, event, state, nullptr);
+        std::memcpy(a, map, sizeof a);
+        std::memcpy(map, saved, sizeof saved);
+        cFEng::HandleJoy(port, event, static_cast<uint8_t>(state), nullptr);
+        int bad = -1;
+        for (int i = 0; i < kFEngJoyMapCount && bad < 0; ++i) if (std::memcmp(&a[i], &map[i], sizeof a[i])) bad = i;
+        EXPECT(bad < 0, "HandleJoy port %u event %x state %x: entry %d ev %x orig %x,%x,%x,%x vs %x,%x,%x,%x", port, event, state, bad,
+               bad < 0 ? 0 : map[bad].mu32Event, bad < 0 ? 0 : a[bad].mState[0], bad < 0 ? 0 : a[bad].mState[1], bad < 0 ? 0 : a[bad].mState[2], bad < 0 ? 0 : a[bad].mState[3],
+               bad < 0 ? 0 : map[bad].mState[0], bad < 0 ? 0 : map[bad].mState[1], bad < 0 ? 0 : map[bad].mState[2], bad < 0 ? 0 : map[bad].mState[3]);
+        std::memcpy(map, saved, sizeof saved);
+    }
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2163,6 +2186,7 @@ static int RunAll()
     REFEREE_RUN(CheckButtonMap(iters * 5));
     REFEREE_RUN(CheckRender(iters * 3));
     REFEREE_RUN(CheckTypeLib(iters * 5));
+    REFEREE_RUN(CheckHandleJoy(iters));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));

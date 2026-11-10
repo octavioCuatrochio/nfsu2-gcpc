@@ -177,7 +177,15 @@ void HackClearCache(FEPackage *p) { reinterpret_cast<void(__cdecl *)(FEPackage *
 void FEngine_Update(void *e, uint32_t a, uint32_t b) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, uint32_t)>(0x558C00)(e, a, b); }
 bool IsCurrentlyHotChunking() { return reinterpret_cast<int(__cdecl *)()>(0x571090)() != 0; }
 SlotPool *LevelSorterSlots() { return *reinterpret_cast<SlotPool **>(0x8384B0); }
-void cFEng_RegisterJoy(cFEng *fe) { reinterpret_cast<void(THISCALL *)(cFEng *)>(0x52CDD0)(fe); }
+FEngJoyMapEntry *FEngJoyMap() { return reinterpret_cast<FEngJoyMapEntry *>(0x7F91C8); }
+uint32_t *FEngJoyRegistered() { return reinterpret_cast<uint32_t *>(0x8384B8); }
+
+void *FEngHandleJoyFunction() { return reinterpret_cast<void *>(0x50C630); }   // the original handler (hooked)
+void AddJoyHandlerToAllPorts(uint32_t e, void *h, void *u) { reinterpret_cast<void(__cdecl *)(uint32_t, void *, void *)>(0x5794B0)(e, h, u); }
+void RemoveJoyHandlerFromAllPorts(uint32_t e) { reinterpret_cast<void(__cdecl *)(uint32_t)>(0x57D590)(e); }
+void InitDebugLanguageChange() { reinterpret_cast<void(__cdecl *)(uint32_t, uint32_t, void *, void *)>(0x579410)(0, 0x34, reinterpret_cast<void *>(0x527520), nullptr); }
+void CloseDebugLanguageChange() { reinterpret_cast<void(__cdecl *)(uint32_t, uint32_t)>(0x57C330)(0, 0x34); }
+int32_t IsLiveJoystickPluggedIn(int32_t p) { return reinterpret_cast<int32_t(__cdecl *)(int32_t)>(0x571A80)(p); }
 void *RenderObjectDisconnectVTable() { return reinterpret_cast<void *>(0x79AB9C); }
 void bWareFree(void *p) { reinterpret_cast<void(__cdecl *)(void *)>(0x440540)(p); }
 uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }

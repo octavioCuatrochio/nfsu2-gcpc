@@ -2205,6 +2205,35 @@ static void TestEngineConstructTypes()
     CHECK(teststub::liveAllocations == live0);
 }
 
+// cFEng joystick registration: handlers per mapped event, per-port state, pad masks.
+static void TestCFEngJoy()
+{
+    auto *map = teststub::joyMap;
+    for (int i = 0; i < kFEngJoyMapCount; ++i) { map[i] = {}; map[i].mu32Event = 0x2A + uint32_t(i % 10); map[i].mu32Mask = 1u << i; map[i].mState[1] = 9; }
+    cFEng fe{};
+    auto &dl = teststub::delivered;
+    dl.clear();
+    teststub::joyRegistered = 0;
+    fe.RegisterJoy();
+    CHECK(teststub::joyRegistered == 1 && dl.size() == 21 && std::string(dl[0].kind) == "addjoy" && dl[20].msg == 0x2A + 0 && dl[0].pkg == (void *)&fe);
+    CHECK(map[3].mState[1] == 0 && teststub::registerJoys == 1);
+    fe.RegisterJoy();                                  // already registered: nothing
+    CHECK(dl.size() == 21 && teststub::registerJoys == 1);
+    cFEng::HandleJoy(2, 0x2B, 1, nullptr);             // entries 1, 11 (event 0x2B)
+    CHECK(map[1].mState[2] == 1 && map[11].mState[2] == 1 && map[2].mState[2] == 0);
+    CHECK(fe.GetJoyPadMask(2) == ((1u << 1) | (1u << 11)) && fe.GetJoyPadMask(0) == 0);
+    teststub::joyPlugged = false;                      // unplugged: that port's state is cleared
+    CHECK(fe.GetJoyPadMask(2) == 0 && map[1].mState[2] == 0);
+    teststub::joyPlugged = true;
+    CHECK(fe.GetJoyPadMask(2) == 0);
+    dl.clear();
+    fe.UnRegisterJoy();
+    CHECK(teststub::joyRegistered == 0 && dl.size() == 21 && std::string(dl[0].kind) == "remjoy" && teststub::registerJoys == 0);
+    fe.UnRegisterJoy();
+    CHECK(dl.size() == 21);
+    dl.clear();
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -2376,6 +2405,7 @@ int main()
     TestButtonMap();
     TestRender();
     TestEngineConstructTypes();
+    TestCFEngJoy();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();

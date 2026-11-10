@@ -309,6 +309,9 @@ bool THISCALL FETypeLib_Startup(FETypeLib *self) { return self->Startup(); }
 FEngine *THISCALL FEngine_Ctor(void *self) { return FEngine::Construct(self); }
 void THISCALL FEngine_ReleaseAll(FEngine *self) { self->ReleaseAll(); }
 void THISCALL FEngine_SetNumJoyPads(FEngine *self, uint8_t n) { self->SetNumJoyPads(n); }
+void THISCALL cFEng_RegisterJoy(cFEng *self) { self->RegisterJoy(); }
+void THISCALL cFEng_UnRegisterJoy(cFEng *self) { self->UnRegisterJoy(); }
+uint32_t THISCALL cFEng_GetJoyPadMask(cFEng *self, uint8_t pad) { return self->GetJoyPadMask(pad); }
 FEJoyPad *THISCALL FEJoyPad_Ctor(FEJoyPad *self) { return self->Construct(); }
 void THISCALL FEngine_Dtor(FEngine *self) { self->Destruct(); }
 void THISCALL FETypeNode_Dtor(FETypeNode *self) { self->Destruct(); }
@@ -644,6 +647,10 @@ const Replacement kReplacements[] = {
     {0x536170, (const void *)&FEngine_Ctor, "FEngine::FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
     {0x51A640, (const void *)&FEngine_ReleaseAll, "FEngine::ReleaseAll", {0x53, 0x56, 0x57, 0x8B, 0xF1, 0x33}},
     {0x51A740, (const void *)&FEngine_SetNumJoyPads, "FEngine::SetNumJoyPads", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x52CDD0, (const void *)&cFEng_RegisterJoy, "cFEng::RegisterJoy", {0xA1, 0xB8, 0x84, 0x83, 0x00, 0x85}},
+    {0x50C680, (const void *)&cFEng_UnRegisterJoy, "cFEng::UnRegisterJoy", {0xA1, 0xB8, 0x84, 0x83, 0x00, 0x85}},
+    {0x50C6D0, (const void *)&cFEng_GetJoyPadMask, "cFEng::GetJoyPadMask", {0x53, 0x8A, 0x5C, 0x24, 0x08, 0x56}},
+    {0x50C630, (const void *)&cFEng::HandleJoy, "cFEng::HandleJoy", {0x53, 0x8A, 0x5C, 0x24, 0x10, 0x56}},
     {0x519AE0, (const void *)&FEJoyPad_Ctor, "FEJoyPad::FEJoyPad", {0x8B, 0xD1, 0x57, 0x33, 0xC0, 0x8D}},
     {0x52C430, (const void *)&FEngine_Dtor, "FEngine::~FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
     {0x535870, (const void *)&FETypeNode_Dtor, "FETypeNode::~FETypeNode", {0x6A, 0xFF, 0x68, 0x28, 0x70, 0x77}},

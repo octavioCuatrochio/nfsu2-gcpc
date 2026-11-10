@@ -33,6 +33,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   Pivot(4)/Position(4)/Rotation(5)/Size(4) -> data offsets 0/16/28/40/56; image + Upper Left/Lower Right (3).
   FEngine ctor 536170 rewritten (FEngine::Construct); teardown ReleaseAll 51A640 / ~FEngine 52C430 / type+field
   node dtors rewritten but unreachable in game: exit (Alt+F4, exit code 0) never destroys cFEng.
+- cFEng joy (done): table 0x7F91C8 = 21 x {event, pad mask, name, state[4]}; registered flag 0x8384B8; handler
+  50C630 stays the registered address (hooked). 579410 = AddJoyHandler (DB name wrong).
+- Referee: game data the rewrite reads through bridge:: must also resolve to the real address in bridge_stub.cpp
+  under NFSU2_REFEREE (else ORIGINAL uses real data, REWRITE the stub's).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.
 - Referee: bridge_stub.cpp under NFSU2_REFEREE must call game-interface slots through the vtable (fake gi).

@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include "frontend/FERender.h"
+#include "frontend/cFEng.h"
 namespace teststub {
 extern bool useOldDirtyFlag;   // value returned by bridge::UseOldFEngDirtyFlag()
 extern int liveAllocations;    // bridge::Alloc minus bridge::FreeArray
@@ -52,7 +53,10 @@ extern int16_t mouseInfo[4];
    // FEGameInterface_GetPackageData result
 extern void *screenResult;   // ScreenFactory result
 extern bool hotChunking;
-extern int renderDisconnectVTable, renderDisconnects, registerJoys;
+extern int renderDisconnectVTable, renderDisconnects, registerJoys;   // registerJoys: Init/CloseDebugLanguageChange balance
+extern FEngJoyMapEntry joyMap[];
+extern uint32_t joyRegistered;
+extern bool joyPlugged;
 extern ::SlotPool *levelSorterSlots;                               // FEngine_PushPackage return value
 extern void *currentButton;
 struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback

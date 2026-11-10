@@ -20,6 +20,7 @@ struct FEObject;
 
 struct bASinTableEntry;
 struct FESortGlobals;
+struct FEngJoyMapEntry;
 namespace bridge {
 
 // --- memory: buffers are shared with original game code, so they must come from the game's heap ---
@@ -69,7 +70,14 @@ void *bWareMalloc(uint32_t size, const char *name, int32_t line, uint32_t flags)
 ::SlotPoolManager *TheSlotPoolManager();                                   // PC 0x828530 (game global)
 ::SlotPool **BPNodeSlotPool();          // PC 0x8284F0 (game global)
 int32_t *BPListWantToClose();          // PC 0x8284F4 (game global)
-void cFEng_RegisterJoy(::cFEng *fe);                                              // PC 0x52CDD0 (__thiscall)
+::FEngJoyMapEntry *FEngJoyMap();                 // PC 0x7F91C8 (21 entries)
+uint32_t *FEngJoyRegistered();                   // PC 0x8384B8
+void *FEngHandleJoyFunction();                   // handler passed to AddJoyHandlerToAllPorts (PC 0x50C630, rewritten)
+void AddJoyHandlerToAllPorts(uint32_t event, void *handler, void *user);   // PC 5794B0 (__cdecl)
+void RemoveJoyHandlerFromAllPorts(uint32_t event);                         // PC 57D590 (__cdecl)
+void InitDebugLanguageChange();                  // PC: AddJoyHandler 579410(0, 0x34, 0x527520, 0)
+void CloseDebugLanguageChange();                 // PC: RemoveJoyHandler 57C330(0, 0x34)
+int32_t IsLiveJoystickPluggedIn(int32_t port);   // PC 571A80 (__cdecl)
 void *RenderObjectDisconnectVTable();                                              // PC 0x79AB9C
 void bWareFree(void *p);
 int32_t FEngLoadCounter();                                                         // PC 0x8384D0 (game global)

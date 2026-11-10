@@ -191,7 +191,7 @@ void FEngStartInteraction(const char *name, int32_t arg)
 {
     if (cFEng *fe = bridge::cFEngInstance()) {
         fe->Pusher(0, name, nullptr, 0xFF, arg);
-        bridge::cFEng_RegisterJoy(bridge::cFEngInstance());
+        bridge::cFEngInstance()->RegisterJoy();
     }
 }
 void FEngShowPackageModal(const char *name, const char *parent, uint32_t mask, int32_t arg)
@@ -224,4 +224,52 @@ void FEngSwitchPackages(const char *from, const char *to, int32_t arg)
 void FEngPopPackage(const char *name)
 {
     if (cFEng *fe = bridge::cFEngInstance()) fe->Popper(name);
+}
+
+void cFEng::HandleJoy(uint32_t port, uint32_t event, uint8_t state, void *)
+{
+    FEngJoyMapEntry *map = bridge::FEngJoyMap();
+    for (int i = 0; i < kFEngJoyMapCount; ++i)
+        if (map[i].mu32Event == event) map[i].mState[port] = state;   // (debug print "Joy Event: %s[%d]" is a no-op)
+}
+
+void cFEng::RegisterJoy()
+{
+    if (!*bridge::FEngJoyRegistered()) {
+        FEngJoyMapEntry *map = bridge::FEngJoyMap();
+        for (int i = 0; i < kFEngJoyMapCount; ++i) {
+            bridge::AddJoyHandlerToAllPorts(map[i].mu32Event, bridge::FEngHandleJoyFunction(), this);
+            map[i].mState[0] = map[i].mState[1] = map[i].mState[2] = map[i].mState[3] = 0;
+        }
+        bridge::InitDebugLanguageChange();   // PC: AddJoyHandler(0, 0x34, 0x527520, 0), inlined
+    }
+    *bridge::FEngJoyRegistered() = 1;
+}
+
+void cFEng::UnRegisterJoy()
+{
+    if (*bridge::FEngJoyRegistered()) {
+        FEngJoyMapEntry *map = bridge::FEngJoyMap();
+        for (int i = 0; i < kFEngJoyMapCount; ++i) {
+            bridge::RemoveJoyHandlerFromAllPorts(map[i].mu32Event);
+            map[i].mState[0] = map[i].mState[1] = map[i].mState[2] = map[i].mState[3] = 0;
+        }
+        bridge::CloseDebugLanguageChange();   // PC: RemoveJoyHandler(0, 0x34), inlined
+    }
+    *bridge::FEngJoyRegistered() = 0;
+}
+
+uint32_t cFEng::GetJoyPadMask(uint8_t pad)
+{
+    const int32_t port = pad <= 3 ? pad : -1;
+    FEngJoyMapEntry *map = bridge::FEngJoyMap();
+    if (!bridge::IsLiveJoystickPluggedIn(port)) {
+        // like the original, pads >= 4 index past mState into the following fields/entries
+        for (int i = 0; i < kFEngJoyMapCount; ++i) reinterpret_cast<uint32_t *>(&map[i].mState)[pad] = 0;
+        return 0;
+    }
+    uint32_t mask = 0;
+    for (int i = 0; i < kFEngJoyMapCount; ++i)
+        if (reinterpret_cast<const uint32_t *>(&map[i].mState)[pad]) mask |= map[i].mu32Mask;
+    return mask;
 }
