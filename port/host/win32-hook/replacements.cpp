@@ -26,6 +26,7 @@
 #include "frontend/ChooseBrandsScreen.h"
 #include "frontend/OptionWidgets.h"
 #include "frontend/UIOptionsScreen.h"
+#include "frontend/UIPauseOptions.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -644,6 +645,16 @@ void THISCALL UOS_SetupGameplay(UIOptionsScreen *self) { self->SetupGameplay(); 
 void THISCALL UOS_SetupPlayer(UIOptionsScreen *self) { self->SetupPlayer(); }
 void THISCALL UOS_SetupOnline(UIOptionsScreen *self) { self->SetupOnline(); }
 void THISCALL UOS_SetupTrailers(UIOptionsScreen *self) { self->SetupTrailers(); }
+UIPauseOptions *THISCALL UPO_Ctor(UIPauseOptions *self, const ScreenConstructorData *d) { return self->Construct(d); }
+UIPauseOptions *THISCALL UPO_ScalarDtor(UIPauseOptions *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL UPO_Dtor(UIPauseOptions *self) { self->Destruct(); }
+bool THISCALL UPO_ReadyToExit(UIPauseOptions *self, uint32_t m) { return self->ReadyToExit(m); }
+void THISCALL UPO_Notify(UIPauseOptions *self, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { self->NotificationMessage(m, o, a, p); }
+void THISCALL UPO_Setup(UIPauseOptions *self) { self->Setup(); }
+void THISCALL UPO_SetupAudio(UIPauseOptions *self) { self->SetupAudio(); }
+void THISCALL UPO_SetupVideo(UIPauseOptions *self) { self->SetupVideo(); }
+void THISCALL UPO_SetupGameplay(UIPauseOptions *self) { self->SetupGameplay(); }
+void THISCALL UPO_SetupPlayer(UIPauseOptions *self) { self->SetupPlayer(); }
 FEWidget *THISCALL UIWidgetMenu_GetWidget(UIWidgetMenu *self, uint32_t i) { return self->GetWidget(i); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
@@ -1286,6 +1297,18 @@ const Replacement kReplacements[] = {
     {0x4C43D0, (const void *)&OptToggle_Draw<13>, "PPOScore::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x4C4600, (const void *)&OptToggle_Act<14>, "PPOLeaderBoard::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
     {0x4C46C0, (const void *)&OptToggle_Draw<14>, "PPOLeaderBoard::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4D93C0, (const void *)&UPO_Ctor, "UIPauseOptions::UIPauseOptions", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
+    {0x4D9470, (const void *)&UPO_Dtor, "UIPauseOptions::~UIPauseOptions", {0xC7, 0x01, 0x04, 0x65, 0x79, 0x00}},
+    {0x4EB6B0, (const void *)&UPO_ScalarDtor, "UIPauseOptions scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0xDD}},
+    {0x4A7F70, (const void *)&UPO_ReadyToExit, "UIPauseOptions::ReadyToExit", {0x8A, 0x15, 0xD8, 0x4A, 0x84, 0x00}},
+    {0x4A8010, (const void *)&UPO_Notify, "UIPauseOptions::NotificationMessage", {0x56, 0x8B, 0xF1, 0x8A, 0x86, 0x5B}},
+    {0x4C4BD0, (const void *)&UPO_Setup, "UIPauseOptions::Setup", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x04}},
+    {0x4C3370, (const void *)&UPO_SetupAudio, "UIPauseOptions::SetupAudio", {0x6A, 0xFF, 0x68, 0xCC, 0x3D, 0x77}},
+    {0x4C36C0, (const void *)&UPO_SetupVideo, "UIPauseOptions::SetupVideo", {0x6A, 0xFF, 0x68, 0x30, 0x3E, 0x77}},
+    {0x4C38F0, (const void *)&UPO_SetupGameplay, "UIPauseOptions::SetupGameplay", {0x6A, 0xFF, 0x68, 0xCC, 0x3E, 0x77}},
+    {0x4C4740, (const void *)&UPO_SetupPlayer, "UIPauseOptions::SetupPlayer", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x50B8A0, (const void *)&FEngGetLastButton, "FEngGetLastButton", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
+    {0x50B8C0, (const void *)&FEngSetLastButton, "FEngSetLastButton", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
     {0x4CF750, (const void *)&UOS_Ctor, "UIOptionsScreen::UIOptionsScreen", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4CFAF0, (const void *)&UOS_ScalarDtor, "UIOptionsScreen scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
     {0x4CFB10, (const void *)&UOS_Dtor, "UIOptionsScreen::~UIOptionsScreen", {0xC7, 0x01, 0x28, 0x5E, 0x79, 0x00}},

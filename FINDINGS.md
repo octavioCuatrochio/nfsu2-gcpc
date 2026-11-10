@@ -103,8 +103,16 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   PPO* pause widgets done (OptionWidgets.cpp; pausing player = 4A7AE0 logic: RaceCoordinator *0x8900D8 +0x20 vs
   Player ids +8). Transmission/Handling also call *0x8650B8 578EF0(1|2, player, value, 1); DriveCam calls
   Player 5F2FA0(+-1). Not yet run in-game.
-  Next: UIPauseOptions screen itself (vtable 796504: ctor 4D93C0, ReadyToExit 4A7F70, Notify 4A8010, Setup 4C4BD0,
-  SetupAudio 4C3370, SetupVideo 4C36C0, SetupGameplay 4C38F0, SetupPlayer 4C4740) - reuses all option widgets.
+- UIPauseOptions (UIPauseOptions.cpp; PC 0x15C, vtable 796504) done, in-game A/B identical (QUICKRACE, Esc, 2x Right =
+  Options, pages Sound/Display/Gameplay/Player). PC +0x14C PPOHandling ptr, +0x154 vibration (791DB0) row, +0x158 exit-to-
+  race (next 0xC98356BA pops screen + help bar, RaceCoordinator 5F4240(1)), +0x159/+0x15A copies of 0x844AD8/9 (autosave
+  dialogs in ReadyToExit), +0x15B busy. Pages: audio 7 AO sliders (no mode toggle), video = UIOptionsScreen's, gameplay
+  (CareerDifficulty if IsCareerFreeRoam 500B60 on 0x85AD40; Rearview / ExploringMiniMap unless QuickRaceSettings 5026F0
+  on 0x83AAB4 == 2 players), player (Transmission unless drag: byte 0x89E7D8 || int 0x890108; Position/LapInfo/SplitTime/
+  LeaderBoard unless isInPerformanceTuning 0x89E7E6). Headers: Header_text/Header_text2/Back_button/Select_button.
+  FEngGet/SetLastButton 50B8A0/50B8C0 rewritten (FindScreenCreateData 50B840 = static table 0x7F7DC8, 0x1C stride:
+  referee-safe). AddToggleOption(w, true) = 54F170 vs (w, int 1) = 54EF30: pick per call site.
+  Next: UIOptionsMain (5) + UIPauseOptionsMain (5) + IconOption (3) icon scrollers, then PauseMenu (23).
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

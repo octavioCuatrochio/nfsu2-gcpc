@@ -61,6 +61,7 @@
 #include <float.h>
 #include <string>
 #include "bridge_stub.h"
+#include "frontend/UIPauseOptions.h"
 #define THISCALL __attribute__((thiscall))
 
 static std::mt19937 rng(12345);
@@ -3247,6 +3248,46 @@ static void CheckOptionCycles(int iters)
 
 // PC display options: resolution Act over the real mode table (0x86E880, index 0x870D1C, dirty 0x8709D1) and the
 // detail slider's SetInitialValues (0x87099C); all saved / restored.
+// FEngGet/SetLastButton (50B8A0 / 50B8C0) on the static screen table, and UIPauseOptions::ReadyToExit 4A7F70 when no
+// dialog would be shown (the dialog path pushes a package: not available in DllMain).
+static void CheckPauseOptions(int iters)
+{
+    auto oGet = ORIG<int32_t(__cdecl *)(const char *)>(0x50B8A0);
+    auto oSet = ORIG<void(__cdecl *)(const char *, int32_t)>(0x50B8C0);
+    auto oReady = ORIG<uint32_t(THISCALL *)(void *, uint32_t)>(0x4A7F70);
+    const uint8_t s0 = *reinterpret_cast<uint8_t *>(0x844AD8), s1 = *reinterpret_cast<uint8_t *>(0x844AD9);
+    static UIPauseOptions A, B;
+    for (int it = 0; it < iters; ++it) {
+        const uint32_t n = (0x7F9178u - 0x7F7DC8u) / 0x1C;
+        const char *tabName = *reinterpret_cast<const char *const *>(0x7F7DC8u + (rng() % n) * 0x1C);
+        const char *name = rng() % 4 ? tabName : (rng() & 1 ? "NoSuchScreen.fng" : "");
+        if (!name) name = "x";
+        EXPECT(oGet(name) == FEngGetLastButton(name), "FEngGetLastButton %s", name);
+        int32_t *slot = bridge::ScreenLastButtonSlot(FEHashUpper(name));
+        const int32_t keep = slot ? *slot : 0, v = static_cast<int32_t>(rng());
+        oSet(name, v);
+        const int32_t ra = slot ? *slot : 0;
+        if (slot) *slot = keep;
+        FEngSetLastButton(name, v);
+        const int32_t rb = slot ? *slot : 0;
+        if (slot) *slot = keep;
+        EXPECT(ra == rb, "FEngSetLastButton %s", name);
+        // ReadyToExit without a dialog
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        const uint8_t g0 = static_cast<uint8_t>(rng() % 3 ? rng() % 2 : rng()), g1 = static_cast<uint8_t>(rng() % 3 ? rng() % 2 : rng());
+        A.mbAutoSave = static_cast<uint8_t>(rng() % 3 ? rng() % 2 : rng());
+        A.mbAutoSave2 = static_cast<uint8_t>(rng() % 3 ? rng() % 2 : rng());
+        if ((g0 == 0 && A.mbAutoSave == 1) || (g1 == 1 && A.mbAutoSave2 == 0)) continue;
+        std::memcpy(&B, &A, sizeof A);
+        *reinterpret_cast<uint8_t *>(0x844AD8) = g0; *reinterpret_cast<uint8_t *>(0x844AD9) = g1;
+        const uint32_t m = rng();
+        const bool ra2 = (oReady(&A, m) & 0xFF) != 0, rb2 = B.ReadyToExit(m);
+        EXPECT(ra2 == rb2 && std::memcmp(&A, &B, sizeof A) == 0, "UIPauseOptions::ReadyToExit %x %x", g0, g1);
+    }
+    *reinterpret_cast<uint8_t *>(0x844AD8) = s0; *reinterpret_cast<uint8_t *>(0x844AD9) = s1;
+}
+
 static void CheckDisplayOptions(int iters)
 {
     uint8_t sTab[24], sIdx[4], sDirty, sDetail[4];
@@ -4191,6 +4232,7 @@ static int RunAll()
     REFEREE_RUN(CheckOptionToggles(iters));
     REFEREE_RUN(CheckOptionCycles(iters));
     REFEREE_RUN(CheckDisplayOptions(iters));
+    REFEREE_RUN(CheckPauseOptions(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));

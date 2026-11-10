@@ -102,3 +102,7 @@ bool FEngTestForIntersection(float x, float y, const FEObject *obj);
 // GC overload (position, size) / PC 50CD00 (__cdecl): left <= x <= left + w, top <= y <= top + h (edges rounded to
 // float; NaN fails)
 bool FEngTestForIntersection(float x, float y, const float *pos, const float *size);
+// GC 8014A414 / PC 50B8A0 (__cdecl): the screen's remembered button (FindScreenCreateData(FEHashUpper(pkg)) +0x10),
+// 0 when the screen has no record. GC 8014A44C / PC 50B8C0: store it (no record: nothing).
+int32_t FEngGetLastButton(const char *pkg);
+void FEngSetLastButton(const char *pkg, int32_t button);

@@ -83,6 +83,8 @@ void *jumpCamObject = nullptr;
 int32_t optionsPage = 0;
 int32_t pausePlayer = 0, playerIds[2] = {0, 1};
 bool wheelPlugged = false;
+bool careerFreeRoam = false, dragRace = false, perfTuning = false;
+int32_t quickRacePlayers = 1;
 bool autoSaveAllowed = false;
 bool browsingParts = false;
 const uint8_t *perfPackage = nullptr, *perfPart = nullptr;
@@ -850,7 +852,15 @@ int32_t FEngActivePort() { return teststub::activePort; }
 bool TuningAcceptBlocked() { return false; }
 bool SpeedUnitsMetric() { return teststub::speedMetric; }
 const char *TuningSlidersScreenName() { return "UI_PerformanceTuning_Sliders.fng"; }
+#ifdef NFSU2_REFEREE
+int32_t *ScreenLastButtonSlot(uint32_t h)   // FindScreenCreateData 50B840 only scans the static table at 0x7F7DC8
+{
+    auto *d = reinterpret_cast<uint8_t *(__cdecl *)(uint32_t)>(0x50B840)(h);
+    return d ? reinterpret_cast<int32_t *>(d + 0x10) : nullptr;
+}
+#else
 int32_t *ScreenLastButtonSlot(uint32_t) { return teststub::hasLastButton ? &teststub::lastButton : nullptr; }
+#endif
 void FEngPrintfInt(const char *, uint32_t h, const char *, int32_t v) { teststub::delivered.push_back({"fengprintf", nullptr, nullptr, h, static_cast<uint32_t>(v)}); }
 void TuneManager_ResetToDefault(int32_t t) { teststub::delivered.push_back({"resetdefault", nullptr, nullptr, static_cast<uint32_t>(t), 0}); }
 void TuneManager_RebuildTheRideInfo() { teststub::delivered.push_back({"rebuildride", nullptr, nullptr, 0, 0}); }
@@ -957,6 +967,12 @@ int32_t PlayerId(int32_t n) { const uint8_t *p = reinterpret_cast<const uint8_t 
 int32_t RaceCoordinatorPausePlayer() { return teststub::pausePlayer; }
 int32_t PlayerId(int32_t n) { return teststub::playerIds[n]; }
 #endif
+// ---- UIPauseOptions ----
+void *UIPauseOptionsVTable() { return &teststub::fakeFont; }
+bool IsCareerFreeRoam() { return teststub::careerFreeRoam; }
+int32_t QuickRaceNumPlayers() { return teststub::quickRacePlayers; }
+bool IsDragRace() { return teststub::dragRace; }
+bool IsInPerformanceTuning() { return teststub::perfTuning; }
 void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t) { teststub::delivered.push_back({"camcall", nullptr, nullptr, static_cast<uint32_t>(a * 100 + b), static_cast<uint32_t>(c)}); }
 void Player_ChangeCamera(int32_t n, int32_t dir) { teststub::delivered.push_back({"changecam", nullptr, nullptr, static_cast<uint32_t>(n), static_cast<uint32_t>(dir)}); }
 }  // namespace bridge

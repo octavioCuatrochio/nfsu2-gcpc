@@ -432,4 +432,10 @@ int32_t RaceCoordinatorPausePlayer();             // PC *(*(0x8900D8) + 0x20) (n
 int32_t PlayerId(int32_t number);                // PC Player::pPlayersByNumber[n] (0x8900AC) ->+8, null -> -1
 void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t d);   // PC *(0x8650B8)->578EF0(a, b, c, d), no null check
 void Player_ChangeCamera(int32_t number, int32_t dir);   // PC Player::pPlayersByNumber[n] (0x8900AC) 5F2FA0(dir) (__thiscall)
+// ---- UIPauseOptions ----
+void *UIPauseOptionsVTable();                    // PC 0x796504
+bool IsCareerFreeRoam();                         // PC 500B60 (__thiscall on 0x85AD40, AL) PlayerCareerState
+int32_t QuickRaceNumPlayers();                   // PC 5026F0 (__thiscall on 0x83AAB4) QuickRaceSettings::GetNumPlayers
+bool IsDragRace();                               // PC byte 0x89E7D8 != 0 || int 0x890108 != 0 (GC DAT_803fca80 || g_tweakIsDragRace)
+bool IsInPerformanceTuning();                    // PC byte 0x89E7E6
 }  // namespace bridge

@@ -14,6 +14,7 @@
 #include "frontend/UIWheelOptionsMenu.h"
 #include "frontend/ChooseBrandsScreen.h"
 #include "frontend/UIOptionsScreen.h"
+#include "frontend/UIPauseOptions.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -2886,6 +2887,95 @@ static void TestOptionsScreen()
     bridge::cFEngInstance()->mpEngine = saved;
 }
 
+// UIPauseOptions: rows per page and flag (audio 7, video 4, gameplay 5..7, player 7..10), ReadyToExit dialogs,
+// notification state (busy gate, resume-race flag, unpause on back).
+static void TestPauseOptions()
+{
+    FEngine *saved = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    alignas(8) static unsigned char mm[sizeof(UIPauseOptions)];
+    auto *o = reinterpret_cast<UIPauseOptions *>(mm);
+    ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+    teststub::profileState = 0;
+    SlotPool *pool = SlotPool::NewSlotPool(sizeof(cFEngLevelSorter), 16, "ls", 0);   // help bar push (cFEng::Pusher)
+    teststub::levelSorterSlots = pool;
+    auto rows = [&](int page) {
+        std::memset(mm, 0, sizeof mm);
+        teststub::optionsPage = page;
+        const int live = teststub::liveAllocations;
+        CHECK(o->Construct(&d) == o && o->base.mVisibleCount == 8 && o->mbBusy == 0);
+        const int n = static_cast<int>(o->base.mCurrentIndex) - 1;
+        if (page == 3) CHECK(o->mpHandling != nullptr && o->mVibrationIndex == (teststub::dragRace ? 3 : 4));
+        o->Destruct();
+        CollectCommands();
+        CHECK(teststub::liveAllocations == live);
+        return n;
+    };
+    CHECK(rows(0) == 7 && rows(1) == 4 && rows(4) == 0);
+    CHECK(rows(2) == 6);
+    teststub::careerFreeRoam = true;
+    CHECK(rows(2) == 7);
+    teststub::careerFreeRoam = false; teststub::quickRacePlayers = 2;
+    CHECK(rows(2) == 4);
+    teststub::quickRacePlayers = 1;
+    CHECK(rows(3) == 10);
+    teststub::dragRace = true; teststub::perfTuning = true;
+    CHECK(rows(3) == 5);
+    teststub::dragRace = false; teststub::perfTuning = false;
+
+    // ReadyToExit: autosave turned on in this page (0x844AD8 was 0 -> copy 1) or second flag turned on
+    std::memset(mm, 0, sizeof mm);
+    teststub::optionsPage = 2;
+    o->Construct(&d);
+    o->base.base.mpPackageName = "Pause.fng";   // Popper compares names
+    const uint8_t s0 = *bridge::GameByte(0x844AD8), s1 = *bridge::GameByte(0x844AD9);
+    *bridge::GameByte(0x844AD8) = 0; *bridge::GameByte(0x844AD9) = 0;
+    o->mbAutoSave = 0; o->mbAutoSave2 = 0;
+    CHECK(o->ReadyToExit(0x11111111u) && o->mbBusy == 0);
+    o->mbAutoSave = 1;
+    teststub::delivered.clear();
+    CHECK(!o->ReadyToExit(0x11111111u) && o->mbBusy == 1);
+    CHECK(teststub::delivered.size() == 1 && std::string(teststub::delivered[0].kind) == "twobuttons" && teststub::delivered[0].arg == 0x22BC94AFu);
+    o->mbBusy = 0; o->mbAutoSave = 0;
+    *bridge::GameByte(0x844AD9) = 1;
+    teststub::delivered.clear();
+    CHECK(!o->ReadyToExit(0x33333333u) && o->mbBusy == 1 && teststub::delivered[0].arg == 0xF3568B86u);
+    // busy swallows back / select; cancel clears it
+    o->NotificationMessage(0x911AB364u, nullptr, 0, 0);
+    CHECK(o->mbBusy == 1);
+    o->base.mPrevMsg = 0x1234u;
+    o->NotificationMessage(0x22222222u, nullptr, 0, 0);
+    CHECK(o->mbBusy == 0 && o->base.mPrevMsg == 0);
+    // resume race on the gameplay page asks first; the dialog's 0x33333333 arms the exit, back then unpauses
+    teststub::delivered.clear();
+    o->NotificationMessage(0xB5AF2461u, nullptr, 0, 0);
+    CHECK(o->mbBusy == 1 && o->mbExitToRace == 0 && o->base.mPrevMsg == 0xB5AF2461u);
+    teststub::hasLastButton = true; teststub::lastButton = 7;
+    o->NotificationMessage(0x33333333u, nullptr, 0, 0);
+    CHECK(o->mbBusy == 0 && o->mbExitToRace == 1 && teststub::lastButton == 0);
+    teststub::hasLastButton = false;
+    teststub::delivered.clear();
+    o->NotificationMessage(0xC98356BAu, nullptr, 0, 0);
+    CHECK(!teststub::delivered.empty() && std::string(teststub::delivered.back().kind) == "unpause" && teststub::delivered.back().msg == 1);
+    // out-script finished after a resume: arms the exit unless busy
+    o->mbExitToRace = 0; o->base.mPrevMsg = 0xB5AF2461u; o->mbBusy = 1;
+    o->NotificationMessage(0xE1FDE1D1u, nullptr, 0, 0);
+    CHECK(o->mbExitToRace == 0);
+    o->mbBusy = 0;
+    o->NotificationMessage(0xE1FDE1D1u, nullptr, 0, 0);
+    CHECK(o->mbExitToRace == 1);
+    *bridge::GameByte(0x844AD8) = s0; *bridge::GameByte(0x844AD9) = s1;
+    o->Destruct();
+    CollectCommands();
+    teststub::optionsPage = 0;
+    teststub::levelSortingList = {"x"};   // rebuild the test cFEng's sorter list (drops nodes from the pool)
+    bridge::cFEngInstance();
+    teststub::levelSortingList.clear();
+    bridge::cFEngInstance()->mpEngine = saved;
+    std::free(pool); --teststub::liveAllocations;
+    teststub::levelSorterSlots = nullptr;
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -4000,6 +4090,7 @@ int main()
     TestWheelOptions();
     TestChooseBrands();
     TestOptionsScreen();
+    TestPauseOptions();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

@@ -527,4 +527,10 @@ int32_t RaceCoordinatorPausePlayer() { return *reinterpret_cast<const int32_t *>
 int32_t PlayerId(int32_t n) { const uint8_t *p = reinterpret_cast<const uint8_t *const *>(0x8900AC)[n]; return p ? *reinterpret_cast<const int32_t *>(p + 8) : -1; }
 void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t d) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t, int32_t, int32_t)>(0x578EF0)(JumpCamObject(), a, b, c, d); }
 void Player_ChangeCamera(int32_t n, int32_t dir) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x5F2FA0)(reinterpret_cast<void **>(0x8900AC)[n], dir); }
+// ---- UIPauseOptions ----
+void *UIPauseOptionsVTable() { return reinterpret_cast<void *>(0x796504); }
+bool IsCareerFreeRoam() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x500B60)(reinterpret_cast<void *>(0x85AD40)) != 0; }
+int32_t QuickRaceNumPlayers() { return reinterpret_cast<int32_t(THISCALL *)(void *)>(0x5026F0)(reinterpret_cast<void *>(0x83AAB4)); }
+bool IsDragRace() { return *reinterpret_cast<const uint8_t *>(0x89E7D8) != 0 || *reinterpret_cast<const int32_t *>(0x890108) != 0; }
+bool IsInPerformanceTuning() { return *reinterpret_cast<const uint8_t *>(0x89E7E6) != 0; }
 }  // namespace bridge

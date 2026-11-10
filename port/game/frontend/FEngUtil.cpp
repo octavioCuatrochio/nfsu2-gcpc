@@ -520,3 +520,14 @@ bool FEngIsScriptRunning(const char *pkg, uint32_t objHash, uint32_t scriptId)
     const FEScript *s = obj->mpCurrentScript;
     return s && s->mu32Id == scriptId && s->mi32Time <= s->mi32Length;
 }
+
+int32_t FEngGetLastButton(const char *pkg)
+{
+    const int32_t *slot = bridge::ScreenLastButtonSlot(FEHashUpper(pkg));
+    return slot ? *slot : 0;
+}
+
+void FEngSetLastButton(const char *pkg, int32_t button)
+{
+    if (int32_t *slot = bridge::ScreenLastButtonSlot(FEHashUpper(pkg))) *slot = button;
+}
