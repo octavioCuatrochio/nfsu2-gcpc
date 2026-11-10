@@ -43,6 +43,38 @@ struct FEButtonWidget {
     void CheckMouse(const char *pkg, float x, float y);   // GC 801538D8 / PC 52D650 (ret 0xC)
 };
 
+// GC FELabelWidget (PC 0x38 bytes, vtable 0x79B338): same fields as the button, always enabled, no current button.
+struct FELabelWidget {
+    FEWidget base;
+    FEObject *mpObject;              // +0x2C
+    float mWidth, mHeight;           // +0x30
+
+    FELabelWidget *Construct(const float *pos, const float *size);   // PC 51E090 (ret 8; GC ctor inlined)
+    void Position();                 // GC 80153B7C / PC 51E0F0: object top-left at the position + label
+    void SetFocus(const char *pkg);  // GC 80153C5C / PC 51E130 (ret 4, pkg unused): "Highlight"
+};
+
+// GC FEStatWidget (PC 0x4C bytes, vtable 0x79B378): name object + value object placed in its own box.
+struct FEStatWidget {
+    FEWidget base;
+    FEObject *mpObject;              // +0x2C (GC +0x30)
+    FEObject *mpValue;               // +0x30 (GC +0x34)
+    float mWidth, mHeight;           // +0x34 copy of the size
+    float mValueSizeX, mValueSizeY;  // +0x3C
+    float mValuePosX, mValuePosY;    // +0x44
+
+    // GC 80153D04 / PC 51E1B0 (ret 0x14)
+    FEStatWidget *Construct(const float *pos, const float *size, const float *valueSize, const float *valuePos, bool enabled);
+    void Show();                     // GC 80153ED4 / PC 50D570
+    void Hide();                     // GC 80153F1C / PC 50D5A0
+    void SetPosX(float x);           // GC 80153F64 / PC 52D930 (ret 4): value box moves along; label follows
+    void SetPosY(float y);           // GC 80153FDC / PC 52D990 (ret 4)
+    void Position();                 // GC 80153D94 / PC 52D800
+};
+
+#if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(FELabelWidget) == 0x38 && sizeof(FEStatWidget) == 0x4C && offsetof(FEStatWidget, mValuePosY) == 0x48);
+#endif
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FEWidget) == 0x2C && offsetof(FEWidget, mpLabel) == 0x24 && offsetof(FEWidget, mbHidden) == 0x29);
 static_assert(sizeof(FEButtonWidget) == 0x38 && offsetof(FEButtonWidget, mWidth) == 0x30);

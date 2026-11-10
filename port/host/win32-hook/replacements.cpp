@@ -322,6 +322,15 @@ void THISCALL FEButtonWidget_SetFocus(FEButtonWidget *self, const char *p) { sel
 void THISCALL FEButtonWidget_UnsetFocus(FEButtonWidget *self) { self->UnsetFocus(); }
 void THISCALL FEButtonWidget_Position(FEButtonWidget *self) { self->Position(); }
 void THISCALL FEButtonWidget_CheckMouse(FEButtonWidget *self, const char *p, float x, float y) { self->CheckMouse(p, x, y); }
+FELabelWidget *THISCALL FELabelWidget_Ctor(FELabelWidget *self, const float *pos, const float *size) { return self->Construct(pos, size); }
+void THISCALL FELabelWidget_Position(FELabelWidget *self) { self->Position(); }
+void THISCALL FELabelWidget_SetFocus(FELabelWidget *self, const char *p) { self->SetFocus(p); }
+FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
+void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
+void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
+void THISCALL FEStatWidget_SetPosX(FEStatWidget *self, float x) { self->SetPosX(x); }
+void THISCALL FEStatWidget_SetPosY(FEStatWidget *self, float y) { self->SetPosY(y); }
+void THISCALL FEStatWidget_Position(FEStatWidget *self) { self->Position(); }
 FEJoyPad *THISCALL FEJoyPad_Ctor(FEJoyPad *self) { return self->Construct(); }
 void THISCALL FEngine_Dtor(FEngine *self) { self->Destruct(); }
 void THISCALL FETypeNode_Dtor(FETypeNode *self) { self->Destruct(); }
@@ -707,6 +716,15 @@ const Replacement kReplacements[] = {
     {0x51D8A0, (const void *)&FEngGetObjBBox, "FEngGetObjBBox", {0x81, 0xEC, 0x10, 0x08, 0x00, 0x00}},
     {0x51D9F0, (const void *)&FEngGet2DExtents, "FEngGet2DExtents", {0x83, 0xEC, 0x18, 0x53, 0x55, 0x8B}},
     {0x52D020, (const void *)&FEngTestForIntersection, "FEngTestForIntersection", {0x8B, 0x44, 0x24, 0x0C, 0x83, 0xEC}},
+    {0x51E090, (const void *)&FELabelWidget_Ctor, "FELabelWidget::FELabelWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
+    {0x51E0F0, (const void *)&FELabelWidget_Position, "FELabelWidget::Position", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x10}},
+    {0x51E130, (const void *)&FELabelWidget_SetFocus, "FELabelWidget::SetFocus", {0x53, 0x8B, 0xD9, 0x57, 0x8B, 0x7B}},
+    {0x51E1B0, (const void *)&FEStatWidget_Ctor, "FEStatWidget::FEStatWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
+    {0x50D570, (const void *)&FEStatWidget_Show, "FEStatWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x50D5A0, (const void *)&FEStatWidget_Hide, "FEStatWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x52D930, (const void *)&FEStatWidget_SetPosX, "FEStatWidget::SetPosX", {0xD9, 0x41, 0x0C, 0x8B, 0x44, 0x24}},
+    {0x52D990, (const void *)&FEStatWidget_SetPosY, "FEStatWidget::SetPosY", {0xD9, 0x41, 0x10, 0x8B, 0x44, 0x24}},
+    {0x52D800, (const void *)&FEStatWidget_Position, "FEStatWidget::Position", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0xF1}},
     {0x519AE0, (const void *)&FEJoyPad_Ctor, "FEJoyPad::FEJoyPad", {0x8B, 0xD1, 0x57, 0x33, 0xC0, 0x8D}},
     {0x52C430, (const void *)&FEngine_Dtor, "FEngine::~FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
     {0x535870, (const void *)&FETypeNode_Dtor, "FETypeNode::~FETypeNode", {0x6A, 0xFF, 0x68, 0x28, 0x70, 0x77}},

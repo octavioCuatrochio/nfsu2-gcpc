@@ -1864,6 +1864,67 @@ static void CheckFEngExtents(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FELabelWidget / FEStatWidget constructors, Show/Hide, SetPosX/Y, Position on synthetic objects, both precisions.
+static void CheckLabelStatWidgets(int iters)
+{
+    auto oLCtor = ORIG<FELabelWidget *(THISCALL *)(FELabelWidget *, const float *, const float *)>(0x51E090);
+    auto oLPos = ORIG<void(THISCALL *)(FELabelWidget *)>(0x51E0F0);
+    auto oSCtor = ORIG<FEStatWidget *(THISCALL *)(FEStatWidget *, const float *, const float *, const float *, const float *, uint32_t)>(0x51E1B0);
+    auto oSShow = ORIG<void(THISCALL *)(FEStatWidget *)>(0x50D570);
+    auto oSHide = ORIG<void(THISCALL *)(FEStatWidget *)>(0x50D5A0);
+    auto oSX = ORIG<void(THISCALL *)(FEStatWidget *, float)>(0x52D930);
+    auto oSY = ORIG<void(THISCALL *)(FEStatWidget *, float)>(0x52D990);
+    auto oSPos = ORIG<void(THISCALL *)(FEStatWidget *)>(0x52D800);
+    struct Arena { FEStatWidget s; FELabelWidget l; unsigned char om[3][sizeof(FEString)]; float d[3][20]; };
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            float v[4][2];
+            for (auto &q : v) { q[0] = RefCoord(); q[1] = RefCoord(); }
+            const uint32_t en = rng() % 2;
+            std::memcpy(&B, &A, sizeof A);
+            FEStatWidget *r1 = oSCtor(&A.s, v[0], v[1], v[2], v[3], en);
+            FELabelWidget *r2 = oLCtor(&A.l, v[1], v[0]);
+            FEStatWidget *r3 = B.s.Construct(v[0], v[1], v[2], v[3], en != 0);
+            FELabelWidget *r4 = B.l.Construct(v[1], v[0]);
+            EXPECT(r1 == &A.s && r3 == &B.s && r2 == &A.l && r4 == &B.l && std::memcmp(&A.s, &B.s, sizeof A.s) == 0 && std::memcmp(&A.l, &B.l, sizeof A.l) == 0, "label/stat ctor");
+            for (int k = 0; k < 3; ++k) {
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 2 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+            }
+            auto obj = [&](Arena &x, int k) { return reinterpret_cast<FEObject *>(x.om[k]); };
+            A.s.mpObject = obj(A, 0); A.s.mpValue = obj(A, 1); A.s.base.mpLabel = rng() % 3 ? obj(A, 2) : nullptr;
+            A.l.mpObject = obj(A, 1); A.l.base.mpLabel = rng() % 3 ? obj(A, 2) : nullptr;
+            std::memcpy(&B, &A, sizeof A);
+            B.s.mpObject = obj(B, 0); B.s.mpValue = obj(B, 1); B.s.base.mpLabel = A.s.base.mpLabel ? obj(B, 2) : nullptr;
+            B.l.mpObject = obj(B, 1); B.l.base.mpLabel = A.l.base.mpLabel ? obj(B, 2) : nullptr;
+            for (int k = 0; k < 3; ++k) obj(B, k)->mpData = B.d[k];
+            const int op = static_cast<int>(rng() % 6);
+            const float f = RefCoord();
+            switch (op) {
+            case 0: oSShow(&A.s); B.s.Show(); break;
+            case 1: oSHide(&A.s); B.s.Hide(); break;
+            case 2: oSX(&A.s, f); B.s.SetPosX(f); break;
+            case 3: oSY(&A.s, f); B.s.SetPosY(f); break;
+            case 4: oSPos(&A.s); B.s.Position(); break;
+            default: oLPos(&A.l); B.l.Position(); break;
+            }
+            bool same = std::memcmp(A.d, B.d, sizeof A.d) == 0 && A.s.mValuePosX == B.s.mValuePosX && A.s.mValuePosY == B.s.mValuePosY && A.s.base.mPosX == B.s.base.mPosX && A.s.base.mPosY == B.s.base.mPosY;
+            for (int k = 0; k < 3; ++k) same &= obj(A, k)->mu32Flags == obj(B, k)->mu32Flags;
+            EXPECT(same, "label/stat op %d pc=%x", op, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2448,6 +2509,7 @@ static int RunAll()
     REFEREE_RUN(CheckFEngPosition(iters * 3));
     REFEREE_RUN(CheckButtonWidget(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
+    REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));

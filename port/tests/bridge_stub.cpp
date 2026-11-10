@@ -236,9 +236,13 @@ bool FEngGetLocalizedString(uint16_t *b, int32_t, uint32_t h) { if (h != 0x77) r
 #ifdef NFSU2_REFEREE
 void *FEWidgetVTable() { return reinterpret_cast<void *>(0x790B98); }
 void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
+void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
+void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
 #else
 void *FEWidgetVTable() { return &teststub::feWidgetVTable; }
 void *FEButtonWidgetVTable() { return &teststub::feButtonWidgetVTable; }
+void *FELabelWidgetVTable() { return &teststub::feButtonWidgetVTable; }
+void *FEStatWidgetVTable() { return &teststub::feWidgetVTable; }
 #endif
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
 void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
