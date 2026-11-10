@@ -459,6 +459,20 @@ bool OptionsDB_IsDirty();                        // PC 52A4C0 (__thiscall on 0x8
 void OptionsDB_DeallocBackup();                  // PC 5032C0 (__thiscall on 0x83A9D0)
 const char *OptionsReturnScreen();               // PC *(const char **)0x83635C: package to go back to
 void EnterMemcard(const char *pkg, const char *to, uint32_t op, uint32_t a, uint32_t b, uint32_t c, uint32_t d);   // PC 4A3100 (__cdecl)
+// ---- PauseMenu ----
+void *PauseMenuVTable();                         // PC 0x797CB0
+int32_t RaceType();                              // PC *(int*)0x89E7B0 (0 = free roam, 7 = ?), GC DAT_803ce800-ish
+bool RaceCoordinatorAltQuitText();               // PC *(int*)RC == 6 && *(int*)(RC + 0x24) == 4 (RC = *0x8900D8)
+void RaceCoordinator_PostMessage(int32_t msg, int32_t arg);   // PC 5F41E0 (__thiscall on *(0x8900D8))
+bool ReplayAvailable();                          // PC byte *(0x8650B8)+0x50EC && int +0xB8 > 0 && *(int*)0x88F1A8 == 0
+void SetReplayReturnScreen(const char *pkg);     // PC *(const char **)0x8363E4 = pkg
+void PlayerCareerState_513B30();                 // PC 513B30 (__thiscall on 0x85AD40) before returning to the crib / map
+void PlayerCareerState_NotifyExitToMainMenu();   // PC 5139C0 (__thiscall on 0x85AD40)
+void FEngSetFirstFrontendScreen(const char *pkg);   // PC 50C8D0 (__cdecl)
+const char *FirstScreenAfterQuitRace();          // PC 502FF0(0) (__thiscall on 0x83A9D0)
+bool OnlineSessionActive();
+bool PlayerExists(int32_t number);               // PC Player::pPlayersByNumber[n] (0x8900AC) != null
+uint32_t PlayerField50(int32_t number);          // PC Player::pPlayersByNumber[n] +0x50 (non-null player)                      // PC 5F0120 (__thiscall on 0x89CF48, AL)
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable();                    // PC 0x796504
 bool IsCareerFreeRoam();                         // PC 500B60 (__thiscall on 0x85AD40, AL) PlayerCareerState

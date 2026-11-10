@@ -17,6 +17,7 @@
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
 #include "frontend/OptionsMain.h"
+#include "frontend/PauseMenu.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -3097,6 +3098,36 @@ static void TestOptionsMain()
     teststub::optionsPage = 0;
 }
 
+// PauseMenu icons: resume unpauses (1 race / 2 free roam), dialogs ask with the right "yes" message and text.
+static void TestPauseMenu()
+{
+    teststub::raceType = 0; CHECK(GetPauseMenuReplayIndex() == 3);
+    teststub::raceType = 7; CHECK(GetPauseMenuReplayIndex() == 2);
+    teststub::raceType = 2; CHECK(GetPauseMenuReplayIndex() == 3);
+    teststub::raceType = 0;
+    teststub::delivered.clear();
+    PMReact(PMKind::ResumeRace, nullptr, 0x911AB364u);
+    CHECK(teststub::delivered.empty());
+    teststub::hasLastButton = true; teststub::lastButton = 4;
+    PMReact(PMKind::ResumeFreeRoam, nullptr, 0x0C407210u);
+    bool unpause2 = false;
+    for (const auto &e : teststub::delivered) unpause2 |= std::string(e.kind) == "unpause" && e.msg == 2;
+    CHECK(unpause2 && teststub::lastButton == 0);
+    teststub::hasLastButton = false;
+    auto dialog = [](PMKind k) {
+        teststub::delivered.clear();
+        PMReact(k, nullptr, 0x0C407210u);
+        for (const auto &e : teststub::delivered) if (std::string(e.kind) == "twobuttons") return e.arg;
+        return 0u;
+    };
+    CHECK(dialog(PMKind::QuitToCrib) == 0xC9BA9E3Eu && dialog(PMKind::RestartRace) == 0x0972A44Bu);
+    teststub::rcAltQuit = true;
+    CHECK(dialog(PMKind::RestartRace) == 0x0972A44Bu + 0xA0DE05B7u && dialog(PMKind::QuitToFrontEnd) == 0xE15B558Au);
+    teststub::rcAltQuit = false;
+    teststub::gameModeFlags = 1; CHECK(dialog(PMKind::QuitToFrontEnd) == 0x6F4796A6u);
+    teststub::gameModeFlags = 0; CHECK(dialog(PMKind::QuitToFrontEnd) == 0x30ED2368u);
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -4214,6 +4245,7 @@ int main()
     TestPauseOptions();
     TestIconScroller();
     TestOptionsMain();
+    TestPauseMenu();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

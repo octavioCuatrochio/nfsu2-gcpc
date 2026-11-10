@@ -129,7 +129,20 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   0x2042 when autosave on and OptionsDB 0x83A9D0 dirty / flag changed, else switch to *0x83635C; DeallocBackupDB),
   FilterSoundForHorizontalMenu 50D1A0, SetPlayerToEditForOptions 49C5F0, FEngIsScriptRunning(pkg, hash, name) 537CC0.
   Pause resume needs IsJoystickPluggedIn(RaceCoordinator +0x20). In-game A/B identical (front end options flow).
-  Next: PauseMenu (23 GC funcs), then the other IconScrollerMenu screens (UIMain, UIQRModeSelect, PostRaceMenu...).
+- PauseMenu (PauseMenu.cpp) DONE, in-game A/B identical (Esc-during-dialog-intro timing varies in both builds): PC 0x158, vtable 797CB0 (0 4EB4F0, 2 Notify 4C2170, 3 49DFC0, 5 Setup
+  4D9300); ctor 4EB410 (+0x150 = RealTimer, FEngSetControlMask(pkg, MapPort(RaceCoordinator+0x20)) 537950, page 0, Setup,
+  help bar only if not pushed: ShowPackage + 54E6A0 + SyncByMask), dtor 4EB510 (pops help bar). Setup: Header_text
+  0x6C839FBE / Back / Select, *0x89E7B0 (race type, 0 = free roam) ? SetupRace 4C2BD0 : SetupExplore 4C2900, SetLastButton
+  0, slot-8 SetInitialPos(GetLastButton), slot-1 Update, slot-4 RefreshHeader. pm_* icons (IconOption 0x48, vtable /
+  React): ResumeRace 7954D0/4C24C0 (unpause 1), ResumeFreeRoam 7954D8/4C2510 (unpause 2), ReturnToWorldMap 7954E0/4C2560,
+  RestartRace 7954E8/4C25D0, Replay 7954F0/4C26B0 (ctor 4C2640: locked unless *0x8650B8 +0x50EC && +0xB8 > 0 && !*0x88F1A8;
+  React switches to ui_ReplayControl.fng, *0x8363E4 = pkg), SwitchToOptions 795510/4C2700 (-> UI_PauseOptionsMain.fng),
+  QuitToCrib 795518/4C2730, QuitRaceToFreeRoam 795520/4C2780, QuitToFrontEnd 795528/4C2820 (ctor 4C27F0, acts directly).
+  Dialog Reacts: DialogInterface 558790(pkg, 0x795000, 0x639, 0x541389E5, text, 0xB4623F67 x2, 1, title) + message
+  0x96DDA9E6 to pkg; texts pick by RaceCoordinator (*0x8900D8 [0] == 6 && [+0x24] == 4). NeedToSeeOptions 4A7BF0,
+  QuitGame 4A7CF0, GetPauseMenuReplayIndex 4A7C40, QuitToCrib 4A7C70, QuitToWorldMap 4A7CC0 (both set first screen
+  UI_CareerCrib.fng + unpause 6), PC OkToHandleInput 4A7BC0. Unpause codes: 1 resume race, 2 resume free roam, 3 restart,
+  4 (0x30F32A49), 6 quit. Next: other IconScrollerMenu screens (UIMain, UIQRModeSelect, PostRaceMenu, CarTunePauseScreen...).
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

@@ -29,6 +29,7 @@
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
 #include "frontend/OptionsMain.h"
+#include "frontend/PauseMenu.h"
 #include "frontend/FEMath.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
@@ -721,6 +722,29 @@ void THISCALL OMCredits_React(void *, const char *, uint32_t m, void *, uint32_t
 uint32_t OM_FilterSoundH(uint32_t m, uint32_t e, uint32_t back) { return FilterSoundForHorizontalMenu(m, e, (back & 0xFF) != 0); }
 void OM_SetPlayerToEdit(int32_t p) { bridge::SetPlayerToEditForOptions(p); }
 bool OM_IsScriptRunningName(const char *p, uint32_t h, const char *n) { return FEngIsScriptRunning(p, h, n); }
+PauseMenu *THISCALL PM_Ctor(PauseMenu *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL PM_Dtor(PauseMenu *s) { s->Destruct(); }
+PauseMenu *THISCALL PM_ScalarDtor(PauseMenu *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL PM_Notify(PauseMenu *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL PM_Setup(PauseMenu *s) { s->Setup(); }
+void THISCALL PM_SetupExplore(PauseMenu *s) { s->SetupExplore(); }
+void THISCALL PM_SetupRace(PauseMenu *s) { s->SetupRace(); }
+bool THISCALL PM_OkToHandle(PauseMenu *s) { return s->OkToHandleInput(); }
+bool THISCALL PM_NeedToSeeOptions(PauseMenu *s) { return s->NeedToSeeOptions(); }
+void THISCALL PM_QuitToCrib(PauseMenu *s) { s->QuitToCrib(); }
+void THISCALL PM_QuitToWorldMap(PauseMenu *s) { s->QuitToWorldMap(); }
+void THISCALL PM_QuitGame(PauseMenu *s) { s->QuitGame(); }
+IconOption *THISCALL PM_ReplayCtor(IconOption *o, uint32_t n, uint32_t h, uint32_t d) { return PMReplayConstruct(o, n, h, d); }
+IconOption *THISCALL PM_QuitFECtor(IconOption *o, uint32_t n, uint32_t h, uint32_t d) { return PMQuitToFrontEndConstruct(o, n, h, d); }
+void THISCALL pm_ResumeRace_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::ResumeRace, p, m); }
+void THISCALL pm_ResumeFreeRoam_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::ResumeFreeRoam, p, m); }
+void THISCALL pm_ReturnToWorldMap_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::ReturnToWorldMap, p, m); }
+void THISCALL pm_RestartRace_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::RestartRace, p, m); }
+void THISCALL pm_Replay_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::Replay, p, m); }
+void THISCALL pm_SwitchToOptions_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::SwitchToOptions, p, m); }
+void THISCALL pm_QuitToCrib_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::QuitToCrib, p, m); }
+void THISCALL pm_QuitRaceToFreeRoam_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::QuitRaceToFreeRoam, p, m); }
+void THISCALL pm_QuitToFrontEnd_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::QuitToFrontEnd, p, m); }
 UIPauseOptions *THISCALL UPO_Ctor(UIPauseOptions *self, const ScreenConstructorData *d) { return self->Construct(d); }
 UIPauseOptions *THISCALL UPO_ScalarDtor(UIPauseOptions *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL UPO_Dtor(UIPauseOptions *self) { self->Destruct(); }
@@ -1451,6 +1475,30 @@ const Replacement kReplacements[] = {
     {0x49A6C0, (const void *)&OMEATrax_React, "OMEATrax::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x49A6E0, (const void *)&OMInline_React, "OMInline::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x49A700, (const void *)&OMCredits_React, "OMCredits::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4EB410, (const void *)&PM_Ctor, "PauseMenu::PauseMenu", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4EB510, (const void *)&PM_Dtor, "PauseMenu::~PauseMenu", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4EB4F0, (const void *)&PM_ScalarDtor, "PauseMenu scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4C2170, (const void *)&PM_Notify, "PauseMenu::NotificationMessage", {0x53, 0x8B, 0x5C, 0x24, 0x14, 0x55}},
+    {0x4D9300, (const void *)&PM_Setup, "PauseMenu::Setup", {0x53, 0x56, 0x57, 0x8B, 0xF1, 0x8B}},
+    {0x4C2900, (const void *)&PM_SetupExplore, "PauseMenu::SetupExplore", {0x6A, 0xFF, 0x68, 0xD0, 0x3B, 0x77}},
+    {0x4C2BD0, (const void *)&PM_SetupRace, "PauseMenu::SetupRace", {0x6A, 0xFF, 0x68, 0xD0, 0x3C, 0x77}},
+    {0x4A7BC0, (const void *)&PM_OkToHandle, "PauseMenu::OkToHandleInput", {0x8B, 0x81, 0x50, 0x01, 0x00, 0x00}},
+    {0x4A7BF0, (const void *)&PM_NeedToSeeOptions, "PauseMenu::NeedToSeeOptions", {0x56, 0x8B, 0x35, 0xD8, 0x00, 0x89}},
+    {0x4A7C40, (const void *)&GetPauseMenuReplayIndex, "GetPauseMenuReplayIndex", {0x8B, 0x0D, 0xB0, 0xE7, 0x89, 0x00}},
+    {0x4A7C70, (const void *)&PM_QuitToCrib, "PauseMenu::QuitToCrib", {0xB9, 0x40, 0xAD, 0x85, 0x00, 0xE8}},
+    {0x4A7CC0, (const void *)&PM_QuitToWorldMap, "PauseMenu::QuitToWorldMap", {0xB9, 0x40, 0xAD, 0x85, 0x00, 0xE8}},
+    {0x4A7CF0, (const void *)&PM_QuitGame, "PauseMenu::QuitGame", {0x56, 0x8B, 0xF1, 0x6A, 0x00, 0xB9}},
+    {0x4C2640, (const void *)&PM_ReplayCtor, "pm_Replay::pm_Replay", {0x8B, 0x44, 0x24, 0x0C, 0x8B, 0x54}},
+    {0x4C27F0, (const void *)&PM_QuitFECtor, "pm_QuitToFrontEnd::pm_QuitToFrontEnd", {0x8B, 0x44, 0x24, 0x0C, 0x8B, 0x54}},
+    {0x4C24C0, (const void *)&pm_ResumeRace_React, "pm_ResumeRace::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C2510, (const void *)&pm_ResumeFreeRoam_React, "pm_ResumeFreeRoam::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C2560, (const void *)&pm_ReturnToWorldMap_React, "pm_ReturnToWorldMap::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C25D0, (const void *)&pm_RestartRace_React, "pm_RestartRace::React", {0xA1, 0xD8, 0x00, 0x89, 0x00, 0x83}},
+    {0x4C26B0, (const void *)&pm_Replay_React, "pm_Replay::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C2700, (const void *)&pm_SwitchToOptions_React, "pm_SwitchToOptions::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C2730, (const void *)&pm_QuitToCrib_React, "pm_QuitToCrib::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C2780, (const void *)&pm_QuitRaceToFreeRoam_React, "pm_QuitRaceToFreeRoam::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C2820, (const void *)&pm_QuitToFrontEnd_React, "pm_QuitToFrontEnd::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4D93C0, (const void *)&UPO_Ctor, "UIPauseOptions::UIPauseOptions", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4D9470, (const void *)&UPO_Dtor, "UIPauseOptions::~UIPauseOptions", {0xC7, 0x01, 0x04, 0x65, 0x79, 0x00}},
     {0x4EB6B0, (const void *)&UPO_ScalarDtor, "UIPauseOptions scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0xDD}},

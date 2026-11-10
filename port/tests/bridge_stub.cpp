@@ -88,6 +88,10 @@ bool careerFreeRoam = false, dragRace = false, perfTuning = false;
 int iconOptionVTable = 0, thumbnailNodeVTable = 0, iconPanelVTable = 0, iconScrollerVTable = 0, iconScrollerMenuVTable = 0;
 int splineSeeks = 0, iconScrollTime = 0;
 bool optionsDirty = false;
+int32_t raceType = 0;
+bool rcAltQuit = false, replayAvailable = false;
+uint32_t playerField50 = 0;
+std::string firstScreen;
 int32_t quickRacePlayers = 1;
 bool autoSaveAllowed = false;
 bool browsingParts = false;
@@ -1036,6 +1040,20 @@ bool OptionsDB_IsDirty() { return teststub::optionsDirty; }
 void OptionsDB_DeallocBackup() { teststub::delivered.push_back({"deallocbackup", nullptr, nullptr, 0, 0}); }
 const char *OptionsReturnScreen() { return "Return.fng"; }
 void EnterMemcard(const char *, const char *, uint32_t op, uint32_t, uint32_t, uint32_t, uint32_t) { teststub::delivered.push_back({"memcard", nullptr, nullptr, op, 0}); }
+// ---- PauseMenu ----
+void *PauseMenuVTable() { return &teststub::iconScrollerMenuVTable; }
+int32_t RaceType() { return teststub::raceType; }
+bool RaceCoordinatorAltQuitText() { return teststub::rcAltQuit; }
+void RaceCoordinator_PostMessage(int32_t m, int32_t a) { teststub::delivered.push_back({"rcpost", nullptr, nullptr, static_cast<uint32_t>(m), static_cast<uint32_t>(a)}); }
+bool ReplayAvailable() { return teststub::replayAvailable; }
+void SetReplayReturnScreen(const char *) {}
+void PlayerCareerState_513B30() { teststub::delivered.push_back({"career513b30", nullptr, nullptr, 0, 0}); }
+void PlayerCareerState_NotifyExitToMainMenu() { teststub::delivered.push_back({"careerexit", nullptr, nullptr, 0, 0}); }
+void FEngSetFirstFrontendScreen(const char *p) { teststub::firstScreen = p ? p : ""; }
+const char *FirstScreenAfterQuitRace() { return "AfterRace.fng"; }
+bool OnlineSessionActive() { return false; }
+bool PlayerExists(int32_t) { return true; }
+uint32_t PlayerField50(int32_t) { return teststub::playerField50; }
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return &teststub::fakeFont; }
 bool IsCareerFreeRoam() { return teststub::careerFreeRoam; }

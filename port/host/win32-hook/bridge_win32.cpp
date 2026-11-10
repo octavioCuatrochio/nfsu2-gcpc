@@ -555,6 +555,24 @@ bool OptionsDB_IsDirty() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(
 void OptionsDB_DeallocBackup() { reinterpret_cast<void(THISCALL *)(void *)>(0x5032C0)(reinterpret_cast<void *>(0x83A9D0)); }
 const char *OptionsReturnScreen() { return *reinterpret_cast<const char *const *>(0x83635C); }
 void EnterMemcard(const char *p, const char *to, uint32_t op, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { reinterpret_cast<void(__cdecl *)(const char *, const char *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x4A3100)(p, to, op, a, b, c, d); }
+// ---- PauseMenu ----
+void *PauseMenuVTable() { return reinterpret_cast<void *>(0x797CB0); }
+int32_t RaceType() { return *reinterpret_cast<const int32_t *>(0x89E7B0); }
+bool RaceCoordinatorAltQuitText() { const auto *rc = *reinterpret_cast<const int32_t *const *>(0x8900D8); return rc[0] == 6 && rc[9] == 4; }
+void RaceCoordinator_PostMessage(int32_t m, int32_t a) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x5F41E0)(*reinterpret_cast<void **>(0x8900D8), m, a); }
+bool ReplayAvailable()
+{
+    const auto *o = *reinterpret_cast<const uint8_t *const *>(0x8650B8);
+    return o[0x50EC] && *reinterpret_cast<const int32_t *>(o + 0xB8) > 0 && *reinterpret_cast<const int32_t *>(0x88F1A8) == 0;
+}
+void SetReplayReturnScreen(const char *p) { *reinterpret_cast<const char **>(0x8363E4) = p; }
+void PlayerCareerState_513B30() { reinterpret_cast<void(THISCALL *)(void *)>(0x513B30)(reinterpret_cast<void *>(0x85AD40)); }
+void PlayerCareerState_NotifyExitToMainMenu() { reinterpret_cast<void(THISCALL *)(void *)>(0x5139C0)(reinterpret_cast<void *>(0x85AD40)); }
+void FEngSetFirstFrontendScreen(const char *p) { reinterpret_cast<void(__cdecl *)(const char *)>(0x50C8D0)(p); }
+const char *FirstScreenAfterQuitRace() { return reinterpret_cast<const char *(THISCALL *)(void *, int32_t)>(0x502FF0)(reinterpret_cast<void *>(0x83A9D0), 0); }
+bool PlayerExists(int32_t n) { return reinterpret_cast<void *const *>(0x8900AC)[n] != nullptr; }
+uint32_t PlayerField50(int32_t n) { return *reinterpret_cast<const uint32_t *>(reinterpret_cast<const uint8_t *const *>(0x8900AC)[n] + 0x50); }
+bool OnlineSessionActive() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x5F0120)(reinterpret_cast<void *>(0x89CF48)) != 0; }
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return reinterpret_cast<void *>(0x796504); }
 bool IsCareerFreeRoam() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x500B60)(reinterpret_cast<void *>(0x85AD40)) != 0; }
