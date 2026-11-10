@@ -58,6 +58,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - Only one SPEED2.EXE can run: never run the referee and the in-game test at the same time.
 - Referee: default 2000 iterations (~13 s, ~770k checks); full `run_referee.sh 20000` (~4 min) before milestones;
   `REFEREE_ONLY=ListBox,Reader` runs matching checks only (~1 s). Random chunk tests must keep sizes consistent.
+- FEngine: Update 558C00, PushPackage 555860, UnloadPackage 5362E0 rewritten. Layout: +2 mouse enabled, +8 FEJoyPad*
+  (0x88 each, count +0xD4), +0xC FEMouse, +0x34/+0x38[19] hold-time releases. FEGameInterface (+0x10C) slots: see
+  knowledge facts. Lesson: a `push` right before a vtable call may belong to the NEXT call (pad bits slot takes 1 arg).
+- Debug crashes: `pkill -f <pattern>` kills my own shell when the command line contains the pattern; use -x.
 - Hook host: counters/stubs sized by kMaxHooks (hooks.cpp); >256 hooks overflowed the old 4 KB stub page (DllMain AV).
 - Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
 

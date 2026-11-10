@@ -51,6 +51,8 @@ int feCodeListBoxVTable = 0, feListBoxVTable = 0, fePackageDataVTable = 0, fePac
 bool loadResourcesResult = true, readerChunkResult = true;
 const void *libraryData = nullptr;
 bool willUnloadResult = true;
+uint32_t padBits = 0;
+int16_t mouseInfo[4] = {};
 void *screenResult = nullptr;
 bool hotChunking = false;
 ::SlotPool *levelSorterSlots = nullptr;
@@ -141,6 +143,17 @@ const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, ui
 void FEGameInterface_ReleaseResources(void *gi, FEPackage *p, uint32_t n, void *) { teststub::delivered.push_back({"releaseres", gi, p, n, 0}); }
 bool FEGameInterface_PackageWillUnload(void *gi, FEPackage *p) { teststub::delivered.push_back({"willunload", gi, p, 0, 0}); return teststub::willUnloadResult; }
 bool FEGameInterface_CanUnloadLibrary(void *gi, FEPackage *p) { teststub::delivered.push_back({"canunloadlib", gi, p, 0, 0}); return true; }
+uint32_t FEGameInterface_GetJoyPadBits(void *gi, uint32_t pad) { teststub::delivered.push_back({"padbits", gi, nullptr, pad, 0}); return teststub::padBits; }
+void FEGameInterface_GetMouseInfo(void *gi, void *info) { teststub::delivered.push_back({"mouseinfo", gi, nullptr, 0, 0}); std::memcpy(info, teststub::mouseInfo, 8); }
+void FEGameInterface_BeginUpdate(void *gi) { teststub::delivered.push_back({"begin", gi, nullptr, 0, 0}); }
+void FEGameInterface_EndUpdate(void *gi) { teststub::delivered.push_back({"end", gi, nullptr, 0, 0}); }
+void FEngine_ProcessPadsForPackage(void *e, FEPackage *p) { teststub::delivered.push_back({"pads", e, p, 0, 0}); }
+void FEngine_ProcessMouseForPackage(void *e, FEPackage *p) { teststub::delivered.push_back({"mouse", e, p, 0, 0}); }
+#ifdef NFSU2_REFEREE
+void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }
+#else
+void SetHoldDirtyFlags(uint32_t v) { teststub::holdDirtyFlags = v; }
+#endif
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { teststub::delivered.push_back({"libloaded", gi, p, 0, 0}); }
 FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
 {

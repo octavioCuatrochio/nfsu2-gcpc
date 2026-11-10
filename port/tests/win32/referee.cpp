@@ -1333,6 +1333,37 @@ static void CheckCodeListBoxMove(int iters)
     }
 }
 
+// FEJoyPad::Update / FEMouse::Update on random state.
+static void CheckPadMouse(int iters)
+{
+    auto oPad = ORIG<void(THISCALL *)(FEJoyPad *, uint32_t, uint32_t)>(0x504FA0);
+    auto oMouse = ORIG<void(THISCALL *)(FEMouse *, const FEMouse::Info *, uint32_t)>(0x50B0C0);
+    for (int it = 0; it < iters; ++it) {
+        if (rng() % 2) {
+            FEJoyPad a, b;
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&a);
+            for (size_t i = 0; i < sizeof a; ++i) pa[i] = static_cast<uint8_t>(rng());
+            b = a;
+            const uint32_t bits = rng() & rng(), d = rng() % 100;
+            oPad(&a, bits, d);
+            b.Update(bits, d);
+            EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "FEJoyPad::Update");
+        } else {
+            FEMouse a, b;
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&a);
+            for (size_t i = 0; i < sizeof a; ++i) pa[i] = static_cast<uint8_t>(rng());
+            if (rng() % 2) { a.mi32X = static_cast<int16_t>(a.mi32X); a.mi32Y = static_cast<int16_t>(a.mi32Y); }
+            b = a;
+            FEMouse::Info info{static_cast<int16_t>(rng() % 3 ? rng() : a.mi32X), static_cast<int16_t>(rng() % 3 ? rng() : a.mi32Y),
+                               static_cast<int16_t>(rng()), static_cast<uint16_t>(rng())};
+            const uint32_t d = rng() % 100;
+            oMouse(&a, &info, d);
+            b.Update(info, d);
+            EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "FEMouse::Update");
+        }
+    }
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1856,6 +1887,7 @@ static int RunAll()
     REFEREE_RUN(CheckCodeListBox(iters * 5));
     REFEREE_RUN(CheckCodeListBoxFillUpdate(iters * 5));
     REFEREE_RUN(CheckCodeListBoxMove(iters * 10));
+    REFEREE_RUN(CheckPadMouse(iters * 5));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));
     REFEREE_RUN(CheckUpdateObjectTracks(iters));

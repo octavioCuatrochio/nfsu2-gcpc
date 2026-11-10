@@ -42,10 +42,43 @@ struct FETypeNode {
     uint32_t mu32Type;               // +0x24 FEObject factory type
 };
 
+// Pad state (0x88): button bits now / before and how long (in update ticks) each held button has been down.
+struct FEJoyPad {
+    uint32_t mu32Previous;           // +0x00
+    uint32_t mu32Current;            // +0x04
+    uint32_t mHoldTime[32];          // +0x08
+
+    void Update(uint32_t bits, uint32_t delta);   // GC FEJoyPad::Update / PC 504FA0 (ret 8)
+};
+// Mouse state (FEngine +0x0C, 0x20 bytes).
+struct FEMouse {
+    int32_t mi32X, mi32Y, mi32Wheel; // +0x00
+    uint16_t mu16Previous;           // +0x0C buttons
+    uint16_t mu16Current;            // +0x0E
+    uint32_t mHoldTime[3];           // +0x10
+    uint8_t _unknown1C;
+    uint8_t mbMoved;                 // +0x1D x or y changed in the last Update
+    uint8_t _pad1E[2];
+
+    struct Info { int16_t x, y, wheel; uint16_t buttons; };   // game interface +0x44 output
+    void Update(const Info &info, uint32_t delta);  // GC FEMouse::Update / PC 50B0C0 (ret 8)
+};
+
 struct FEngine {
-    uint8_t _unknown000;
+    uint8_t _unknown000;             // +0x00 FEng running (messages, packed updates); copied to FEPackage::mbFastInterp
     uint8_t mbFlag01;                // +0x01 input enabled ("Enabling/Disabling inputs"); set by 0x59BED120 / 0x7E4D1288
-    uint8_t _unknown002[0xDA];
+    uint8_t mbMouseEnabled;          // +0x02
+    uint8_t mbFlag03, mbFlag04;      // +0x03 / +0x04 FEPackageReader::Load flags
+    uint8_t _unknown005[3];
+    FEJoyPad *mpJoyPads;             // +0x08 mu32NumJoyPads entries
+    FEMouse mMouse;                  // +0x0C
+    uint32_t _unknown02C;            // +0x2C = +0x30 after input processing
+    uint32_t _unknown030;
+    uint32_t mu32ButtonsToRelease;   // +0x34 bit k: subtract mReleaseTime[k] from every pad's hold time k
+    uint32_t mReleaseTime[19];       // +0x38
+    uint8_t _unknown084[0xD4 - 0x84];
+    uint32_t mu32NumJoyPads;         // +0xD4
+    uint8_t _unknown0D8[4];
     // Active packages: FEMinList at +0xDC (vtable, count, head, tail); kept as fields because code uses the head.
     void *mpActiveListVTable;        // +0xDC
     uint32_t mu32NumPackages;        // +0xE0
@@ -93,6 +126,10 @@ struct FEngine {
     void RemoveFromLibraryList(FEPackage *pkg);      // GC 80145F24 / PC 51A910
     void UnloadLibraryPackage(FEPackage *pkg);       // GC 80145C30 / PC 52C500
     void AddPackageByPriority(FEPackage *pkg);       // PC 518280 (GC: inlined): after the last with priority <= pkg's
+    // GC 80146028 / PC 558C00 (ret 8): game pre/post hooks (+0x5251), input (pads, mouse, per-package processing,
+    // hold-time releases), then object updates in steps of at most 20 (unless `wholeStep`) with message and
+    // package-command processing between steps; disabled engines only update the objects.
+    void Update(uint32_t delta, uint32_t wholeStep);
     void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
     void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
     void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50
@@ -114,6 +151,8 @@ static_assert(sizeof(FEMessageNode) == 0x20 && sizeof(FEPackageCommand) == 0x20 
 static_assert(offsetof(FEngine, mPackageCommands) == 0x4124 && offsetof(FEngine, mi32LastButtonIndex) == 0x514C);
 static_assert(offsetof(FEngine, mLastButtons) == 0x5150);
 static_assert(offsetof(FEngine, mpPackages) == 0xE4 && offsetof(FEngine, mpUIData) == 0x10C && offsetof(FEngine, mMessages) == 0x4114);
+static_assert(offsetof(FEngine, mMouse) == 0xC && offsetof(FEngine, mReleaseTime) == 0x38 && offsetof(FEngine, mu32NumJoyPads) == 0xD4);
+static_assert(sizeof(FEJoyPad) == 0x88 && sizeof(FEMouse) == 0x20 && offsetof(FEMouse, mbMoved) == 0x1D);
 static_assert(offsetof(FEngine, mIdlePackages) == 0xEC && offsetof(FEngine, mpActiveListVTable) == 0xDC);
 static_assert(offsetof(FEngine, mbForwardQueuedMessages) == 0x5251 && offsetof(FEngine, mu32NumPackageMarkers) == 0x4148);
 #endif

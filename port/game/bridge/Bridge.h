@@ -79,6 +79,13 @@ void FEGameInterface_LibraryLoaded(void *gi, ::FEPackage *pkg);   // vtable slot
 void FEGameInterface_ReleaseResources(void *gi, ::FEPackage *pkg, uint32_t count, void *resources);   // slot 2 (+0x8)
 bool FEGameInterface_PackageWillUnload(void *gi, ::FEPackage *pkg);   // slot 4 (+0x10): true -> delete it
 bool FEGameInterface_CanUnloadLibrary(void *gi, ::FEPackage *pkg);    // slot 5 (+0x14)
+uint32_t FEGameInterface_GetJoyPadBits(void *gi, uint32_t pad);   // +0x40 (one argument)
+void FEGameInterface_GetMouseInfo(void *gi, void *info);              // +0x44 (8 bytes: x, y, wheel, buttons)
+void FEGameInterface_BeginUpdate(void *gi);                           // +0x5C
+void FEGameInterface_EndUpdate(void *gi);                             // +0x60
+void FEngine_ProcessPadsForPackage(void *engine, ::FEPackage *pkg);   // PC 54D4B0 (GC 801463A4)
+void FEngine_ProcessMouseForPackage(void *engine, ::FEPackage *pkg);  // PC 54E020 (GC 80146FA0)
+void SetHoldDirtyFlags(uint32_t v);                                   // uHoldDirtyFlags, PC 0x7F7C8C
 // constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)
 ::FEObject *FEObjectTypeConstruct(void *mem, uint32_t type);
 ::FEObject *FEObject_VirtualClone(::FEObject *obj, bool reference);       // vtable slot 1

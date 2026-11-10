@@ -1844,6 +1844,45 @@ static void TestEnginePushUnload()
     CHECK(teststub::liveAllocations == live0);
 }
 
+// FEngine::Update: hooks, input (pads, mouse, per-package), hold-time release, stepped object updates.
+static void TestEngineUpdate()
+{
+    auto *e = static_cast<FEngine *>(std::calloc(1, sizeof(FEngine)));
+    for (FEMinList *l : {&e->ActiveList(), &e->mIdlePackages, &e->mLibraries, &e->mMessages, &e->mPackageCommands}) l->vtable = &teststub::feMinListVTable;
+    int gi = 0;
+    e->mpUIData = &gi;
+    FEJoyPad pads[2] = {};
+    e->mpJoyPads = pads;
+    e->mu32NumJoyPads = 2;
+    alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
+    auto *pkg = reinterpret_cast<FEPackage *>(pm);
+    e->ActiveList().AddTail(&pkg->node);
+    e->_unknown000 = 1; e->mbFlag01 = 1; e->mbMouseEnabled = 1; e->mbForwardQueuedMessages = 1;
+    e->_unknown5250 = 1;
+    teststub::padBits = 0x5;
+    const int16_t mi[4] = {10, 20, 1, 1};
+    std::memcpy(teststub::mouseInfo, mi, 8);
+    auto &dl = teststub::delivered;
+    dl.clear();
+    e->Update(45, 0);
+    CHECK(pads[0].mu32Current == 5 && pads[1].mHoldTime[0] == 0 && e->mMouse.mi32X == 10 && e->mMouse.mbMoved == 1);
+    CHECK(dl.front().kind == std::string("begin") && dl.back().kind == std::string("end"));
+    CHECK(pkg->mpEngine == e && pkg->mi32ScriptDelta == 5 && e->_unknown5250 == 0 && teststub::holdDirtyFlags == 0xFFFFFFFFu);   // steps 20, 20, 5
+    int padsCalls = 0;
+    for (auto &d : dl) padsCalls += d.kind == std::string("pads");
+    CHECK(padsCalls == 1);
+    e->Update(45, 1);                 // held: hold times grow; one whole step
+    CHECK(pads[0].mHoldTime[0] == 45 && pads[0].mHoldTime[2] == 45 && pkg->mi32ScriptDelta == 45 && e->mMouse.mbMoved == 0);
+    e->mu32ButtonsToRelease = 0;      // Update clears it before processing; a release set by the processing applies
+    e->mReleaseTime[0] = 100;
+    e->_unknown000 = 0;               // disabled: objects only, release times untouched
+    e->Update(7, 0);
+    CHECK(pkg->mi32ScriptDelta == 7 && e->mReleaseTime[0] == 100 && pads[0].mHoldTime[0] == 45);
+    dl.clear();
+    teststub::holdDirtyFlags = 0;
+    std::free(e);
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -2011,6 +2050,7 @@ int main()
     TestListBoxCells();
     TestCodeListBox();
     TestEnginePushUnload();
+    TestEngineUpdate();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

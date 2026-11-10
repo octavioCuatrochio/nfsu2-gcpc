@@ -37,6 +37,8 @@ extern int feCodeListBoxVTable, feListBoxVTable, fePackageDataVTable, fePackageV
 extern bool loadResourcesResult, readerChunkResult;
 extern const void *libraryData;
 extern bool willUnloadResult;
+extern uint32_t padBits;
+extern int16_t mouseInfo[4];
    // FEGameInterface_GetPackageData result
 extern void *screenResult;   // ScreenFactory result
 extern bool hotChunking;

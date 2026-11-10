@@ -498,3 +498,87 @@ void FEngine::UnloadLibraryPackage(FEPackage *pkg)
     if (mpUIData) bridge::FEGameInterface_ReleaseResources(mpUIData, pkg, pkg->mu32NumResources, pkg->mpResources);
     if (remove && pkg) bridge::VirtualScalarDelete(pkg);
 }
+
+void FEJoyPad::Update(uint32_t bits, uint32_t delta)
+{
+    mu32Previous = mu32Current;
+    mu32Current = bits;
+    for (int i = 0; i < 32; ++i) {
+        const uint32_t b = 1u << i;
+        if (!(mu32Current & b)) continue;
+        if (mu32Previous & b) mHoldTime[i] += delta;
+        else mHoldTime[i] = 0;
+    }
+}
+
+void FEMouse::Update(const Info &info, uint32_t delta)
+{
+    mbMoved = info.x != mi32X || info.y != mi32Y;
+    mi32X = info.x;
+    mi32Y = info.y;
+    mi32Wheel = info.wheel;
+    mu16Previous = mu16Current;
+    mu16Current = info.buttons;
+    for (int i = 0; i < 3; ++i) {
+        const uint32_t b = 1u << i;
+        if (!(mu16Current & b)) continue;
+        if (mu16Previous & b) mHoldTime[i] += delta;
+        else mHoldTime[i] = 0;
+    }
+}
+
+void FEngine::Update(uint32_t delta, uint32_t wholeStep)
+{
+    if (mbForwardQueuedMessages) bridge::FEGameInterface_BeginUpdate(mpUIData);   // +0x5251: interface +0x5C
+    auto updateObjects = [&](uint32_t step) {
+        for (auto *pkg = reinterpret_cast<FEPackage *>(ActiveList().head), *next = pkg; pkg; pkg = next) {
+            next = reinterpret_cast<FEPackage *>(pkg->node.next);
+            pkg->mpEngine = this;
+            pkg->mi32ScriptDelta = static_cast<int32_t>(step);
+            for (FEMinNode *o = pkg->mObjects.head; o; o = o->next) pkg->UpdateObject(reinterpret_cast<FEObject *>(o), static_cast<int32_t>(step));
+        }
+    };
+    if (_unknown000) {
+        if (mbFlag01) {
+            mu32ButtonsToRelease = 0;
+            if (mbMouseEnabled) {
+                FEMouse::Info info;
+                bridge::FEGameInterface_GetMouseInfo(mpUIData, &info);
+                mMouse.Update(info, delta);
+            }
+            for (uint8_t i = 0; i < mu32NumJoyPads; ++i)
+                mpJoyPads[i].Update(bridge::FEGameInterface_GetJoyPadBits(mpUIData, i), delta);
+            for (auto *pkg = reinterpret_cast<FEPackage *>(ActiveList().head); pkg; pkg = reinterpret_cast<FEPackage *>(pkg->node.next)) {
+                bridge::FEngine_ProcessPadsForPackage(this, pkg);
+                if (mbMouseEnabled) bridge::FEngine_ProcessMouseForPackage(this, pkg);
+            }
+            for (int k = 0; k < 19; ++k) {
+                if (mu32ButtonsToRelease & (1u << k))
+                    for (uint8_t p = 0; p < mu32NumJoyPads; ++p) {
+                        uint32_t &h = mpJoyPads[p].mHoldTime[k];
+                        h = h > mReleaseTime[k] ? h - mReleaseTime[k] : 0;
+                    }
+                mReleaseTime[k] = 0;
+            }
+            _unknown02C = _unknown030;
+        }
+        if (_unknown000) {
+            uint32_t remaining = delta;
+            do {
+                const uint32_t step = (wholeStep == 0 && static_cast<int32_t>(remaining) > 20) ? 20 : remaining;
+                bridge::SetHoldDirtyFlags(_unknown5250 ? 0u : 0xFFFFFFFFu);
+                updateObjects(step);
+                ProcessMessageQueue();
+                ProcessPackageCommands();
+                if (mMessages.head) ProcessMessageQueue();
+                remaining -= step;
+                _unknown5250 = 0;
+            } while (remaining != 0);
+        } else {
+            updateObjects(delta);
+        }
+    } else {
+        updateObjects(delta);
+    }
+    if (mbForwardQueuedMessages) bridge::FEGameInterface_EndUpdate(mpUIData);   // interface +0x60
+}
