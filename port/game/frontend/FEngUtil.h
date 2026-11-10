@@ -72,3 +72,14 @@ void FEngSetScript(const char *pkg, uint32_t objHash, uint32_t scriptId, bool re
 
 void FEngSetCurrentButton(const char *pkg, uint32_t buttonHash);         // GC 8014F6F8 / PC 52CEA0
 void FEngSetCurrentButton(const char *pkg, const FEObject *button);      // GC 8014F734 / PC 52CEC0 (null: nothing)
+
+struct FERect { float left, top, right, bottom; };
+// PC 51D8A0 (GC 80152F64 FEngGetObjBBox, PC differs): string objects only. topLeft = position + justification
+// multiplier (flags +0x6C: 1 -> -0.5 / 2 -> -1 for x, 4 -> -0.5 / 8 -> -1 for y, else 0) * extent; extent =
+// localized-or-own text width/height * size. Both zeroed first; no font: stays zero.
+void FEngGetObjBBox(const FEObject *obj, float *topLeft, float *extent);
+// GC 80151384 / PC 51D9F0: screen rectangle. Types 1, 3, 4, 6, 7, 9, 10, 11: top-left / bottom-right (8: none); strings: bbox (false
+// when the extent is 0 in x or y); groups: union of the children's rectangles moved by the group position.
+bool FEngGet2DExtents(const FEObject *obj, FERect *r);
+// GC 80151280 / PC 52D020: (x, y) inside the object's rectangle (edges included; NaN: false).
+bool FEngTestForIntersection(float x, float y, const FEObject *obj);

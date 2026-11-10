@@ -2405,15 +2405,48 @@ static void TestButtonWidget()
     CHECK(o->mpCurrentScript == un && un->mi32Time == 0);
     auto &dl = teststub::delivered;
     dl.clear();
-    teststub::hitResult = false;
-    w->CheckMouse("Pkg", 1, 2);
-    CHECK(dl.size() == 1 && std::string(dl[0].kind) == "hittest" && dl[0].a == o);
-    teststub::hitResult = true;
-    dl.clear();
-    w->CheckMouse("Pkg", 1, 2);
-    CHECK(dl.size() == 4 && std::string(dl[2].kind) == "sound" && dl[2].msg == 8 && std::string(dl[3].kind) == "act" && dl[3].msg == 0x0C407210u);
+    w->CheckMouse("Pkg", 1, 2);                      // box covers [100, 180] x [200, 230]
+    CHECK(dl.empty());
+    w->CheckMouse("Pkg", 180, 230);                  // edges count
+    CHECK(dl.size() == 3 && std::string(dl[1].kind) == "sound" && dl[1].msg == 8 && std::string(dl[2].kind) == "act" && dl[2].msg == 0x0C407210u);
     teststub::hitResult = false;
     dl.clear();
+}
+
+// FEngGetObjBBox / FEngGet2DExtents / FEngTestForIntersection.
+static void TestFEngExtents()
+{
+    alignas(8) unsigned char gm[sizeof(FEGroup)] = {}, bm[sizeof(FEObject)] = {}, sm[sizeof(FEString)] = {};
+    float gd[20] = {}, bd[20] = {}, sd[20] = {};
+    auto *g = reinterpret_cast<FEGroup *>(gm);
+    auto *b = reinterpret_cast<FEObject *>(bm);
+    auto *so = reinterpret_cast<FEObject *>(sm);
+    auto *str = reinterpret_cast<FEString *>(sm);
+    g->obj.mu32Type = 5; g->obj.mpData = gd; gd[7] = 1000; gd[8] = 2000;
+    b->mu32Type = 1; b->mpData = bd; bd[7] = 10; bd[8] = 20; bd[14] = 4; bd[15] = 6;   // [8, 12] x [17, 23]
+    so->mu32Type = 2; so->mpData = sd; so->_unknown24 = 1; sd[7] = 50; sd[8] = 60; sd[14] = 1; sd[15] = 1;
+    uint16_t text[3] = {'h', 'i', 0};
+    str->mstrText.mpsString = text;
+    str->_unknown6C = 1 | 8;                          // x: -0.5 * width, y: -1 * height
+    float tl[2], ext[2];
+    FEngGetObjBBox(so, tl, ext);
+    CHECK(ext[0] == 20 && ext[1] == 20 && tl[0] == 40 && tl[1] == 40);
+    FERect r{};
+    CHECK(FEngGet2DExtents(b, &r) && r.left == 8 && r.top == 17 && r.right == 12 && r.bottom == 23);
+    CHECK(FEngGet2DExtents(so, &r) && r.left == 40 && r.right == 60 && r.bottom == 60);
+    so->_unknown24 = 0;                               // no font: zero extent -> false
+    CHECK(!FEngGet2DExtents(so, &r));
+    so->_unknown24 = 1;
+    g->mChildren.vtable = &teststub::feMinListVTable;
+    CHECK(!FEngGet2DExtents(&g->obj, &r));            // empty group
+    g->mChildren.AddTail(&b->node);
+    g->mChildren.AddTail(&so->node);
+    CHECK(FEngGet2DExtents(&g->obj, &r) && r.left == 1008 && r.top == 2017 && r.right == 1060 && r.bottom == 2060);
+    b->mu32Type = 12;                                 // unknown type: no extents
+    CHECK(!FEngGet2DExtents(b, &r) && !FEngGet2DExtents(nullptr, &r));
+    b->mu32Type = 3;                                  // plain object: a point
+    CHECK(FEngTestForIntersection(10, 20, b) && !FEngTestForIntersection(10.5f, 20, b));
+    CHECK(!FEngTestForIntersection(std::nanf(""), 20, b) && !FEngTestForIntersection(1, 1, nullptr));
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
@@ -2591,6 +2624,7 @@ int main()
     TestFEngUtil();
     TestFEngPosition();
     TestButtonWidget();
+    TestFEngExtents();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();

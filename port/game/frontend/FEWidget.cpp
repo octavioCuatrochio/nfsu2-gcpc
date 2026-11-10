@@ -75,7 +75,7 @@ void FEButtonWidget::Position()
 
 void FEButtonWidget::CheckMouse(const char *pkg, float x, float y)
 {
-    if (!bridge::FEngTestForIntersection(x, y, mpObject)) return;
+    if (!FEngTestForIntersection(x, y, mpObject)) return;
     const uint32_t trigger = bridge::FEWidget_DetermineSoundTrigger(this);   // vtable +0x3C
     bridge::PlayFrontendSound(trigger);                                     // table 0x8380B8 -> PlayUISoundFX
     bridge::FEWidget_Act(this, pkg, 0x0C407210u);                           // vtable +0x04

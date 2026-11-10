@@ -113,7 +113,6 @@ long double FEngFont_CalculateYOffset(void *font, uint32_t justify, float height
 bool FEngGetLocalizedString(uint16_t *buffer, int32_t bytes, uint32_t labelHash);        // PC 512570 (__cdecl)
 void *FEWidgetVTable();                          // PC 0x790B98
 void *FEButtonWidgetVTable();                    // PC 0x79B2F8
-bool FEngTestForIntersection(float x, float y, ::FEObject *obj);   // PC 52D020 (__cdecl; not rewritten: FEngGet2DExtents)
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04
 void PlayFrontendSound(uint32_t trigger);       // PC: idx = (int8) table 0x8380B8[trigger]; != -1 -> PlayUISoundFX 458520

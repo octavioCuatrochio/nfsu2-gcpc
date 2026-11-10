@@ -240,7 +240,6 @@ void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
 void *FEWidgetVTable() { return &teststub::feWidgetVTable; }
 void *FEButtonWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 #endif
-bool FEngTestForIntersection(float x, float y, FEObject *o) { teststub::delivered.push_back({"hittest", o, nullptr, uint32_t(x), uint32_t(y)}); return teststub::hitResult; }
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
 void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
 void PlayFrontendSound(uint32_t t) { teststub::delivered.push_back({"sound", nullptr, nullptr, t, 0}); }

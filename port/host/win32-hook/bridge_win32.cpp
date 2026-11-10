@@ -140,7 +140,6 @@ long double FEngFont_CalculateYOffset(void *f, uint32_t j, float h) { return rei
 bool FEngGetLocalizedString(uint16_t *b, int32_t n, uint32_t h) { return reinterpret_cast<bool(__cdecl *)(uint16_t *, int32_t, uint32_t)>(0x512570)(b, n, h); }
 void *FEWidgetVTable() { return reinterpret_cast<void *>(0x790B98); }
 void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
-bool FEngTestForIntersection(float x, float y, FEObject *o) { return reinterpret_cast<bool(__cdecl *)(float, float, FEObject *)>(0x52D020)(x, y, o); }
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { return (*reinterpret_cast<uint32_t(THISCALL ***)(void *)>(w))[0x3C / 4](w); }
 void FEWidget_Act(void *w, const char *p, uint32_t m) { (*reinterpret_cast<void(THISCALL ***)(void *, const char *, uint32_t)>(w))[0x04 / 4](w, p, m); }
 void PlayFrontendSound(uint32_t trigger)

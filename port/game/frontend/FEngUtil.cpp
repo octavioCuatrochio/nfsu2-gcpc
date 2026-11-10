@@ -390,3 +390,81 @@ void FEngSetCurrentButton(const char *pkg, const FEObject *button)
     cFEng *fe = bridge::cFEngInstance();
     if (fe && button) fe->SetCurrentButton(pkg, button->mu32NameHash);
 }
+
+void FEngGetObjBBox(const FEObject *obj, float *topLeft, float *extent)
+{
+    extent[1] = 0.0f;
+    extent[0] = 0.0f;
+    topLeft[0] = 0.0f;
+    topLeft[1] = extent[1];
+    const float *d = ObjData(obj);
+    void *font = bridge::FEngFindFont(obj->_unknown24);
+    if (!font) return;
+    const auto *s = reinterpret_cast<const FEString *>(obj);
+    uint16_t buffer[0x400];
+    const uint16_t *text = s->mstrText.mpsString;
+    if (!(obj->mu32Flags & 2) && bridge::FEngGetLocalizedString(buffer, 0x800, s->mu32LabelHash)) text = buffer;   // PC: inlined
+    const float h = static_cast<float>(bridge::FEngFont_GetTextHeight(font, text, s->_unknown70) * d[15]);
+    const float w = static_cast<float>(bridge::FEngFont_GetTextWidth(font, text, 0) * d[14]);
+    extent[1] = h;
+    extent[0] = w;
+    const uint32_t j = s->_unknown6C;
+    const float mx = (j & 1) ? -0.5f : (j & 2) ? -1.0f : 0.0f;
+    const float my = (j & 4) ? -0.5f : (j & 8) ? -1.0f : 0.0f;
+    const float x = static_cast<float>(L(w) * mx + d[7]);
+    topLeft[1] = static_cast<float>(L(my) * h + d[8]);
+    topLeft[0] = x;
+}
+
+bool FEngGet2DExtents(const FEObject *obj, FERect *r)
+{
+    if (!obj) return false;
+    const uint32_t t = obj->mu32Type;
+    if (t == 0 || t > 11 || t == 8) return false;   // (type 8 has no extents: PC table 0x51DBD0)
+    if (t == 2) {
+        float tl[2], ext[2];
+        FEngGetObjBBox(obj, tl, ext);
+        if (ext[0] == 0.0f || ext[1] == 0.0f) return false;   // (NaN passes, like the original)
+        r->left = tl[0];
+        r->top = tl[1];
+        r->right = static_cast<float>(L(tl[0]) + ext[0]);
+        r->bottom = static_cast<float>(L(tl[1]) + ext[1]);
+        return true;
+    }
+    if (t == 5) {
+        bool any = false;
+        const auto *g = reinterpret_cast<const FEGroup *>(obj);
+        for (auto *c = reinterpret_cast<const FEObject *>(g->mChildren.head); c; c = reinterpret_cast<const FEObject *>(c->node.next)) {
+            FERect cr;
+            if (!FEngGet2DExtents(c, &cr)) continue;
+            if (!any) {
+                *r = cr;
+            } else {
+                if (cr.left < r->left) r->left = cr.left;
+                if (cr.right > r->right) r->right = cr.right;
+                if (cr.top < r->top) r->top = cr.top;
+                if (cr.bottom > r->bottom) r->bottom = cr.bottom;
+            }
+            any = true;
+        }
+        if (!any) return false;
+        const float *d = ObjData(obj);
+        const float px = d[7], py = d[8];   // PC 4FDAD0: rect += (x, y)
+        r->left = static_cast<float>(L(px) + r->left);
+        r->top = static_cast<float>(L(r->top) + py);
+        r->right = static_cast<float>(L(px) + r->right);
+        r->bottom = static_cast<float>(L(py) + r->bottom);
+        return true;
+    }
+    FEngGetTopLeft(obj, &r->left, &r->top);
+    FEngGetBottomRight(obj, &r->right, &r->bottom);
+    return true;
+}
+
+bool FEngTestForIntersection(float x, float y, const FEObject *obj)
+{
+    FERect r;
+    if (!obj || !FEngGet2DExtents(obj, &r)) return false;
+    // each test fails on NaN: x >= left, x <= right, y >= top, y <= bottom
+    return !(x < r.left || x != x) && (x <= r.right) && !(y < r.top || y != y) && (y <= r.bottom);
+}

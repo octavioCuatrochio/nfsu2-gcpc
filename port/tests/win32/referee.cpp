@@ -1821,6 +1821,49 @@ static void CheckButtonWidget(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEngGet2DExtents / FEngTestForIntersection on random groups of non-string objects (strings need fonts).
+static void CheckFEngExtents(int iters)
+{
+    auto oExt = ORIG<uint32_t(__cdecl *)(const FEObject *, FERect *)>(0x51D9F0);
+    auto oHit = ORIG<uint32_t(__cdecl *)(float, float, const FEObject *)>(0x52D020);
+    static const uint32_t types[] = {0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+    struct Arena { unsigned char om[6][sizeof(FEGroup)]; float d[6][20]; };
+    static Arena A;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            std::memset(&A, 0, sizeof A);
+            FEObject *o[6];
+            for (int i = 0; i < 6; ++i) {
+                o[i] = reinterpret_cast<FEObject *>(A.om[i]);
+                o[i]->mpData = A.d[i];
+                for (float &f : A.d[i]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                o[i]->mu32Type = types[rng() % 12];
+            }
+            o[0]->mu32Type = 5;   // group: children 1..4 (child 1 may be a group with child 5)
+            auto *g = reinterpret_cast<FEGroup *>(o[0]);
+            FEObject *prev = nullptr;
+            for (int k = 1; k <= 4; ++k) {
+                if (rng() % 4 == 0) continue;
+                if (prev) prev->node.next = &o[k]->node; else g->mChildren.head = &o[k]->node;
+                prev = o[k];
+            }
+            if (o[1]->mu32Type == 5) reinterpret_cast<FEGroup *>(o[1])->mChildren.head = rng() % 2 ? &o[5]->node : nullptr;
+            if (o[5]->mu32Type == 5) o[5]->mu32Type = 1;
+            const int which = rng() % 3 ? 0 : static_cast<int>(rng() % 6);
+            FERect ra{1, 2, 3, 4}, rb{1, 2, 3, 4};
+            const uint32_t a = oExt(o[which], &ra) & 0xFF;
+            const bool b = FEngGet2DExtents(o[which], &rb);
+            EXPECT(a == b && std::memcmp(&ra, &rb, sizeof ra) == 0, "FEngGet2DExtents type %u pc=%x", o[which]->mu32Type, pc);
+            const float x = a && rng() % 2 ? ra.left + (ra.right - ra.left) * static_cast<float>(rng() % 3) / 2 : RefCoord();
+            const float y = a && rng() % 2 ? ra.top + (ra.bottom - ra.top) * static_cast<float>(rng() % 3) / 2 : RefCoord();
+            EXPECT((oHit(x, y, o[which]) & 0xFF) == FEngTestForIntersection(x, y, o[which]), "FEngTestForIntersection pc=%x", pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2404,6 +2447,7 @@ static int RunAll()
     REFEREE_RUN(CheckFEngRotationZ(iters));
     REFEREE_RUN(CheckFEngPosition(iters * 3));
     REFEREE_RUN(CheckButtonWidget(iters));
+    REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));
