@@ -48,7 +48,8 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FEngFont (FEngFont.cpp): +0x0C font data (+0x0A glyph count, +0x0C flags 0x40000 = 16-byte glyphs, +0x14 table
   offset), +0x24 line height. Done: GetTextWidth/Height, GetLineWidth, X/YOffset, FindCharacter, kerning, joy tokens.
   Glyph: +0 code, +0xB kern count, +0xC kern index (16-byte), +0xE advance (fonts in use are 16-byte). Control chars
-  index up to 32 entries before the glyph table (PC reads it). Next: WordWrap 50BC10/50C080, RenderString 51C110.
+  index up to 32 entries before the glyph table (PC reads it). Done also: CharacterWidth, WordWrappedLines, GetJoyEventTextureInfo
+  50BB10 (+ WideToCharString 4FF980). Next: RenderString 51C110.
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.

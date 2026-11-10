@@ -60,6 +60,10 @@ std::vector<void *> hitObjects;
 std::vector<HitTest> hitTests;
 bool textInputFocused = false;
 int fakeFont = 0;
+int32_t joyPluggedPort = -1;
+uint8_t joyPortConfig[8] = {0xFF, 0, 0, 0, 0xFF, 0, 0, 0};
+std::string lastJoyTextureName;
+uint32_t lastTextureHash = 0;
 int feWidgetVTable = 0, feButtonWidgetVTable = 0;
 bool hitResult = false;
 std::vector<void *> renderedObjects;
@@ -247,6 +251,10 @@ void *FEStatWidgetVTable() { return &teststub::feWidgetVTable; }
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
 void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
 void PlayFrontendSound(uint32_t t) { teststub::delivered.push_back({"sound", nullptr, nullptr, t, 0}); }
+int32_t IsJoystickPluggedIn(int32_t p) { return p == teststub::joyPluggedPort; }
+const uint8_t *JoyPortConfig() { return teststub::joyPortConfig; }
+uint32_t GetJoyEventTexture(const char *n, int32_t p) { teststub::lastJoyTextureName = n; return 0x1000u + static_cast<uint32_t>(p); }
+void *GetTextureInfo(uint32_t h, int32_t, int32_t) { teststub::lastTextureHash = h; return &teststub::fakeFont; }
 bool TextInputFocused() { return teststub::textInputFocused; }
 #ifdef NFSU2_REFEREE
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }

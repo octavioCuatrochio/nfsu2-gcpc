@@ -118,6 +118,10 @@ void *FEStatWidgetVTable();                      // PC 0x79B378
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04
 void PlayFrontendSound(uint32_t trigger);       // PC: idx = (int8) table 0x8380B8[trigger]; != -1 -> PlayUISoundFX 458520
+int32_t IsJoystickPluggedIn(int32_t port);              // PC 571A60 (__cdecl)
+const uint8_t *JoyPortConfig();                         // PC 0x7F9414: 4 bytes per port, 0xFF = unused
+uint32_t GetJoyEventTexture(const char *name, int32_t port);   // PC 572190 (__cdecl): icon texture hash
+void *GetTextureInfo(uint32_t hash, int32_t a, int32_t b);     // PC 4901D0 (__cdecl)
 bool TextInputFocused();   // PC globals 0x83A9C0 (byte, FocusedTextbox active) && 0x83A9C4 (dword) both nonzero
 void SetHoldDirtyFlags(uint32_t v);                                   // uHoldDirtyFlags, PC 0x7F7C8C
 // constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)

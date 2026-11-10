@@ -47,6 +47,10 @@ extern std::vector<void *> hitObjects;   // FEGameInterface_IsPointInObject: the
 extern std::vector<HitTest> hitTests;
 extern bool textInputFocused;
 extern int fakeFont;
+extern int32_t joyPluggedPort;
+extern uint8_t joyPortConfig[8];
+extern std::string lastJoyTextureName;
+extern uint32_t lastTextureHash;
 extern int feWidgetVTable, feButtonWidgetVTable;
 extern bool hitResult;
 extern std::vector<void *> renderedObjects;   // objects of the last FEGameInterface_RenderObjectList, in order

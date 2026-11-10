@@ -149,6 +149,10 @@ void PlayFrontendSound(uint32_t trigger)
     const int32_t idx = reinterpret_cast<const int8_t *>(0x8380B8)[trigger];
     if (idx != -1) reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x458520)(*reinterpret_cast<void **>(0x82B884), idx);
 }
+int32_t IsJoystickPluggedIn(int32_t p) { return reinterpret_cast<int32_t(__cdecl *)(int32_t)>(0x571A60)(p); }
+const uint8_t *JoyPortConfig() { return reinterpret_cast<const uint8_t *>(0x7F9414); }
+uint32_t GetJoyEventTexture(const char *n, int32_t p) { return reinterpret_cast<uint32_t(__cdecl *)(const char *, int32_t)>(0x572190)(n, p); }
+void *GetTextureInfo(uint32_t h, int32_t a, int32_t b) { return reinterpret_cast<void *(__cdecl *)(uint32_t, int32_t, int32_t)>(0x4901D0)(h, a, b); }
 bool TextInputFocused() { return *reinterpret_cast<const uint8_t *>(0x83A9C0) && *reinterpret_cast<const uint32_t *>(0x83A9C4); }
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }

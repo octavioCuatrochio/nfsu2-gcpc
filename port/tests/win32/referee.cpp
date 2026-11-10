@@ -2044,6 +2044,16 @@ static void CheckFEngLineWidth(int iters)
                 EXPECT(oKern(fd, g, prev) == fd->GetKerning(g, prev), "GetKerning");
             }
             EXPECT((oIs(text, flags) & 0xFF) == FEngIsJoyEventTexture(text, flags) && oSkip(text, flags) == FEngSkipJoyEventTexture(text, flags), "joy event token");
+            {
+                auto oW2C = ORIG<void(__cdecl *)(char *, uint32_t, const uint16_t *)>(0x4FF980);
+                char ca[32], cb[32];
+                std::memset(ca, 0x5A, sizeof ca);
+                std::memset(cb, 0x5A, sizeof cb);
+                const uint32_t sz = rng() % 4 ? rng() % 30 : 0;
+                oW2C(ca, sz, text);
+                FEngWideToCharString(cb, sz, text);
+                EXPECT(std::memcmp(ca, cb, sizeof ca) == 0, "WideToCharString size %u", sz);
+            }
         }
     }
     _controlfp(saved, _MCW_PC);

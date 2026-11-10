@@ -1,6 +1,7 @@
 #include "FEngFont.h"
 #include <cstddef>
 #include "bridge/Bridge.h"
+#include "bWare/bString.h"
 
 using L = long double;
 
@@ -227,4 +228,43 @@ uint32_t FEngFont::GetNumWordWrappedLines(const uint16_t *text, uint32_t flags, 
         }
     }
     return lines;
+}
+
+void FEngWideToCharString(char *out, uint32_t size, const uint16_t *wide)
+{
+    if (!out || !wide) return;
+    uint32_t n = 0;
+    for (const uint16_t *p = wide; *p && n < size - 1; ++p) {
+        const int16_t c = static_cast<int16_t>(*p);
+        if (c >= -128 && c <= 127) {
+            *out++ = static_cast<char>(c);
+            ++n;
+        }
+    }
+    *out = 0;
+}
+
+void *FEngFont::GetJoyEventTextureInfo(const uint16_t *text)
+{
+    uint32_t hash = 0;
+    if (text[0] == '$') {
+        uint16_t name[0x41] = {};   // PC: 0x40; a 64-char name runs on into the next stack buffer (+1 terminator here)
+        uint32_t bytes = 0;
+        for (const uint16_t *p = text + 1; *p != '$' && *p && bytes < 0x80; ++p, bytes += 2) name[bytes / 2] = *p;
+        char ascii[0x80];
+        FEngWideToCharString(ascii, 0x80, name);
+        if (bStrCmp(ascii, "ICON_SPACER") == 0) {
+            hash = 0xBCA80379u;
+        } else {
+            int32_t port = 0;
+            bool found = false;
+            for (int32_t i = 0; i < 2 && !found; ++i)
+                if (bridge::IsJoystickPluggedIn(i)) { port = i; found = true; }
+            if (!found)
+                for (int32_t i = 0; i < 2; ++i)
+                    if (bridge::JoyPortConfig()[i * 4] != 0xFF) { port = i; break; }
+            hash = bridge::GetJoyEventTexture(ascii, port);
+        }
+    }
+    return bridge::GetTextureInfo(hash, 1, 0);
 }

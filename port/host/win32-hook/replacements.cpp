@@ -337,6 +337,7 @@ long double THISCALL FEngFont_GetTextHeight(FEngFont *self, const uint16_t *t, i
 long double THISCALL FEngFont_GetLineWidth(FEngFont *self, const uint16_t *t, uint32_t f, uint32_t m, bool *tr) { return self->GetLineWidth(t, f, m, tr); }
 long double THISCALL FEngFont_GetCharacterWidth(FEngFont *self, uint32_t c, uint32_t prev, uint32_t f) { return self->GetCharacterWidth(static_cast<uint16_t>(c), static_cast<uint16_t>(prev), f); }
 uint32_t THISCALL FEngFont_GetNumWordWrappedLines(FEngFont *self, const uint16_t *t, uint32_t f, uint32_t m) { return self->GetNumWordWrappedLines(t, f, m); }
+void *THISCALL FEngFont_GetJoyEventTextureInfo(FEngFont *self, const uint16_t *t) { return self->GetJoyEventTextureInfo(t); }
 const FEngGlyph *THISCALL FEngFontData_FindCharacter(const FEngFontData *self, uint32_t c) { return self->FindCharacter(static_cast<uint16_t>(c)); }
 int32_t THISCALL FEngFontData_GetKerning(const FEngFontData *self, const FEngGlyph *g, uint32_t prev) { return self->GetKerning(g, static_cast<uint16_t>(prev)); }
 long double THISCALL FEngFont_CalculateXOffset(void *, uint32_t j, float w) { return FEngFont::CalculateXOffset(j & 0xFF, w); }
@@ -747,6 +748,8 @@ const Replacement kReplacements[] = {
     {0x50BAC0, (const void *)&FEngSkipJoyEventTexture, "FEngSkipJoyEventTexture", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x50BC10, (const void *)&FEngFont_GetCharacterWidth, "FEngFont::GetCharacterWidth", {0x51, 0x8B, 0x44, 0x24, 0x08, 0x53}},
     {0x50C080, (const void *)&FEngFont_GetNumWordWrappedLines, "FEngFont::GetNumWordWrappedLines", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0x74}},
+    {0x50BB10, (const void *)&FEngFont_GetJoyEventTextureInfo, "FEngFont::GetJoyEventTextureInfo", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
+    {0x4FF980, (const void *)&FEngWideToCharString, "WideToCharString", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
     {0x519AE0, (const void *)&FEJoyPad_Ctor, "FEJoyPad::FEJoyPad", {0x8B, 0xD1, 0x57, 0x33, 0xC0, 0x8D}},
     {0x52C430, (const void *)&FEngine_Dtor, "FEngine::~FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
     {0x535870, (const void *)&FETypeNode_Dtor, "FETypeNode::~FETypeNode", {0x6A, 0xFF, 0x68, 0x28, 0x70, 0x77}},

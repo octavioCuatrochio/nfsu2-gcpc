@@ -47,6 +47,10 @@ struct FEngFont {
     // PC 50C080 (ret 0xC; GC 8014CF54): lines when wrapping at `maxWidth` (unsigned) on spaces. Flag 0x20: 1. A
     // newline only breaks after an earlier space, and measuring restarts after that space (PC behaviour).
     uint32_t GetNumWordWrappedLines(const uint16_t *text, uint32_t flags, uint32_t maxWidth);
+    // PC 50BB10 (ret 4; GC 8014BF7C): texture of a "$name$" token: "ICON_SPACER" -> hash 0xBCA80379, else
+    // GetJoyEventTexture(name, port) for the first plugged pad of 0/1 (none: first port whose byte at 0x7F9414 is
+    // not 0xFF, else 0); not a token: GetTextureInfo(0). Returns the game's TextureInfo.
+    void *GetJoyEventTextureInfo(const uint16_t *text);
     static long double CalculateXOffset(uint32_t justify, float width);    // PC 50C020: flag 1 -> -w/2, 2 -> -w
     static long double CalculateYOffset(uint32_t justify, float height);   // PC 50C050: flag 4 -> -h/2, 8 -> -h
 };
@@ -54,6 +58,9 @@ struct FEngFont {
 // PC 50BA70 / 50BAC0 (__cdecl, GC FEngFont members): "$name$" button-icon tokens (not with flags 0x820).
 bool FEngIsJoyEventTexture(const uint16_t *text, uint32_t flags);
 const uint16_t *FEngSkipJoyEventTexture(const uint16_t *text, uint32_t flags);
+// PC 4FF980 (__cdecl): copies the characters in [-128, 127] (low byte) into `out`, at most size - 1, then a
+// terminator; null `out` or `wide`: nothing written.
+void FEngWideToCharString(char *out, uint32_t size, const uint16_t *wide);
 // PC 6F45B0 (__cdecl): binary search of `count` entries of `size` bytes (16-bit key first) for `key`; null if none.
 const void *FEngFindGlyph(uint16_t key, const void *table, uint32_t count, uint32_t size);
 

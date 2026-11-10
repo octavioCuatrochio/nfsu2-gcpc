@@ -2509,6 +2509,34 @@ static void TestFEngFontMeasure()
     // character width: advance (+ kerning after prev), newline / unknown glyph 0
     CHECK(f->GetCharacterWidth('D', 'B', 0) == 11 && f->GetCharacterWidth('D', 0, 0) == 14 && f->GetCharacterWidth('\n', 0, 0) == 0);
     CHECK(f->GetCharacterWidth('C', 0, 0) == 0 && f->GetCharacterWidth('\r', 0, 0x20) == 0);
+    // wide -> ascii, icon tokens
+    char out[8];
+    const uint16_t wide[] = {'h', 0xE9, 'i', 0xFF41, '!', 'x', 'y', 'z', 'w', 0};
+    FEngWideToCharString(out, 6, wide);
+    CHECK(std::string(out) == "hi!xy");   // 0xE9 > 127 and 0xFF41 (-191) skipped
+    out[0] = 'q';
+    FEngWideToCharString(out, 6, nullptr);
+    CHECK(out[0] == 'q');
+    const uint16_t sp[] = {'$', 'I', 'C', 'O', 'N', '_', 'S', 'P', 'A', 'C', 'E', 'R', '$', 0};
+    const uint16_t ic[] = {'$', 'Y', 'B', 'T', 'N', '$', 0};
+    f->GetJoyEventTextureInfo(sp);
+    CHECK(teststub::lastTextureHash == 0xBCA80379u);
+    teststub::joyPluggedPort = -1;                    // nothing plugged, nothing configured: port 0
+    f->GetJoyEventTextureInfo(ic);
+    CHECK(teststub::lastTextureHash == 0x1000u && teststub::lastJoyTextureName == "YBTN");
+    teststub::joyPortConfig[4] = 0;                   // nothing plugged: first configured port (1)
+    f->GetJoyEventTextureInfo(ic);
+    CHECK(teststub::lastTextureHash == 0x1001u);
+    teststub::joyPortConfig[4] = 0xFF;
+    teststub::joyPluggedPort = 1;
+    f->GetJoyEventTextureInfo(ic);
+    CHECK(teststub::lastTextureHash == 0x1001u);
+    teststub::joyPluggedPort = 0;
+    f->GetJoyEventTextureInfo(ic);
+    CHECK(teststub::lastTextureHash == 0x1000u);
+    f->GetJoyEventTextureInfo(t1);                    // not a token: texture 0
+    CHECK(teststub::lastTextureHash == 0);
+    teststub::joyPluggedPort = -1;
     // word wrap: "AB AB AB" (22 per word; the space has no glyph)
     const uint16_t ww[] = {'A', 'B', ' ', 'A', 'B', ' ', 'A', 'B', 0};
     CHECK(f->GetNumWordWrappedLines(ww, 0, 0) == 1 && f->GetNumWordWrappedLines(ww, 0, 40) == 2 && f->GetNumWordWrappedLines(ww, 0, 30) == 3);   // no check at the last char
