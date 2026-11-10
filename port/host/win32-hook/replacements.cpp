@@ -217,6 +217,7 @@ void THISCALL cFEng_QueuePopPackage(cFEng *self, const char *n) { self->QueuePop
 FENode *THISCALL FEList_FindNode(void *, const char *n, FENode *start) { return FEListFindNode(n, start); }
 void THISCALL cFEng_ResyncSortingLevels(cFEng *self) { self->ResyncSortingLevels(); }
 void THISCALL cFEng_Popper(cFEng *self, const char *n) { self->Popper(n); }
+void THISCALL cFEng_Pusher(cFEng *self, uint32_t f, const char *n, const char *p, uint32_t m, int32_t a) { self->Pusher(f, n, p, m, a); }
 void THISCALL cFEng_PopPackage(cFEng *self, const char *n) { self->PopPackage(n); }
 void THISCALL cFEng_ForceUnloadPackage(cFEng *self, const char *n) { self->ForceUnloadPackage(n); }
 void THISCALL cFEng_Switcher(cFEng *self, const char *f, const char *t, int32_t a) { self->Switcher(f, t, a); }
@@ -492,6 +493,15 @@ const Replacement kReplacements[] = {
     {0x537750, (const void *)&cFEng_ForceUnloadPackage, "cFEng::ForceUnloadPackage", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
     {0x5376F0, (const void *)&cFEng_Popper, "cFEng::Popper", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x56}},
     {0x5377A0, (const void *)&cFEng_Switcher, "cFEng::Switcher", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x10}},
+    {0x555D00, (const void *)&cFEng_Pusher, "cFEng::Pusher", {0xA1, 0xB0, 0x84, 0x83, 0x00, 0x53}},
+    {0x555E80, (const void *)&FEngStartInteraction, "FEngStartInteraction", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x555EB0, (const void *)&FEngShowPackageModal, "FEngShowPackageModal", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x555EE0, (const void *)&FEngShowPackageTrueModal, "FEngShowPackageTrueModal", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x555F10, (const void *)&FEngShowPackage, "FEngShowPackage", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x555F50, (const void *)&FEngPushPackageSpecial, "FEngPushPackageSpecial", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x537950, (const void *)&FEngSetControlMask, "FEngSetControlMask", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
+    {0x537980, (const void *)&FEngSwitchPackages, "FEngSwitchPackages", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x5379A0, (const void *)&FEngPopPackage, "FEngPopPackage", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
     {0x541FC0, (const void *)&FEngine_ProcessMessageQueue, "FEngine::ProcessMessageQueue", {0x83, 0xEC, 0x0C, 0x53, 0x8B, 0xD9}},
     {0x5367E0, (const void *)&FEngine_ProcessObjectMessage, "FEngine::ProcessObjectMessage", {0x53, 0x8B, 0x5C, 0x24, 0x10, 0x55}},
     {0x51B000, (const void *)&FEngine_ProcessListBoxResponses, "FEngine::ProcessListBoxResponses", {0x8B, 0x44, 0x24, 0x0C, 0x3D, 0xF9}},

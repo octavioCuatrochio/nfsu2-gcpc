@@ -65,6 +65,7 @@ void *bWareMalloc(uint32_t size, const char *name, int32_t line, uint32_t flags)
 ::SlotPoolManager *TheSlotPoolManager();                                   // PC 0x828530 (game global)
 ::SlotPool **BPNodeSlotPool();          // PC 0x8284F0 (game global)
 int32_t *BPListWantToClose();          // PC 0x8284F4 (game global)
+void cFEng_RegisterJoy(::cFEng *fe);                                              // PC 0x52CDD0 (__thiscall)
 void *RenderObjectDisconnectVTable();                                              // PC 0x79AB9C
 void bWareFree(void *p);
 int32_t FEngLoadCounter();                                                         // PC 0x8384D0 (game global)

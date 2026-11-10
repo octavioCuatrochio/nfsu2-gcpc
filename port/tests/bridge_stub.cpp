@@ -42,7 +42,7 @@ FEPackage *pushResult = nullptr;
 std::string lastPushName;
 int32_t fengLoadCounter = 0;
 ::SlotPool *levelSorterSlots = nullptr;
-int renderDisconnectVTable = 0, renderDisconnects = 0;
+int renderDisconnectVTable = 0, renderDisconnects = 0, registerJoys = 0;
 }  // namespace teststub
 
 namespace bridge {
@@ -114,6 +114,7 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
 }
 int32_t FEngLoadCounter() { return teststub::fengLoadCounter; }
 SlotPool *LevelSorterSlots() { return teststub::levelSorterSlots; }
+void cFEng_RegisterJoy(cFEng *) { ++teststub::registerJoys; }
 void *RenderObjectDisconnectVTable() { return &teststub::renderDisconnectVTable; }
 void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE

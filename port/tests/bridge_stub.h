@@ -33,7 +33,7 @@ extern std::vector<std::string> levelSortingList;          // cFEng_FindInLevelS
 extern std::string lastPushName;                            // copy: the command (and its name) is freed
 extern FEPackage *pushResult;
 extern int32_t fengLoadCounter;
-extern int renderDisconnectVTable, renderDisconnects;
+extern int renderDisconnectVTable, renderDisconnects, registerJoys;
 extern ::SlotPool *levelSorterSlots;                               // FEngine_PushPackage return value
 extern void *currentButton;
 struct TestCallback { void *vtable; std::vector<void *> visited; void *stopAt; };   // stub FEObjectCallback

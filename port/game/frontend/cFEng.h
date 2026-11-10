@@ -38,6 +38,11 @@ struct cFEng {
     // FEObject flag 0x04000000, anything else sets it.
     // GC 8014ECD8 / PC 5376B0: number the entries in order and copy the number to each loaded package's priority.
     void ResyncSortingLevels();
+    // GC 8014ED3C / PC 555D00 (ret 0x14): new sorter entry for `name`, placed by flags & 6 (0 front, 2 before
+    // `parent` (front if missing), 4 after `parent` (tail if missing), 6 before the frontmost flag-8 entry (tail if
+    // none)); flags & 0x11: state 2 + queued push (flag 1: normal, else modal) on cFEng::pInstance; otherwise
+    // state 1 + immediate FEngine::PushPackage unless already active. Then renumber.
+    void Pusher(uint32_t flags, const char *name, const char *parent, uint32_t mask, int32_t arg);
     // GC 8014EF3C / PC 5376F0 (ret 4): remove the entry (pop now when state is 0/1, else queue) and renumber.
     void Popper(const char *name);
     // GC 8014F044 / PC 5377A0 (ret 0xC): switch packages and replace the entry for `from` with a new one for `to`
@@ -54,6 +59,16 @@ struct cFEng {
     void QueuePushModalPackage(const char *name, const char *parent, uint32_t mask);
     cFEngLevelSorter *SortSentinel() { return reinterpret_cast<cFEngLevelSorter *>(&mpSortHead); }
 };
+
+// FEng API (PC: most callers inline these; out-of-line copies listed)
+void FEngStartInteraction(const char *name, int32_t arg);                 // GC 8014F360 / PC 555E80
+void FEngShowPackageModal(const char *name, const char *parent, uint32_t mask, int32_t arg);      // GC 8014F550 / PC 555EB0
+void FEngShowPackageTrueModal(const char *name, const char *parent, uint32_t mask, int32_t arg);  // GC 8014F598 / PC 555EE0
+void FEngShowPackage(const char *name, const char *parent, uint32_t mask, int32_t arg);           // GC 8014F5E0 / PC 555F10
+void FEngPushPackageSpecial(uint32_t flags, const char *name, const char *parent, uint32_t mask, int32_t arg);   // GC 8014F648 / PC 555F50
+void FEngSetControlMask(const char *name, uint32_t mask);               // GC 8014F424 / PC 537950
+void FEngSwitchPackages(const char *from, const char *to, int32_t arg); // GC 8014F4D8 / PC 537980
+void FEngPopPackage(const char *name);                                  // GC 8014F51C / PC 5379A0
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(offsetof(cFEng, mpEngine) == 8 && offsetof(cFEng, mpSortHead) == 0x10 && offsetof(cFEngLevelSorter, mpcPackageName) == 8);

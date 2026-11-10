@@ -489,6 +489,7 @@ static void TestMoveToTracks()
     for (int k = 0; k < 4; ++k) { data[t[4].mi8DataIndex + k] = fbits(q[k]); t[4].mBaseKey._data[1 + k] = fbits(q[k]); }
     for (int k = 0; k < 4; ++k) { data[t[5].mi8DataIndex + k] = 100 + k; t[5].mBaseKey._data[1 + k] = 200; }   // color
     data[t[7].mi8DataIndex] = fbits(-3.f);                       // track 7 (float, via reference) -> keys[2]._data[1]
+    t[7].mBaseKey._data[1] = fbits(0.f);                         // tracks come from non-zeroed memory
     o->mpCurrentScript = &sc;
     o->SetupMoveToTracks();
     CHECK(keys[0]._data[1] == 7);
@@ -1338,7 +1339,7 @@ static void TestLevelSorter()
     teststub::levelSortingList = {"Main.fng", "Shop.fng"};
     fe = bridge::cFEngInstance();                                   // rebuilds the list from levelSortingList
     fe->mpEngine = e;
-    SlotPool *pool = SlotPool::NewSlotPool(sizeof(cFEngLevelSorter), 4, "ls", 0);
+    SlotPool *pool = SlotPool::NewSlotPool(sizeof(cFEngLevelSorter), 16, "ls", 0);
     teststub::levelSorterSlots = pool;
     fe->ResyncSortingLevels();
     CHECK(fe->mpSortHead->mi32Level == 0 && fe->mpSortHead->next->mi32Level == 1 && P[0]->mi32Priority == 0 && P[1]->mi32Priority == 1);
@@ -1377,6 +1378,25 @@ static void TestLevelSorter()
         dl.clear();
     }
     CollectCommands();
+    // Pusher placement modes (fresh list: Idle only)
+    auto order = [&]() { std::string r; for (cFEngLevelSorter *n = fe->mpSortHead; n != fe->SortSentinel(); n = n->next) r += std::string(n->mpcPackageName) + ","; return r; };
+    CollectCommands(); teststub::delivered.clear();
+    fe->Pusher(0, "A", nullptr, 0xFF, 1);                         // front, immediate push (not active)
+    CHECK(order() == "A,Idle.fng," && fe->mpSortHead->mi32State == 1 && teststub::delivered.size() == 1 && std::string(teststub::delivered[0].kind) == "pushpkg");
+    fe->Pusher(4, "B", "A", 0x1, 2);                              // after A
+    fe->Pusher(2, "C", "Idle.fng", 0x1, 3);                       // before Idle
+    fe->Pusher(4, "D", "missing", 0x1, 4);                        // tail
+    CHECK(order() == "A,B,C,Idle.fng,D,");
+    fe->mpSortHead->next->mu32Flags |= 8;                         // B and D flagged: the frontmost (B) wins
+    fe->mpSortTail->mu32Flags |= 8;
+    fe->Pusher(6, "E", nullptr, 0x1, 5);
+    CHECK(order() == "A,E,B,C,Idle.fng,D,");
+    teststub::delivered.clear();
+    fe->Pusher(0x11, "Q", "A", 0x3, 6);                           // queued push (flag 1)
+    fe->Pusher(0x10, "M", nullptr, 0x3, 7);                       // queued modal push
+    auto qc = CollectCommands();
+    CHECK(qc.size() == 2 && qc[0].type == 2 && qc[0].name == "Q" && qc[1].type == 0x12 && qc[1].name == "M" && fe->mpSortHead->mi32State == 2);
+    CHECK(teststub::delivered.empty() && fe->mpSortHead->mi32Level == 0 && fe->mpSortTail->mi32Level == 7);
     std::free(pool); --teststub::liveAllocations;
     teststub::levelSorterSlots = nullptr;
     teststub::levelSortingList.clear();

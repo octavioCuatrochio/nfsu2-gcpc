@@ -1,6 +1,7 @@
 #include "cFEng.h"
 #include "bWare/bString.h"
 #include "FEngine.h"
+#include "FENode.h"
 #include "FEPackage.h"
 #include "FEObject.h"
 #include "FEPackageManager.h"
@@ -139,4 +140,88 @@ void cFEng::ForceUnloadPackage(const char *name)
     n->prev->next = n->next;
     n->next->prev = n->prev;
     bFree(bridge::LevelSorterSlots(), n);
+}
+
+void cFEng::Pusher(uint32_t flags, const char *name, const char *parent, uint32_t mask, int32_t arg)
+{
+    auto *n = static_cast<cFEngLevelSorter *>(bOMalloc(bridge::LevelSorterSlots()));
+    if (n) {
+        n->mpcPackageName = name;
+        n->mi32Level = 0;
+        n->mi32State = 0;
+        n->mi32Arg = 0;
+        n->mu32Flags = 0;
+    }
+    n->mi32Arg = arg;
+    n->mu32Flags = flags;
+    cFEngLevelSorter *const s = SortSentinel();
+    auto insertAfter = [&](cFEngLevelSorter *p) { cFEngLevelSorter *next = p->next; p->next = n; next->prev = n; n->next = next; n->prev = p; };
+    auto insertBefore = [&](cFEngLevelSorter *p) { cFEngLevelSorter *prev = p->prev; prev->next = n; p->prev = n; n->prev = prev; n->next = p; };
+    switch (flags & 6) {
+    case 0: insertAfter(s); break;
+    case 2: { cFEngLevelSorter *p = FindInLevelSortingList(parent); if (p) insertBefore(p); else insertAfter(s); break; }
+    case 4: { cFEngLevelSorter *p = FindInLevelSortingList(parent); if (p) insertAfter(p); else insertBefore(s); break; }
+    default: {   // 6
+        cFEngLevelSorter *found = nullptr;
+        for (cFEngLevelSorter *p = mpSortTail; p != s; p = p->prev)
+            if (p->mu32Flags & 8) found = p;
+        if (found) insertBefore(found); else insertBefore(s);
+        break;
+    }
+    }
+    cFEng *inst = bridge::cFEngInstance();
+    if (flags & 0x11) {
+        n->mi32State = 2;
+        if (inst) {
+            if (flags & 1) inst->QueuePushPackage(name, parent, mask);
+            else inst->QueuePushModalPackage(name, parent, mask);
+        }
+    } else {
+        n->mi32State = 1;
+        if (inst) {
+            FEngine *e = inst->mpEngine;
+            if (!FEListFindNode(name, reinterpret_cast<FENode *>(e->mpPackages)))   // cFEng::PushPackage + IsPackageLoaded
+                bridge::FEngine_PushPackage(e, name, 0, mask);
+        }
+    }
+    ResyncSortingLevels();
+}
+
+void FEngStartInteraction(const char *name, int32_t arg)
+{
+    if (cFEng *fe = bridge::cFEngInstance()) {
+        fe->Pusher(0, name, nullptr, 0xFF, arg);
+        bridge::cFEng_RegisterJoy(bridge::cFEngInstance());
+    }
+}
+void FEngShowPackageModal(const char *name, const char *parent, uint32_t mask, int32_t arg)
+{
+    if (cFEng *fe = bridge::cFEngInstance()) fe->Pusher(5, name, parent, mask, arg);
+}
+void FEngShowPackageTrueModal(const char *name, const char *parent, uint32_t mask, int32_t arg)
+{
+    if (cFEng *fe = bridge::cFEngInstance()) fe->Pusher(0x16, name, parent, mask, arg);
+}
+void FEngShowPackage(const char *name, const char *parent, uint32_t mask, int32_t arg)
+{
+    if (cFEng *fe = bridge::cFEngInstance()) {
+        if (parent) fe->Pusher(4, name, parent, mask, arg);
+        else fe->Pusher(0, name, nullptr, mask, arg);
+    }
+}
+void FEngPushPackageSpecial(uint32_t flags, const char *name, const char *parent, uint32_t mask, int32_t arg)
+{
+    if (cFEng *fe = bridge::cFEngInstance()) fe->Pusher(flags, name, parent, mask, arg);
+}
+void FEngSetControlMask(const char *name, uint32_t mask)
+{
+    if (FEPackage *p = FEngFindPackage(name)) p->SetControlMask(mask);
+}
+void FEngSwitchPackages(const char *from, const char *to, int32_t arg)
+{
+    if (cFEng *fe = bridge::cFEngInstance()) fe->Switcher(from, to, arg);
+}
+void FEngPopPackage(const char *name)
+{
+    if (cFEng *fe = bridge::cFEngInstance()) fe->Popper(name);
 }
