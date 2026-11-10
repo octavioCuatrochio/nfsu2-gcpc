@@ -498,4 +498,7 @@ void CustomizationScreenManager_ChangeToNextScreen()
     void *m = reinterpret_cast<void *(__cdecl *)()>(0x54F980)();
     reinterpret_cast<void(THISCALL *)(void *)>(0x55BD60)(m);
 }
+// ---- option widgets ----
+uint8_t *AudioSettings() { return reinterpret_cast<uint8_t *>(0x83AA28); }
+void EAXSound_UpdateAudioSettings() { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x469050)(*reinterpret_cast<void **>(0x82B884), reinterpret_cast<void *>(0x83AA28)); }
 }  // namespace bridge

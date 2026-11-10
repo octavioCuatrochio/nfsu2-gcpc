@@ -24,6 +24,7 @@
 #include "frontend/TuningSlidersMenu.h"
 #include "frontend/UIWheelOptionsMenu.h"
 #include "frontend/ChooseBrandsScreen.h"
+#include "frontend/OptionWidgets.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -575,6 +576,9 @@ void THISCALL CBS_SetChosenBrands(ChooseBrandsScreen *self) { self->SetChosenBra
 BrandScrollerThing *THISCALL BST_Ctor(BrandScrollerThing *self, const uint8_t *part, const float *p, const float *sz, const float *vs, const float *vp, uint32_t en) { return self->Construct(part, p, sz, vs, vp, (en & 0xFF) != 0); }
 void THISCALL BST_Act(BrandScrollerThing *self, const char *p, uint32_t m) { self->Act(p, m); }
 void THISCALL BST_Draw(BrandScrollerThing *self) { self->Draw(); }
+template <int I> void THISCALL AOVol_Act(AOVolumeSlider *self, const char *, uint32_t m) { self->Act(m, kAOVolumes[I].field); }
+template <int I> void THISCALL AOVol_Draw(AOVolumeSlider *self) { self->Draw(kAOVolumes[I].hash); }
+template <int I> void THISCALL AOVol_Init(AOVolumeSlider *self) { self->SetInitialValues(kAOVolumes[I].field); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1198,6 +1202,27 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x49A720, (const void *)&AOVol_Act<0>, "AOMasterVol::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49A770, (const void *)&AOVol_Draw<0>, "AOMasterVol::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x3E, 0x2C}},
+    {0x49A790, (const void *)&AOVol_Init<0>, "AOMasterVol::SetInitialValues", {0x51, 0xA1, 0x28, 0xAA, 0x83, 0x00}},
+    {0x49A7C0, (const void *)&AOVol_Act<1>, "AOSFXMasterVol::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49A810, (const void *)&AOVol_Draw<1>, "AOSFXMasterVol::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x43, 0x75}},
+    {0x49A830, (const void *)&AOVol_Init<1>, "AOSFXMasterVol::SetInitialValues", {0x51, 0xA1, 0x38, 0xAA, 0x83, 0x00}},
+    {0x49A860, (const void *)&AOVol_Act<2>, "AOTireVol::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49A8B0, (const void *)&AOVol_Draw<2>, "AOTireVol::Draw", {0x8B, 0x41, 0x2C, 0x68, 0xC6, 0x45}},
+    {0x49A8D0, (const void *)&AOVol_Init<2>, "AOTireVol::SetInitialValues", {0x51, 0xA1, 0x40, 0xAA, 0x83, 0x00}},
+    {0x49A900, (const void *)&AOVol_Act<3>, "AOEngineVol::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49A950, (const void *)&AOVol_Draw<3>, "AOEngineVol::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x88, 0xF8}},
+    {0x49A970, (const void *)&AOVol_Init<3>, "AOEngineVol::SetInitialValues", {0x51, 0xA1, 0x3C, 0xAA, 0x83, 0x00}},
+    {0x49A9A0, (const void *)&AOVol_Act<4>, "AOSpeechVol::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49A9F0, (const void *)&AOVol_Draw<4>, "AOSpeechVol::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x2A, 0xB8}},
+    {0x49AA10, (const void *)&AOVol_Init<4>, "AOSpeechVol::SetInitialValues", {0x51, 0xA1, 0x2C, 0xAA, 0x83, 0x00}},
+    {0x49AA40, (const void *)&AOVol_Act<5>, "AOFEMusicVol::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49AA90, (const void *)&AOVol_Draw<5>, "AOFEMusicVol::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x1D, 0x68}},
+    {0x49AAB0, (const void *)&AOVol_Init<5>, "AOFEMusicVol::SetInitialValues", {0x51, 0xA1, 0x30, 0xAA, 0x83, 0x00}},
+    {0x49AAE0, (const void *)&AOVol_Act<6>, "AOIGMusicVol::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49AB30, (const void *)&AOVol_Draw<6>, "AOIGMusicVol::Draw", {0x8B, 0x41, 0x2C, 0x68, 0xC2, 0xEA}},
+    {0x49AB50, (const void *)&AOVol_Init<6>, "AOIGMusicVol::SetInitialValues", {0x51, 0xA1, 0x34, 0xAA, 0x83, 0x00}},
     {0x5532B0, (const void *)&CBS_Ctor, "ChooseBrandsScreen::ChooseBrandsScreen", {0x6A, 0xFF, 0x68, 0x98, 0x7D, 0x77}},
     {0x55C930, (const void *)&CBS_Notify, "ChooseBrandsScreen::NotificationMessage", {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x10}},
     {0x550330, (const void *)&CBS_Setup, "ChooseBrandsScreen::Setup", {0xA0, 0x5D, 0x85, 0x83, 0x00, 0x83}},

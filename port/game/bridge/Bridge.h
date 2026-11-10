@@ -405,4 +405,7 @@ void CCM_InstallPerfPackage(const uint8_t *p);   // PC 521340 (p, null ride info
 void CCM_BuyPerfPart(const uint8_t *p);          // PC 521B00 (ret 4)
 void CCM_InstallPerfPart(const uint8_t *p);      // PC 5213D0 (p, null; ret 8)
 void CustomizationScreenManager_ChangeToNextScreen();   // PC 54F980 Instance() -> 55BD60
+// ---- option widgets ----
+uint8_t *AudioSettings();                        // PC 0x83AA28 (GC 0x803BC274)
+void EAXSound_UpdateAudioSettings();             // PC 469050(&0x83AA28) (__thiscall on *(0x82B884), ret 4)
 }  // namespace bridge

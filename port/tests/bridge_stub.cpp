@@ -77,6 +77,7 @@ int32_t tuningCategory = 0, allPortsFlag = 0, activePort = 0, lastButton = 0;
 bool speedMetric = false, hasLastButton = false, drawFEng = true, cursorEnabled = false;
 int32_t playerToEdit = 0;
 uint32_t chosenBrands[8] = {};
+uint8_t audioSettings[0x40] = {};
 bool browsingParts = false;
 const uint8_t *perfPackage = nullptr, *perfPart = nullptr;
 uint8_t controllerOptions[0x28 * 2] = {};
@@ -897,4 +898,11 @@ void CCM_InstallPerfPackage(const uint8_t *) { teststub::delivered.push_back({"i
 void CCM_BuyPerfPart(const uint8_t *) { teststub::delivered.push_back({"buypart", nullptr, nullptr, 0, 0}); }
 void CCM_InstallPerfPart(const uint8_t *) { teststub::delivered.push_back({"installpart", nullptr, nullptr, 0, 0}); }
 void CustomizationScreenManager_ChangeToNextScreen() { teststub::delivered.push_back({"nextscreen", nullptr, nullptr, 0, 0}); }
+// ---- option widgets ----
+#ifdef NFSU2_REFEREE
+uint8_t *AudioSettings() { return reinterpret_cast<uint8_t *>(0x83AA28); }
+#else
+uint8_t *AudioSettings() { return teststub::audioSettings; }
+#endif
+void EAXSound_UpdateAudioSettings() { teststub::delivered.push_back({"audiosettings", nullptr, nullptr, 0, 0}); }
 }  // namespace bridge

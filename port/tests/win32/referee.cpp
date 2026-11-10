@@ -30,6 +30,7 @@
 #include "frontend/TuningSlidersMenu.h"
 #include "frontend/UIWheelOptionsMenu.h"
 #include "frontend/ChooseBrandsScreen.h"
+#include "frontend/OptionWidgets.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FEScript.h"
@@ -3119,6 +3120,25 @@ static void CheckBrandScroller(int iters)
     std::memcpy(reinterpret_cast<void *>(0x8389B4), saved, sizeof saved);
 }
 
+// AO*Vol SetInitialValues against the real audio settings (0x83AA28, saved / restored).
+static void CheckAudioOptions(int iters)
+{
+    uint8_t saved[0x1C];
+    std::memcpy(saved, reinterpret_cast<void *>(0x83AA28), sizeof saved);
+    static AOVolumeSlider A, B;
+    for (int it = 0; it < iters; ++it) {
+        const AOVolumeInfo &v = kAOVolumes[rng() % 7];
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        std::memcpy(&B, &A, sizeof A);
+        for (int k = 0; k < 7; ++k) *reinterpret_cast<float *>(0x83AA28 + 4 * k) = rng() % 4 ? RefCoord() / 300.0f : static_cast<float>(rng() % 3) - 1.0f;
+        ORIG<void(THISCALL *)(void *)>(v.init)(&A);
+        B.SetInitialValues(v.field);
+        EXPECT(std::memcmp(&A, &B, sizeof A) == 0, "%s::SetInitialValues", v.name);
+    }
+    std::memcpy(reinterpret_cast<void *>(0x83AA28), saved, sizeof saved);
+}
+
 static void CheckButtonWidget(int iters)
 {
     auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
@@ -4023,6 +4043,7 @@ static int RunAll()
     REFEREE_RUN(CheckTuningPure(iters));
     REFEREE_RUN(CheckWheelOptions(iters));
     REFEREE_RUN(CheckBrandScroller(iters));
+    REFEREE_RUN(CheckAudioOptions(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));
