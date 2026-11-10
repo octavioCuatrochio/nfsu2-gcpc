@@ -75,7 +75,11 @@ int32_t *FEngLoadCounterPtr();                                                  
 // FEGameInterface (engine +0x10C) vtable slot 0: package data by name; *freeBuffer -> caller frees *buffer
 const void *FEGameInterface_GetPackageData(void *gi, const char *name, void **buffer, uint8_t *freeBuffer);
 void FEGameInterface_LibraryLoaded(void *gi, ::FEPackage *pkg);   // vtable slot 3 (+0xC)
-bool FEPackageReader_ReadObjectChunk(void *reader);               // PC 5554A0 (GC 8013AEC8)
+bool FEPackageReader_ReadObjectTags(void *reader, const uint8_t *tags, uint32_t size);   // PC 555140 (GC 8013B584)
+bool FEPackageReader_ReadScriptTags(void *reader, const uint8_t *tags, uint32_t size);   // PC 5515E0 (GC 8013C44C)
+void FEListBox_RecalculateCummulative(void *listBox);              // PC 504360 (__thiscall)
+void FECodeListBox_FillAllCells(void *listBox);                    // PC 504C40 (__thiscall)
+void FEKeyInterpScript(void *script, uint8_t track, uint32_t time, void *obj);   // PC 541F60 (__cdecl; GC FEKeyInterp 4 args)
 void *FEPackageVTable();                                           // PC 0x79B8F8 (slot 0 = 534C50)
 void *FENodeVTable();                                              // PC 0x79AB0C
 void *FEPackageList74VTable();                                     // PC 0x79B878 (FEPackage +0x74 list)

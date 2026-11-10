@@ -1393,6 +1393,13 @@ std::vector<uint32_t> BuildFng(bool withLib, uint32_t badLibSize = 0, const char
     size_t rq = b.Open(0x71527352); b.w.push_back(2);
     b.w.insert(b.w.end(), {0x10, 0, 2, 3, 4, 5, 0x20, 5, 6, 7, 8, 9}); b.Close(rq);
     b.Close(res);
+    size_t ob = b.Open(0xCC6A624Fu);
+    { size_t bt = b.Open(0x6E747542); b.w.push_back(3); b.Close(bt); }
+    { size_t fo = b.Open(0xEA624F46u);
+      size_t od = b.Open(0x446A624F); b.w.push_back(0x1111); b.Close(od);
+      size_t sc = b.Open(0x70726353); b.w.push_back(0x2222); b.Close(sc);
+      b.Close(fo); }
+    b.Close(ob);
     size_t pr = b.Open(0x52676B50);
     b.Tag32(0x694D, 0x1234); b.Tag32(0x434D, 2);
     b.Tag32(0x6952, 7); b.Tag32(0x7552, 9); b.Tag32(0x7452, 3);
@@ -1428,8 +1435,9 @@ static void TestPackageReader()
     dl.clear();
     FEPackage *pkg = FEngine_LoadPackage(e, data.data(), 3);
     CHECK(pkg && std::string(pkg->mpcName) == "Pkg.fng" && std::string(pkg->mpcFilename) == "dir\\pkg.fng" && pkg->_unknown15[1] == 3);
-    CHECK(dl.size() == 2 && std::string(dl[0].kind) == "readobjs");
-    CHECK(std::string(dl[1].kind) == "loadres" && dl[1].a == &ui && dl[1].msg == 2);   // no objects: nothing to connect
+    CHECK(dl.size() == 3 && std::string(dl[0].kind) == "objtags" && dl[0].msg == 4 && std::string(dl[1].kind) == "scrtags");
+    CHECK(std::string(dl[2].kind) == "loadres" && dl[2].a == &ui && dl[2].msg == 2);   // no objects: nothing to connect
+    CHECK(pkg->mu32NumButtons == 3 && pkg->mppButtons != nullptr);
     CHECK(pkg->mu32NumLibraryRefs == 2 && pkg->mpLibraryRefs[1].mu32Hash == 0xBBBB && pkg->mpLibraryRefs[1]._unknown04[1] == 4);
     auto *res = static_cast<uint32_t *>(pkg->mpResources);
     CHECK(pkg->mu32NumResources == 2 && res[0] == 0x10 && res[6] == 0x20 && res[11] == 9 && std::memcmp(pkg->mp98, "tex0\0tex1", 10) == 0);
@@ -1478,6 +1486,31 @@ static void TestPackageReader()
     e->mLibraries.RemNode(&libPkg->node);
     CHECK(FEngine_LoadPackage(e, withRef.data(), 0) == nullptr);   // game has no data for it
     for (FEPackage *p : {p1, p2, libPkg}) bridge::VirtualScalarDelete(p);
+    // an object: list box fixup, chained script id -> pointer, current script 0x1744B3, initial interpolation, linked
+    {
+        auto *o = static_cast<FEObject *>(bridge::Alloc(sizeof(FEObject)));
+        std::memset(o, 0, sizeof(FEObject));
+        o->mu32Type = 4;
+        alignas(8) unsigned char sb[2][sizeof(FEScript)] = {};
+        auto *s0 = reinterpret_cast<FEScript *>(sb[0]), *s1 = reinterpret_cast<FEScript *>(sb[1]);
+        alignas(8) unsigned char tb[2 * sizeof(FEKeyTrack)] = {};   // SetupMoveToTracks reads the tracks
+        s0->mu32Id = 0x1744B3; s0->mu32NumTracks = 2; s0->mi32Time = 55; s0->mpTracks = reinterpret_cast<FEKeyTrack *>(tb);
+        s0->mpChainedScript = reinterpret_cast<FEScript *>(uintptr_t{0x99});
+        s1->mu32Id = 0x99;
+        o->mScripts.AddTail(&s0->node);
+        o->mScripts.AddTail(&s1->node);
+        teststub::readerObject = o;
+        dl.clear();
+        FEPackage *po = FEngine_LoadPackage(e, data.data(), 0);
+        teststub::readerObject = nullptr;
+        CHECK(po && po->mObjects.count == 1 && po->mObjects.head == &o->node && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1);
+        int recalc = 0, interp = 0;
+        for (auto &d : dl) { recalc += std::string(d.kind) == "recalc"; interp += std::string(d.kind) == "keyinterp" && d.a == s0; }
+        CHECK(recalc == 1 && interp == 2);
+        o->mScripts.head = o->mScripts.tail = nullptr;
+        o->node.vtable = nullptr;
+        bridge::VirtualScalarDelete(po);
+    }
     // failures
     auto bad = BuildFng(true, 7);
     CHECK(FEngine_LoadPackage(e, bad.data(), 0) == nullptr);

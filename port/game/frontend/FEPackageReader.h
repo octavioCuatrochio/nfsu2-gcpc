@@ -17,7 +17,7 @@ struct FEPackageReader {
     uint8_t _pad0B;
     FEObject *mpCurrentObject;       // +0x0C object whose response tags are being read (GC +0x14)
     void *mp10;                      // +0x10
-    void *mp14;                      // +0x14
+    struct FEGroup *mpParentGroup;   // +0x14 group the current object goes into (null: package top level)
     uint8_t mbMergeResponses;        // +0x18 (GC +0x20) object responses: reuse an existing message id
     uint8_t _unknown19[0x30 - 0x19];
     uint32_t mu32NumTypes;           // +0x30 (GC +0x38) "TypS" entries {type, size}
@@ -26,7 +26,7 @@ struct FEPackageReader {
     FEngine *mpEngine;               // +0x3C
     uint32_t mu32Header18;           // +0x40 (GC +0x48) header dword 6
     uint32_t mu32Header1C;           // +0x44 (GC +0x4C) header dword 7
-    uint32_t mu32_48;                // +0x48
+    uint32_t mu32NumButtons;         // +0x48 "Butn" count
     uint32_t mu32_4C;                // +0x4C
 
     // GC 8013A50C (PC: inlined everywhere): child with `id`, scanning up to and including the chunk at the parent's
@@ -48,6 +48,11 @@ struct FEPackageReader {
     // GC 8013A858 / PC 52B550: "LibL" names -> FENodes in package list +0x74; each library is found (refcount++) or
     // fetched from the game (interface slot 0), loaded, announced (slot 3) and added to the engine's library list.
     bool ReadReferencedPackagesChunk();
+    // GC 8013AEC8 / PC 5554A0: "Obj\xCC": "Butn" (button table size) entries up to the first "FObj\xEA"; from there
+    // every chunk is an object: ObjD tags (ReadObjectTags; failure fails the load), MsgR responses, Scrp scripts;
+    // then list-box fixups, chained-script hashes -> pointers, script 0x1744B3 made current (no null check after),
+    // initial key interpolation (unless mbPackage16) and linking into the parent group or the package.
+    bool ReadObjectChunk();
     // GC 8013D134 / PC 5186C0 (ret 0xC): library reference -> library package (FEngine::FindLibraryPackage) -> object.
     bool FindReferencedObject(uint32_t refHash, FEObject **obj, FEPackage **pkg);
 };

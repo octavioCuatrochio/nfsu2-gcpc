@@ -35,7 +35,8 @@ extern FEPackage *pushResult;
 extern int32_t fengLoadCounter;
 extern int fePackageDataVTable, fePackageVTable, feNodeVTable, fePackageList74VTable, resourceConnectorVTable;
 extern bool loadResourcesResult, readerChunkResult;
-extern const void *libraryData;   // FEGameInterface_GetPackageData result
+extern const void *libraryData;
+extern void *readerObject;   // ReadObjectTags stub: becomes the reader's current object   // FEGameInterface_GetPackageData result
 extern void *screenResult;   // ScreenFactory result
 extern bool hotChunking;
 extern int renderDisconnectVTable, renderDisconnects, registerJoys;

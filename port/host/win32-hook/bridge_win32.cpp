@@ -111,7 +111,11 @@ const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, ui
     return (*reinterpret_cast<const void *(THISCALL ***)(void *, const char *, void **, uint8_t *)>(gi))[0](gi, n, b, f);
 }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }
-bool FEPackageReader_ReadObjectChunk(void *r) { return reinterpret_cast<bool(THISCALL *)(void *)>(0x5554A0)(r); }
+bool FEPackageReader_ReadObjectTags(void *r, const uint8_t *t, uint32_t n) { return reinterpret_cast<bool(THISCALL *)(void *, const uint8_t *, uint32_t)>(0x555140)(r, t, n); }
+bool FEPackageReader_ReadScriptTags(void *r, const uint8_t *t, uint32_t n) { return reinterpret_cast<bool(THISCALL *)(void *, const uint8_t *, uint32_t)>(0x5515E0)(r, t, n); }
+void FEListBox_RecalculateCummulative(void *lb) { reinterpret_cast<void(THISCALL *)(void *)>(0x504360)(lb); }
+void FECodeListBox_FillAllCells(void *lb) { reinterpret_cast<void(THISCALL *)(void *)>(0x504C40)(lb); }
+void FEKeyInterpScript(void *s, uint8_t t, uint32_t time, void *o) { reinterpret_cast<void(__cdecl *)(void *, uint32_t, uint32_t, void *)>(0x541F60)(s, t, time, o); }
 void *FEPackageVTable() { return reinterpret_cast<void *>(0x79B8F8); }
 void *FENodeVTable() { return reinterpret_cast<void *>(0x79AB0C); }
 void *FEPackageList74VTable() { return reinterpret_cast<void *>(0x79B878); }

@@ -5,6 +5,7 @@
 #include "FENode.h"
 #include "FEObject.h"
 #include "FEPackage.h"
+#include "FEScript.h"
 #include "FEngine.h"
 #include "bridge/Bridge.h"
 
@@ -35,19 +36,19 @@ FEPackage *FEPackageReader::Load(const void *data, void *gameInterface, FEngine 
     mpGameInterface = gameInterface;
     mpPackage = nullptr;
     mpCurrentObject = nullptr;
-    mp14 = nullptr;
+    mpParentGroup = nullptr;
     mp10 = nullptr;
     mu32NumTypes = 0;
     mpTypes = nullptr;
     mu32Header1C = 0;
     mu32Header18 = 0;
     mu32_4C = 0;
-    mu32_48 = 0;
+    mu32NumButtons = 0;
     mpData = static_cast<const uint32_t *>(data);
     mpEngine = engine;
     FEPackage *result = nullptr;
     if (ReadHeaderChunk() && ReadTypeSizes() && ReadReferencedPackagesChunk() &&
-        ReadLibraryRefsChunk() && ReadResourceChunk() && bridge::FEPackageReader_ReadObjectChunk(this) &&
+        ReadLibraryRefsChunk() && ReadResourceChunk() && ReadObjectChunk() &&
         ReadPackageResponseChunk() && ReadMessageTargetListChunk()) {
         mpPackage->_unknown15[1] = mbPackage16;   // FEPackage +0x16
         if (mpPackage->Startup(mpGameInterface)) {
@@ -198,6 +199,57 @@ bool FEPackageReader::ReadReferencedPackagesChunk()
         bridge::FEGameInterface_LibraryLoaded(mpGameInterface, lib);
         lib->mi32Priority = 1;
         mpEngine->mLibraries.AddTail(&lib->node);   // FEngine::AddToLibraryList (PC: inlined)
+    }
+    return true;
+}
+
+bool FEPackageReader::ReadObjectChunk()
+{
+    const uint32_t *root = FindChild(mpData, 0xCC6A624F);   // "Obj\xCC"
+    if (!root) return false;
+    const uint32_t *end = NextChunk(root);
+    const uint32_t *c = root + 2;
+    if (!c || !end) return false;   // (original checks both pointers)
+    for (; c[0] != 0xEA624F46u; c = NextChunk(c)) {   // up to the first "FObj\xEA"
+        if (c >= end) return true;
+        if (c[0] == 0x6E747542u) {   // "Butn"
+            const uint32_t n = c[2];
+            mu32NumButtons = n;
+            bridge::FreeArray(mpPackage->mppButtons);
+            mpPackage->mppButtons = nullptr;
+            if (n) mpPackage->mppButtons = static_cast<FEObject **>(bridge::Alloc(n * 4));
+            mpPackage->mu32NumButtons = n;
+        }
+    }
+    for (; c < end; c = NextChunk(c)) {
+        const uint32_t *objEnd = NextChunk(c);
+        mpCurrentObject = nullptr;
+        mpParentGroup = nullptr;
+        for (const uint32_t *t = c + 2; t < objEnd; t = NextChunk(t)) {
+            const uint8_t *data = reinterpret_cast<const uint8_t *>(t + 2);
+            if (t[0] == 0x446A624Fu) {   // "ObjD"
+                if (!bridge::FEPackageReader_ReadObjectTags(this, data, t[1])) return false;
+            } else if (t[0] == 0x5267734Du) {   // "MsgR"
+                ReadMessageResponseTags(data, t[1], false);
+            } else if (t[0] == 0x70726353u) {   // "Scrp"
+                bridge::FEPackageReader_ReadScriptTags(this, data, t[1]);
+            }
+        }
+        FEObject *obj = mpCurrentObject;
+        if (!obj) continue;
+        if (obj->mu32Type == 4) bridge::FEListBox_RecalculateCummulative(obj);
+        else if (obj->mu32Type == 6) bridge::FECodeListBox_FillAllCells(obj);
+        for (auto *s = reinterpret_cast<FEScript *>(obj->mScripts.head); s; s = reinterpret_cast<FEScript *>(s->node.next)) {
+            const auto chained = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(s->mpChainedScript));   // id while loading
+            if (chained) s->mpChainedScript = obj->FindScript(chained);
+        }
+        FEScript *cur = obj->FindScript(0x1744B3);
+        obj->SetCurrentScript(cur);
+        cur->mi32Time = 0;   // PC: no null check
+        if (!mbPackage16)
+            for (uint8_t i = 0; i < cur->mu32NumTracks; ++i) bridge::FEKeyInterpScript(cur, i, 0, obj);
+        if (mpParentGroup) mpParentGroup->mChildren.AddTail(&obj->node);
+        else mpPackage->mObjects.AddTail(&obj->node);
     }
     return true;
 }
