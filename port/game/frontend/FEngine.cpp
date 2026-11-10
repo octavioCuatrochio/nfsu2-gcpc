@@ -582,3 +582,29 @@ void FEngine::Update(uint32_t delta, uint32_t wholeStep)
     }
     if (mbForwardQueuedMessages) bridge::FEGameInterface_EndUpdate(mpUIData);   // interface +0x60
 }
+
+const uint32_t kFEPadPressedHash[19] = {0, 0, 0, 0, 0x406415E3, 0x911AB364, 0xB5AF2461, 0x5073EF13, 0xD9FEEC59, 0xC519BFBF,
+    0xC519BFC0, 0xC519BFC1, 0xC519BFC2, 0xC519BFC3, 0xC519BFC4, 0xC519BFC5, 0xC519BFC6, 0xC519BFC7, 0xC519BFC8};
+const uint32_t kFEPadHeldHash[2] = {0x447315AF, 0x20AD4EB5};
+const uint32_t kFEPadReleasedHash[19] = {0, 0, 0, 0, 0xC12E9E27, 0xC2F8FCC8, 0xEBFCDA65, 0x091DCD57, 0x7A39195D, 0xD4671F83,
+    0xD871B0A4, 0xDC7C41C5, 0xE086D2E6, 0xE4916407, 0xE89BF528, 0xECA68649, 0xF0B1176A, 0xF4BBA88B, 0xF8C639AC};
+
+FEObject *FEngine::FindObject(uint32_t nameHash, const char *package)
+{
+    if (package) {
+        auto *pkg = reinterpret_cast<FEPackage *>(FEListFindNode(package, reinterpret_cast<FENode *>(ActiveList().head)));
+        return pkg ? pkg->FindObjectByHash(nameHash) : nullptr;
+    }
+    for (auto *pkg = reinterpret_cast<FEPackage *>(ActiveList().head); pkg; pkg = reinterpret_cast<FEPackage *>(pkg->node.next))
+        if (FEObject *o = pkg->FindObjectByHash(nameHash)) return o;
+    return nullptr;
+}
+
+bool FEngine::IsInputMessage(uint32_t msg)
+{
+    if (!msg) return false;
+    for (uint32_t h : kFEPadPressedHash) if (msg == h) return true;
+    for (uint32_t h : kFEPadHeldHash) if (msg == h) return true;
+    for (uint32_t h : kFEPadReleasedHash) if (msg == h) return true;
+    return msg == 0x0C407210u || msg == 0x936A6A7Fu;
+}

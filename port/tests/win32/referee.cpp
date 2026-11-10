@@ -1364,6 +1364,18 @@ static void CheckPadMouse(int iters)
     }
 }
 
+// FEngine::IsInputMessage: every table hash, neighbours, random values.
+static void CheckIsInputMessage(int iters)
+{
+    auto o = ORIG<bool(__cdecl *)(uint32_t)>(0x50B2A0);
+    std::vector<uint32_t> v = {0, 0x0C407210u, 0x936A6A7Fu};
+    for (uint32_t h : kFEPadPressedHash) { v.push_back(h); v.push_back(h + 1); }
+    for (uint32_t h : kFEPadHeldHash) v.push_back(h);
+    for (uint32_t h : kFEPadReleasedHash) { v.push_back(h); v.push_back(h - 1); }
+    for (int i = 0; i < iters; ++i) v.push_back(rng());
+    for (uint32_t m : v) EXPECT(o(m) == FEngine::IsInputMessage(m), "IsInputMessage %08x", m);
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1888,6 +1900,7 @@ static int RunAll()
     REFEREE_RUN(CheckCodeListBoxFillUpdate(iters * 5));
     REFEREE_RUN(CheckCodeListBoxMove(iters * 10));
     REFEREE_RUN(CheckPadMouse(iters * 5));
+    REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));
     REFEREE_RUN(CheckUpdateObjectTracks(iters));

@@ -64,6 +64,11 @@ struct FEMouse {
     void Update(const Info &info, uint32_t delta);  // GC FEMouse::Update / PC 50B0C0 (ret 8)
 };
 
+// Pad message hashes (PC data 0x7F7D20 pressed[19], 0x7F7D6C held[2], 0x7F7D78 released[19]; GC PadButtonHash...).
+extern const uint32_t kFEPadPressedHash[19];
+extern const uint32_t kFEPadHeldHash[2];
+extern const uint32_t kFEPadReleasedHash[19];
+
 struct FEngine {
     uint8_t _unknown000;             // +0x00 FEng running (messages, packed updates); copied to FEPackage::mbFastInterp
     uint8_t mbFlag01;                // +0x01 input enabled ("Enabling/Disabling inputs"); set by 0x59BED120 / 0x7E4D1288
@@ -130,6 +135,11 @@ struct FEngine {
     // hold-time releases), then object updates in steps of at most 20 (unless `wholeStep`) with message and
     // package-command processing between steps; disabled engines only update the objects.
     void Update(uint32_t delta, uint32_t wholeStep);
+    // GC 80145FA8 / PC 52C570 (ret 8): object by name hash in the named active package, or the first active one
+    // that has it.
+    FEObject *FindObject(uint32_t nameHash, const char *package);
+    // GC 80146304 / PC 50B2A0 (__cdecl): pad pressed / held / released message hashes, plus two mouse ones.
+    static bool IsInputMessage(uint32_t msg);
     void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
     void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
     void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50
