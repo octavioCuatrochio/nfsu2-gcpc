@@ -39,6 +39,10 @@ extern const void *libraryData;
 extern bool willUnloadResult;
 extern uint32_t padBits;
 extern void *nextButton;
+struct HitTest { void *obj; float x, y; };
+extern std::vector<void *> hitObjects;   // FEGameInterface_IsPointInObject: these are hit
+extern std::vector<HitTest> hitTests;
+extern bool textInputFocused;
 extern int16_t mouseInfo[4];
    // FEGameInterface_GetPackageData result
 extern void *screenResult;   // ScreenFactory result

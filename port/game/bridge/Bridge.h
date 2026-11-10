@@ -84,7 +84,8 @@ void FEGameInterface_GetMouseInfo(void *gi, void *info);              // +0x44 (
 void FEGameInterface_BeginUpdate(void *gi);                           // +0x5C
 void FEGameInterface_EndUpdate(void *gi);                             // +0x60
 ::FEObject *FEButtonMap_GetButtonFrom(void *map, ::FEObject *from, uint32_t dir, void *gi, uint32_t arg);   // PC 5189E0 (ret 0x10)
-void FEngine_ProcessMouseForPackage(void *engine, ::FEPackage *pkg);  // PC 54E020 (GC 80146FA0)
+uint8_t FEGameInterface_IsPointInObject(void *gi, float x, float y, ::FEObject *obj);   // +0x48 (PC; GC +0x9C), bool in AL
+bool TextInputFocused();   // PC globals 0x83A9C0 (byte, FocusedTextbox active) && 0x83A9C4 (dword) both nonzero
 void SetHoldDirtyFlags(uint32_t v);                                   // uHoldDirtyFlags, PC 0x7F7C8C
 // constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)
 ::FEObject *FEObjectTypeConstruct(void *mem, uint32_t type);

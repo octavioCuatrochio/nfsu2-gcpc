@@ -53,6 +53,9 @@ const void *libraryData = nullptr;
 bool willUnloadResult = true;
 uint32_t padBits = 0;
 void *nextButton = nullptr;
+std::vector<void *> hitObjects;
+std::vector<HitTest> hitTests;
+bool textInputFocused = false;
 int16_t mouseInfo[4] = {};
 void *screenResult = nullptr;
 bool hotChunking = false;
@@ -149,7 +152,13 @@ void FEGameInterface_GetMouseInfo(void *gi, void *info) { teststub::delivered.pu
 void FEGameInterface_BeginUpdate(void *gi) { teststub::delivered.push_back({"begin", gi, nullptr, 0, 0}); }
 void FEGameInterface_EndUpdate(void *gi) { teststub::delivered.push_back({"end", gi, nullptr, 0, 0}); }
 FEObject *FEButtonMap_GetButtonFrom(void *m, FEObject *f, uint32_t d, void *, uint32_t) { teststub::delivered.push_back({"btnmap", m, reinterpret_cast<FEPackage *>(f), d, 0}); return static_cast<FEObject *>(teststub::nextButton); }
-void FEngine_ProcessMouseForPackage(void *e, FEPackage *p) { teststub::delivered.push_back({"mouse", e, p, 0, 0}); }
+uint8_t FEGameInterface_IsPointInObject(void *gi, float x, float y, FEObject *o)
+{
+    teststub::hitTests.push_back({o, x, y});
+    for (void *h : teststub::hitObjects) if (h == o) return 1;
+    return 0;
+}
+bool TextInputFocused() { return teststub::textInputFocused; }
 #ifdef NFSU2_REFEREE
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }
 #else

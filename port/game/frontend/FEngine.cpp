@@ -550,7 +550,7 @@ void FEngine::Update(uint32_t delta, uint32_t wholeStep)
                 mpJoyPads[i].Update(bridge::FEGameInterface_GetJoyPadBits(mpUIData, i), delta);
             for (auto *pkg = reinterpret_cast<FEPackage *>(ActiveList().head); pkg; pkg = reinterpret_cast<FEPackage *>(pkg->node.next)) {
                 ProcessPadsForPackage(pkg);
-                if (mbMouseEnabled) bridge::FEngine_ProcessMouseForPackage(this, pkg);
+                if (mbMouseEnabled) ProcessMouseForPackage(pkg);
             }
             for (int k = 0; k < 19; ++k) {
                 if (mu32ButtonsToRelease & (1u << k))
@@ -806,4 +806,79 @@ void FEngine::ProcessPadsForPackage(FEPackage *pkg)
         pkg->mpCurrentButton = next;
         return;
     }
+}
+
+void FEngine::ProcessMouseForPackage(FEPackage *pkg)
+{
+    if (!(pkg->mu32InputControlMask & 1) || !mbFlag01) return;
+    const float x = static_cast<float>(mMouse.mi32X), y = static_cast<float>(mMouse.mi32Y);
+    FEObject *const m3 = reinterpret_cast<FEObject *>(intptr_t{-3}), *const m5 = reinterpret_cast<FEObject *>(intptr_t{-5});
+    for (uint32_t i = 0; i < 2 && mbFlag01; ++i) {
+        const uint16_t bit = static_cast<uint16_t>(1u << i);
+        const bool now = (mMouse.mu16Current & bit) == bit, before = (mMouse.mu16Previous & bit) == bit;
+        // (both down: the original calls FEMouse::HeldFor 50B150 and drops the result)
+        FEObject *btn = pkg->mpCurrentButton;
+        if (now && !before) {
+            if (i == 0) {
+                mPressedButton[4] = btn;
+                if (btn && btn->FindResponse(0x0C407210u) && bridge::FEGameInterface_IsPointInObject(mpUIData, x, y, btn) == 1) {
+                    QueueMessage(0x0C407210u, nullptr, pkg, pkg->mpCurrentButton, 1);
+                    QueueMessage(0x0C407210u, pkg->mpCurrentButton, pkg, m5, 1);
+                } else if (pkg->FindResponse(0x406415E3u) && pkg->mbFlagsAC[0]) {   // PC-only package gate +0xAC
+                    QueueMessage(0x406415E3u, nullptr, pkg, m3, 1);
+                    QueueMessage(0x406415E3u, nullptr, pkg, m5, 1);
+                }
+            } else {
+                if (btn && btn->FindResponse(0x14DD0705u) && bridge::FEGameInterface_IsPointInObject(mpUIData, x, y, btn) == 1) {
+                    QueueMessage(0x14DD0705u, nullptr, pkg, btn, 1);
+                    QueueMessage(0x14DD0705u, btn, pkg, m5, 1);
+                } else if (pkg->FindResponse(0x14DD0705u) && pkg->mbFlagsAC[1]) {   // PC-only package gate +0xAD
+                    QueueMessage(0x14DD0705u, nullptr, pkg, m3, 1);
+                    QueueMessage(0x14DD0705u, nullptr, pkg, m5, 1);
+                }
+            }
+        }
+        if (!now && before && i == 0) {
+            if (mPressedButton[4] == btn && btn) {
+                mPressedButton[4] = nullptr;
+                if (btn->FindResponse(0x936A6A7Fu)) {
+                    QueueMessage(0x936A6A7Fu, nullptr, pkg, btn, 1);
+                    QueueMessage(0x936A6A7Fu, btn, pkg, m5, 1);
+                }
+            }
+            if (pkg->FindResponse(0x936A6A7Fu)) {
+                QueueMessage(0x936A6A7Fu, nullptr, pkg, m3, 1);
+                QueueMessage(0x936A6A7Fu, nullptr, pkg, m5, 1);
+            }
+        }
+        if (mMessages.count) ProcessMessageQueue();
+    }
+    // hover selection: after a move, the first selectable button under the pointer becomes current
+    if (!mMouse.mbMoved) return;
+    if (!pkg->mbFlagsAC[3] && bridge::TextInputFocused()) return;   // PC only
+    FEObject *cur = pkg->mpCurrentButton;
+    if (!cur || bridge::FEGameInterface_IsPointInObject(mpUIData, x, y, cur) == 1) return;
+    FEObject *next = nullptr;
+    for (uint32_t n = pkg->mu32NumButtons, i = 0; i < n; ++i) {
+        FEObject *o = pkg->mppButtons[i];
+        if (o->mu32Flags & 0x4000000) continue;
+        if (bridge::FEGameInterface_IsPointInObject(mpUIData, x, y, o)) { next = o; break; }
+    }
+    if (!next) return;
+    for (uint32_t k = 4; k < 19; ++k) {   // pending presses are released on the old button
+        if (!mPressedButton[k]) continue;
+        mPressedButton[k] = nullptr;
+        const uint32_t msg = k == 4 ? 0x936A6A7Fu : kFEPadReleasedHash[k];
+        if (cur->FindResponse(msg)) {
+            QueueMessage(msg, nullptr, pkg, cur, 1);
+            QueueMessage(msg, cur, pkg, m5, 1);
+        }
+    }
+    if (pkg->mpCurrentButton) {
+        QueueMessage(0x55D1E635u, nullptr, pkg, pkg->mpCurrentButton, 0);
+        QueueMessage(0x55D1E635u, pkg->mpCurrentButton, pkg, m5, 0);
+    }
+    QueueMessage(0xABC08912u, nullptr, pkg, next, 0);
+    QueueMessage(0xABC08912u, next, pkg, m5, 0);
+    pkg->mpCurrentButton = next;
 }

@@ -7,7 +7,7 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:
   1. FEng core (~600 funcs in FE*/cFEng/FEngine classes; done: FEPackageReader, FEPackageData/Manager (but
      NotifySoundMessage), FEPackage (but InitializePackage), FEListBox, FECodeListBox, lists/pools/scripts).
-     Left: FEngine rest (PushPackage 555860, UnloadPackage 5362E0, Update 558C00, ProcessPads 54D4B0 done; Render, ProcessMouse 54E020,
+     Left: FEngine rest (PushPackage 555860, UnloadPackage 5362E0, Update 558C00, ProcessPads 54D4B0 + ProcessMouse 54E020 done; Render,
      ctor/ReleaseAll), cFEng (~30: render glue, joy registration), widgets (FEWidget family ~110), input
      (FEJoyPad/FEMouse), FERenderObject/FEngFont/cFEngRender (render glue: bridge D3D), FEHashList/FERefList rest.
   2. Screens/state (zFe.cpp + game classes in zFe2: PlayerCareerState, CarCustomizeManager, RaceStarter...).
@@ -16,6 +16,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   release msg 0x936A6A7F), +0xD0 FEButtonMap::GetButtonFrom arg. Directions: table 0x7F7CFC {a,b,dir} diagonals
   first, hashes 0x7F7C90; repeat 320 ticks, 120 if FEngine+0x2C bit set; +0x30 = repeating bits. First fired
   direction returns. Held msgs (buttons 7, 8) carry the *pressed* pad mask (PC quirk).
+- Mouse (54E020): game interface vtable +0x48 = hit test (float x, float y, FEObject*) -> AL (clicks need ==1).
+  PC-only: package +0xAC/+0xAD gate package-level click msgs; hover selection skipped while a text box has focus
+  (globals 0x83A9C0 byte && 0x83A9C4) unless package +0xAF; buttons with flag 0x4000000 are not hover-selectable.
+- Single instance: an earlier SPEED2.EXE still running makes a new launch exit quietly -> check pgrep before A/B.
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
 - bStrToFloat (43DEF0) returns unrounded x87 ST0 (port: long double); a nonzero fraction is rounded to float and
   bumped by +1 ulp before being added (PC quirk). Referee can switch precision with _controlfp(_PC_24/_PC_53).

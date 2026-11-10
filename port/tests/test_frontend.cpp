@@ -1958,6 +1958,62 @@ static void TestProcessPads()
     dl.clear();
 }
 
+// FEngine::ProcessMouseForPackage: hover selection (hit tests, skipped buttons, text box focus) and early outs.
+static void TestProcessMouse()
+{
+    FEngine *e = TestEngine();
+    Collect();
+    e->mbFlag01 = 1;
+    int gi = 0;
+    e->mpUIData = &gi;
+    alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
+    auto *pkg = reinterpret_cast<FEPackage *>(pm);
+    alignas(8) unsigned char om[3][sizeof(FEObject)] = {};
+    FEObject *o[3];
+    for (int i = 0; i < 3; ++i) o[i] = reinterpret_cast<FEObject *>(om[i]);
+    FEObject *buttons[2] = {o[1], o[2]};
+    o[1]->mu32Flags = 0x4000000;   // not selectable by the mouse
+    pkg->mppButtons = buttons;
+    pkg->mu32NumButtons = 2;
+    pkg->mpCurrentButton = o[0];
+    e->mMouse.mi32X = 100; e->mMouse.mi32Y = -7; e->mMouse.mbMoved = 1;
+    auto &hits = teststub::hitTests;
+    teststub::hitObjects = {o[1], o[2]};
+    hits.clear();
+    e->ProcessMouseForPackage(pkg);              // input mask bit 0 clear
+    pkg->mu32InputControlMask = 1;
+    e->mbFlag01 = 0;
+    e->ProcessMouseForPackage(pkg);              // inputs disabled
+    CHECK(hits.empty() && pkg->mpCurrentButton == o[0]);
+    e->mbFlag01 = 1;
+    teststub::textInputFocused = true;
+    e->ProcessMouseForPackage(pkg);              // a text box has focus
+    CHECK(hits.empty());
+    pkg->mbFlagsAC[3] = 1;                       // package ignores the focus
+    e->mPressedButton[4] = o[0];
+    e->mPressedButton[9] = o[1];
+    e->ProcessMouseForPackage(pkg);
+    CHECK(pkg->mpCurrentButton == o[2] && e->mPressedButton[4] == nullptr && e->mPressedButton[9] == nullptr);
+    CHECK(hits.size() == 2 && hits[0].obj == o[0] && hits[1].obj == o[2] && hits[0].x == 100.0f && hits[0].y == -7.0f);
+    auto q = Collect();
+    CHECK(q.size() == 4 && q[0].msg == 0x55D1E635u && q[0].target == o[0] && q[2].msg == 0xABC08912u && q[3].obj == o[2]);
+    hits.clear();
+    e->ProcessMouseForPackage(pkg);              // pointer on the current button: no change
+    CHECK(hits.size() == 1 && e->mMessages.count == 0);
+    e->mMouse.mbMoved = 0;
+    pkg->mpCurrentButton = o[0];
+    hits.clear();
+    e->mMouse.mu16Current = 1;                   // click without responses anywhere: no messages, press recorded
+    e->ProcessMouseForPackage(pkg);
+    CHECK(hits.empty() && e->mMessages.count == 0 && e->mPressedButton[4] == o[0] && pkg->mpCurrentButton == o[0]);
+    e->mMouse = FEMouse{};
+    e->mPressedButton[4] = nullptr;
+    e->mbFlag01 = 0; e->mpUIData = nullptr;
+    teststub::textInputFocused = false;
+    teststub::hitObjects.clear();
+    hits.clear();
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -2127,6 +2183,7 @@ int main()
     TestEnginePushUnload();
     TestEngineUpdate();
     TestProcessPads();
+    TestProcessMouse();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

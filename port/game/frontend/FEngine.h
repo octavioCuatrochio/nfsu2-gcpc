@@ -151,6 +151,10 @@ struct FEngine {
     // button or the package; directions (table 0x7F7CFC, diagonals first) with repeat delays 320 / 120 ticks ->
     // direction messages and button navigation (FEButtonMap::GetButtonFrom).
     void ProcessPadsForPackage(FEPackage *pkg);
+    // GC 80146FA0 / PC 54E020 (ret 4): mouse buttons 0 (select: mPressedButton[4]) / 1 (0x14DD0705) -> messages to
+    // the hit current button or the package (PC: package flags +0xAC / +0xAD gate those); after a move, the first hit
+    // selectable button becomes current (PC: not while a text box has focus unless package +0xAF).
+    void ProcessMouseForPackage(FEPackage *pkg);
     void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
     void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
     void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50
