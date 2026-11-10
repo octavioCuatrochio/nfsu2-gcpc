@@ -10,6 +10,10 @@
 #include "bWare/bMath.h"
 #include "FEngUtil.h"
 #include "cFEngRender.h"
+#include "FERender.h"
+#include "FEButtonMap.h"
+#include "FENode.h"
+#include "FEScript.h"
 #include "FEHash.h"
 #include "FEMath.h"
 #include <cstring>
@@ -393,4 +397,229 @@ void cFEng::GetMouseInfo(void *info)
     out[1] = static_cast<uint16_t>(FEFtol(static_cast<long double>(y) - 240.0f));
     const uint32_t a = g[0x20], b = g[0x1D];   // PC 0x8763F4 / 0x8763F1
     out[3] = static_cast<uint16_t>(g[0x1C] ? (b * 2 | a) : (a * 2 | b));
+}
+
+// ---- object callbacks (functor objects keep the game's vtables; their Function slots are hooked to these) ----
+
+bool FEObjectInitializer_Function(void *, FEObject *obj)
+{
+    FEScript *s = obj->FindScript(0x1744B3u);   // "Init"
+    obj->mpCurrentScript = s;
+    if (s) obj->SetupMoveToTracks();
+    obj->mpCurrentScript->mi32Time = 0;          // PC: no null check
+    obj->mu32Flags |= 0x3C00000u;
+    return true;
+}
+
+bool FEngMovieStarter_Function(void *, FEObject *obj)
+{
+    if (obj->mu32Type != 7) return true;
+    const char *name = reinterpret_cast<const char *>(static_cast<uintptr_t>(obj->_unknown24));   // FEMovie: name pointer (+0x24)
+    const int32_t which = bridge::GetMovieNameEnum(name);
+    char path[0x40];
+    bridge::CalculateMovieFilename(path, 0x40, name);
+    if (bridge::FILE_exists(path)) bridge::MovieStart(path, true, which);
+    else bridge::TheFEPackageManager()->BroadcastMessage(0xC3960EB9u, 0);   // "movie finished"
+    return false;
+}
+
+bool FEngMovieStopper_Function(void *, FEObject *obj)
+{
+    if (obj->mu32Type != 7) return true;
+    bridge::MovieStop();
+    return false;
+}
+
+namespace {
+void DropCachedRender(FEObject *obj, void *renderInfo)
+{
+    FERenderObject *r = obj->mpCachedRender;
+    if (!r) return;
+    obj->mpCachedRender = nullptr;
+    r->mpPrev->mpNext = r->mpNext;
+    r->mpNext->mpPrev = r->mpPrev;
+    r->Clear(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(renderInfo)));
+    r->FreePolys();
+    bFree(*bridge::FERenderObjectPool(), r);
+}
+struct RenderDisconnect { void *vtable; void *render; void *renderInfo; };   // PC 12 bytes
+struct DirtyMaker { void *vtable; void *renderInfo; };
+}  // namespace
+
+bool RenderObjectDisconnect_Function(void *self, FEObject *obj)
+{
+    DropCachedRender(obj, static_cast<RenderDisconnect *>(self)->renderInfo);
+    return true;
+}
+
+bool FEDirtyMaker_Function(void *self, FEObject *obj)
+{
+    obj->mu32Flags |= 0x400000u;
+    if (bridge::cFEngInstance()) DropCachedRender(obj, static_cast<DirtyMaker *>(self)->renderInfo);
+    return true;
+}
+
+// ---- cFEng ----
+
+namespace {
+void *RenderInfo(FEPackage *pkg) { return pkg->mpPackageData ? reinterpret_cast<uint8_t *>(pkg->mpPackageData) + 0x24 : nullptr; }
+}
+
+cFEng *cFEng::Construct()
+{
+    vtable = bridge::FEGameInterfaceVTable();
+    mpSortHead = mpSortTail = SortSentinel();
+    void *mem = bridge::Alloc(sizeof(FEngine) > 0x5254 ? static_cast<uint32_t>(sizeof(FEngine)) : 0x5254u);
+    mpEngine = mem ? FEngine::Construct(mem) : nullptr;
+    *bridge::LevelSorterSlotsPtr() = bNewSlotPool(sizeof(cFEngLevelSorter), 0x20, "LevelSorterSlotPool", 0);
+    mpEngine->mpUIData = this;
+    mpEngine->SetNumJoyPads(2);
+    bridge::FEngine_InitObjects(mpEngine);
+    uint8_t *e = reinterpret_cast<uint8_t *>(mpEngine);
+    e[0] = 1;
+    for (FEPackage *p = mpEngine->mpPackages; p; p = reinterpret_cast<FEPackage *>(p->node.next)) p->mbFastInterp = e[0];
+    e[2] = 1;
+    _unknown04 = 0;
+    mbDrawingBackground = 0;
+    mbRendering = 1;
+    void *rm = bridge::Alloc(static_cast<uint32_t>(sizeof(cFEngRender)));
+    mpRender = rm ? static_cast<cFEngRender *>(rm)->Construct() : nullptr;
+    return this;
+}
+
+void cFEng::Destroy()
+{
+    vtable = bridge::FEGameInterfaceVTable();
+    bDeleteSlotPool(*bridge::LevelSorterSlotsPtr());   // PC: the global keeps the stale pointer
+    if (mpRender) {   // PC: the renderer's scalar deleting dtor (vtable slot 0)
+        static_cast<cFEngRender *>(mpRender)->Destroy();
+        bridge::FreeArray(mpRender);
+    }
+    UnRegisterJoy();
+    if (FEngine *e = mpEngine) {
+        e->Destruct();
+        bridge::FreeArray(e);
+    }
+    // PC 5318C0: sorter entries back to the (deleted) pool
+    while (mpSortHead != SortSentinel()) {
+        cFEngLevelSorter *n = mpSortHead;
+        n->prev->next = n->next;
+        n->next->prev = n->prev;
+        bFree(*bridge::LevelSorterSlotsPtr(), n);
+    }
+}
+
+void cFEng::InitPackage(FEPackage *pkg)
+{
+    struct { void *vtable; } init = {bridge::FEObjectInitializerVTable()};   // "Init Package %s"
+    pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&init));
+    pkg->mbFastInterp = 1;
+    if (!pkg->_unknown15[1]) pkg->Update(mpEngine, 0);
+    cFEngLevelSorter *s = FindInLevelSortingList(pkg->mpcName);
+    const int32_t arg = s->mi32Arg;
+    if (FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg->mpcName)) d->Activate(pkg, arg);
+    struct { void *vtable; } movies = {bridge::FEngMovieStarterVTable()};
+    pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&movies));
+    pkg->mi32Priority = s->mi32Level;
+}
+
+bool cFEng::PackageWillUnload(FEPackage *pkg)
+{
+    struct { void *vtable; } stop = {bridge::FEngMovieStopperVTable()};
+    pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&stop));
+    RenderDisconnect cb = {bridge::RenderObjectDisconnectVTable(), mpRender, RenderInfo(pkg)};   // "Will unload ---%s---"
+    pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb));
+    if (FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg->mpcName)) d->UnActivate();
+    return true;
+}
+
+void cFEng::DrawBackground()
+{
+    mbDrawingBackground = 1;
+    if (FEngIsPackagePushed("UI_MagazineBack.fng"))
+        if (FEPackage *p = FEngFindPackage("UI_MagazineBack.fng")) RenderPackageSpecial(p, 0);
+    mbDrawingBackground = 0;
+}
+
+void cFEng::RenderObjectSpecial(FEObject *obj, const float *matrix, uint16_t context, void *sorter)
+{
+    const float *d = static_cast<const float *>(obj->mpData);
+    if (!reinterpret_cast<const int32_t *>(d)[3]) return;   // alpha
+    using L = long double;
+    const FEVector3 v = {static_cast<float>(L(d[4]) + d[7]), static_cast<float>(L(d[5]) + d[8]), static_cast<float>(L(d[6]) + d[9])};
+    FEVector3 out;
+    FEMultMatrix(&out, matrix, &v);
+    obj->mu16RenderContext = context;
+    if (!(out.z > 0.0f) && !(out.z != out.z)) return;   // PC: test 0x41 / jnp (NaN is kept)
+    auto *s = static_cast<FEngine::ObjectSorter *>(sorter);
+    uint32_t key;
+    std::memcpy(&key, &out.z, 4);
+    s->mEntries[s->mu32Count].mpObject = obj;
+    s->mEntries[s->mu32Count].mu32Key = key;
+    ++s->mu32Count;
+}
+
+void cFEng::RenderPackageSpecial(FEPackage *pkg, uint32_t flag)
+{
+    float view[16];
+    bridge::FEGameInterface_GetViewTransformation(this, view);
+    static FERenderNode buffer[0x20C];   // PC: 0x1060 bytes on the stack
+    FESortGlobals *g = bridge::FEngSortGlobals();
+    g->mpBuffer = buffer;
+    g->mu32Max = 0x20C;
+    bridge::FEGameInterface_BeginPackageRendering(this, pkg, flag);
+    FEngine::ObjectSorter &s = mpEngine->mSorter;
+    s.mu32Count = 0;
+    for (FEMinNode *n = pkg->mObjects.head; n; n = n->next) {
+        auto *o = reinterpret_cast<FEObject *>(n);
+        if (o->mu32Type != 5) RenderObjectSpecial(o, view, 0, &s);
+    }
+    s.SortObjects();
+    bridge::FEGameInterface_RenderObjectList(this, s.mEntries, s.mu32Count);
+    bridge::FEGameInterface_EndPackageRendering(this, pkg);
+    if (g->mi32Most <= g->mi32Num) g->mi32Most = g->mi32Num;
+    g->mpBuffer = nullptr;
+    g->mu32Max = 0;
+    g->mi32Num = 0;
+}
+
+void cFEng::MakeLoadedPackagesDirty()
+{
+    DirtyMaker cb = {bridge::FEDirtyMakerVTable(), nullptr};
+    for (FEPackage *p = mpEngine->mpPackages; p; p = reinterpret_cast<FEPackage *>(p->node.next)) {
+        cb.renderInfo = RenderInfo(p);
+        p->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb));
+    }
+}
+
+void cFEng::Service()
+{
+    const uint32_t racing = bridge::GameFlowState() == 6 && bridge::WorldTimeElapsed() > 0.0f ? 1 : 0;
+    bridge::FEngine_Update(mpEngine, static_cast<uint32_t>(FEFtol(static_cast<long double>(bridge::RealTimeElapsed()) * 1200.0f)), racing);
+    uint32_t *last = bridge::LastKnownJoystickTypes();
+    for (int32_t port = 0; port < 2; ++port) {
+        if (last[port] != bridge::GetJoystickType(port) && bridge::IsJoystickPluggedIn(port)) {
+            last[port] = bridge::GetJoystickType(port);
+            MakeLoadedPackagesDirty();
+        }
+    }
+    if (void *card = bridge::MemoryCardInstance()) bridge::MemoryCard_Tick(card, FEFtol(static_cast<long double>(bridge::RealTimeElapsed()) * 1000.0f));
+    bridge::MovieUpdate();
+    if (*bridge::SummonChyron()) {
+        bridge::FakeCallFromSound();
+        *bridge::SummonChyron() = 0;
+    }
+    if (*bridge::StopChyron()) {
+        bridge::CurrentSongStopped(nullptr);
+        *bridge::StopChyron() = 0;
+    }
+}
+
+bool FEngIsPackagePushed(const char *name)
+{
+    cFEng *fe = bridge::cFEngInstance();
+    if (!bridge::InsideScreenConstructor() && fe && fe->mpEngine)
+        return FEListFindNode(name, reinterpret_cast<FENode *>(fe->mpEngine->mpPackages)) != nullptr;
+    FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(name);
+    return d && d->mpPackage;
 }

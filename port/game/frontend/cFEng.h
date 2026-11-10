@@ -40,12 +40,24 @@ struct FEResourceRequest {
 static_assert(sizeof(FEResourceRequest) == 0x18, "FEResourceRequest");
 #endif
 
+// GC FEngIsPackagePushed / PC 52CF60 (__cdecl): in FEngine's active list (outside screen constructors), else
+// registered with the package manager and loaded.
+bool FEngIsPackagePushed(const char *name);
+// FEObjectCallback functors (game vtables; slot 1 = Function, hooked):
+bool FEObjectInitializer_Function(void *self, FEObject *obj);        // PC 517EE0 (79AAEC): "Init" script, dirty 0x3C00000
+bool FEngMovieStarter_Function(void *self, FEObject *obj);           // GC 8014..., PC 566240 (79AB84): movies start
+bool FEngMovieStopper_Function(void *self, FEObject *obj);           // PC 51C8A0 (79AB94): MovieStop for movies
+bool RenderObjectDisconnect_Function(void *self, FEObject *obj);     // PC 5374F0 (79AB9C): drop the cached render
+bool FEDirtyMaker_Function(void *self, FEObject *obj);               // PC 537630 (79ABF0): dirty + drop the cached render
+
 // PC 50C250 (__cdecl; GC GetBaseName): `path` without directory ('\\' or '/') and extension (last '.' after index 0;
 // a '.' before the last separator yields "").
 void GetBaseName(char *out, const char *path);
 
 struct cFEng {
-    uint8_t _unknown00[6];
+    void *vtable;                    // +0x00 FEGameInterface (PC 0x79BCD8)
+    uint8_t _unknown04;              // +0x04 cleared by the ctor
+    uint8_t mbDrawingBackground;     // +0x05 set around DrawBackground
     uint8_t mbRendering;             // +0x06 set by BeginPackageRendering
     uint8_t _unknown07;
     FEngine *mpEngine;               // +0x08 (GC +0x10)
@@ -117,6 +129,31 @@ struct cFEng {
     // GC 8014EC48 (empty) / PC 50C860 (ret 4): PC-only mouse: position relative to the 640x480 centre (_ftol),
     // buttons at +6 (swapped when the mouse is left-handed).
     void GetMouseInfo(void *info);
+    // GC 8014D468 / PC 5372E0: interface vtable, empty sort list, FEngine (operator new 0x5254), LevelSorterSlots
+    // pool (0x1C x 32), engine->mpUIData = this, 2 pads, objects initialised (51A7E0), engine flags 0 and 2 set (and
+    // byte 0 copied to every package's +0x14), cFEngRender (new 0x3420).
+    cFEng *Construct();
+    // GC 8014D570 / PC 5373F0 (scalar 5425E0): pool, renderer, joystick handlers, FEngine, sorter entries.
+    void Destroy();
+    // GC 8014DA8C / PC 54E4A0 (ret 4): every object reset to its "Init" script (FEPackage::InitializePackage,
+    // inlined); package +0x14 = 1; Update(engine, 0) unless +0x16; package data activated with the sorter entry's
+    // argument; movies started; priority = the entry's level. No null check on the sorter entry (PC).
+    void InitPackage(FEPackage *pkg);
+    // GC 8014DF08 / PC 51C8C0 (ret 4): movies stopped, cached renders dropped, package data unactivated. True.
+    bool PackageWillUnload(FEPackage *pkg);
+    // GC 8014E6D8 / PC 537540: UI_MagazineBack.fng rendered (RenderPackageSpecial) when pushed.
+    void DrawBackground();
+    // GC 8014E5C4 / PC 51CA50 (ret 8): own sort buffer (0x20C nodes), objects (groups skipped) through
+    // RenderObjectSpecial with the view matrix, sorted, rendered through the interface's own vtable.
+    void RenderPackageSpecial(FEPackage *pkg, uint32_t flag);
+    // GC 8014E4C8 / PC 51C9B0 (ret 0x10): visible (data alpha != 0) objects at pivot + position through `matrix`;
+    // render context set; z > 0 (or NaN) adds {obj, float bits of z} to the sorter.
+    void RenderObjectSpecial(FEObject *obj, const float *matrix, uint16_t context, void *sorter);
+    // GC 8014E354 / PC 5662C0: FEngine::Update(RealTimeElapsed * 1200, state 6 && WorldTimeElapsed > 0), joystick type
+    // changes -> MakeLoadedPackagesDirty, memory card tick (ms), movies, chyron requests.
+    void Service();
+    // GC 8014EBD0 / PC 50C7E0: every object of every active package dirty (0x400000) and its cached render dropped.
+    void MakeLoadedPackagesDirty();
     cFEngLevelSorter *SortSentinel() { return reinterpret_cast<cFEngLevelSorter *>(&mpSortHead); }
 };
 

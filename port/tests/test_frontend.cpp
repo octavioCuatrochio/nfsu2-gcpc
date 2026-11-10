@@ -22,6 +22,7 @@
 #include "bWare/bString.h"
 #include "frontend/FEPackageManager.h"
 #include "frontend/cFEngRender.h"
+#include "frontend/FEScript.h"
 #include "frontend/FEPackageReader.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/FEListBox.h"
@@ -2212,6 +2213,73 @@ static void TestEngineConstructTypes()
 }
 
 // cFEng joystick registration: handlers per mapped event, per-port state, pad masks.
+static void TestCFEngUnit()
+{
+    // object callbacks
+    alignas(8) unsigned char om[sizeof(FEString)] = {};
+    auto *o = reinterpret_cast<FEObject *>(om);
+    alignas(8) unsigned char sm[sizeof(FEScript)] = {};
+    auto *init = reinterpret_cast<FEScript *>(sm);
+    init->mu32Id = 0x1744B3u; init->mi32Time = 9;
+    o->mScripts.vtable = &teststub::feMinListVTable;
+    o->mScripts.AddTail(&init->node);
+    float od[20] = {};
+    o->mpData = od;
+    CHECK(FEObjectInitializer_Function(nullptr, o) && o->mpCurrentScript == init && init->mi32Time == 0 && (o->mu32Flags & 0x3C00000u) == 0x3C00000u);
+    o->mu32Type = 7;
+    char yes[] = "Ymovie", no[] = "Nmovie";
+    o->_unknown24 = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(yes));
+    teststub::delivered.clear();
+    if (sizeof(void *) == 4) {   // the movie name is a 32-bit pointer field on PC
+        CHECK(!FEngMovieStarter_Function(nullptr, o) && std::string(teststub::delivered.back().kind) == "moviestart" && teststub::delivered.back().msg == 7);
+        o->_unknown24 = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(no));
+        const size_t before = teststub::delivered.size();
+        CHECK(!FEngMovieStarter_Function(nullptr, o) && teststub::delivered.size() == before);   // broadcast "movie finished" instead
+    }
+    CHECK(!FEngMovieStopper_Function(nullptr, o) && std::string(teststub::delivered.back().kind) == "moviestop");
+    o->mu32Type = 1;
+    CHECK(FEngMovieStarter_Function(nullptr, o) && FEngMovieStopper_Function(nullptr, o));
+    // RenderObjectSpecial: pivot + position through the matrix, z > 0 only
+    static cFEng fe;
+    static FEngine::ObjectSorter sorter;
+    sorter.mu32Count = 0;
+    reinterpret_cast<int32_t *>(od)[3] = 0xFF;
+    od[4] = 1; od[7] = 2; od[6] = 0.5f; od[9] = 1.5f;   // x 3, z 2
+    float ident[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    fe.RenderObjectSpecial(o, ident, 5, &sorter);
+    CHECK(sorter.mu32Count == 1 && sorter.mEntries[0].mpObject == o && o->mu16RenderContext == 5 && sorter.mEntries[0].mu32Key == 0x40000000u);
+    od[9] = -3;
+    fe.RenderObjectSpecial(o, ident, 0, &sorter);
+    CHECK(sorter.mu32Count == 1 && o->mu16RenderContext == 0);   // behind: not added
+    reinterpret_cast<int32_t *>(od)[3] = 0;
+    od[9] = 5;
+    fe.RenderObjectSpecial(o, ident, 3, &sorter);
+    CHECK(sorter.mu32Count == 1 && o->mu16RenderContext == 0);   // alpha 0: untouched
+    // Service: FEngine::Update args, joystick change -> dirty, card tick, chyrons
+    teststub::delivered.clear();
+    teststub::realTime = 0.5f; teststub::gameFlowState = 6; teststub::worldTime = 1;
+    teststub::memoryCard = &fe;
+    *bridge::SummonChyron() = 1;
+    alignas(8) static unsigned char em[sizeof(FEngine)];
+    fe.mpEngine = reinterpret_cast<FEngine *>(em);
+    fe.mpEngine->mpPackages = nullptr;
+    teststub::joyTypes[1] = 3;
+    fe.Service();
+    CHECK(teststub::lastJoyTypes[1] == 0);   // pad 1 not plugged: no change
+    bool tick = false, chyron = false;
+    for (auto &d : teststub::delivered) { if (std::string(d.kind) == "cardtick") tick = d.msg == 500; if (std::string(d.kind) == "chyron") chyron = true; }
+    CHECK(tick && chyron && *bridge::SummonChyron() == 0);
+    teststub::joyPluggedPort = 1;
+    fe.Service();
+    CHECK(teststub::lastJoyTypes[1] == 3);
+    teststub::joyPluggedPort = -1; teststub::joyTypes[1] = 0; teststub::lastJoyTypes[1] = 0;
+    teststub::memoryCard = nullptr; teststub::realTime = 0; teststub::gameFlowState = 0;
+    // FEngIsPackagePushed: manager path inside screen constructors
+    teststub::insideScreenCtor = 1;
+    CHECK(!FEngIsPackagePushed("Nothing.fng"));
+    teststub::insideScreenCtor = 0;
+}
+
 static void TestCFEngRender()
 {
     static cFEngRender r;
@@ -3151,6 +3219,7 @@ int main()
     TestPackageUpdate();
     TestProcessMessageQueue();
     TestProcessResponses();
+    TestCFEngUnit();
     TestCFEngRender();   // last: creates game slot pools
     std::printf("frontend: %s (%d failure(s))\n", failures ? "FAILED" : "ok", failures);
     return failures != 0;

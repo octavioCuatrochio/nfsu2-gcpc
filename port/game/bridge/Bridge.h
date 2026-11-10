@@ -20,6 +20,7 @@ struct FEObject;
 
 struct bASinTableEntry;
 struct FESortGlobals;
+struct FEngine;
 struct FERenderBucket;
 struct ePoly;
 struct cFEngRender;
@@ -124,6 +125,32 @@ void *MovieTexture();                            // PC 0x8385C0 (TextureInfo of 
 // PC 51C110 (FEngFont::RenderString, __thiscall, ret 0x18)
 void FEngFont_RenderString(void *font, const int32_t *colour, const uint16_t *text, ::FEObject *obj, const ::bMatrix4 *m,
                            ::FERenderObject *cached, void *renderInfo);
+// cFEng unit
+void *FEGameInterfaceVTable();                   // PC 0x79BCD8 (cFEng)
+void *FEObjectInitializerVTable();               // PC 0x79AAEC
+void *FEngMovieStarterVTable();                  // PC 0x79AB84
+void *FEngMovieStopperVTable();                  // PC 0x79AB94
+void *FEDirtyMakerVTable();                      // PC 0x79ABF0
+::SlotPool **LevelSorterSlotsPtr();              // PC 0x8384B0
+int32_t InsideScreenConstructor();               // PC 0x8384D0 gInsideScreenConstructor
+int32_t GameFlowState();                         // PC 0x8654A4 (6 = racing)
+float WorldTimeElapsed();                        // PC 0x865154
+float RealTimeElapsed();                         // PC 0x865198
+uint32_t *LastKnownJoystickTypes();              // PC 0x7F9414 (2 ports)
+uint8_t GetJoystickType(int32_t port);           // PC 571AC0 (byte table 0x864788)
+void *MemoryCardInstance();                      // PC 0x836498 MemoryCard::s_pThis
+void MemoryCard_Tick(void *card, int32_t ms);    // PC 4F4A20 (__thiscall)
+void MovieUpdate();                              // PC 5660F0
+void MovieStop();                                // PC 511BC0
+int32_t *SummonChyron();                         // PC 0x8384BC
+int32_t *StopChyron();                           // PC 0x8384C0
+void FakeCallFromSound();                        // PC 4ACA40
+void CurrentSongStopped(void *song);             // PC 4AC9B0
+int32_t GetMovieNameEnum(const char *name);      // PC 51C580
+void CalculateMovieFilename(char *out, int32_t size, const char *name);   // PC 51C740
+bool FILE_exists(const char *path);              // PC 6F909D
+void MovieStart(const char *path, bool loop, int32_t which);              // PC 566020
+void FEngine_InitObjects(::FEngine *engine);     // PC 51A7E0 (FEngine, not rewritten)
 int32_t *DiscErrorOccurred();                    // PC 0x864F2C g_discErrorOccured
 const char **FEngPleaseRenderSinglePackage();    // PC 0x8384B4
 const uint8_t *MouseGlobals();                   // PC 0x8763D4: +0 x, +4 y (int), +0x1C left-handed, +0x1D / +0x20 buttons

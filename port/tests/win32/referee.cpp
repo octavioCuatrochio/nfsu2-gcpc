@@ -2209,6 +2209,43 @@ static void CheckRenderMath(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// cFEng::RenderObjectSpecial on synthetic objects / matrices / sorters, both precisions.
+static void CheckRenderObjectSpecial(int iters)
+{
+    auto o = ORIG<void(THISCALL *)(cFEng *, FEObject *, const float *, uint32_t, void *)>(0x51C9B0);
+    static FEngine::ObjectSorter sa, sb;
+    static unsigned char oa[sizeof(FEString)], ob[sizeof(FEString)];
+    static float da[20], db[20];
+    static unsigned char fe[sizeof(cFEng)];
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            for (float &f : da) f = RenderCoord() / 10.0f;
+            reinterpret_cast<int32_t *>(da)[3] = rng() % 4 ? 0xFF : 0;
+            std::memcpy(db, da, sizeof da);
+            std::memset(oa, 0, sizeof oa);
+            auto *a = reinterpret_cast<FEObject *>(oa);
+            a->mpData = da;
+            a->mu16RenderContext = static_cast<uint16_t>(rng());
+            std::memcpy(ob, oa, sizeof ob);
+            auto *b = reinterpret_cast<FEObject *>(ob);
+            b->mpData = db;
+            float m[16];
+            for (float &f : m) f = RenderCoord() / 100.0f;
+            sa.mu32Count = sb.mu32Count = rng() % 4;
+            const uint32_t ctx = rng();
+            o(reinterpret_cast<cFEng *>(fe), a, m, ctx, &sa);
+            reinterpret_cast<cFEng *>(fe)->RenderObjectSpecial(b, m, static_cast<uint16_t>(ctx), &sb);
+            bool same = sa.mu32Count == sb.mu32Count && a->mu16RenderContext == b->mu16RenderContext;
+            for (uint32_t i = 0; same && i < sa.mu32Count; ++i)
+                same = sa.mEntries[i].mu32Key == sb.mEntries[i].mu32Key && (sa.mEntries[i].mpObject == a) == (sb.mEntries[i].mpObject == b);
+            EXPECT(same, "RenderObjectSpecial pc=%x", pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FESliderWidget: ctor, sound events, Position / Show / Hide / SetFocus / UnsetFocus on synthetic boxes with a fake
 // cSlider vtable that logs its calls (both sides must make the same calls in the same order).
 namespace slider_fake {
@@ -3171,6 +3208,7 @@ static int RunAll()
     REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckCFEngInterface(iters));
     REFEREE_RUN(CheckRenderMath(iters));
+    REFEREE_RUN(CheckRenderObjectSpecial(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckFEngFontMeasure(iters * 3));

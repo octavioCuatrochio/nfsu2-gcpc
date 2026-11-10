@@ -390,6 +390,23 @@ uint32_t THISCALL FEClipAligned_Hook(void *, const FEClipInfo *k, float *v, floa
 uint32_t THISCALL FEClipGeneral_Hook(void *, const FEClipInfo *k, float *v, float *uv, float *c, float *tv, float *tuv, float *tc) { return FEClipGeneral(k, v, uv, c, tv, tuv, tc); }
 void THISCALL FEQuatToMatrix_Hook(const float *q, bMatrix4 *m) { FEQuatToMatrix(q, m); }
 void THISCALL ePoly_Init(ePoly *self) { self->Init(); }
+// cFEng unit
+cFEng *THISCALL cFEng_Ctor(cFEng *self) { return self->Construct(); }
+void THISCALL cFEng_Dtor(cFEng *self) { self->Destroy(); }
+cFEng *THISCALL cFEng_ScalarDtor(cFEng *self, uint32_t flags) { self->Destroy(); if (flags & 1) bridge::FreeArray(self); return self; }
+void THISCALL cFEng_InitPackage(cFEng *self, FEPackage *p) { self->InitPackage(p); }
+uint32_t THISCALL cFEng_PackageWillUnload(cFEng *self, FEPackage *p) { return self->PackageWillUnload(p); }
+void THISCALL cFEng_DrawBackground(cFEng *self) { self->DrawBackground(); }
+void THISCALL cFEng_RenderPackageSpecial(cFEng *self, FEPackage *p, uint32_t f) { self->RenderPackageSpecial(p, f); }
+void THISCALL cFEng_RenderObjectSpecial(cFEng *self, FEObject *o, const float *m, uint32_t c, void *s) { self->RenderObjectSpecial(o, m, static_cast<uint16_t>(c), s); }
+void THISCALL cFEng_Service(cFEng *self) { self->Service(); }
+void THISCALL cFEng_MakeLoadedPackagesDirty(cFEng *self) { self->MakeLoadedPackagesDirty(); }
+uint32_t FEngIsPackagePushed_Hook(const char *n) { return FEngIsPackagePushed(n); }
+uint32_t THISCALL FEObjectInitializer_Hook(void *self, FEObject *o) { return FEObjectInitializer_Function(self, o); }
+uint32_t THISCALL FEngMovieStarter_Hook(void *self, FEObject *o) { return FEngMovieStarter_Function(self, o); }
+uint32_t THISCALL FEngMovieStopper_Hook(void *self, FEObject *o) { return FEngMovieStopper_Function(self, o); }
+uint32_t THISCALL RenderObjectDisconnect_Hook(void *self, FEObject *o) { return RenderObjectDisconnect_Function(self, o); }
+uint32_t THISCALL FEDirtyMaker_Hook(void *self, FEObject *o) { return FEDirtyMaker_Function(self, o); }
 FEButtonWidget *THISCALL FEButtonWidget_Ctor(FEButtonWidget *self, const float *pos, const float *size, bool en) { return self->Construct(pos, size, en); }
 void THISCALL FEButtonWidget_Show(FEButtonWidget *self) { self->Show(); }
 void THISCALL FEButtonWidget_Hide(FEButtonWidget *self) { self->Hide(); }
@@ -867,6 +884,22 @@ const Replacement kReplacements[] = {
     {0x50B3C0, (const void *)&FESortClipCorners, "FESortClipCorners", {0x8B, 0x4C, 0x24, 0x04, 0xD9, 0x01}},
     {0x441000, (const void *)&eMulVector, "eMulVector", {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x0C}},
     {0x5BB1C0, (const void *)&ePoly_Init, "ePoly::ePoly", {0x8B, 0xC1, 0x33, 0xC9, 0xBA, 0x00}},
+    {0x5372E0, (const void *)&cFEng_Ctor, "cFEng::cFEng", {0x6A, 0xFF, 0x68, 0x93, 0x76, 0x77}},
+    {0x5373F0, (const void *)&cFEng_Dtor, "cFEng::~cFEng", {0x6A, 0xFF, 0x68, 0xAB, 0x76, 0x77}},
+    {0x5425E0, (const void *)&cFEng_ScalarDtor, "cFEng scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x08, 0x4E}},
+    {0x54E4A0, (const void *)&cFEng_InitPackage, "cFEng::InitPackage", {0x6A, 0xFF, 0x68, 0x68, 0x7B, 0x77}},
+    {0x51C8C0, (const void *)&cFEng_PackageWillUnload, "cFEng::PackageWillUnload", {0x6A, 0xFF, 0x68, 0x50, 0x71, 0x77}},
+    {0x537540, (const void *)&cFEng_DrawBackground, "cFEng::DrawBackground", {0x56, 0x8B, 0xF1, 0x68, 0xAC, 0x9F}},
+    {0x51CA50, (const void *)&cFEng_RenderPackageSpecial, "cFEng::RenderPackageSpecial", {0xB8, 0xA0, 0x10, 0x00, 0x00, 0xE8}},
+    {0x51C9B0, (const void *)&cFEng_RenderObjectSpecial, "cFEng::RenderObjectSpecial", {0x8B, 0x54, 0x24, 0x04, 0x8B, 0x42}},
+    {0x5662C0, (const void *)&cFEng_Service, "cFEng::Service", {0x83, 0x3D, 0xA4, 0x54, 0x86, 0x00}},
+    {0x50C7E0, (const void *)&cFEng_MakeLoadedPackagesDirty, "cFEng::MakeLoadedPackagesDirty", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x52CF60, (const void *)&FEngIsPackagePushed_Hook, "FEngIsPackagePushed", {0xA1, 0xD0, 0x84, 0x83, 0x00, 0x85}},
+    {0x517EE0, (const void *)&FEObjectInitializer_Hook, "FEObjectInitializer::Function", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x8B}},
+    {0x566240, (const void *)&FEngMovieStarter_Hook, "FEngMovieStarter::Callback", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x48}},
+    {0x51C8A0, (const void *)&FEngMovieStopper_Hook, "FEngMovieStopper::Function", {0x8B, 0x44, 0x24, 0x04, 0x83, 0x78}},
+    {0x5374F0, (const void *)&RenderObjectDisconnect_Hook, "RenderObjectDisconnect::Function", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x51}},
+    {0x537630, (const void *)&FEDirtyMaker_Hook, "FEDirtyMaker::Function", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x81}},
     {0x51DFC0, (const void *)&FEButtonWidget_Ctor, "FEButtonWidget::FEButtonWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50D530, (const void *)&FEButtonWidget_Show, "FEButtonWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x50D550, (const void *)&FEButtonWidget_Hide, "FEButtonWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},

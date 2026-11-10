@@ -66,6 +66,12 @@ int32_t discError = 0;
 const char *singlePackage = nullptr;
 uint8_t mouseGlobals[0x24] = {};
 int32_t language = 0;
+int giVTable, initializerVTable, movieStarterVTable, movieStopperVTable, dirtyMakerVTable;
+int32_t insideScreenCtor = 0, gameFlowState = 0;
+float worldTime = 0, realTime = 0;
+uint32_t lastJoyTypes[2] = {};
+uint8_t joyTypes[2] = {};
+void *memoryCard = nullptr;
 uint8_t moviePlayer[0x10] = {};
 uint8_t movieTexture[0x50] = {};
 int views[4];
@@ -213,6 +219,31 @@ void FEGameInterface_GenerateRenderContext(void *gi, uint32_t c, FEObject *g) { 
 void FEGameInterface_RenderObjectList(void *gi, void *e, uint32_t n) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *, uint32_t)>(gi))[0x30 / 4](gi, e, n); }
 void FEGameInterface_GetViewTransformation(void *gi, void *m) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *)>(gi))[0x3C / 4](gi, m); }
 FESortGlobals *FEngSortGlobals() { return reinterpret_cast<FESortGlobals *>(0x838488); }
+void *FEGameInterfaceVTable() { return reinterpret_cast<void *>(0x79BCD8); }
+void *FEObjectInitializerVTable() { return reinterpret_cast<void *>(0x79AAEC); }
+void *FEngMovieStarterVTable() { return reinterpret_cast<void *>(0x79AB84); }
+void *FEngMovieStopperVTable() { return reinterpret_cast<void *>(0x79AB94); }
+void *FEDirtyMakerVTable() { return reinterpret_cast<void *>(0x79ABF0); }
+::SlotPool **LevelSorterSlotsPtr() { return reinterpret_cast<::SlotPool **>(0x8384B0); }
+int32_t InsideScreenConstructor() { return *reinterpret_cast<const int32_t *>(0x8384D0); }
+int32_t GameFlowState() { return 0; }
+float WorldTimeElapsed() { return 0; }
+float RealTimeElapsed() { return 0; }
+uint32_t *LastKnownJoystickTypes() { return reinterpret_cast<uint32_t *>(0x7F9414); }
+uint8_t GetJoystickType(int32_t) { return 0; }
+void *MemoryCardInstance() { return nullptr; }
+void MemoryCard_Tick(void *, int32_t) {}
+void MovieUpdate() {}
+void MovieStop() {}
+int32_t *SummonChyron() { static int32_t v; return &v; }
+int32_t *StopChyron() { static int32_t v; return &v; }
+void FakeCallFromSound() {}
+void CurrentSongStopped(void *) {}
+int32_t GetMovieNameEnum(const char *) { return 0; }
+void CalculateMovieFilename(char *o, int32_t, const char *) { o[0] = 0; }
+bool FILE_exists(const char *) { return false; }
+void MovieStart(const char *, bool, int32_t) {}
+void FEngine_InitObjects(::FEngine *) {}
 void *cFEngRenderVTable() { return reinterpret_cast<void *>(0x79BBA0); }
 int32_t CurrentLanguage() { return *reinterpret_cast<const int32_t *>(0x7F70D0); }
 int32_t MovieActive() { return *reinterpret_cast<const int32_t *>(0x8383AC); }
@@ -233,6 +264,31 @@ const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, FEObject *)>(gi))[0x34 / 4](gi, o); }
 void FEPackageManager_NotifySoundMessage(FEPackageManager *m, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, uint32_t, uint32_t, uint32_t, uint32_t)>(0x52CC90)(m, a, b, c, d); }
 #else
+void *FEGameInterfaceVTable() { return &teststub::giVTable; }
+void *FEObjectInitializerVTable() { return &teststub::initializerVTable; }
+void *FEngMovieStarterVTable() { return &teststub::movieStarterVTable; }
+void *FEngMovieStopperVTable() { return &teststub::movieStopperVTable; }
+void *FEDirtyMakerVTable() { return &teststub::dirtyMakerVTable; }
+::SlotPool **LevelSorterSlotsPtr() { static ::SlotPool *p; return &p; }
+int32_t InsideScreenConstructor() { return teststub::insideScreenCtor; }
+int32_t GameFlowState() { return teststub::gameFlowState; }
+float WorldTimeElapsed() { return teststub::worldTime; }
+float RealTimeElapsed() { return teststub::realTime; }
+uint32_t *LastKnownJoystickTypes() { return teststub::lastJoyTypes; }
+uint8_t GetJoystickType(int32_t p) { return teststub::joyTypes[p]; }
+void *MemoryCardInstance() { return teststub::memoryCard; }
+void MemoryCard_Tick(void *c, int32_t ms) { teststub::delivered.push_back({"cardtick", c, nullptr, static_cast<uint32_t>(ms), 0}); }
+void MovieUpdate() { teststub::delivered.push_back({"movieupdate", nullptr, nullptr, 0, 0}); }
+void MovieStop() { teststub::delivered.push_back({"moviestop", nullptr, nullptr, 0, 0}); }
+int32_t *SummonChyron() { static int32_t v; return &v; }
+int32_t *StopChyron() { static int32_t v; return &v; }
+void FakeCallFromSound() { teststub::delivered.push_back({"chyron", nullptr, nullptr, 0, 0}); }
+void CurrentSongStopped(void *) { teststub::delivered.push_back({"songstopped", nullptr, nullptr, 0, 0}); }
+int32_t GetMovieNameEnum(const char *) { return 7; }
+void CalculateMovieFilename(char *o, int32_t, const char *n) { std::strcpy(o, n); }
+bool FILE_exists(const char *p) { return p[0] == 'Y'; }
+void MovieStart(const char *p, bool l, int32_t w) { teststub::delivered.push_back({"moviestart", const_cast<char *>(p), nullptr, static_cast<uint32_t>(w), l}); }
+void FEngine_InitObjects(::FEngine *e) { teststub::delivered.push_back({"initobjects", e, nullptr, 0, 0}); }
 void *cFEngRenderVTable() { return &teststub::fakeFont; }
 int32_t CurrentLanguage() { return teststub::language; }
 int32_t MovieActive() { return 1; }
@@ -499,7 +555,11 @@ bool FEObjectCallback_Call(void *cb, void *obj)
 #ifdef NFSU2_REFEREE
     return (*reinterpret_cast<bool(__attribute__((thiscall)) ***)(void *, void *)>(cb))[1](cb, obj);
 #endif
-    if (*static_cast<void **>(cb) == &teststub::renderDisconnectVTable) { ++teststub::renderDisconnects; return true; }
+    if (*static_cast<void **>(cb) == &teststub::renderDisconnectVTable) { ++teststub::renderDisconnects; return RenderObjectDisconnect_Function(cb, static_cast<FEObject *>(obj)); }
+    if (*static_cast<void **>(cb) == &teststub::initializerVTable) return FEObjectInitializer_Function(cb, static_cast<FEObject *>(obj));
+    if (*static_cast<void **>(cb) == &teststub::movieStarterVTable) return FEngMovieStarter_Function(cb, static_cast<FEObject *>(obj));
+    if (*static_cast<void **>(cb) == &teststub::movieStopperVTable) return FEngMovieStopper_Function(cb, static_cast<FEObject *>(obj));
+    if (*static_cast<void **>(cb) == &teststub::dirtyMakerVTable) return FEDirtyMaker_Function(cb, static_cast<FEObject *>(obj));
     if (*static_cast<void **>(cb) == &teststub::resourceConnectorVTable) { teststub::delivered.push_back({"connect", obj, static_cast<FEPackage **>(cb)[1], 0, 0}); return true; }
     auto *t = static_cast<teststub::TestCallback *>(cb);
     t->visited.push_back(obj);

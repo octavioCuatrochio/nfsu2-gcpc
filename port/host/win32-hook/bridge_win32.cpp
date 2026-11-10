@@ -236,6 +236,31 @@ void FEngFont_RenderString(void *f, const int32_t *c, const uint16_t *t, ::FEObj
 {
     reinterpret_cast<void(THISCALL *)(void *, const int32_t *, const uint16_t *, ::FEObject *, const ::bMatrix4 *, ::FERenderObject *, void *)>(0x51C110)(f, c, t, o, m, r, i);
 }
+void *FEGameInterfaceVTable() { return reinterpret_cast<void *>(0x79BCD8); }
+void *FEObjectInitializerVTable() { return reinterpret_cast<void *>(0x79AAEC); }
+void *FEngMovieStarterVTable() { return reinterpret_cast<void *>(0x79AB84); }
+void *FEngMovieStopperVTable() { return reinterpret_cast<void *>(0x79AB94); }
+void *FEDirtyMakerVTable() { return reinterpret_cast<void *>(0x79ABF0); }
+::SlotPool **LevelSorterSlotsPtr() { return reinterpret_cast<::SlotPool **>(0x8384B0); }
+int32_t InsideScreenConstructor() { return *reinterpret_cast<const int32_t *>(0x8384D0); }
+int32_t GameFlowState() { return *reinterpret_cast<const int32_t *>(0x8654A4); }
+float WorldTimeElapsed() { return *reinterpret_cast<const float *>(0x865154); }
+float RealTimeElapsed() { return *reinterpret_cast<const float *>(0x865198); }
+uint32_t *LastKnownJoystickTypes() { return reinterpret_cast<uint32_t *>(0x7F9414); }
+uint8_t GetJoystickType(int32_t p) { return reinterpret_cast<uint8_t(__cdecl *)(int32_t)>(0x571AC0)(p); }
+void *MemoryCardInstance() { return *reinterpret_cast<void **>(0x836498); }
+void MemoryCard_Tick(void *c, int32_t ms) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x4F4A20)(c, ms); }
+void MovieUpdate() { reinterpret_cast<void(__cdecl *)()>(0x5660F0)(); }
+void MovieStop() { reinterpret_cast<void(__cdecl *)()>(0x511BC0)(); }
+int32_t *SummonChyron() { return reinterpret_cast<int32_t *>(0x8384BC); }
+int32_t *StopChyron() { return reinterpret_cast<int32_t *>(0x8384C0); }
+void FakeCallFromSound() { reinterpret_cast<void(__cdecl *)()>(0x4ACA40)(); }
+void CurrentSongStopped(void *s) { reinterpret_cast<void(__cdecl *)(void *)>(0x4AC9B0)(s); }
+int32_t GetMovieNameEnum(const char *n) { return reinterpret_cast<int32_t(__cdecl *)(const char *)>(0x51C580)(n); }
+void CalculateMovieFilename(char *o, int32_t s, const char *n) { reinterpret_cast<void(__cdecl *)(char *, int32_t, const char *)>(0x51C740)(o, s, n); }
+bool FILE_exists(const char *p) { return reinterpret_cast<uint8_t(__cdecl *)(const char *)>(0x6F909D)(p) != 0; }
+void MovieStart(const char *p, bool l, int32_t w) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, int32_t)>(0x566020)(p, l, w); }
+void FEngine_InitObjects(::FEngine *e) { reinterpret_cast<void(THISCALL *)(void *)>(0x51A7E0)(e); }
 int32_t *DiscErrorOccurred() { return reinterpret_cast<int32_t *>(0x864F2C); }
 const char **FEngPleaseRenderSinglePackage() { return reinterpret_cast<const char **>(0x8384B4); }
 const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D4); }
