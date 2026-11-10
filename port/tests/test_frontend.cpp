@@ -1868,9 +1868,7 @@ static void TestEngineUpdate()
     CHECK(pads[0].mu32Current == 5 && pads[1].mHoldTime[0] == 0 && e->mMouse.mi32X == 10 && e->mMouse.mbMoved == 1);
     CHECK(dl.front().kind == std::string("begin") && dl.back().kind == std::string("end"));
     CHECK(pkg->mpEngine == e && pkg->mi32ScriptDelta == 5 && e->_unknown5250 == 0 && teststub::holdDirtyFlags == 0xFFFFFFFFu);   // steps 20, 20, 5
-    int padsCalls = 0;
-    for (auto &d : dl) padsCalls += d.kind == std::string("pads");
-    CHECK(padsCalls == 1);
+    CHECK(e->mMessages.count == 0);   // package has no input control mask: no pad processing
     e->Update(45, 1);                 // held: hold times grow; one whole step
     CHECK(pads[0].mHoldTime[0] == 45 && pads[0].mHoldTime[2] == 45 && pkg->mi32ScriptDelta == 45 && e->mMouse.mbMoved == 0);
     e->mu32ButtonsToRelease = 0;      // Update clears it before processing; a release set by the processing applies
@@ -1881,6 +1879,83 @@ static void TestEngineUpdate()
     dl.clear();
     teststub::holdDirtyFlags = 0;
     std::free(e);
+}
+
+// FEngine::ProcessPadsForPackage: direction phase (navigation, repeat delays) and early outs.
+static void TestProcessPads()
+{
+    FEngine *e = TestEngine();
+    Collect();
+    FEJoyPad pads[2] = {};
+    e->mpJoyPads = pads;
+    e->mu32NumJoyPads = 2;
+    e->mbFlag01 = 1;
+    e->mu32ButtonMapArg = 0x33;
+    int gi = 0;
+    e->mpUIData = &gi;
+    alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
+    auto *pkg = reinterpret_cast<FEPackage *>(pm);
+    alignas(8) unsigned char om[2][sizeof(FEObject)] = {};
+    auto *cur = reinterpret_cast<FEObject *>(om[0]);
+    auto *next = reinterpret_cast<FEObject *>(om[1]);
+    auto &dl = teststub::delivered;
+    pads[1].mu32Current = 1;
+    e->ProcessPadsForPackage(pkg);                 // no input control mask
+    pkg->mu32InputControlMask = 1;
+    e->ProcessPadsForPackage(pkg);                 // pad 0 idle (pad 1 not in the mask)
+    CHECK(e->mMessages.count == 0);
+    // pad 0 presses up (bit 0): entry 4 fires (diagonals need two bits), navigation to `next`
+    pads[0].mu32Current = 1;
+    pkg->mpCurrentButton = cur;
+    teststub::nextButton = next;
+    dl.clear();
+    e->ProcessPadsForPackage(pkg);
+    CHECK(pkg->mpCurrentButton == next && e->mReleaseTime[0] == 320 && e->mu32ButtonsToRelease == 1 && e->_unknown030 == 0);
+    CHECK(dl.size() == 1 && std::string(dl[0].kind) == "btnmap" && dl[0].a == &pkg->mppButtons && dl[0].pkg == (void *)cur && dl[0].msg == 0);
+    auto q = Collect();
+    const auto m5 = reinterpret_cast<void *>(intptr_t{-5});
+    CHECK(q.size() == 6);
+    if (q.size() == 6) {
+        CHECK(q[0].msg == 0x72619778u && q[0].obj == nullptr && q[0].target == reinterpret_cast<void *>(intptr_t{-3}));
+        CHECK(q[1].msg == 0x72619778u && q[1].obj == cur && q[1].target == m5);
+        CHECK(q[2].msg == 0x55D1E635u && q[2].target == cur && q[3].obj == cur && q[3].target == m5);
+        CHECK(q[4].msg == 0xABC08912u && q[4].target == next && q[5].obj == next && q[5].target == m5);
+    }
+    // held bits 0 + 3 for 400 / 320: diagonal entry 1 repeats, sets the repeat bit; locked object: no navigation
+    pads[0] = {};
+    pads[0].mu32Current = pads[0].mu32Previous = 0x9;
+    pads[0].mHoldTime[0] = 400;
+    pads[0].mHoldTime[3] = 320;
+    next->mu32Flags = 0x80000;
+    e->mu32ButtonsToRelease = 0;
+    dl.clear();
+    e->ProcessPadsForPackage(pkg);
+    CHECK(e->_unknown030 == 2 && e->mReleaseTime[0] == 320 && e->mReleaseTime[3] == 320 && e->mu32ButtonsToRelease == 0x9 && dl.empty());
+    q = Collect();
+    CHECK(q.size() == 2 && q[0].msg == 0x6FD81B16u && q[1].obj == next && pkg->mpCurrentButton == next);
+    // repeat bit set: 120 is enough; below it nothing fires and a zero hold clears the bit
+    e->_unknown02C = 2;
+    pads[0].mHoldTime[0] = pads[0].mHoldTime[3] = 119;
+    e->ProcessPadsForPackage(pkg);
+    CHECK(e->mMessages.count == 0 && e->_unknown030 == 2);
+    pads[0].mHoldTime[0] = pads[0].mHoldTime[3] = 120;
+    e->ProcessPadsForPackage(pkg);
+    CHECK(Collect().size() == 2);
+    pads[0] = {};
+    pads[0].mu32Previous = 0x9;                    // released: hold 0, not pressed
+    e->ProcessPadsForPackage(pkg);
+    CHECK(e->_unknown030 == 0 && e->mMessages.count == 0);
+    // no current button: the package gets the direction message (only if it answers it); nothing here
+    pkg->mpCurrentButton = nullptr;
+    pads[0] = {};
+    pads[0].mu32Current = 4;
+    e->ProcessPadsForPackage(pkg);
+    CHECK(e->mMessages.count == 0 && e->mReleaseTime[2] == 320);
+    teststub::nextButton = nullptr;
+    e->mpJoyPads = nullptr; e->mu32NumJoyPads = 0; e->mbFlag01 = 0; e->mpUIData = nullptr;
+    e->_unknown02C = e->_unknown030 = e->mu32ButtonsToRelease = 0; e->mu32ButtonMapArg = 0;
+    std::memset(e->mReleaseTime, 0, sizeof e->mReleaseTime);
+    dl.clear();
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
@@ -2051,6 +2126,7 @@ int main()
     TestCodeListBox();
     TestEnginePushUnload();
     TestEngineUpdate();
+    TestProcessPads();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

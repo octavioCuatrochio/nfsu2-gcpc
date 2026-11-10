@@ -52,6 +52,7 @@ bool loadResourcesResult = true, readerChunkResult = true;
 const void *libraryData = nullptr;
 bool willUnloadResult = true;
 uint32_t padBits = 0;
+void *nextButton = nullptr;
 int16_t mouseInfo[4] = {};
 void *screenResult = nullptr;
 bool hotChunking = false;
@@ -147,7 +148,7 @@ uint32_t FEGameInterface_GetJoyPadBits(void *gi, uint32_t pad) { teststub::deliv
 void FEGameInterface_GetMouseInfo(void *gi, void *info) { teststub::delivered.push_back({"mouseinfo", gi, nullptr, 0, 0}); std::memcpy(info, teststub::mouseInfo, 8); }
 void FEGameInterface_BeginUpdate(void *gi) { teststub::delivered.push_back({"begin", gi, nullptr, 0, 0}); }
 void FEGameInterface_EndUpdate(void *gi) { teststub::delivered.push_back({"end", gi, nullptr, 0, 0}); }
-void FEngine_ProcessPadsForPackage(void *e, FEPackage *p) { teststub::delivered.push_back({"pads", e, p, 0, 0}); }
+FEObject *FEButtonMap_GetButtonFrom(void *m, FEObject *f, uint32_t d, void *, uint32_t) { teststub::delivered.push_back({"btnmap", m, reinterpret_cast<FEPackage *>(f), d, 0}); return static_cast<FEObject *>(teststub::nextButton); }
 void FEngine_ProcessMouseForPackage(void *e, FEPackage *p) { teststub::delivered.push_back({"mouse", e, p, 0, 0}); }
 #ifdef NFSU2_REFEREE
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }

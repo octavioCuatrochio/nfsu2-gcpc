@@ -290,6 +290,8 @@ void THISCALL FEMessageTargets_SetCapacity(FEMessageTargets *self, uint32_t n) {
 FEPackage *THISCALL FEngine_LoadPackageHook(FEngine *self, const void *d, uint8_t f) { return FEngine_LoadPackage(self, d, f); }
 FEObject *THISCALL FEngine_FindObject(FEngine *self, uint32_t h, const char *p) { return self->FindObject(h, p); }
 void THISCALL FEngine_UpdateHook(FEngine *self, uint32_t delta, uint32_t whole) { self->Update(delta, whole); }
+void THISCALL FEngine_ProcessPadsForPackage(FEngine *self, FEPackage *p) { self->ProcessPadsForPackage(p); }
+uint32_t THISCALL FEJoyPad_HeldFor(const FEJoyPad *self, uint32_t m) { return self->HeldFor(m); }
 void THISCALL FEJoyPad_Update(FEJoyPad *self, uint32_t bits, uint32_t d) { self->Update(bits, d); }
 void THISCALL FEMouse_Update(FEMouse *self, const FEMouse::Info *i, uint32_t d) { self->Update(*i, d); }
 FEPackage *THISCALL FEngine_PushPackageHook(FEngine *self, const char *n, uint32_t prio, uint32_t mask) { return self->PushPackage(n, static_cast<uint8_t>(prio), mask); }
@@ -596,6 +598,8 @@ const Replacement kReplacements[] = {
     {0x52C570, (const void *)&FEngine_FindObject, "FEngine::FindObject", {0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0}},
     {0x50B2A0, (const void *)&FEngine::IsInputMessage, "FEngine::IsInputMessage", {0x8B, 0x4C, 0x24, 0x04, 0x85, 0xC9}},
     {0x558C00, (const void *)&FEngine_UpdateHook, "FEngine::Update", {0x83, 0xEC, 0x0C, 0x55, 0x8B, 0xE9}},
+    {0x54D4B0, (const void *)&FEngine_ProcessPadsForPackage, "FEngine::ProcessPadsForPackage", {0x8B, 0x44, 0x24, 0x04, 0x81, 0xEC}},
+    {0x504FF0, (const void *)&FEJoyPad_HeldFor, "FEJoyPad::HeldFor", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
     {0x504FA0, (const void *)&FEJoyPad_Update, "FEJoyPad::Update", {0x8B, 0xD1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50B0C0, (const void *)&FEMouse_Update, "FEMouse::Update", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x555860, (const void *)&FEngine_PushPackageHook, "FEngine::PushPackage", {0x6A, 0xFF, 0x64, 0xA1, 0x00, 0x00}},

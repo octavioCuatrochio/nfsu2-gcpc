@@ -120,7 +120,10 @@ uint32_t FEGameInterface_GetJoyPadBits(void *gi, uint32_t pad) { return (*reinte
 void FEGameInterface_GetMouseInfo(void *gi, void *info) { (*reinterpret_cast<void(THISCALL ***)(void *, void *)>(gi))[0x44 / 4](gi, info); }
 void FEGameInterface_BeginUpdate(void *gi) { (*reinterpret_cast<void(THISCALL ***)(void *)>(gi))[0x5C / 4](gi); }
 void FEGameInterface_EndUpdate(void *gi) { (*reinterpret_cast<void(THISCALL ***)(void *)>(gi))[0x60 / 4](gi); }
-void FEngine_ProcessPadsForPackage(void *e, FEPackage *p) { reinterpret_cast<void(THISCALL *)(void *, FEPackage *)>(0x54D4B0)(e, p); }
+FEObject *FEButtonMap_GetButtonFrom(void *m, FEObject *f, uint32_t d, void *gi, uint32_t a)
+{
+    return reinterpret_cast<FEObject *(THISCALL *)(void *, FEObject *, uint32_t, void *, uint32_t)>(0x5189E0)(m, f, d, gi, a);
+}
 void FEngine_ProcessMouseForPackage(void *e, FEPackage *p) { reinterpret_cast<void(THISCALL *)(void *, FEPackage *)>(0x54E020)(e, p); }
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }

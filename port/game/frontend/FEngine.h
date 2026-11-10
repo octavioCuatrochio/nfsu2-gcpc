@@ -49,6 +49,12 @@ struct FEJoyPad {
     uint32_t mHoldTime[32];          // +0x08
 
     void Update(uint32_t bits, uint32_t delta);   // GC FEJoyPad::Update / PC 504FA0 (ret 8)
+    // GC 8014004C.. (PC: inlined): all of `mask` down now and not all before / all down now and before / not all
+    // down now but all before; HeldFor (PC 504FF0, ret 4) = shortest hold time over the bits (0xFFFFFFFF if none).
+    bool WasPressed(uint32_t m) const { return (mu32Current & m) == m && (mu32Previous & m) != m; }
+    bool WasHeld(uint32_t m) const { return (mu32Current & m) == m && (mu32Previous & m) == m; }
+    bool WasReleased(uint32_t m) const { return (mu32Current & m) != m && (mu32Previous & m) == m; }
+    uint32_t HeldFor(uint32_t mask) const;
 };
 // Mouse state (FEngine +0x0C, 0x20 bytes).
 struct FEMouse {
@@ -81,7 +87,8 @@ struct FEngine {
     uint32_t _unknown030;
     uint32_t mu32ButtonsToRelease;   // +0x34 bit k: subtract mReleaseTime[k] from every pad's hold time k
     uint32_t mReleaseTime[19];       // +0x38
-    uint8_t _unknown084[0xD4 - 0x84];
+    FEObject *mPressedButton[19];    // +0x84 button that got the press message per pad button (for the release)
+    uint32_t mu32ButtonMapArg;       // +0xD0 passed to FEButtonMap::GetButtonFrom
     uint32_t mu32NumJoyPads;         // +0xD4
     uint8_t _unknown0D8[4];
     // Active packages: FEMinList at +0xDC (vtable, count, head, tail); kept as fields because code uses the head.
@@ -140,6 +147,10 @@ struct FEngine {
     FEObject *FindObject(uint32_t nameHash, const char *package);
     // GC 80146304 / PC 50B2A0 (__cdecl): pad pressed / held / released message hashes, plus two mouse ones.
     static bool IsInputMessage(uint32_t msg);
+    // GC 801463A4 / PC 54D4B0 (ret 4): pad buttons 4..18 -> pressed / held (7, 8) / released messages to the current
+    // button or the package; directions (table 0x7F7CFC, diagonals first) with repeat delays 320 / 120 ticks ->
+    // direction messages and button navigation (FEButtonMap::GetButtonFrom).
+    void ProcessPadsForPackage(FEPackage *pkg);
     void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
     void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
     void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50

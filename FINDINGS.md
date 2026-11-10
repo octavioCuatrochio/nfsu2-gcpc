@@ -7,11 +7,15 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:
   1. FEng core (~600 funcs in FE*/cFEng/FEngine classes; done: FEPackageReader, FEPackageData/Manager (but
      NotifySoundMessage), FEPackage (but InitializePackage), FEListBox, FECodeListBox, lists/pools/scripts).
-     Left: FEngine rest (PushPackage 555860, UnloadPackage 5362E0, Update 558C00, Render, ProcessPads/Mouse,
+     Left: FEngine rest (PushPackage 555860, UnloadPackage 5362E0, Update 558C00, ProcessPads 54D4B0 done; Render, ProcessMouse 54E020,
      ctor/ReleaseAll), cFEng (~30: render glue, joy registration), widgets (FEWidget family ~110), input
      (FEJoyPad/FEMouse), FERenderObject/FEngFont/cFEngRender (render glue: bridge D3D), FEHashList/FERefList rest.
   2. Screens/state (zFe.cpp + game classes in zFe2: PlayerCareerState, CarCustomizeManager, RaceStarter...).
   Query: SELECT namespace,count(*) FROM gc_functions WHERE src_file IN ('zFe2.cpp','zFe.cpp') GROUP BY 1.
+- FEngine pad input (54D4B0): +0x84 mPressedButton[19] (release goes only to the button that got the press; k=4
+  release msg 0x936A6A7F), +0xD0 FEButtonMap::GetButtonFrom arg. Directions: table 0x7F7CFC {a,b,dir} diagonals
+  first, hashes 0x7F7C90; repeat 320 ticks, 120 if FEngine+0x2C bit set; +0x30 = repeating bits. First fired
+  direction returns. Held msgs (buttons 7, 8) carry the *pressed* pad mask (PC quirk).
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
 - bStrToFloat (43DEF0) returns unrounded x87 ST0 (port: long double); a nonzero fraction is rounded to float and
   bumped by +1 ulp before being added (PC quirk). Referee can switch precision with _controlfp(_PC_24/_PC_53).

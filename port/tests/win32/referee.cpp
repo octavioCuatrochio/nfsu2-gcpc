@@ -1333,7 +1333,7 @@ static void CheckCodeListBoxMove(int iters)
     }
 }
 
-// FEJoyPad::Update / FEMouse::Update on random state.
+// FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
     auto oPad = ORIG<void(THISCALL *)(FEJoyPad *, uint32_t, uint32_t)>(0x504FA0);
@@ -1348,6 +1348,9 @@ static void CheckPadMouse(int iters)
             oPad(&a, bits, d);
             b.Update(bits, d);
             EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "FEJoyPad::Update");
+            const uint32_t m = rng() % 4 ? rng() & rng() & rng() : rng() % 2 ? 0u : 0xFFFFFFFFu;
+            const uint32_t ha = ORIG<uint32_t(THISCALL *)(const FEJoyPad *, uint32_t)>(0x504FF0)(&a, m), hb = b.HeldFor(m);
+            EXPECT(ha == hb, "FEJoyPad::HeldFor %x: %x vs %x", m, ha, hb);
         } else {
             FEMouse a, b;
             uint8_t *pa = reinterpret_cast<uint8_t *>(&a);

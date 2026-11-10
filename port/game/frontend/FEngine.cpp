@@ -549,7 +549,7 @@ void FEngine::Update(uint32_t delta, uint32_t wholeStep)
             for (uint8_t i = 0; i < mu32NumJoyPads; ++i)
                 mpJoyPads[i].Update(bridge::FEGameInterface_GetJoyPadBits(mpUIData, i), delta);
             for (auto *pkg = reinterpret_cast<FEPackage *>(ActiveList().head); pkg; pkg = reinterpret_cast<FEPackage *>(pkg->node.next)) {
-                bridge::FEngine_ProcessPadsForPackage(this, pkg);
+                ProcessPadsForPackage(pkg);
                 if (mbMouseEnabled) bridge::FEngine_ProcessMouseForPackage(this, pkg);
             }
             for (int k = 0; k < 19; ++k) {
@@ -607,4 +607,203 @@ bool FEngine::IsInputMessage(uint32_t msg)
     for (uint32_t h : kFEPadHeldHash) if (msg == h) return true;
     for (uint32_t h : kFEPadReleasedHash) if (msg == h) return true;
     return msg == 0x0C407210u || msg == 0x936A6A7Fu;
+}
+
+uint32_t FEJoyPad::HeldFor(uint32_t mask) const
+{
+    uint32_t r = 0xFFFFFFFFu;
+    for (int i = 0; i < 32; ++i)
+        if ((mask & (1u << i)) && mHoldTime[i] <= r) r = mHoldTime[i];
+    return r;
+}
+
+namespace {
+// direction table (PC 0x7F7CFC): buttons a [and b], direction index into kDirHash (PC 0x7F7C90)
+struct DirEntry { uint8_t a, b; uint16_t dir; };
+const DirEntry kDirs[8] = {{0, 2, 7}, {0, 3, 1}, {1, 2, 5}, {1, 3, 3}, {0, 0xFF, 0}, {2, 0xFF, 6}, {1, 0xFF, 4}, {3, 0xFF, 2}};
+const uint32_t kDirHash[8] = {0x72619778, 0x6FD81B16, 0xB5971BF1, 0xAB1A49C9, 0x911C0A4B, 0x79891376, 0x9120409E, 0x6FFB6F23};
+}  // namespace
+
+void FEngine::ProcessPadsForPackage(FEPackage *pkg)
+{
+    if (!pkg->mu32InputControlMask) return;
+    bool any = false;
+    for (uint8_t p = 0; p < mu32NumJoyPads; ++p)
+        if (pkg->mu32InputControlMask & (1u << p)) any |= (mpJoyPads[p].mu32Current | mpJoyPads[p].mu32Previous) != 0;
+    if (!any) return;
+    uint32_t held[19] = {};
+    uint8_t pressedPads[19] = {}, releasedPads[19] = {}, heldPads[19] = {};
+    // queue msg for an object that answers it (to the object, then to -5), else for the package (-3 and -5)
+    auto send = [&](uint32_t msg, FEObject *btn, uint32_t pads) {
+        if (btn && btn->FindResponse(msg)) {
+            QueueMessage(msg, nullptr, pkg, btn, pads);
+            QueueMessage(msg, btn, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pads);
+        } else if (pkg->FindResponse(msg)) {
+            QueueMessage(msg, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-3}), pads);
+            QueueMessage(msg, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pads);
+        }
+    };
+    auto scan = [&](uint32_t k, uint32_t bit, uint32_t &pressed, uint32_t *released, uint32_t &heldBits) {
+        const uint32_t mask = pkg->mu32InputControlMask;
+        for (uint8_t p = 0; p < mu32NumJoyPads; ++p) {
+            if (!(mask & (1u << p))) continue;
+            const FEJoyPad &pad = mpJoyPads[p];
+            const uint8_t pb = static_cast<uint8_t>(1u << p);
+            if (pad.WasPressed(bit)) { pressed |= bit; pressedPads[k] |= pb; }
+            if (released && pad.WasReleased(bit)) { *released |= bit; releasedPads[k] |= pb; }
+            if (pad.WasHeld(bit)) {
+                heldBits |= bit;
+                const uint32_t h = pad.HeldFor(bit);
+                held[k] = held[k] > h ? held[k] : pad.HeldFor(bit);
+                heldPads[k] |= pb;
+            }
+        }
+    };
+    // phase 1: buttons 4..18
+    for (uint32_t k = 4; k < 19 && mbFlag01; ++k) {
+        const uint32_t bit = 1u << k;
+        uint32_t pressed = 0, released = 0, heldBits = 0;
+        scan(k, bit, pressed, &released, heldBits);
+        if (k == 4 && pkg->_unknown15[2]) {   // +0x17: pad bit 6 counts as button 4
+            const uint32_t mask = pkg->mu32InputControlMask;
+            for (uint8_t p = 0; p < mu32NumJoyPads; ++p) {
+                if (!(mask & (1u << p))) continue;
+                const FEJoyPad &pad = mpJoyPads[p];
+                const uint8_t pb = static_cast<uint8_t>(1u << p);
+                if (pad.WasPressed(0x40)) { pressed |= bit; pressedPads[4] |= pb; }
+                if (pad.WasReleased(0x40)) { released |= bit; releasedPads[4] |= pb; }
+                if (pad.WasHeld(0x40)) {
+                    heldBits |= bit;
+                    const uint32_t h = pad.HeldFor(0x40);
+                    held[4] = held[4] > h ? held[4] : pad.HeldFor(0x40);
+                    heldPads[4] |= pb;
+                }
+            }
+        }
+        if (!(pressed | released | heldBits)) continue;
+        FEObject *btn = pkg->mbFlagsAC[2] ? pkg->mpCurrentButton : nullptr;   // +0xAE
+        if (k == 4) {
+            if (pressed & 0x10) {
+                mPressedButton[4] = btn;
+                if (btn && btn->FindResponse(0x0C407210u)) {
+                    QueueMessage(0x0C407210u, nullptr, pkg, pkg->mpCurrentButton, pressedPads[4]);
+                    QueueMessage(0x0C407210u, pkg->mpCurrentButton, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pressedPads[4]);
+                } else if (pkg->FindResponse(0x406415E3u)) {
+                    QueueMessage(0x406415E3u, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-3}), pressedPads[4]);
+                    QueueMessage(0x406415E3u, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pressedPads[4]);
+                }
+            }
+        } else {
+            if ((k == 7 || k == 8) && (heldBits & bit)) send(kFEPadHeldHash[k - 7], btn, pressedPads[k]);   // sic: pressed pads
+            if (pressed & bit) {
+                mPressedButton[k] = btn;
+                send(kFEPadPressedHash[k], btn, pressedPads[k]);
+            }
+        }
+        if (released & bit) {
+            uint32_t msg = kFEPadReleasedHash[k];
+            const uint32_t pads = releasedPads[k];
+            if (mPressedButton[k] == btn && btn) {
+                mPressedButton[k] = nullptr;
+                if (k == 4) msg = 0x936A6A7Fu;
+                if (btn->FindResponse(msg)) {
+                    QueueMessage(msg, nullptr, pkg, btn, pads);
+                    QueueMessage(msg, btn, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pads);
+                }
+            }
+            if (pkg->FindResponse(msg)) {   // the package hears releases too
+                QueueMessage(msg, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-3}), pads);
+                QueueMessage(msg, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pads);
+            }
+        }
+        if (mMessages.count) ProcessMessageQueue();
+    }
+    // phase 2: directions 0..3 (pressed and held only)
+    uint32_t pressedDirs = 0;
+    for (uint32_t k = 0; k < 4 && mbFlag01; ++k) {
+        uint32_t heldBits = 0;
+        scan(k, 1u << k, pressedDirs, nullptr, heldBits);
+    }
+    // phase 3: direction messages with repeat, button navigation
+    for (uint32_t e = 0; e < 8 && mbFlag01; ++e) {
+        const DirEntry &d = kDirs[e];
+        FEObject *cur = pkg->mpCurrentButton;
+        uint32_t hold, wasPressed, pads;
+        if (d.b != 0xFF) {
+            hold = held[d.a] < held[d.b] ? held[d.a] : held[d.b];
+            wasPressed = (pressedDirs >> d.a) & (pressedDirs >> d.b);
+            pads = (pressedPads[d.b] & pressedPads[d.a]) | (heldPads[d.b] & heldPads[d.a]);
+        } else {
+            hold = held[d.a];
+            wasPressed = pressedDirs >> d.a;
+            pads = pressedPads[d.a] | heldPads[d.a];
+        }
+        wasPressed &= 1;
+        const uint32_t bit = 1u << e;
+        const uint32_t threshold = (_unknown02C & bit) ? 120u : 320u;
+        bool fire;
+        if (hold >= threshold) {
+            if (hold) _unknown030 |= bit;
+            fire = true;
+        } else if (wasPressed) {
+            fire = hold == 0;
+        } else {
+            if (hold == 0) _unknown030 &= ~bit;
+            fire = false;
+        }
+        if (!fire) {
+            if (mMessages.count) ProcessMessageQueue();
+            continue;
+        }
+        mReleaseTime[d.a] = threshold;
+        if (d.b != 0xFF) mReleaseTime[d.b] = threshold;
+        held[d.a] = 0;
+        mu32ButtonsToRelease |= 1u << d.a;
+        if (d.b != 0xFF) {
+            held[d.b] = 0;
+            mu32ButtonsToRelease |= 1u << d.b;
+        }
+        const uint32_t msg = kDirHash[d.dir];
+        if (!cur) {
+            if (pkg->FindResponse(msg)) {
+                QueueMessage(msg, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-3}), pads);
+                QueueMessage(msg, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pads);
+            }
+            return;
+        }
+        FEObject *next = nullptr;
+        FEMessageResponse *r = cur->FindResponse(msg);
+        if (r) {
+            QueueMessage(msg, nullptr, pkg, cur, pads);
+            if (!(cur->mu32Flags & 0x80000)) {
+                uint32_t i = 0;
+                while (i < r->mu32Count && r->mpResponses[i].mu32Type != 0x104) ++i;
+                if (i >= r->mu32Count)   // no explicit "move to" response: navigate
+                    next = bridge::FEButtonMap_GetButtonFrom(&pkg->mppButtons, cur, d.dir, mpUIData, mu32ButtonMapArg);
+            }
+        } else {
+            if (!(cur->mu32Flags & 0x80000))
+                next = bridge::FEButtonMap_GetButtonFrom(&pkg->mppButtons, cur, d.dir, mpUIData, mu32ButtonMapArg);
+            QueueMessage(msg, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-3}), pads);
+        }
+        QueueMessage(msg, cur, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pads);
+        if (!next) return;
+        for (uint32_t k = 4; k < 19; ++k) {   // the selection moves: pending presses are released on the old button
+            if (!mPressedButton[k]) continue;
+            mPressedButton[k] = nullptr;
+            const uint32_t m2 = k == 4 ? 0x936A6A7Fu : kFEPadReleasedHash[k];
+            if (cur->FindResponse(m2)) {
+                QueueMessage(m2, nullptr, pkg, cur, releasedPads[k]);
+                QueueMessage(m2, cur, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), releasedPads[k]);
+            }
+        }
+        if (pkg->mpCurrentButton) {
+            QueueMessage(0x55D1E635u, nullptr, pkg, pkg->mpCurrentButton, 0);
+            QueueMessage(0x55D1E635u, pkg->mpCurrentButton, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), 0);
+        }
+        QueueMessage(0xABC08912u, nullptr, pkg, next, 0);
+        QueueMessage(0xABC08912u, next, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), 0);
+        pkg->mpCurrentButton = next;
+        return;
+    }
 }

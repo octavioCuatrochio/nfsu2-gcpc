@@ -38,6 +38,7 @@ extern bool loadResourcesResult, readerChunkResult;
 extern const void *libraryData;
 extern bool willUnloadResult;
 extern uint32_t padBits;
+extern void *nextButton;
 extern int16_t mouseInfo[4];
    // FEGameInterface_GetPackageData result
 extern void *screenResult;   // ScreenFactory result
