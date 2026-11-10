@@ -5,10 +5,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
 - TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:
-  1. FEng core (~730 funcs in FE*/cFEng/FEngine classes, ~110 done): FEngine rest (PushPackage 555860,
-     UnloadPackage 5362E0, update/render), cFEng (47), FEPackageManager (19), FEPackageReader/FEPackageData
-     (.fng loading), FEListBox rest, FECodeListBox (24, incl. ScrollSelection 52BD70/518F20), widgets
-     (FEWidget family ~110), input (FEJoyPad/FEMouse), FERenderObject/FEngFont (render glue: bridge D3D).
+  1. FEng core (~600 funcs in FE*/cFEng/FEngine classes; done: FEPackageReader, FEPackageData/Manager (but
+     NotifySoundMessage), FEPackage (but InitializePackage), FEListBox, FECodeListBox, lists/pools/scripts).
+     Left: FEngine rest (PushPackage 555860, UnloadPackage 5362E0, Update 558C00, Render, ProcessPads/Mouse,
+     ctor/ReleaseAll), cFEng (~30: render glue, joy registration), widgets (FEWidget family ~110), input
+     (FEJoyPad/FEMouse), FERenderObject/FEngFont/cFEngRender (render glue: bridge D3D), FEHashList/FERefList rest.
   2. Screens/state (zFe.cpp + game classes in zFe2: PlayerCareerState, CarCustomizeManager, RaceStarter...).
   Query: SELECT namespace,count(*) FROM gc_functions WHERE src_file IN ('zFe2.cpp','zFe.cpp') GROUP BY 1.
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
