@@ -379,6 +379,7 @@ void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
 void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
 void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
 void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
+void *FEToggleWidgetVTable() { return reinterpret_cast<void *>(0x79B3B8); }
 void *cSliderVTable() { return reinterpret_cast<void *>(0x78F544); }
 const char *GameEmptyString() { return reinterpret_cast<const char *>(0x783FE5); }
 void cSlider_Toggle(void *s, bool on) { (*reinterpret_cast<void(__thiscall ***)(void *, uint32_t)>(s))[0x0C / 4](s, on); }
@@ -394,6 +395,7 @@ void *FEButtonWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FELabelWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FEStatWidgetVTable() { return &teststub::feWidgetVTable; }
 void *FESliderWidgetVTable() { return &teststub::feButtonWidgetVTable; }
+void *FEToggleWidgetVTable() { return &teststub::feWidgetVTable; }
 void *cSliderVTable() { return &teststub::fakeFont; }
 const char *GameEmptyString() { return ""; }
 void cSlider_Toggle(void *s, bool on) { teststub::delivered.push_back({"slider toggle", s, nullptr, on, 0}); }
@@ -406,6 +408,9 @@ void FEPrintfInt(FEObject *o, const char *, int32_t v) { teststub::delivered.pus
 #endif
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
 void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
+uint32_t FEWidget_DetermineSpecialSound(void *w, uint32_t m, uint32_t e) { teststub::delivered.push_back({"specialsound", w, nullptr, m, e}); return e + 10; }
+void FEWidget_BlinkArrows(void *w, uint32_t m) { teststub::delivered.push_back({"blink", w, nullptr, m, 0}); }
+void MakeFrontendSound(uint32_t e, uint32_t t) { teststub::delivered.push_back({"makesound", nullptr, nullptr, e, t}); }
 void PlayFrontendSound(uint32_t t) { teststub::delivered.push_back({"sound", nullptr, nullptr, t, 0}); }
 int32_t IsJoystickPluggedIn(int32_t p) { return p == teststub::joyPluggedPort; }
 const uint8_t *JoyPortConfig() { return teststub::joyPortConfig; }

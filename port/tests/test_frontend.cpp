@@ -2905,6 +2905,51 @@ static void TestSliderWidget()
     CHECK(std::string(teststub::delivered.back().kind) == "slider highlight");
 }
 
+static void TestToggleWidget()
+{
+    alignas(8) unsigned char wm[sizeof(FEToggleImageWidget)];
+    std::memset(wm, 0x5A, sizeof wm);
+    auto *iw = reinterpret_cast<FEToggleImageWidget *>(wm);
+    FEToggleWidget *w = &iw->base;
+    const float pos[2] = {100, 200}, size[2] = {300, 30}, vsize[2] = {80, 20}, vpos[2] = {150, 210};
+    CHECK(iw->Construct(pos, size, vsize, vpos, false) == iw);
+    CHECK(w->base.base.vtable == &teststub::feWidgetVTable && w->mpLeftArrow == nullptr && w->mpRightArrow == nullptr && iw->mpImage == nullptr);
+    CHECK(w->base.base.mbEnabled == 0 && w->base.mValuePosY == 210 && FEToggleWidget::DetermineSoundTrigger() == 2);
+    alignas(8) unsigned char om[6][sizeof(FEObject)] = {};
+    float od[6][20] = {};
+    FEObject *o[6];
+    for (int i = 0; i < 6; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mu32Type = 1; o[i]->mpData = od[i]; od[i][14] = 10; od[i][15] = 4; }
+    w->base.mpObject = o[0]; w->base.mpValue = o[1]; w->mpLeftArrow = o[2]; w->mpRightArrow = o[3]; w->base.base.mpLabel = o[4];
+    iw->mpImage = o[5];
+    w->Position();   // value centre x 190; arrows: left top-left 190 - (40 + 10) = 140, right 230, at the value top 210
+    CHECK(od[0][7] == 105 && od[0][8] == 202 && od[1][7] == 190 && od[1][8] == 212);
+    CHECK(od[2][7] == 145 && od[2][8] == 212 && od[3][7] == 235 && od[3][8] == 212 && od[4][7] == 381 && od[4][8] == 212);
+    od[5][15] = 6;   // image 10 x 6
+    iw->Position();  // object / arrows at y = 200 + 3; image top 210; value top 210 + 6 + 1
+    CHECK(od[0][7] == 105 && od[0][8] == 205 && od[5][7] == 190 && od[5][8] == 213 && od[1][7] == 190 && od[1][8] == 219);
+    CHECK(od[2][7] == 145 && od[2][8] == 205 && od[3][7] == 235 && od[4][7] == 381 && od[4][8] == 212);
+    iw->Hide();
+    for (int i = 0; i < 6; ++i) CHECK(o[i]->mu32Flags & 1);
+    w->base.base.mpLabel = nullptr;
+    iw->Show();
+    for (int i = 0; i < 6; ++i) CHECK(!(o[i]->mu32Flags & 1) == (i != 4));
+    iw->Enable();
+    CHECK(w->base.base.mbEnabled == 1);
+    iw->Disable();
+    CHECK(w->base.base.mbEnabled == 0);
+    // mouse: left arrow box [140, 150] x [203, 207], right [230, 240], value [185, 195] x [217, 221]
+    teststub::delivered.clear();
+    w->CheckMouse("Pkg", 0, 0);
+    CHECK(teststub::delivered.empty());
+    w->CheckMouse("Pkg", 141, 204);
+    CHECK(teststub::delivered.size() == 5 && std::string(teststub::delivered[0].kind) == "act" && teststub::delivered[0].msg == 0x9120409Eu);
+    CHECK(std::string(teststub::delivered[1].kind) == "blink" && std::string(teststub::delivered[2].kind) == "soundtrigger");
+    CHECK(teststub::delivered[3].arg == 4 && teststub::delivered[4].msg == 14 && teststub::delivered[4].arg == 8);
+    teststub::delivered.clear();
+    w->CheckMouse("Pkg", 190, 220);   // value object -> right
+    CHECK(teststub::delivered.size() == 5 && teststub::delivered[0].msg == 0xB5971BF1u && teststub::delivered[3].arg == 5 && teststub::delivered[4].msg == 15);
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -3262,6 +3307,7 @@ int main()
     TestButtonWidget();
     TestScrollBar();
     TestSliderWidget();
+    TestToggleWidget();
     TestCSlider();
     TestStageSliders();
     TestFEngExtents();

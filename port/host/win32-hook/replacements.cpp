@@ -333,6 +333,23 @@ void THISCALL FESliderWidget_Show(FESliderWidget *self) { self->Show(); }
 void THISCALL FESliderWidget_Hide(FESliderWidget *self) { self->Hide(); }
 void THISCALL FESliderWidget_SetFocus(FESliderWidget *self, const char *pkg) { self->SetFocus(pkg); }
 void THISCALL FESliderWidget_UnsetFocus(FESliderWidget *self) { self->UnsetFocus(); }
+FEToggleWidget *THISCALL FEToggleWidget_Ctor(FEToggleWidget *self, const float *p, const float *sz, const float *vs, const float *vp, uint32_t en) { return self->Construct(p, sz, vs, vp, en & 0xFF); }
+void THISCALL FEToggleWidget_CheckMouse(FEToggleWidget *self, const char *pkg, float x, float y) { self->CheckMouse(pkg, x, y); }
+void THISCALL FEToggleWidget_Position(FEToggleWidget *self) { self->Position(); }
+void THISCALL FEToggleWidget_Enable(FEToggleWidget *self) { self->Enable(); }
+void THISCALL FEToggleWidget_Disable(FEToggleWidget *self) { self->Disable(); }
+void THISCALL FEToggleWidget_Show(FEToggleWidget *self) { self->Show(); }
+void THISCALL FEToggleWidget_Hide(FEToggleWidget *self) { self->Hide(); }
+void THISCALL FEToggleWidget_SetFocus(FEToggleWidget *self, const char *pkg) { self->SetFocus(pkg); }
+void THISCALL FEToggleWidget_UnsetFocus(FEToggleWidget *self) { self->UnsetFocus(); }
+void THISCALL FEToggleWidget_BlinkArrows(FEToggleWidget *self, uint32_t m) { self->BlinkArrows(m); }
+void THISCALL FEToggleImageWidget_Position(FEToggleImageWidget *self) { self->Position(); }
+void THISCALL FEToggleImageWidget_Enable(FEToggleImageWidget *self) { self->Enable(); }
+void THISCALL FEToggleImageWidget_Disable(FEToggleImageWidget *self) { self->Disable(); }
+void THISCALL FEToggleImageWidget_Show(FEToggleImageWidget *self) { self->Show(); }
+void THISCALL FEToggleImageWidget_Hide(FEToggleImageWidget *self) { self->Hide(); }
+void THISCALL FEToggleImageWidget_SetFocus(FEToggleImageWidget *self, const char *pkg) { self->SetFocus(pkg); }
+void THISCALL FEToggleImageWidget_UnsetFocus(FEToggleImageWidget *self) { self->UnsetFocus(); }
 cSlider *THISCALL cSlider_Ctor(cSlider *self) { return self->Construct(); }
 uint32_t THISCALL cSlider_Update(cSlider *self, uint32_t msg) { return self->Update(msg); }
 void THISCALL cSlider_Init(cSlider *self, const SliderInitParams *p, uint32_t v) { self->Init(p, v & 0xFF); }
@@ -831,6 +848,23 @@ const Replacement kReplacements[] = {
     {0x50D780, (const void *)&FESliderWidget_Hide, "FESliderWidget::Hide", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x52DFF0, (const void *)&FESliderWidget_SetFocus, "FESliderWidget::SetFocus", {0x53, 0x55, 0x8B, 0xE9, 0x8B, 0x0D}},
     {0x51E8D0, (const void *)&FESliderWidget_UnsetFocus, "FESliderWidget::UnsetFocus", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x51E230, (const void *)&FEToggleWidget_Ctor, "FEToggleWidget::FEToggleWidget", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
+    {0x52D9F0, (const void *)&FEToggleWidget_CheckMouse, "FEToggleWidget::CheckMouse", {0x53, 0x8B, 0x5C, 0x24, 0x0C, 0x56}},
+    {0x52DAC0, (const void *)&FEToggleWidget_Position, "FEToggleWidget::Position", {0x83, 0xEC, 0x0C, 0x56, 0x8B, 0xF1}},
+    {0x51E270, (const void *)&FEToggleWidget_Enable, "FEToggleWidget::Enable", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x51E3E0, (const void *)&FEToggleWidget_Disable, "FEToggleWidget::Disable", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x50D5D0, (const void *)&FEToggleWidget_Show, "FEToggleWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x50D610, (const void *)&FEToggleWidget_Hide, "FEToggleWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x52DB40, (const void *)&FEToggleWidget_SetFocus, "FEToggleWidget::SetFocus", {0x53, 0x55, 0x8B, 0xE9, 0x8B, 0x0D}},
+    {0x51E550, (const void *)&FEToggleWidget_UnsetFocus, "FEToggleWidget::UnsetFocus", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x51E6B0, (const void *)&FEToggleWidget_BlinkArrows, "FEToggleWidget::BlinkArrows", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x9E}},
+    {0x52DCC0, (const void *)&FEToggleImageWidget_Position, "FEToggleImageWidget::Position", {0x83, 0xEC, 0x14, 0x53, 0x56, 0x57}},
+    {0x51E6F0, (const void *)&FEToggleImageWidget_Enable, "FEToggleImageWidget::Enable", {0x56, 0x57, 0x8B, 0xF1, 0xE8, 0x77}},
+    {0x51E760, (const void *)&FEToggleImageWidget_Disable, "FEToggleImageWidget::Disable", {0x56, 0x57, 0x8B, 0xF1, 0xE8, 0x77}},
+    {0x50D650, (const void *)&FEToggleImageWidget_Show, "FEToggleImageWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x50D6A0, (const void *)&FEToggleImageWidget_Hide, "FEToggleImageWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x52DE80, (const void *)&FEToggleImageWidget_SetFocus, "FEToggleImageWidget::SetFocus", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x57}},
+    {0x51E7D0, (const void *)&FEToggleImageWidget_UnsetFocus, "FEToggleImageWidget::UnsetFocus", {0x56, 0x57, 0x8B, 0xF1, 0xE8, 0x77}},
     {0x4FF430, (const void *)&cSlider_Ctor, "cSlider::cSlider", {0x8B, 0xC1, 0x33, 0xC9, 0xC7, 0x00}},
     {0x4FF480, (const void *)&cSlider_Update, "cSlider::Update", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x32}},
     {0x540C10, (const void *)&cSlider_Init, "cSlider::Init", {0x51, 0x56, 0x57, 0x8B, 0x7C, 0x24}},

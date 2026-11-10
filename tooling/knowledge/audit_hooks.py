@@ -21,16 +21,44 @@ def hooked_addresses():
     return [int(a, 16) for a in re.findall(r"\{0x([0-9A-Fa-f]{6}), \(const void \*\)", open(REPL).read())]
 
 
-def call_sites(data, target):
-    text = data[0x1000:0x1000 + 0x381AF1]
-    sites, i = [], text.find(b"\xe8")
-    while i >= 0:
-        if i + 5 <= len(text):
-            rel, = struct.unpack("<i", text[i + 1:i + 5])
-            if 0x401000 + i + 5 + rel == target:
-                sites.append(0x401000 + i)
+TEXT_VA, TEXT_OFF, TEXT_SIZE = 0x401000, 0x1000, 0x381AF1
+
+
+def call_index(data):
+    """One pass over .text: target VA -> every E8 byte whose rel32 points there (aligned or not)."""
+    text = data[TEXT_OFF:TEXT_OFF + TEXT_SIZE]
+    index, i, end = {}, text.find(b"\xe8"), len(text) - 5
+    unpack = struct.unpack_from
+    while 0 <= i <= end:
+        t = (TEXT_VA + i + 5 + unpack("<i", text, i + 1)[0]) & 0xFFFFFFFF
+        index.setdefault(t, []).append(TEXT_VA + i)
         i = text.find(b"\xe8", i + 1)
-    return sites
+    return index
+
+
+class Sweep:
+    """Linear objdump sweep of .text, run once. Sites the sweep decodes at a different alignment fall back to a
+    per-site objdump (same result as before, just rarer)."""
+    def __init__(self):
+        out = subprocess.run(["objdump", "-d", "--no-show-raw-insn", "-M", "intel", f"--start-address={hex(TEXT_VA)}",
+                              f"--stop-address={hex(TEXT_VA + TEXT_SIZE)}", EXE], capture_output=True, text=True).stdout
+        self.addrs, self.insns = [], []
+        for l in out.splitlines():
+            m = re.match(r"\s+([0-9a-f]+):\s*(.*)", l)
+            if m:
+                self.addrs.append(int(m.group(1), 16))
+                self.insns.append(m.group(2).strip())
+        self.pos = {a: k for k, a in enumerate(self.addrs)}
+
+    def at(self, va, n=0x30):
+        k = self.pos.get(va)
+        if k is None:
+            return disasm(va, n)
+        out = []
+        while k < len(self.addrs) and self.addrs[k] < va + n:
+            out.append(self.insns[k])
+            k += 1
+        return out
 
 
 def disasm(va, n=0x30):
@@ -67,11 +95,12 @@ def uses_before_def(insns, reg):
 def main():
     data = open(EXE, "rb").read()
     targets = [int(a, 16) for a in sys.argv[1:]] or hooked_addresses()
+    index, sweep = call_index(data), Sweep()
     bad = 0
     for t in targets:
         hits = []
-        for site in call_sites(data, t):
-            ins = disasm(site)
+        for site in index.get(t, []):
+            ins = sweep.at(site)
             for reg in REGS:
                 if uses_before_def(ins, reg):
                     hits.append(f"{site:06X}:{reg}")

@@ -72,6 +72,50 @@ struct FEStatWidget {
     void Position();                 // GC 80153D94 / PC 52D800
 };
 
+// GC FEToggleWidget (PC 0x54, vtable 0x79B3B8; 17 slots: +0x40 BlinkArrows). PC: FEStatWidget base + arrows.
+// Vtable slots used here: +0x04 Act, +0x38 DetermineSpecialSound, +0x3C DetermineSoundTrigger, +0x40 BlinkArrows.
+struct FEToggleWidget {
+    FEStatWidget base;               // +0x00
+    FEObject *mpLeftArrow;           // +0x4C (GC +0x50)
+    FEObject *mpRightArrow;          // +0x50 (GC +0x54)
+
+    // GC 80154054 / PC 51E230 (ret 0x14)
+    FEToggleWidget *Construct(const float *pos, const float *size, const float *valueSize, const float *valuePos, bool enabled);
+    // GC 8015409C / PC 52D9F0 (ret 0xC): left arrow -> 0x9120409E (event 4); right arrow or value -> 0xB5971BF1 (5):
+    // Act, BlinkArrows, then the sound (PC: trigger fetched before the special sound, MakeFrontendSound inlined).
+    void CheckMouse(const char *pkg, float x, float y);
+    void Position();                 // GC 801542A4 / PC 52DAC0: stat widget + arrows around the value box
+    void Enable();                   // GC 80154334 / PC 51E270: "UnHighlight" on all
+    void Disable();                  // GC 801543C0 / PC 51E3E0: "Disable" on all
+    void Show();                     // GC 8015444C / PC 50D5D0
+    void Hide();                     // GC 801544A4 / PC 50D610
+    void SetFocus(const char *pkg);  // GC 801544FC / PC 52DB40 (ret 4): current button + "Highlight"
+    void UnsetFocus();               // GC 8015458C / PC 51E550
+    void BlinkArrows(uint32_t msg);  // GC 80154610 / PC 51E6B0 (ret 4): "Blink" on the arrow for the message
+    static uint32_t DetermineSoundTrigger() { return 2; }   // GC 8018BCA0 / PC 408CD0 (folded)
+};
+
+// GC FEToggleImageWidget (GC 0x5C -> PC 0x58): toggle + image above the value. PC never instantiates it directly:
+// its ctor (GC 80154678) is inlined into BrandScrollerThing's 521E30 (vtable 0x79B6A0, +0x58 brand data, +0x5C index),
+// whose vtable holds these members.
+struct FEToggleImageWidget {
+    FEToggleWidget base;             // +0x00
+    FEObject *mpImage;               // +0x54 (GC +0x58)
+
+    FEToggleImageWidget *Construct(const float *pos, const float *size, const float *valueSize, const float *valuePos, bool enabled);
+    void Position();                 // GC 801546BC / PC 52DCC0: object, image and value centred in the value box, arrows
+    void Enable();                   // GC 8015486C / PC 51E6F0
+    void Disable();                  // GC 801548AC / PC 51E760
+    void Show();                     // GC 801548EC / PC 50D650 (PC: image last, after the label)
+    void Hide();                     // GC 80154920 / PC 50D6A0
+    void SetFocus(const char *pkg);  // GC 80154954 / PC 52DE80 (ret 4)
+    void UnsetFocus();               // GC 80154994 / PC 51E7D0
+};
+
+#if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(FEToggleWidget) == 0x54 && sizeof(FEToggleImageWidget) == 0x58);
+#endif
+
 // GC SliderInitParams (cSlider::Init): object names (null = keep the current object) and values.
 struct SliderInitParams {
     const char *mpPackage;           // +0x00 null: keep

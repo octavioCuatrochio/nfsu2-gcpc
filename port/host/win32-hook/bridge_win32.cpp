@@ -143,6 +143,7 @@ void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
 void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
 void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
 void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
+void *FEToggleWidgetVTable() { return reinterpret_cast<void *>(0x79B3B8); }
 void *cSliderVTable() { return reinterpret_cast<void *>(0x78F544); }
 const char *GameEmptyString() { return reinterpret_cast<const char *>(0x783FE5); }
 void cSlider_Toggle(void *s, bool on) { (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t)>(s))[0x0C / 4](s, on); }
@@ -154,6 +155,13 @@ void cSlider_DrawHorizontal(void *s) { (*reinterpret_cast<void(THISCALL ***)(voi
 void FEPrintfInt(FEObject *o, const char *f, int32_t v) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v); }
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { return (*reinterpret_cast<uint32_t(THISCALL ***)(void *)>(w))[0x3C / 4](w); }
 void FEWidget_Act(void *w, const char *p, uint32_t m) { (*reinterpret_cast<void(THISCALL ***)(void *, const char *, uint32_t)>(w))[0x04 / 4](w, p, m); }
+uint32_t FEWidget_DetermineSpecialSound(void *w, uint32_t m, uint32_t e) { return (*reinterpret_cast<uint32_t(THISCALL ***)(void *, uint32_t, uint32_t)>(w))[0x38 / 4](w, m, e); }
+void FEWidget_BlinkArrows(void *w, uint32_t m) { (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t)>(w))[0x40 / 4](w, m); }
+void MakeFrontendSound(uint32_t event, uint32_t trigger)
+{
+    const int32_t idx = reinterpret_cast<const int8_t *>(0x837FE0)[event * 0x1B + trigger];
+    if (idx != -1) reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x458520)(*reinterpret_cast<void **>(0x82B884), idx);
+}
 void PlayFrontendSound(uint32_t trigger)
 {
     const int32_t idx = reinterpret_cast<const int8_t *>(0x8380B8)[trigger];

@@ -2326,6 +2326,75 @@ static void CheckSliderWidget(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEToggleWidget / FEToggleImageWidget: ctor + every member except CheckMouse (virtual calls, sound) on synthetic
+// boxes, both precisions. The image widget has no PC ctor of its own (inlined into BrandScrollerThing 521E30).
+static void CheckToggleWidget(int iters)
+{
+    auto oCtor = ORIG<FEToggleWidget *(THISCALL *)(FEToggleWidget *, const float *, const float *, const float *, const float *, uint32_t)>(0x51E230);
+    using M0 = void(THISCALL *)(void *);
+    using M1 = void(THISCALL *)(void *, uintptr_t);
+    // 0..6 toggle: Position Enable Disable Show Hide UnsetFocus SetFocus; 7..13 image: same; 14 BlinkArrows
+    const uintptr_t addr[15] = {0x52DAC0, 0x51E270, 0x51E3E0, 0x50D5D0, 0x50D610, 0x51E550, 0x52DB40,
+                                0x52DCC0, 0x51E6F0, 0x51E760, 0x50D650, 0x50D6A0, 0x51E7D0, 0x52DE80, 0x51E6B0};
+    struct Arena { FEToggleImageWidget w; unsigned char om[6][sizeof(FEObject)]; float d[6][20]; };
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&B, &A, sizeof A);
+            const float pos[2] = {RefCoord(), RefCoord()}, size[2] = {RefCoord(), RefCoord()};
+            const float vs[2] = {RefCoord(), RefCoord()}, vp[2] = {RefCoord(), RefCoord()};
+            const uint32_t en = (rng() & ~0xFFu) | (rng() & 1);
+            FEToggleWidget *ra = oCtor(&A.w.base, pos, size, vs, vp, en), *rb = B.w.base.Construct(pos, size, vs, vp, en & 0xFF);
+            EXPECT(ra == &A.w.base && rb == &B.w.base && std::memcmp(&A.w.base, &B.w.base, sizeof A.w.base) == 0, "FEToggleWidget ctor");
+            FEObject **slots[] = {&A.w.base.base.mpObject, &A.w.base.base.mpValue, &A.w.base.mpLeftArrow, &A.w.base.mpRightArrow,
+                                  &A.w.base.base.base.mpLabel, &A.w.mpImage};
+            for (int k = 0; k < 6; ++k) {
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 3 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+                *slots[k] = (k != 4 || rng() % 3) ? o : nullptr;   // only the label is optional on PC
+            }
+            std::memcpy(&B, &A, sizeof A);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            FEObject **bslots[] = {&B.w.base.base.mpObject, &B.w.base.base.mpValue, &B.w.base.mpLeftArrow, &B.w.base.mpRightArrow,
+                                   &B.w.base.base.base.mpLabel, &B.w.mpImage};
+            for (int k = 0; k < 6; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) + delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            }
+            const int op = static_cast<int>(rng() % 15);
+            const uint32_t msgs[3] = {0x9120409Eu, 0xB5971BF1u, rng()};
+            const uint32_t msg = msgs[rng() % 3];
+            if (op == 6 || op == 13) ORIG<M1>(addr[op])(&A.w, reinterpret_cast<uintptr_t>("Pkg"));
+            else if (op == 14) ORIG<M1>(addr[op])(&A.w, msg);
+            else ORIG<M0>(addr[op])(&A.w);
+            FEToggleWidget &t = B.w.base;
+            switch (op) {
+            case 0: t.Position(); break;     case 1: t.Enable(); break;      case 2: t.Disable(); break;
+            case 3: t.Show(); break;         case 4: t.Hide(); break;        case 5: t.UnsetFocus(); break;
+            case 6: t.SetFocus("Pkg"); break;
+            case 7: B.w.Position(); break;   case 8: B.w.Enable(); break;    case 9: B.w.Disable(); break;
+            case 10: B.w.Show(); break;      case 11: B.w.Hide(); break;     case 12: B.w.UnsetFocus(); break;
+            case 13: B.w.SetFocus("Pkg"); break;
+            default: t.BlinkArrows(msg); break;
+            }
+            for (int k = 0; k < 6; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) - delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
+            }
+            EXPECT(std::memcmp(&A, &B, offsetof(Arena, d)) == 0 && std::memcmp(A.d, B.d, sizeof A.d) == 0, "FEToggleWidget op %d pc=%x", op, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -3204,6 +3273,7 @@ static int RunAll()
     REFEREE_RUN(CheckButtonWidget(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
+    REFEREE_RUN(CheckToggleWidget(iters));
     REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckCFEngInterface(iters));

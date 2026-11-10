@@ -58,7 +58,7 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   bridge::cSlider_*). Done: ctor 51E840, sound 50D6F0, Position/Show/Hide/SetFocus/UnsetFocus. Only on options screens
   (in-game unreached); referee uses a fake cSlider vtable. cSlider (vtable 78F544) done too (Init/Update/Draw*/Toggle/SetCurValue/Highlight;
   in-game Init+DrawHorizontal run in the race). FEngFindString 537A10 done. PreviewSlider (79AE30, 0x4C) / ThreeStageSlider
-  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next: TuningSlider (79B7B0), FEToggleWidget.
+  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next: run referee/in-game for FEToggleWidget, then TuningSlider (79B7B0).
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
@@ -69,6 +69,16 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   through it (only FEngFont::RenderString 51C110 and eView 5C7EA0 bridged). Lessons: MSVC's unrolled loops can sum in a
   different order per copy (ClipGeneral) -> referee at _PC_24 catches it; emulate 24-bit with numpy float32 to
   brute-force the order. eMulVector 441000 and ePoly ctor 5BB1C0 (engine) are hooked too.
+- FEToggleWidget (PC 0x54, vtable 0x79B3B8, 17 slots; +0x40 BlinkArrows) = FEStatWidget + arrows +0x4C/+0x50; ctor 51E230.
+  FEToggleImageWidget (+0x54 image) has no PC vtable: ctor inlined into BrandScrollerThing 521E30 (vtable 0x79B6A0,
+  +0x58 brand data, +0x5C index; ChooseBrandsScreen). Both rewritten + hooked; referee CheckToggleWidget written but
+  NOT RUN yet. Widget vtable slots: 0 dtor, 1 Act, 2 CheckMouse, 3 ?, 4 Position, 5 Show, 6 Hide, 7 Enable, 8 Disable,
+  9 SetFocus, 10 UnsetFocus, 11 SetPos, 12/13 SetPosX/Y, 14 DetermineSpecialSound, 15 DetermineSoundTrigger.
+  MakeFrontendSound inlined on PC: table 0x837FE0[event * 0x1B + trigger] (int8, -1 = none) -> PlayUISoundFX 458520.
+  Toggle CheckMouse fetches the trigger (+0x3C) before the special sound (+0x38), GC the other way round.
+- Build host note: /opt/llvm-mingw needs glibc >= 2.44 + libedit.so.0; on older hosts there is no PE linker -> only
+  native tests + `clang++-22 --target=i686-w64-mingw32 -fsyntax-only` against its sysroot are possible.
+- audit_hooks.py: indexes all E8 calls in one pass + one objdump sweep (2m12s -> 4.5s, same output).
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.

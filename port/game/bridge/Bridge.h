@@ -184,6 +184,7 @@ void *FEButtonWidgetVTable();                    // PC 0x79B2F8
 void *FELabelWidgetVTable();                     // PC 0x79B338
 void *FEStatWidgetVTable();                      // PC 0x79B378
 void *FESliderWidgetVTable();                    // PC 0x79B400
+void *FEToggleWidgetVTable();                    // PC 0x79B3B8
 void *cSliderVTable();                           // PC 0x78F544
 const char *GameEmptyString();                   // PC 0x783FE5 ("")
 // cSlider virtuals (thiscall through the object's vtable): +0x0C Toggle(bool) 512240, +0x10 Highlight 526D90,
@@ -197,6 +198,10 @@ void cSlider_DrawHorizontal(void *slider);   // vtable +0x20
 void FEPrintfInt(FEObject *str, const char *fmt, int32_t v);   // PC 537BE0 (__cdecl varargs): format into a string object
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04
+uint32_t FEWidget_DetermineSpecialSound(void *widget, uint32_t msg, uint32_t event);   // widget vtable +0x38
+void FEWidget_BlinkArrows(void *widget, uint32_t msg);             // toggle widget vtable +0x40
+// GC MakeFrontendSound (PC inlined): idx = (int8) table 0x837FE0[event * 0x1B + trigger]; != -1 -> PlayUISoundFX 458520
+void MakeFrontendSound(uint32_t event, uint32_t trigger);
 void PlayFrontendSound(uint32_t trigger);       // PC: idx = (int8) table 0x8380B8[trigger]; != -1 -> PlayUISoundFX 458520
 int32_t IsJoystickPluggedIn(int32_t port);              // PC 571A60 (__cdecl)
 const uint8_t *JoyPortConfig();                         // PC 0x7F9414: 4 bytes per port, 0xFF = unused

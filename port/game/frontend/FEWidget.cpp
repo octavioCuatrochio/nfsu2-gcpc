@@ -252,6 +252,161 @@ void FESliderWidget::UnsetFocus()
     if (base.base.mpLabel) FEngSetScript(base.base.mpLabel, "UnHighlight", true);
 }
 
+FEToggleWidget *FEToggleWidget::Construct(const float *pos, const float *size, const float *valueSize, const float *valuePos, bool enabled)
+{
+    base.Construct(pos, size, valueSize, valuePos, enabled);
+    mpLeftArrow = mpRightArrow = nullptr;
+    base.base.vtable = bridge::FEToggleWidgetVTable();
+    return this;
+}
+
+void FEToggleWidget::CheckMouse(const char *pkg, float x, float y)
+{
+    uint32_t msg, event;
+    if (FEngTestForIntersection(x, y, mpLeftArrow)) {
+        msg = 0x9120409Eu;   // left
+        event = 4;
+    } else if (FEngTestForIntersection(x, y, mpRightArrow) || FEngTestForIntersection(x, y, base.mpValue)) {
+        msg = 0xB5971BF1u;   // right
+        event = 5;
+    } else {
+        return;
+    }
+    bridge::FEWidget_Act(this, pkg, msg);                                      // vtable +0x04
+    bridge::FEWidget_BlinkArrows(this, msg);                                   // vtable +0x40
+    const uint32_t trigger = bridge::FEWidget_DetermineSoundTrigger(this);     // vtable +0x3C (PC: before +0x38)
+    const uint32_t sound = bridge::FEWidget_DetermineSpecialSound(this, msg, event);   // vtable +0x38
+    bridge::MakeFrontendSound(sound, trigger);
+}
+
+namespace {
+// arrows left and right of the value box at height y (GC FEToggleWidget::Position tail)
+void PlaceArrows(const FEStatWidget &s, FEObject *left, FEObject *right, float y)
+{
+    const float cx = static_cast<float>(L(s.mValueSizeX) * 0.5f + s.mValuePosX);
+    float w, h;
+    FEngGetSize(right, &w, &h);
+    FEngSetTopLeft(left, static_cast<float>(cx - (L(s.mValueSizeX) * 0.5f + w)), y);
+    FEngSetTopLeft(right, static_cast<float>(L(s.mValueSizeX) * 0.5f + cx), y);
+}
+// the four toggle objects + optional label (PC: FEngSetScript inlined into each member)
+void ToggleScript(const FEToggleWidget &t, const char *script)
+{
+    FEngSetScript(t.base.mpObject, script, true);
+    FEngSetScript(t.base.mpValue, script, true);
+    FEngSetScript(t.mpLeftArrow, script, true);
+    FEngSetScript(t.mpRightArrow, script, true);
+    if (t.base.base.mpLabel) FEngSetScript(t.base.base.mpLabel, script, true);
+}
+void ToggleVisible(const FEToggleWidget &t, bool visible)
+{
+    for (FEObject *o : {t.base.mpObject, t.base.mpValue, t.mpLeftArrow, t.mpRightArrow})
+        visible ? FEngSetVisible(o) : FEngSetInvisible(o);
+    if (FEObject *l = t.base.base.mpLabel) visible ? FEngSetVisible(l) : FEngSetInvisible(l);
+}
+}  // namespace
+
+void FEToggleWidget::Position()
+{
+    base.Position();
+    PlaceArrows(base, mpLeftArrow, mpRightArrow, base.mValuePosY);
+}
+
+void FEToggleWidget::Enable()
+{
+    base.base.mbEnabled = 1;
+    ToggleScript(*this, "UnHighlight");
+}
+
+void FEToggleWidget::Disable()
+{
+    base.base.mbEnabled = 0;
+    ToggleScript(*this, "Disable");
+}
+
+void FEToggleWidget::Show() { ToggleVisible(*this, true); }
+void FEToggleWidget::Hide() { ToggleVisible(*this, false); }
+
+void FEToggleWidget::SetFocus(const char *pkg)
+{
+    if (cFEng *fe = bridge::cFEngInstance())
+        if (base.mpObject) fe->SetCurrentButton(pkg, base.mpObject->mu32NameHash);
+    ToggleScript(*this, "Highlight");
+}
+
+void FEToggleWidget::UnsetFocus() { ToggleScript(*this, "UnHighlight"); }
+
+void FEToggleWidget::BlinkArrows(uint32_t msg)
+{
+    if (msg == 0x9120409Eu) FEngSetScript(mpLeftArrow, "Blink", true);
+    else if (msg == 0xB5971BF1u) FEngSetScript(mpRightArrow, "Blink", true);
+}
+
+FEToggleImageWidget *FEToggleImageWidget::Construct(const float *pos, const float *size, const float *valueSize, const float *valuePos, bool enabled)
+{
+    base.Construct(pos, size, valueSize, valuePos, enabled);   // GC then installs FEToggleImageWidget's vtable (none on PC)
+    mpImage = nullptr;
+    return this;
+}
+
+void FEToggleImageWidget::Position()
+{
+    const FEStatWidget &s = base.base;
+    float iw, ih;
+    FEngGetSize(mpImage, &iw, &ih);
+    const float y = static_cast<float>(L(ih) * 0.5f + s.base.mPosY);   // object and arrows: centred on the image
+    FEngSetTopLeft(s.mpObject, s.base.mPosX, y);
+    float cx, cy, tlx, tly;
+    // image: centred in the value box, top at the box top
+    FEngGetCenter(mpImage, &cx, &cy);
+    FEngSetCenter(mpImage, static_cast<float>(L(s.mValueSizeX) * 0.5f + s.mValuePosX), cy);
+    FEngGetTopLeft(mpImage, &tlx, &tly);
+    FEngSetTopLeft(mpImage, tlx, s.mValuePosY);
+    // value text: centred, one pixel below the image
+    FEngGetCenter(s.mpValue, &cx, &cy);
+    FEngSetCenter(s.mpValue, static_cast<float>(L(s.mValueSizeX) * 0.5f + s.mValuePosX), cy);
+    FEngGetTopLeft(s.mpValue, &tlx, &tly);
+    FEngSetTopLeft(s.mpValue, tlx, static_cast<float>((L(s.mValuePosY) + ih) + 1.0f));
+    PlaceArrows(s, base.mpLeftArrow, base.mpRightArrow, y);
+    PlaceLabel(s.base);
+}
+
+void FEToggleImageWidget::Enable()
+{
+    base.Enable();
+    FEngSetScript(mpImage, "UnHighlight", true);
+}
+
+void FEToggleImageWidget::Disable()
+{
+    base.Disable();
+    FEngSetScript(mpImage, "Disable", true);
+}
+
+void FEToggleImageWidget::Show()
+{
+    base.Show();
+    FEngSetVisible(mpImage);
+}
+
+void FEToggleImageWidget::Hide()
+{
+    base.Hide();
+    FEngSetInvisible(mpImage);
+}
+
+void FEToggleImageWidget::SetFocus(const char *pkg)
+{
+    base.SetFocus(pkg);
+    FEngSetScript(mpImage, "Highlight", true);
+}
+
+void FEToggleImageWidget::UnsetFocus()
+{
+    base.UnsetFocus();
+    FEngSetScript(mpImage, "UnHighlight", true);
+}
+
 cSlider *cSlider::Construct()
 {
     vtable = bridge::cSliderVTable();
