@@ -16,9 +16,9 @@ void FEMultMatrix(FEVector3 *out, const float *m, const FEVector3 *v)
 void FEButtonMap::ComputeButtonLocation(FEObject *obj, void *gi, FEVector2 *out) const
 {
     const auto *pos = reinterpret_cast<const FEVector3 *>(static_cast<const uint8_t *>(obj->mpData) + 0x1C);
-    if (gi && obj->_unknown20) {
+    if (gi && obj->mu16RenderContext) {
         float m[16];
-        if (bridge::FEGameInterface_GetContextTransform(gi, obj->_unknown20, m)) {
+        if (bridge::FEGameInterface_GetContextTransform(gi, obj->mu16RenderContext, m)) {
             FEVector3 v{0.0f, 0.0f, 0.0f};
             FEMultMatrix(&v, m, pos);
             out->x = v.x;

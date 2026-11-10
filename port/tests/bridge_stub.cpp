@@ -1,3 +1,4 @@
+#include "frontend/FERender.h"
 #include "frontend/FEPackageManager.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEPackageReader.h"
@@ -56,6 +57,9 @@ const float *contextTransform = nullptr;
 std::vector<void *> hitObjects;
 std::vector<HitTest> hitTests;
 bool textInputFocused = false;
+std::vector<void *> renderedObjects;
+float viewMatrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+FESortGlobals sortGlobals{};
 int16_t mouseInfo[4] = {};
 void *screenResult = nullptr;
 bool hotChunking = false;
@@ -171,6 +175,26 @@ uint8_t FEGameInterface_IsPointInObject(void *gi, float x, float y, FEObject *o)
     for (void *h : teststub::hitObjects) if (h == o) return 1;
     return 0;
 }
+#ifdef NFSU2_REFEREE
+void FEGameInterface_BeginPackageRendering(void *gi, FEPackage *p, uint32_t f) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, FEPackage *, uint32_t)>(gi))[0x20 / 4](gi, p, f); }
+void FEGameInterface_EndPackageRendering(void *gi, FEPackage *p) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, FEPackage *)>(gi))[0x24 / 4](gi, p); }
+void FEGameInterface_GenerateRenderContext(void *gi, uint32_t c, FEObject *g) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, uint32_t, FEObject *)>(gi))[0x28 / 4](gi, c, g); }
+void FEGameInterface_RenderObjectList(void *gi, void *e, uint32_t n) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *, uint32_t)>(gi))[0x30 / 4](gi, e, n); }
+void FEGameInterface_GetViewTransformation(void *gi, void *m) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *)>(gi))[0x3C / 4](gi, m); }
+FESortGlobals *FEngSortGlobals() { return reinterpret_cast<FESortGlobals *>(0x838488); }
+#else
+void FEGameInterface_BeginPackageRendering(void *gi, FEPackage *p, uint32_t f) { teststub::delivered.push_back({"beginrender", gi, p, f, 0}); }
+void FEGameInterface_EndPackageRendering(void *gi, FEPackage *p) { teststub::delivered.push_back({"endrender", gi, p, 0, 0}); }
+void FEGameInterface_GenerateRenderContext(void *gi, uint32_t c, FEObject *g) { teststub::delivered.push_back({"genctx", gi, reinterpret_cast<FEPackage *>(g), c, 0}); }
+void FEGameInterface_RenderObjectList(void *gi, void *e, uint32_t n)
+{
+    teststub::delivered.push_back({"renderlist", gi, nullptr, n, 0});
+    teststub::renderedObjects.clear();
+    for (uint32_t i = 0; i < n; ++i) teststub::renderedObjects.push_back(static_cast<void **>(e)[i * 2]);
+}
+void FEGameInterface_GetViewTransformation(void *gi, void *m) { teststub::delivered.push_back({"view", gi, nullptr, 0, 0}); std::memcpy(m, teststub::viewMatrix, 64); }
+FESortGlobals *FEngSortGlobals() { return &teststub::sortGlobals; }
+#endif
 bool TextInputFocused() { return teststub::textInputFocused; }
 #ifdef NFSU2_REFEREE
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }

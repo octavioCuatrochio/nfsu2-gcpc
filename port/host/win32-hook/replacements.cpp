@@ -18,6 +18,7 @@
 #include "frontend/FEPackageReader.h"
 #include "frontend/FEngine.h"
 #include "frontend/FEButtonMap.h"
+#include "frontend/FERender.h"
 #include "frontend/FENode.h"
 #include "frontend/FEPackageManager.h"
 #include "frontend/cFEng.h"
@@ -293,6 +294,11 @@ FEObject *THISCALL FEngine_FindObject(FEngine *self, uint32_t h, const char *p) 
 void THISCALL FEngine_UpdateHook(FEngine *self, uint32_t delta, uint32_t whole) { self->Update(delta, whole); }
 void THISCALL FEngine_ProcessPadsForPackage(FEngine *self, FEPackage *p) { self->ProcessPadsForPackage(p); }
 void THISCALL FEngine_ProcessMouseForPackage(FEngine *self, FEPackage *p) { self->ProcessMouseForPackage(p); }
+void THISCALL FEQuaternion_GetMatrix(const FEQuaternion *q, FEMatrix4 *out) { FEQuatGetMatrix(q, out); }
+void THISCALL FEObjectSorter_SortObjects(FEngine::ObjectSorter *self) { self->SortObjects(); }
+void THISCALL FEngine_RenderObject(FEngine *self, FEObject *o, const FEMatrix4 *m, uint16_t c) { self->RenderObject(o, m, c); }
+void THISCALL FEngine_RenderGroup(FEngine *self, FEGroup *g, const FEMatrix4 *p, const FEMatrix4 *v, uint16_t c) { self->RenderGroup(g, p, v, c); }
+void THISCALL FEngine_Render(FEngine *self) { self->Render(); }
 void THISCALL FEButtonMap_ComputeButtonLocation(const FEButtonMap *self, FEObject *o, void *gi, FEVector2 *out) { self->ComputeButtonLocation(o, gi, out); }
 FEObject *THISCALL FEButtonMap_GetButtonFrom(const FEButtonMap *self, FEObject *f, uint32_t d, void *gi, uint32_t w) { return self->GetButtonFrom(f, d, gi, w); }
 uint32_t THISCALL FEJoyPad_HeldFor(const FEJoyPad *self, uint32_t m) { return self->HeldFor(m); }
@@ -604,7 +610,15 @@ const Replacement kReplacements[] = {
     {0x558C00, (const void *)&FEngine_UpdateHook, "FEngine::Update", {0x83, 0xEC, 0x0C, 0x55, 0x8B, 0xE9}},
     {0x54D4B0, (const void *)&FEngine_ProcessPadsForPackage, "FEngine::ProcessPadsForPackage", {0x8B, 0x44, 0x24, 0x04, 0x81, 0xEC}},
     {0x54E020, (const void *)&FEngine_ProcessMouseForPackage, "FEngine::ProcessMouseForPackage", {0x83, 0xEC, 0x18, 0x56, 0x57, 0x8B}},
-    {0x504B50, (const void *)&FEMultMatrix, "FEMultMatrix", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}, 1, 12, 0},
+    {0x504A50, (const void *)&FEQuaternion_GetMatrix, "FEQuaternion::GetMatrix", {0x83, 0xEC, 0x20, 0xD9, 0x01, 0x8B}, 1, 4, 1},   // 52C639 (original RenderGroup) reuses EDX
+    {0x5187A0, (const void *)static_cast<void (*)(FEMatrix4 *, const FEMatrix4 *, const FEMatrix4 *)>(&FEMultMatrix), "FEMultMatrix(FEMatrix4)", {0x83, 0xEC, 0x40, 0x8B, 0x44, 0x24}},
+    {0x50B410, (const void *)&InitFEngObjectSorting, "InitFEngObjectSorting", {0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0x44}},
+    {0x50B430, (const void *)&CloseFEngObjectSorting, "CloseFEngObjectSorting", {0xA1, 0x90, 0x84, 0x83, 0x00, 0x8B}},
+    {0x5114F0, (const void *)&FEObjectSorter_SortObjects, "FEObjectSorter<1024>::SortObjects", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
+    {0x51A970, (const void *)&FEngine_RenderObject, "FEngine::RenderObject", {0x83, 0xEC, 0x18, 0x56, 0x8B, 0x74}},
+    {0x52C5D0, (const void *)&FEngine_RenderGroup, "FEngine::RenderGroup", {0x81, 0xEC, 0x98, 0x00, 0x00, 0x00}},
+    {0x536520, (const void *)&FEngine_Render, "FEngine::Render", {0xB8, 0x04, 0x11, 0x00, 0x00, 0xE8}},
+    {0x504B50, (const void *)static_cast<void (*)(FEVector3 *, const float *, const FEVector3 *)>(&FEMultMatrix), "FEMultMatrix", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}, 1, 12, 0},
     {0x504BB0, (const void *)&FEButtonMap_ComputeButtonLocation, "FEButtonMap::ComputeButtonLocation", {0x8B, 0x4C, 0x24, 0x08, 0x83, 0xEC}},
     {0x5189E0, (const void *)&FEButtonMap_GetButtonFrom, "FEButtonMap::GetButtonFrom", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
     {0x504FF0, (const void *)&FEJoyPad_HeldFor, "FEJoyPad::HeldFor", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},

@@ -90,7 +90,8 @@ struct FEngine {
     FEObject *mPressedButton[19];    // +0x84 button that got the press message per pad button (for the release)
     uint32_t mu32ButtonMapArg;       // +0xD0 FEButtonWrapMode for FEButtonMap::GetButtonFrom (bit 1 X wrap, bit 2 Y wrap)
     uint32_t mu32NumJoyPads;         // +0xD4
-    uint8_t _unknown0D8[4];
+    uint16_t mu16RenderContextCount; // +0xD8 last render context id handed out (Render resets per package)
+    uint8_t _unknown0DA[2];
     // Active packages: FEMinList at +0xDC (vtable, count, head, tail); kept as fields because code uses the head.
     void *mpActiveListVTable;        // +0xDC
     uint32_t mu32NumPackages;        // +0xE0
@@ -99,7 +100,14 @@ struct FEngine {
     FEMinList mIdlePackages;         // +0xEC loaded but inactive packages (cFEng::SetUseIdleList)
     FEMinList mLibraries;            // +0xFC library packages (FEngine::AddToLibraryList; refcount in FEPackage +0x18)
     void *mpUIData;                  // +0x10C game-side handler (vtable: +0x18 SendMessageToGame, +0x54 message hook)
-    uint8_t _unknown110[0x4114 - 0x110];
+    // +0x110 GC FEObjectSorter<1024> (GC +0x120): objects of the package being rendered, sorted by view depth
+    struct SortEntry { FEObject *mpObject; uint32_t mu32Key; };   // key: float bits of view z (> 0)
+    struct ObjectSorter {
+        uint32_t mu32Count;          // +0x110
+        SortEntry mEntries[1024];    // +0x114 (no bounds check, like the original)
+        SortEntry mScratch[1024];    // +0x2114
+        void SortObjects();          // GC 8030C344 / PC 5114F0: stable LSD radix sort, 4 byte passes, ascending
+    } mSorter;
     FEMinList mMessages;             // +0x4114 queued messages
     FEMinList mPackageCommands;      // +0x4124 queued package stack operations (FEPackageCommand)
     FEMinList mTypes;                // +0x4134 FETypeNode list (object types and their key-track parameters)
@@ -155,6 +163,13 @@ struct FEngine {
     // the hit current button or the package (PC: package flags +0xAC / +0xAD gate those); after a move, the first hit
     // selectable button becomes current (PC: not while a text box has focus unless package +0xAF).
     void ProcessMouseForPackage(FEPackage *pkg);
+    // Rendering (FERender.cpp). Render: GC 80147540 / PC 536520 (no args): re-sorts the active list by priority,
+    // then per package: object sort, Begin/RenderObjectList/End through the game interface.
+    void Render();
+    void RenderObject(FEObject *obj, const struct FEMatrix4 *m, uint16_t ctx);   // GC 801478F8 / PC 51A970 (ret 0xC)
+    // GC 80147728 / PC 52C5D0 (ret 0x10): group transform (rotation about pivot, then position) * parent; children
+    // get a new render context id (game interface +0x28 GenerateRenderContext).
+    void RenderGroup(struct FEGroup *group, const struct FEMatrix4 *parent, const struct FEMatrix4 *view, uint16_t ctx);
     void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
     void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
     void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50
@@ -176,6 +191,7 @@ static_assert(sizeof(FEMessageNode) == 0x20 && sizeof(FEPackageCommand) == 0x20 
 static_assert(offsetof(FEngine, mPackageCommands) == 0x4124 && offsetof(FEngine, mi32LastButtonIndex) == 0x514C);
 static_assert(offsetof(FEngine, mLastButtons) == 0x5150);
 static_assert(offsetof(FEngine, mpPackages) == 0xE4 && offsetof(FEngine, mpUIData) == 0x10C && offsetof(FEngine, mMessages) == 0x4114);
+static_assert(offsetof(FEngine, mSorter) == 0x110 && offsetof(FEngine, mu16RenderContextCount) == 0xD8);
 static_assert(offsetof(FEngine, mMouse) == 0xC && offsetof(FEngine, mReleaseTime) == 0x38 && offsetof(FEngine, mu32NumJoyPads) == 0xD4);
 static_assert(sizeof(FEJoyPad) == 0x88 && sizeof(FEMouse) == 0x20 && offsetof(FEMouse, mbMoved) == 0x1D);
 static_assert(offsetof(FEngine, mIdlePackages) == 0xEC && offsetof(FEngine, mpActiveListVTable) == 0xDC);

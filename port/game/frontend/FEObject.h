@@ -22,7 +22,8 @@ struct FEObject {
     char *mpcName;                   // +0x14 owned (game heap)
     uint32_t mu32Type;               // +0x18 factory type
     uint32_t mu32Flags;              // +0x1C
-    uint16_t _unknown20, _unknown22; // +0x20
+    uint16_t mu16RenderContext;      // +0x20 render context id (FEngine::RenderGroup numbering; gi +0x2C transform)
+    uint16_t _unknown22;
     uint32_t _unknown24, _unknown28; // +0x24
     void *mpData;                    // +0x2C ObjDataPool block (track data, see GetDataOffset)
     uint32_t mu32DataSize;           // +0x30

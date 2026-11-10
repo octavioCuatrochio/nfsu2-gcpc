@@ -18,7 +18,7 @@ FEObject *FEObject::Construct(void *mem)
     o->mu32NameHash = 0;
     o->mpcName = nullptr;
     o->mu32Flags = 0;
-    o->_unknown20 = 0;
+    o->mu16RenderContext = 0;
     o->_unknown24 = o->_unknown28 = 0;
     o->mpData = nullptr;
     o->mu32DataSize = 0;
@@ -160,7 +160,7 @@ FEObject *FEObject::CopyConstruct(void *mem, const FEObject &src, bool reference
 
     o->mu32Type = src.mu32Type;
     o->mu32Flags = src.mu32Flags;
-    o->_unknown20 = src._unknown20;
+    o->mu16RenderContext = src.mu16RenderContext;
     o->_unknown22 = src._unknown22;
     o->_unknown24 = src._unknown24;
     o->SetName(src.mpcName);

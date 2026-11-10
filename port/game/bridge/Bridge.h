@@ -19,6 +19,7 @@ struct FEPackageManager;   // frontend/FEPackageManager.h
 struct FEObject;
 
 struct bASinTableEntry;
+struct FESortGlobals;
 namespace bridge {
 
 // --- memory: buffers are shared with original game code, so they must come from the game's heap ---
@@ -85,6 +86,13 @@ void FEGameInterface_BeginUpdate(void *gi);                           // +0x5C
 void FEGameInterface_EndUpdate(void *gi);                             // +0x60
 uint8_t FEGameInterface_GetContextTransform(void *gi, uint32_t context, float *matrix16);   // +0x2C (GC +0x64), bool in AL
 uint8_t FEGameInterface_IsPointInObject(void *gi, float x, float y, ::FEObject *obj);   // +0x48 (PC; GC +0x9C), bool in AL
+// game interface render slots (PC cFEng vtable 0x79BCD8)
+void FEGameInterface_BeginPackageRendering(void *gi, ::FEPackage *pkg, uint32_t flag);       // +0x20
+void FEGameInterface_EndPackageRendering(void *gi, ::FEPackage *pkg);                        // +0x24
+void FEGameInterface_GenerateRenderContext(void *gi, uint32_t context, ::FEObject *group);   // +0x28
+void FEGameInterface_RenderObjectList(void *gi, void *entries, uint32_t count);              // +0x30 ({obj, key} x count)
+void FEGameInterface_GetViewTransformation(void *gi, void *matrix);                          // +0x3C (FEMatrix4)
+::FESortGlobals *FEngSortGlobals();   // PC 0x838488
 bool TextInputFocused();   // PC globals 0x83A9C0 (byte, FocusedTextbox active) && 0x83A9C4 (dword) both nonzero
 void SetHoldDirtyFlags(uint32_t v);                                   // uHoldDirtyFlags, PC 0x7F7C8C
 // constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)

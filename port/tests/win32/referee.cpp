@@ -21,6 +21,7 @@
 #include "frontend/FEMinList.h"
 #include "frontend/FEObject.h"
 #include "frontend/FEButtonMap.h"
+#include "frontend/FERender.h"
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
@@ -1379,7 +1380,7 @@ static void CheckButtonMap(int iters)
                 std::memset(om[i], 0, sizeof om[i]);
                 buttons[i]->mpData = data[i];
                 buttons[i]->mu32Flags = rng() % 6 == 0 ? 0x4000000 : 0;
-                buttons[i]->_unknown20 = static_cast<uint16_t>(rng() % 3 ? 0 : rng() % 4);
+                buttons[i]->mu16RenderContext = static_cast<uint16_t>(rng() % 3 ? 0 : rng() % 4);
                 const bool dup = i && rng() % 8 == 0;
                 data[i][7] = dup ? data[i - 1][7] : RefCoord();
                 data[i][8] = dup ? data[i - 1][8] : RefCoord();
@@ -1391,12 +1392,138 @@ static void CheckButtonMap(int iters)
             FEVector2 la{}, lb{};
             oLoc(&map, from, g, &la);
             map.ComputeButtonLocation(from, g, &lb);
-            EXPECT(std::memcmp(&la, &lb, sizeof la) == 0, "ComputeButtonLocation ctx %u pc=%x: %a %a vs %a %a (pos %a %a %a)", from->_unknown20, pc, la.x, la.y, lb.x, lb.y, static_cast<float *>(from->mpData)[7], static_cast<float *>(from->mpData)[8], static_cast<float *>(from->mpData)[9]);
+            EXPECT(std::memcmp(&la, &lb, sizeof la) == 0, "ComputeButtonLocation ctx %u pc=%x: %a %a vs %a %a (pos %a %a %a)", from->mu16RenderContext, pc, la.x, la.y, lb.x, lb.y, static_cast<float *>(from->mpData)[7], static_cast<float *>(from->mpData)[8], static_cast<float *>(from->mpData)[9]);
             const uint32_t dir = rng() % 8, wrap = rng() % 4;
             FEObject *ra = oGet(&map, from, dir, g, wrap), *rb = map.GetButtonFrom(from, dir, g, wrap);
             EXPECT(ra == rb, "GetButtonFrom n %u dir %u wrap %u pc=%x: %p vs %p", n, dir, wrap, pc, (void *)ra, (void *)rb);
         }
     }
+    _controlfp(saved, _MCW_PC);
+}
+
+// Render path: FEQuaternion::GetMatrix, FEMultMatrix(4x4), sorting globals, radix sort, RenderObject, RenderGroup
+// (synthetic engine, fake game interface logging GenerateRenderContext). Both FPU precisions.
+static std::vector<uint32_t> g_ctxLog;
+static void THISCALL FakeGiGenCtx(void *, uint32_t c, FEObject *g)
+{
+    g_ctxLog.push_back(c);
+    g_ctxLog.push_back(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(g)));
+}
+static void CheckRender(int iters)
+{
+    static void *vtable[32] = {};
+    vtable[0x28 / 4] = reinterpret_cast<void *>(&FakeGiGenCtx);
+    static void *gi = vtable;
+    auto oQuat = ORIG<void(THISCALL *)(const FEQuaternion *, FEMatrix4 *)>(0x504A50);
+    auto oMul = ORIG<void(__cdecl *)(FEMatrix4 *, const FEMatrix4 *, const FEMatrix4 *)>(0x5187A0);
+    auto oInit = ORIG<void(__cdecl *)(FEPackage *, void *, int32_t)>(0x50B410);
+    auto oClose = ORIG<void(__cdecl *)(FEPackage *)>(0x50B430);
+    auto oSort = ORIG<void(THISCALL *)(FEngine::ObjectSorter *)>(0x5114F0);
+    auto oObj = ORIG<void(THISCALL *)(FEngine *, FEObject *, const FEMatrix4 *, uint32_t)>(0x51A970);
+    auto oGroup = ORIG<void(THISCALL *)(FEngine *, FEGroup *, const FEMatrix4 *, const FEMatrix4 *, uint32_t)>(0x52C5D0);
+    alignas(16) static unsigned char ea[sizeof(FEngine)], eb[sizeof(FEngine)];
+    auto *A = reinterpret_cast<FEngine *>(ea), *B = reinterpret_cast<FEngine *>(eb);
+    auto rf = [] { return rng() % 5 == 0 ? 0.0f : RefCoord() / static_cast<float>(1 + rng() % 400); };
+    const unsigned int saved = _controlfp(0, 0);
+    FESortGlobals *g = bridge::FEngSortGlobals();
+    const FESortGlobals savedGlobals = *g;
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            FEQuaternion q{rf(), rf(), rf(), rf()};
+            FEMatrix4 ma, mb, x, y;
+            for (int i = 0; i < 16; ++i) { x.m[i] = rf(); y.m[i] = rf(); }
+            oQuat(&q, &ma);
+            FEQuatGetMatrix(&q, &mb);
+            EXPECT(std::memcmp(&ma, &mb, sizeof ma) == 0, "FEQuaternion::GetMatrix pc=%x", pc);
+            oMul(&ma, &x, &y);
+            FEMultMatrix(&mb, &x, &y);
+            EXPECT(std::memcmp(&ma, &mb, sizeof ma) == 0, "FEMultMatrix(4x4) pc=%x", pc);
+            // sorting globals
+            FESortGlobals start{static_cast<int32_t>(rng() % 50), rng() % 50, static_cast<int32_t>(rng() % 50), reinterpret_cast<void *>(uintptr_t(rng()))};
+            *g = start;
+            const int32_t size = static_cast<int32_t>(rng() % 0x3000);
+            oInit(nullptr, &q, size);
+            oClose(nullptr);
+            const FESortGlobals ga = *g;
+            *g = start;
+            InitFEngObjectSorting(nullptr, &q, size);
+            CloseFEngObjectSorting(nullptr);
+            EXPECT(std::memcmp(&ga, g, sizeof ga) == 0, "Init/CloseFEngObjectSorting");
+            *g = start;
+            oInit(nullptr, &q, size);
+            const FESortGlobals gi1 = *g;
+            *g = start;
+            InitFEngObjectSorting(nullptr, &q, size);
+            EXPECT(std::memcmp(&gi1, g, sizeof gi1) == 0, "InitFEngObjectSorting");
+            // radix sort (every 4th iteration: big arrays)
+            if (it % 4 == 0) {
+                const uint32_t n = rng() % 3 ? rng() % 40 : rng() % 1025;
+                const uint32_t mask = rng() % 2 ? 0xFFFFFFFFu : 0x0303030Fu;
+                A->mSorter.mu32Count = n;
+                for (uint32_t i = 0; i < 2048; ++i) {
+                    auto &en = i < 1024 ? A->mSorter.mEntries[i] : A->mSorter.mScratch[i - 1024];
+                    en = {reinterpret_cast<FEObject *>(uintptr_t(rng())), rng() & mask};
+                }
+                std::memcpy(&B->mSorter, &A->mSorter, sizeof A->mSorter);
+                oSort(&A->mSorter);
+                B->mSorter.SortObjects();
+                EXPECT(std::memcmp(&A->mSorter, &B->mSorter, sizeof A->mSorter) == 0, "SortObjects n %u", n);
+            }
+            // RenderObject / RenderGroup on a small random tree
+            alignas(8) static unsigned char om[8][sizeof(FEGroup)];
+            static float data[8][16];
+            FEObject *o[8];
+            for (int i = 0; i < 8; ++i) {
+                o[i] = reinterpret_cast<FEObject *>(om[i]);
+                std::memset(om[i], 0, sizeof om[i]);
+                o[i]->mpData = data[i];
+                for (int k = 0; k < 16; ++k) data[i][k] = rf();
+                const int32_t alpha = rng() % 6 == 0 ? 0 : 255;
+                std::memcpy(&data[i][3], &alpha, 4);
+                o[i]->mu32Flags = rng() % 4 == 0 ? 0x80000000u : 0;
+                o[i]->mu16RenderContext = static_cast<uint16_t>(rng());
+            }
+            // o[0] group: children 1, 2 (group: children 3, 4), 5; others plain objects
+            auto *g0 = reinterpret_cast<FEGroup *>(o[0]);
+            auto *g2 = reinterpret_cast<FEGroup *>(o[2]);
+            o[0]->mu32Type = 5;
+            o[2]->mu32Type = 5;
+            auto link = [](FEGroup *grp, std::initializer_list<FEObject *> kids) {
+                FEObject *prev = nullptr;
+                grp->mChildren.head = kids.size() ? &(*kids.begin())->node : nullptr;
+                for (FEObject *k : kids) {
+                    k->node.prev = prev ? &prev->node : nullptr;
+                    if (prev) prev->node.next = &k->node;
+                    k->node.next = nullptr;
+                    prev = k;
+                }
+            };
+            link(g0, {o[1], o[2], o[5]});
+            link(g2, {o[3], o[4]});
+            for (unsigned char *e : {ea, eb}) std::memset(e, 0, 0x2200);   // header + sorter entries
+            A->mpUIData = &gi;
+            A->_unknown000 = static_cast<uint8_t>(rng() % 2);
+            A->mu16RenderContextCount = static_cast<uint16_t>(rng() % 70000);
+            A->mSorter.mu32Count = rng() % 4;
+            std::memcpy(eb, ea, 0x2200);
+            const bool asGroup = rng() % 3 != 0;
+            const uint16_t ctx = static_cast<uint16_t>(rng());
+            unsigned char before[8][sizeof(FEGroup)];
+            std::memcpy(before, om, sizeof om);
+            g_ctxLog.clear();
+            if (asGroup) oGroup(A, g0, &x, &y, ctx); else oObj(A, o[1], &x, ctx);
+            std::vector<uint32_t> logA = g_ctxLog;
+            unsigned char after[8][sizeof(FEGroup)];
+            std::memcpy(after, om, sizeof om);
+            std::memcpy(om, before, sizeof om);
+            g_ctxLog.clear();
+            if (asGroup) B->RenderGroup(g0, &x, &y, ctx); else B->RenderObject(o[1], &x, ctx);
+            EXPECT(std::memcmp(ea, eb, 0x2200) == 0 && logA == g_ctxLog && std::memcmp(after, om, sizeof om) == 0,
+                   "%s pc=%x count %u vs %u", asGroup ? "RenderGroup" : "RenderObject", pc, A->mSorter.mu32Count, B->mSorter.mu32Count);
+        }
+    }
+    *g = savedGlobals;
     _controlfp(saved, _MCW_PC);
 }
 
@@ -1971,6 +2098,7 @@ static int RunAll()
     REFEREE_RUN(CheckCodeListBoxMove(iters * 10));
     REFEREE_RUN(CheckPadMouse(iters * 5));
     REFEREE_RUN(CheckButtonMap(iters * 5));
+    REFEREE_RUN(CheckRender(iters * 3));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));

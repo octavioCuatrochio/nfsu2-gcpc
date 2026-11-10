@@ -7,6 +7,8 @@
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEMessageResponse.h"
 #include "frontend/FEButtonMap.h"
+#include "frontend/FERender.h"
+#include <cmath>
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
@@ -412,7 +414,7 @@ static void TestFEObjectCopy()
     int liveBefore = teststub::liveAllocations;
     alignas(8) unsigned char mem[sizeof(FEObject)];
     FEObject *src = FEObject::Construct(mem);
-    src->mu32Type = 7; src->mu32Flags = 0x40; src->_unknown20 = 3; src->_unknown22 = 4; src->_unknown24 = 5; src->_unknown28 = 6;
+    src->mu32Type = 7; src->mu32Flags = 0x40; src->mu16RenderContext = 3; src->_unknown22 = 4; src->_unknown24 = 5; src->_unknown28 = 6;
     src->SetName("Button");
     src->mpData = teststub::objDataPool.Alloc(16);
     src->mu32DataSize = 16;
@@ -436,7 +438,7 @@ static void TestFEObjectCopy()
     uint32_t guid = teststub::nextGUID;
     FEObject *c = src->Clone(false);
     CHECK(c != nullptr && c->mu32GUID == guid && c->node.vtable == &teststub::feObjectVTable);
-    CHECK(c->mu32Type == 7 && c->mu32Flags == 0x40 && c->_unknown20 == 3 && c->_unknown22 == 4 && c->_unknown24 == 5 && c->_unknown28 == 0);
+    CHECK(c->mu32Type == 7 && c->mu32Flags == 0x40 && c->mu16RenderContext == 3 && c->_unknown22 == 4 && c->_unknown24 == 5 && c->_unknown28 == 0);
     CHECK(c->mpcName != src->mpcName && std::strcmp(c->mpcName, "Button") == 0 && c->mu32NameHash == src->mu32NameHash);
     CHECK(c->mu32DataSize == 16 && c->mpData != src->mpData && static_cast<uint8_t *>(c->mpData)[15] == 0);
     CHECK(c->mResponses.count == 2 && c->FindResponse(0x101) != nullptr);
@@ -2041,7 +2043,7 @@ static void TestButtonMap()
     FEVector2 v{};
     map.ComputeButtonLocation(o[1], &gi, &v);   // context 0: no query
     CHECK(v.x == 320 && v.y == 100 && dl.empty());
-    o[1]->_unknown20 = 5;
+    o[1]->mu16RenderContext = 5;
     map.ComputeButtonLocation(o[1], &gi, &v);   // query fails -> raw position
     CHECK(v.x == 320 && v.y == 100 && dl.size() == 1 && dl[0].msg == 5);
     const float m[16] = {2, 0, 0, 0, 0, 3, 0, 0, 1, 1, 1, 0, 10, 20, 30, 1};
@@ -2054,7 +2056,7 @@ static void TestButtonMap()
     FEMultMatrix(&r, m, &in);
     CHECK(r.x == 2 + 3 + 10 && r.y == 6 + 3 + 20 && r.z == 3 + 30);
     teststub::contextTransform = nullptr;
-    o[1]->_unknown20 = 0;
+    o[1]->mu16RenderContext = 0;
     dl.clear();
     CHECK(map.GetButtonFrom(o[0], 0, &gi, 0) == o[1]);   // up: nearest straight one
     CHECK(map.GetButtonFrom(o[0], 2, &gi, 0) == o[3]);   // right
@@ -2070,6 +2072,89 @@ static void TestButtonMap()
     FEButtonMap empty{buttons, 0};
     CHECK(empty.GetButtonFrom(o[0], 0, &gi, 3) == nullptr);
     dl.clear();
+}
+
+// FERender: quaternion matrix, matrix product, radix sort, Render (priority re-sort, visibility, depth order, groups).
+static void TestRender()
+{
+    FEMatrix4 m{};
+    const FEQuaternion q90{0.0f, 0.0f, 0.70710678f, 0.70710678f};   // 90 degrees about z
+    FEQuatGetMatrix(&q90, &m);
+    CHECK(std::fabs(m.m[0]) < 1e-6f && std::fabs(m.m[1] - 1) < 1e-6f && std::fabs(m.m[4] + 1) < 1e-6f && m.m[10] == 1 && m.m[15] == 1 && m.m[12] == 0);
+    FEMatrix4 a{}, b{}, r{};
+    for (int i = 0; i < 16; ++i) { a.m[i] = float(i + 1); b.m[i] = float((i * 7) % 5); }
+    FEMultMatrix(&r, &a, &b);
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j) {
+            float e = 0;
+            for (int k = 0; k < 4; ++k) e += b.m[i * 4 + k] * a.m[k * 4 + j];
+            CHECK(r.m[i * 4 + j] == e);
+        }
+    FEMultMatrix(&a, &a, &b);   // aliasing output
+    CHECK(std::memcmp(&a, &r, sizeof r) == 0);
+
+    auto *e = static_cast<FEngine *>(std::calloc(1, sizeof(FEngine)));
+    for (FEMinList *l : {&e->ActiveList(), &e->mIdlePackages, &e->mLibraries, &e->mMessages, &e->mPackageCommands}) l->vtable = &teststub::feMinListVTable;
+    // sorter: stable, all four key bytes
+    const uint32_t keys[6] = {0x01000000, 0x00000002, 0x00010000, 0x00000002, 0x00000100, 0};
+    e->mSorter.mu32Count = 6;
+    for (uint32_t i = 0; i < 6; ++i) e->mSorter.mEntries[i] = {reinterpret_cast<FEObject *>(uintptr_t(i + 1)), keys[i]};
+    e->mSorter.SortObjects();
+    const uintptr_t order[6] = {6, 2, 4, 5, 3, 1};
+    for (int i = 0; i < 6; ++i) CHECK(reinterpret_cast<uintptr_t>(e->mSorter.mEntries[i].mpObject) == order[i]);
+
+    int gi = 0;
+    e->mpUIData = &gi;
+    e->_unknown000 = 1;
+    alignas(8) unsigned char pm[2][sizeof(FEPackage)] = {};
+    auto *hi = reinterpret_cast<FEPackage *>(pm[0]);
+    auto *lo = reinterpret_cast<FEPackage *>(pm[1]);
+    hi->mi32Priority = 5;
+    lo->mi32Priority = 1;
+    e->ActiveList().AddTail(&hi->node);
+    e->ActiveList().AddTail(&lo->node);
+    for (FEPackage *p : {hi, lo}) p->mObjects.vtable = &teststub::feMinListVTable;
+    alignas(8) unsigned char om[6][sizeof(FEGroup)] = {};
+    float data[6][16] = {};
+    FEObject *o[6];
+    for (int i = 0; i < 6; ++i) {
+        o[i] = reinterpret_cast<FEObject *>(om[i]);
+        o[i]->mpData = data[i];
+        const int32_t alpha = i == 2 ? 0 : 255;
+        std::memcpy(&data[i][3], &alpha, 4);
+        data[i][13] = 1.0f;   // identity rotation
+    }
+    data[0][9] = 5;    // A z 5
+    data[1][9] = 2;    // B z 2
+    data[2][9] = 1;    // C invisible
+    data[3][9] = -1;   // D behind
+    o[4]->mu32Type = 5;   // group G at z 1 (pivot 0) with child E at z 3 -> 4
+    data[4][9] = 1;
+    data[5][9] = 3;
+    auto *g = reinterpret_cast<FEGroup *>(o[4]);
+    g->mChildren.vtable = &teststub::feMinListVTable;
+    g->mChildren.AddTail(&o[5]->node);
+    for (int i : {0, 1, 2, 3, 4}) hi->mObjects.AddTail(&o[i]->node);
+    auto &dl = teststub::delivered;
+    dl.clear();
+    e->mu16RenderContextCount = 9;
+    e->Render();
+    CHECK(e->mpPackages == lo && reinterpret_cast<FEPackage *>(lo->node.next) == hi && e->ActiveList().count == 2);
+    CHECK(teststub::renderedObjects.size() == 3);
+    if (teststub::renderedObjects.size() == 3)
+        CHECK(teststub::renderedObjects[0] == o[1] && teststub::renderedObjects[1] == o[5] && teststub::renderedObjects[2] == o[0]);
+    CHECK(o[5]->mu16RenderContext == 1 && o[4]->mu16RenderContext == 0 && e->mu16RenderContextCount == 1 && e->_unknown5250 == 1);
+    std::vector<std::string> kinds;
+    for (auto &d : dl) kinds.push_back(d.kind);
+    const std::vector<std::string> want = {"view", "beginrender", "renderlist", "endrender", "beginrender", "genctx", "renderlist", "endrender"};
+    CHECK(kinds == want);
+    CHECK(teststub::sortGlobals.mpBuffer == nullptr && teststub::sortGlobals.mu32Max == 0);
+    o[4]->mu32Flags = 0x80000000u;   // hidden group: skipped only while FEng is stopped
+    e->_unknown000 = 0;
+    e->Render();
+    CHECK(teststub::renderedObjects.size() == 2 && e->_unknown5250 == 0);
+    dl.clear();
+    std::free(e);
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
@@ -2241,6 +2326,7 @@ int main()
     TestEnginePushUnload();
     TestEngineUpdate();
     TestButtonMap();
+    TestRender();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();

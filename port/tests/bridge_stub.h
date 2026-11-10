@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include "frontend/FERender.h"
 namespace teststub {
 extern bool useOldDirtyFlag;   // value returned by bridge::UseOldFEngDirtyFlag()
 extern int liveAllocations;    // bridge::Alloc minus bridge::FreeArray
@@ -43,6 +44,9 @@ struct HitTest { void *obj; float x, y; };
 extern std::vector<void *> hitObjects;   // FEGameInterface_IsPointInObject: these are hit
 extern std::vector<HitTest> hitTests;
 extern bool textInputFocused;
+extern std::vector<void *> renderedObjects;   // objects of the last FEGameInterface_RenderObjectList, in order
+extern float viewMatrix[16];
+extern FESortGlobals sortGlobals;
 extern int16_t mouseInfo[4];
    // FEGameInterface_GetPackageData result
 extern void *screenResult;   // ScreenFactory result

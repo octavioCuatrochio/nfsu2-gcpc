@@ -24,6 +24,6 @@ struct FEButtonMap {
 static_assert(sizeof(FEButtonMap) == 8);
 #endif
 
-// PC 504B50 (__cdecl; GC FEMultMatrix 8014xxxx, struct return through `out`): out = m * (v, 1), FEng row-vector
+// PC 504B50 (__cdecl; GC FEMultMatrix(FEVector3*, FEMatrix4 const*, FEVector3 const*) 8013DD08): out = m * (v, 1), FEng row-vector
 // layout (out.x = m0 x + m4 y + m8 z + m12), x87 order of the original.
 void FEMultMatrix(FEVector3 *out, const float *m, const FEVector3 *v);

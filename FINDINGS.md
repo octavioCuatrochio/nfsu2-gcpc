@@ -7,7 +7,7 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:
   1. FEng core (~600 funcs in FE*/cFEng/FEngine classes; done: FEPackageReader, FEPackageData/Manager (but
      NotifySoundMessage), FEPackage (but InitializePackage), FEListBox, FECodeListBox, lists/pools/scripts).
-     Left: FEngine rest (PushPackage 555860, UnloadPackage 5362E0, Update 558C00, ProcessPads 54D4B0 + ProcessMouse 54E020 done; Render,
+     Left: FEngine rest (PushPackage 555860, UnloadPackage 5362E0, Update 558C00, ProcessPads 54D4B0 + ProcessMouse 54E020 + Render 536520 done;
      ctor/ReleaseAll), cFEng (~30: render glue, joy registration), widgets (FEWidget family ~110), input
      (FEJoyPad/FEMouse), FERenderObject/FEngFont/cFEngRender (render glue: bridge D3D), FEHashList/FERefList rest.
   2. Screens/state (zFe.cpp + game classes in zFe2: PlayerCareerState, CarCustomizeManager, RaceStarter...).
@@ -22,6 +22,12 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FEButtonMap (FEPackage +0x90 = {buttons, count}): GetButtonFrom 5189E0 / ComputeButtonLocation 504BB0 /
   FEMultMatrix 504B50 rewritten bit-exact (referee _PC_53 + _PC_24). FEngine +0xD0 = wrap mode (bit0 X +-640,
   bit1 Y +-480). FEObject +0x20 = render context id (u16) for gi vtable +0x2C transform (fails -> raw position).
+- FEngine render (PC unnamed): Render 536520 (caller 5378C0), RenderGroup 52C5D0, RenderObject 51A970, sorter
+  5114F0 (FEngine+0x110 count, +0x114 {obj, key}[1024], +0x2114 scratch[1024]), quat matrix 504A50, 4x4 mult
+  5187A0 (out = b x a). Sort key = float bits of view z (PC; GC int). Render context ids: FEngine +0xD8 counter,
+  FEObject +0x20. FEPackage objects head +0x4C, FEGroup children head +0x64. Data: +0xC alpha (int, 0 = skip),
+  +0x10 pivot, +0x1C position, +0x28 rotation quaternion. gi vtable 0x79BCD8: +0x20 Begin, +0x24 End,
+  +0x28 GenerateRenderContext, +0x2C GetContextTransform, +0x30 RenderObjectList, +0x3C GetViewTransformation.
 - Referee: bridge_stub.cpp under NFSU2_REFEREE must call game-interface slots through the vtable (fake gi).
 - Single instance: an earlier SPEED2.EXE still running makes a new launch exit quietly -> check pgrep before A/B.
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
