@@ -428,4 +428,8 @@ bool WheelPluggedIn(int32_t player);             // PC 5C1000(*(0x83A9D8 + playe
 void FEWidget_Enable(void *widget);              // widget vtable +0x1C
 void ResetVideoDefaults();                       // PC 5CEC90 (__cdecl)
 void ApplyVideoSettings();                       // PC 5BEEA0 (__cdecl)
+int32_t RaceCoordinatorPausePlayer();             // PC *(*(0x8900D8) + 0x20) (no null check)
+int32_t PlayerId(int32_t number);                // PC Player::pPlayersByNumber[n] (0x8900AC) ->+8, null -> -1
+void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t d);   // PC *(0x8650B8)->578EF0(a, b, c, d), no null check
+void Player_ChangeCamera(int32_t number, int32_t dir);   // PC Player::pPlayersByNumber[n] (0x8900AC) 5F2FA0(dir) (__thiscall)
 }  // namespace bridge

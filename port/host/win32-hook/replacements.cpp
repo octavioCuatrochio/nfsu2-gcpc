@@ -608,6 +608,14 @@ void THISCALL OC_AutoSave_Act(OptionCycle *self, const char *, uint32_t msg) { s
 void THISCALL OC_AutoSave_Draw(OptionCycle *self) { self->AutoSaveDraw(); }
 void THISCALL OC_Resolution_Act(OptionCycle *self, const char *, uint32_t msg) { self->ResolutionAct(msg); }
 void THISCALL OC_Resolution_Draw(OptionCycle *self) { self->ResolutionDraw(); }
+void THISCALL OC_PPOTransmission_Act(OptionCycle *self, const char *, uint32_t msg) { self->PPOTransmissionAct(msg); }
+void THISCALL OC_PPOTransmission_Draw(OptionCycle *self) { self->PPOTransmissionDraw(); }
+void THISCALL OC_PPOHandling_Act(OptionCycle *self, const char *, uint32_t msg) { self->PPOHandlingAct(msg); }
+void THISCALL OC_PPOHandling_Draw(OptionCycle *self) { self->PPOHandlingDraw(); }
+void THISCALL OC_PPODriveCam_Act(OptionCycle *self, const char *, uint32_t msg) { self->PPODriveCamAct(msg); }
+void THISCALL OC_PPODriveCam_Draw(OptionCycle *self) { self->PPODriveCamDraw(); }
+void THISCALL OC_PPOSplitTime_Act(OptionCycle *self, const char *, uint32_t msg) { self->PPOSplitTimeAct(msg); }
+void THISCALL OC_PPOSplitTime_Draw(OptionCycle *self) { self->PPOSplitTimeDraw(); }
 void THISCALL Detail_Act(DetailSlider *self, const char *, uint32_t msg) { self->Act(msg); }
 void THISCALL Detail_Draw(DetailSlider *self) { self->Draw(); }
 void THISCALL Detail_Init(DetailSlider *self) { self->SetInitialValues(); }
@@ -1260,6 +1268,24 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x4C3C70, (const void *)&OC_PPOTransmission_Act, "PPOTransmission::Act", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x3D}},
+    {0x4C3D80, (const void *)&OC_PPOTransmission_Draw, "PPOTransmission::Draw", {0x56, 0x57, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4C31D0, (const void *)&OC_PPOHandling_Act, "PPOHandling::Act", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x3D}},
+    {0x4C32E0, (const void *)&OC_PPOHandling_Draw, "PPOHandling::Draw", {0x56, 0x57, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4C3E10, (const void *)&OC_PPODriveCam_Act, "PPODriveCam::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x4C3E60, (const void *)&OC_PPODriveCam_Draw, "PPODriveCam::Draw", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x47}},
+    {0x4C4450, (const void *)&OC_PPOSplitTime_Act, "PPOSplitTime::Act", {0x8B, 0x15, 0xAC, 0x00, 0x89, 0x00}},
+    {0x4C4510, (const void *)&OC_PPOSplitTime_Draw, "PPOSplitTime::Draw", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x47}},
+    {0x4C3F50, (const void *)&OptToggle_Act<10>, "PPOGauges::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x4C4010, (const void *)&OptToggle_Draw<10>, "PPOGauges::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4C4090, (const void *)&OptToggle_Act<11>, "PPOPosition::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x4C4150, (const void *)&OptToggle_Draw<11>, "PPOPosition::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4C41D0, (const void *)&OptToggle_Act<12>, "PPOLapInfo::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x4C4290, (const void *)&OptToggle_Draw<12>, "PPOLapInfo::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4C4310, (const void *)&OptToggle_Act<13>, "PPOScore::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x4C43D0, (const void *)&OptToggle_Draw<13>, "PPOScore::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4C4600, (const void *)&OptToggle_Act<14>, "PPOLeaderBoard::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x4C46C0, (const void *)&OptToggle_Draw<14>, "PPOLeaderBoard::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x4CF750, (const void *)&UOS_Ctor, "UIOptionsScreen::UIOptionsScreen", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4CFAF0, (const void *)&UOS_ScalarDtor, "UIOptionsScreen scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
     {0x4CFB10, (const void *)&UOS_Dtor, "UIOptionsScreen::~UIOptionsScreen", {0xC7, 0x01, 0x28, 0x5E, 0x79, 0x00}},

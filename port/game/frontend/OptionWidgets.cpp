@@ -37,7 +37,7 @@ void AOVolumeSlider::SetInitialValues(uint32_t field)
     s.SetCurValue(v);
 }
 
-const OptionToggleInfo kOptionToggles[10] = {
+const OptionToggleInfo kOptionToggles[15] = {
     {0x791B70, 0x49AC20, 0x49AC60, ToggleFlag::Global, 0x8500C9, 0x0B660729u, "OOShowPlayers"},
     {0x791BB8, 0x49ACB0, 0x49ACF0, ToggleFlag::Global, 0x8500CA, 0xD1009B34u, "OOBadConnectionWarning"},
     {0x791C48, 0x49AE00, 0x49AE40, ToggleFlag::Global, 0x83AA18, 0x85A6CE05u, "GORearview"},
@@ -48,13 +48,26 @@ const OptionToggleInfo kOptionToggles[10] = {
     {0x794330, 0x4B7BB0, 0x4B7C00, ToggleFlag::EditedPlayer, 0x05, 0xC93FBFB5u, "POLeaderBoard"},
     {0x794378, 0x4B7C40, 0x4B7C90, ToggleFlag::EditedPlayer, 0x06, 0xBFB34120u, "POTrannyPrompt"},
     {0x791DB0, 0x49B260, 0x49B2B0, ToggleFlag::OwnPlayer, 0x04, 0x358CDCFDu, "PC player toggle 791DB0"},
+    {0x7956F0, 0x4C3F50, 0x4C4010, ToggleFlag::PausingPlayer, 0x00, 0xAC148579u, "PPOGauges"},
+    {0x795738, 0x4C4090, 0x4C4150, ToggleFlag::PausingPlayer, 0x01, 0x82CD8F92u, "PPOPosition"},
+    {0x795780, 0x4C41D0, 0x4C4290, ToggleFlag::PausingPlayer, 0x02, 0x969F96A5u, "PPOLapInfo"},
+    {0x7957C8, 0x4C4310, 0x4C43D0, ToggleFlag::PausingPlayer, 0x03, 0xC03F9F19u, "PPOScore"},
+    {0x795858, 0x4C4600, 0x4C46C0, ToggleFlag::PausingPlayer, 0x05, 0xC93FBFB5u, "PPOLeaderBoard"},
 };
+
+int32_t PausingPlayerIndex()
+{
+    const int32_t p = bridge::RaceCoordinatorPausePlayer();
+    if (p == bridge::PlayerId(0)) return 0;
+    return p == bridge::PlayerId(1) ? 1 : 0;
+}
 
 uint8_t &OptionToggleFlag(const OptionToggle &t, const OptionToggleInfo &info)
 {
     switch (info.kind) {
     case ToggleFlag::Global: return *bridge::GameByte(info.addr);
     case ToggleFlag::EditedPlayer: return bridge::PlayerControllerOptions(bridge::PlayerToEditForOptions())[info.addr];
+    case ToggleFlag::PausingPlayer: return bridge::PlayerControllerOptions(PausingPlayerIndex())[info.addr];
     default: return bridge::PlayerControllerOptions(t.mPlayer)[info.addr];
     }
 }
@@ -324,3 +337,46 @@ void OptionButton::TrailerAct(const char *pkg, uint32_t msg)
     Forward(pkg);
 }
 void OptionButton::TrailerDraw(const char *name) const { bridge::FEPrintfFormat(base.mpObject, name); }
+
+namespace {
+uint8_t *PausingRecord() { return bridge::PlayerControllerOptions(PausingPlayerIndex()); }
+void PPOFlip(uint32_t off, int32_t cameraKind, void *w, uint32_t msg)
+{
+    if (msg == kLeft || msg == kRight) {
+        uint8_t v = PausingRecord()[off];
+        if (v == 0) v = 1;
+        else if (v == 1) v = 0;
+        PausingRecord()[off] = v;
+        bridge::JumpCamObject_Call578EF0(cameraKind, PausingPlayerIndex(), v, 1);
+    }
+    BlinkDraw(w, msg);
+}
+}  // namespace
+
+void OptionCycle::PPOTransmissionAct(uint32_t msg) { PPOFlip(0x15, 1, this, msg); }
+void OptionCycle::PPOTransmissionDraw() const { SetNameValue(base, 0xD31407E7u, Pick(PausingRecord()[0x15], {0x61CB0720u, 0x1B3A2485u})); }
+void OptionCycle::PPOHandlingAct(uint32_t msg) { PPOFlip(0x16, 2, this, msg); }
+void OptionCycle::PPOHandlingDraw() const { SetNameValue(base, 0xDF06ED22u, Pick(PausingRecord()[0x16], {0x63Cu, 0xCCFAu})); }
+
+void OptionCycle::PPODriveCamAct(uint32_t msg)
+{
+    if (msg == kLeft) bridge::Player_ChangeCamera(PausingPlayerIndex(), -1);
+    else if (msg == kRight) bridge::Player_ChangeCamera(PausingPlayerIndex(), 1);
+    BlinkDraw(this, msg);
+}
+void OptionCycle::PPODriveCamDraw() const
+{
+    const int32_t v = *reinterpret_cast<const int32_t *>(PausingRecord() + 0x10);
+    SetNameValue(base, 0xF6CCDC5Fu, Pick(v, {0xC3E9AE58u, 0x414F19D7u, 0x5AE3441Fu, 0x1EA4CEC2u, 0x916039B4u}));
+}
+
+void OptionCycle::PPOSplitTimeAct(uint32_t msg)
+{
+    uint8_t &f = PausingRecord()[0x14];
+    f = static_cast<uint8_t>(Cycle(f, msg, 4));
+    BlinkDraw(this, msg);
+}
+void OptionCycle::PPOSplitTimeDraw() const
+{
+    SetNameValue(base, 0x084BC378u, Pick(PausingRecord()[0x14], {0xD93F8F55u, 0xC44D3943u, 0x17FAFC32u, 0x1EA459F8u, 0xCCFAu}));
+}

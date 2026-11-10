@@ -81,6 +81,7 @@ uint8_t audioSettings[0x40] = {};
 uint8_t gameBytes[0x100] = {};
 void *jumpCamObject = nullptr;
 int32_t optionsPage = 0;
+int32_t pausePlayer = 0, playerIds[2] = {0, 1};
 bool wheelPlugged = false;
 bool autoSaveAllowed = false;
 bool browsingParts = false;
@@ -949,4 +950,13 @@ bool WheelPluggedIn(int32_t) { return teststub::wheelPlugged; }
 void FEWidget_Enable(void *w) { teststub::delivered.push_back({"enable", w, nullptr, 0, 0}); }
 void ResetVideoDefaults() { teststub::delivered.push_back({"videodefaults", nullptr, nullptr, 0, 0}); }
 void ApplyVideoSettings() { teststub::delivered.push_back({"applyvideo", nullptr, nullptr, 0, 0}); }
+#ifdef NFSU2_REFEREE
+int32_t RaceCoordinatorPausePlayer() { return *reinterpret_cast<const int32_t *>(*reinterpret_cast<const uint8_t *const *>(0x8900D8) + 0x20); }
+int32_t PlayerId(int32_t n) { const uint8_t *p = reinterpret_cast<const uint8_t *const *>(0x8900AC)[n]; return p ? *reinterpret_cast<const int32_t *>(p + 8) : -1; }
+#else
+int32_t RaceCoordinatorPausePlayer() { return teststub::pausePlayer; }
+int32_t PlayerId(int32_t n) { return teststub::playerIds[n]; }
+#endif
+void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t) { teststub::delivered.push_back({"camcall", nullptr, nullptr, static_cast<uint32_t>(a * 100 + b), static_cast<uint32_t>(c)}); }
+void Player_ChangeCamera(int32_t n, int32_t dir) { teststub::delivered.push_back({"changecam", nullptr, nullptr, static_cast<uint32_t>(n), static_cast<uint32_t>(dir)}); }
 }  // namespace bridge

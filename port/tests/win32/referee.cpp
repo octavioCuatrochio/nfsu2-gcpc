@@ -3148,9 +3148,16 @@ static void CheckOptionToggles(int iters)
     const uint32_t gl[3] = {0x8500C9, 0x8500CA, 0x83AA18};
     for (int k = 0; k < 3; ++k) savedG[k] = *reinterpret_cast<uint8_t *>(gl[k]);
     std::memcpy(&savedP, reinterpret_cast<void *>(0x836364), 4);
+    void *savedRace[3] = {*reinterpret_cast<void **>(0x8900D8), reinterpret_cast<void **>(0x8900AC)[0], reinterpret_cast<void **>(0x8900AC)[1]};
     static OptionToggle A, B;
     for (int it = 0; it < iters; ++it) {
-        const OptionToggleInfo &v = kOptionToggles[rng() % 10];
+        const OptionToggleInfo &v = kOptionToggles[rng() % 15];
+        // synthetic race coordinator / players for the PPO (pausing player) variants
+        static uint8_t coord[0x40], pl[2][0x10];
+        *reinterpret_cast<int32_t *>(coord + 0x20) = static_cast<int32_t>(rng() % 4) - 1;
+        for (int k = 0; k < 2; ++k) *reinterpret_cast<int32_t *>(pl[k] + 8) = static_cast<int32_t>(rng() % 4) - 1;
+        *reinterpret_cast<void **>(0x8900D8) = coord;
+        for (int k = 0; k < 2; ++k) reinterpret_cast<void **>(0x8900AC)[k] = rng() % 4 ? pl[k] : nullptr;
         uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
         for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
         A.mPlayer = static_cast<int32_t>(rng() % 2);
@@ -3172,6 +3179,9 @@ static void CheckOptionToggles(int iters)
     std::memcpy(reinterpret_cast<void *>(0x83AA64), savedRec, sizeof savedRec);
     for (int k = 0; k < 3; ++k) *reinterpret_cast<uint8_t *>(gl[k]) = savedG[k];
     std::memcpy(reinterpret_cast<void *>(0x836364), &savedP, 4);
+    *reinterpret_cast<void **>(0x8900D8) = savedRace[0];
+    reinterpret_cast<void **>(0x8900AC)[0] = savedRace[1];
+    reinterpret_cast<void **>(0x8900AC)[1] = savedRace[2];
 }
 
 // Multi-value option toggles: Act on the real globals (saved / restored; values include out-of-range ones and game
@@ -3184,17 +3194,23 @@ static void CheckOptionCycles(int iters)
     for (int k = 0; k < 9; ++k) std::memcpy(saved[k], reinterpret_cast<void *>(gs[k].addr), gs[k].size);
     std::memcpy(savedRec, reinterpret_cast<void *>(0x83AA64), sizeof savedRec);
     std::memcpy(&savedP, reinterpret_cast<void *>(0x836364), 4);
+    void *savedRace[3] = {*reinterpret_cast<void **>(0x8900D8), reinterpret_cast<void **>(0x8900AC)[0], reinterpret_cast<void **>(0x8900AC)[1]};
     using Act = void (OptionCycle::*)(uint32_t);
-    const struct { uint32_t pc; Act act; const char *name; } fs[11] = {
+    const struct { uint32_t pc; Act act; const char *name; } fs[12] = {
         {0x49AB80, &OptionCycle::AudioModeAct, "AOAudioMode"}, {0x49AE80, &OptionCycle::SpeedoUnitsAct, "GOSpeedoUnits"},
         {0x49AFE0, &OptionCycle::RacingMiniMapAct, "GORacingMiniMap"}, {0x49AF20, &OptionCycle::DifficultyAct, "GOCareerDifficulty"},
         {0x49B0B0, &OptionCycle::ExploringMiniMapAct, "GOExploringMiniMap"}, {0x4B75D0, &OptionCycle::TransmissionAct, "POTransmission"},
         {0x4B7690, &OptionCycle::HandlingAct, "POHandling"}, {0x4B7750, &OptionCycle::DriveCamAct, "PODriveCam"},
         {0x4B7AA0, &OptionCycle::SplitTimeAct, "POSplitTime"}, {0x49AD40, &OptionCycle::JumpCamsAct, "GOJumpCams"},
-        {0x49B170, &OptionCycle::AutoSaveAct, "GOAutoSave"}};
+        {0x49B170, &OptionCycle::AutoSaveAct, "GOAutoSave"}, {0x4C4450, &OptionCycle::PPOSplitTimeAct, "PPOSplitTime"}};
     static OptionCycle A, B;
     for (int it = 0; it < iters; ++it) {
-        const auto &f = fs[rng() % 11];
+        const auto &f = fs[rng() % 12];
+        static uint8_t coord[0x40], plr[2][0x10];
+        *reinterpret_cast<int32_t *>(coord + 0x20) = static_cast<int32_t>(rng() % 4) - 1;
+        for (int k = 0; k < 2; ++k) *reinterpret_cast<int32_t *>(plr[k] + 8) = static_cast<int32_t>(rng() % 4) - 1;
+        *reinterpret_cast<void **>(0x8900D8) = coord;
+        for (int k = 0; k < 2; ++k) reinterpret_cast<void **>(0x8900AC)[k] = rng() % 4 ? plr[k] : nullptr;
         uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
         for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
         A.base.base.base.vtable = brand_fake::vtable;
@@ -3224,6 +3240,9 @@ static void CheckOptionCycles(int iters)
     for (int k = 0; k < 9; ++k) std::memcpy(reinterpret_cast<void *>(gs[k].addr), saved[k], gs[k].size);
     std::memcpy(reinterpret_cast<void *>(0x83AA64), savedRec, sizeof savedRec);
     std::memcpy(reinterpret_cast<void *>(0x836364), &savedP, 4);
+    *reinterpret_cast<void **>(0x8900D8) = savedRace[0];
+    reinterpret_cast<void **>(0x8900AC)[0] = savedRace[1];
+    reinterpret_cast<void **>(0x8900AC)[1] = savedRace[2];
 }
 
 // PC display options: resolution Act over the real mode table (0x86E880, index 0x870D1C, dirty 0x8709D1) and the

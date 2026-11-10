@@ -523,4 +523,8 @@ bool WheelPluggedIn(int32_t p) { return reinterpret_cast<uint8_t(__cdecl *)(int3
 void FEWidget_Enable(void *w) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[0x1C / 4](w); }
 void ResetVideoDefaults() { reinterpret_cast<void(__cdecl *)()>(0x5CEC90)(); }
 void ApplyVideoSettings() { reinterpret_cast<void(__cdecl *)()>(0x5BEEA0)(); }
+int32_t RaceCoordinatorPausePlayer() { return *reinterpret_cast<const int32_t *>(*reinterpret_cast<const uint8_t *const *>(0x8900D8) + 0x20); }
+int32_t PlayerId(int32_t n) { const uint8_t *p = reinterpret_cast<const uint8_t *const *>(0x8900AC)[n]; return p ? *reinterpret_cast<const int32_t *>(p + 8) : -1; }
+void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t d) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t, int32_t, int32_t)>(0x578EF0)(JumpCamObject(), a, b, c, d); }
+void Player_ChangeCamera(int32_t n, int32_t dir) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x5F2FA0)(reinterpret_cast<void **>(0x8900AC)[n], dir); }
 }  // namespace bridge

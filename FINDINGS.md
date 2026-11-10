@@ -100,7 +100,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   PC Controls page = UI_Options_PC_Controller.fng (create 4F92E0, 0x15C, ctor 4ECD10, vtable 797DE4, Notify 4F9340):
   PC-only key binding screen on MenuScreen + scroll bar +0x80, deps 4DBA50 / 4DC9F0 / 4DDC10 (~4 KB input mapping
   each) -> its own input-system unit later. GC UIOptionsController (console pad pictures) has no PC screen.
-  Next (whole files): UIPauseOptions (+ PPO* widgets).
+  PPO* pause widgets done (OptionWidgets.cpp; pausing player = 4A7AE0 logic: RaceCoordinator *0x8900D8 +0x20 vs
+  Player ids +8). Transmission/Handling also call *0x8650B8 578EF0(1|2, player, value, 1); DriveCam calls
+  Player 5F2FA0(+-1). Not yet run in-game.
+  Next: UIPauseOptions screen itself (vtable 796504: ctor 4D93C0, ReadyToExit 4A7F70, Notify 4A8010, Setup 4C4BD0,
+  SetupAudio 4C3370, SetupVideo 4C36C0, SetupGameplay 4C38F0, SetupPlayer 4C4740) - reuses all option widgets.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

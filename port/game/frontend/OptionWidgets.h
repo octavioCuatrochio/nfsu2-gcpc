@@ -34,10 +34,13 @@ struct OptionToggle {
     FEToggleWidget base;             // +0x00
     int32_t mPlayer;                 // +0x54 (791DB0 only, 0x58 bytes; the others are 0x54)
 };
-enum class ToggleFlag : uint8_t { Global, EditedPlayer, OwnPlayer };
+enum class ToggleFlag : uint8_t { Global, EditedPlayer, OwnPlayer, PausingPlayer };
+// PPO* (pause options): the record of the player who paused: RaceCoordinator (*0x8900D8) +0x20 compared with the
+// ids (+8, null -> -1) of Player::pPlayersByNumber[0] (*0x8900AC) / [1] (*0x8900B0): 0, 1, else 0.
+int32_t PausingPlayerIndex();
 struct OptionToggleInfo { uint32_t vtable, act, draw; ToggleFlag kind; uint32_t addr; uint32_t nameHash; const char *name; };
 // addr: the byte (Global) or the offset in the 0x28-byte player record (player kinds)
-extern const OptionToggleInfo kOptionToggles[10];
+extern const OptionToggleInfo kOptionToggles[15];
 uint8_t &OptionToggleFlag(const OptionToggle &t, const OptionToggleInfo &info);
 void OptionToggleAct(OptionToggle &t, const OptionToggleInfo &info, uint32_t msg);
 void OptionToggleDraw(const OptionToggle &t, const OptionToggleInfo &info);
@@ -88,6 +91,16 @@ struct OptionCycle {
     // last / first); an unavailable result restores the old index; a change sets the dirty byte 0x8709D1.
     // Draw only (no BlinkArrows). Draw: name 0xA9A76BBA, value printed "640x480" .. "1600x1200" (0..5).
     void ResolutionAct(uint32_t msg);      void ResolutionDraw() const;
+    // PPO* (pause options) versions on the pausing player's record:
+    //   PPOTransmission 795660: Act 4C3C70 / Draw 4C3D80: as PO + *0x8650B8 578EF0(1, player, value, 1) (no null check)
+    //   PPOHandling     7955F0: Act 4C31D0 / Draw 4C32E0: as PO + 578EF0(2, player, value, 1)
+    //   PPODriveCam     7956A8: Act 4C3E10 / Draw 4C3E60: left/right -> Player::pPlayersByNumber[4A7AE0()] 5F2FA0(-1 / +1)
+    //                   (the camera itself, not the record); Draw as PO on the pausing player's record
+    //   PPOSplitTime    795810: Act 4C4450 / Draw 4C4510: as PO
+    void PPOTransmissionAct(uint32_t msg); void PPOTransmissionDraw() const;
+    void PPOHandlingAct(uint32_t msg);     void PPOHandlingDraw() const;
+    void PPODriveCamAct(uint32_t msg);     void PPODriveCamDraw() const;
+    void PPOSplitTimeAct(uint32_t msg);    void PPOSplitTimeDraw() const;
 };
 
 // PC-only detail-level slider 791F78 (0x9C): Act 49B740 / Draw 49B7A0 / SetInitialValues 49B7C0. Value = int
