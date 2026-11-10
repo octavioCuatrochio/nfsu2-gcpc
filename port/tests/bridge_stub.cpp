@@ -66,6 +66,8 @@ int32_t discError = 0;
 const char *singlePackage = nullptr;
 uint8_t mouseGlobals[0x24] = {};
 int32_t language = 0;
+uint8_t fontMetrics[48] = {};
+const void *realFontData = nullptr;
 int giVTable, initializerVTable, movieStarterVTable, movieStopperVTable, dirtyMakerVTable;
 int32_t insideScreenCtor = 0, gameFlowState = 0;
 float worldTime = 0, realTime = 0;
@@ -219,6 +221,19 @@ void FEGameInterface_GenerateRenderContext(void *gi, uint32_t c, FEObject *g) { 
 void FEGameInterface_RenderObjectList(void *gi, void *e, uint32_t n) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *, uint32_t)>(gi))[0x30 / 4](gi, e, n); }
 void FEGameInterface_GetViewTransformation(void *gi, void *m) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *)>(gi))[0x3C / 4](gi, m); }
 FESortGlobals *FEngSortGlobals() { return reinterpret_cast<FESortGlobals *>(0x838488); }
+FEngFontList *FontList() { return reinterpret_cast<FEngFontList *>(0x863768); }
+const uint32_t *FontAlias() { return reinterpret_cast<const uint32_t *>(0x7F9184); }
+const uint8_t *FontMetricsTable() { return reinterpret_cast<const uint8_t *>(0x7F918C); }
+const char *LanguageSuffix(int32_t lang)
+{
+    const auto *t = reinterpret_cast<const uint8_t *>(0x7F7020);
+    for (int i = 0; i < 11; ++i, t += 16)
+        if (*reinterpret_cast<const int32_t *>(t) == lang) return *reinterpret_cast<const char *const *>(t + 4);
+    return reinterpret_cast<const char *>(0x79AA54);
+}
+void *RealFont_Create(const void *d) { return const_cast<void *>(d); }
+void RealFont_Destroy(void *) {}
+void *FixupTextureInfoNull(void *t, uint32_t, uint32_t, uint32_t) { return t; }
 void *FEGameInterfaceVTable() { return reinterpret_cast<void *>(0x79BCD8); }
 void *FEObjectInitializerVTable() { return reinterpret_cast<void *>(0x79AAEC); }
 void *FEngMovieStarterVTable() { return reinterpret_cast<void *>(0x79AB84); }
@@ -264,6 +279,17 @@ const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, FEObject *)>(gi))[0x34 / 4](gi, o); }
 void FEPackageManager_NotifySoundMessage(FEPackageManager *m, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, uint32_t, uint32_t, uint32_t, uint32_t)>(0x52CC90)(m, a, b, c, d); }
 #else
+FEngFontList *FontList() { static FEngFontList l{reinterpret_cast<::FEngFont *>(&l), reinterpret_cast<::FEngFont *>(&l)}; return &l; }
+const uint32_t *FontAlias() { static const uint32_t a[2] = {0x9583AA1Au, 0x5B9D88B9u}; return a; }
+const uint8_t *FontMetricsTable() { return teststub::fontMetrics; }
+const char *LanguageSuffix(int32_t lang)
+{
+    static const char *const names[11] = {"ENGLISH", "FRENCH", "GERMAN", "ITALIAN", "SPANISH", "DUTCH", "SWEDISH", "DANISH", "KOREAN", "CHINESE", "JAPANESE"};
+    return lang >= 0 && lang < 11 ? names[lang] : "UNKNOWN";
+}
+void *RealFont_Create(const void *d) { teststub::realFontData = d; return const_cast<void *>(d); }
+void RealFont_Destroy(void *f) { teststub::delivered.push_back({"fontdestroy", f, nullptr, 0, 0}); }
+void *FixupTextureInfoNull(void *t, uint32_t h, uint32_t, uint32_t) { return h == 0x77 ? teststub::movieTexture : t; }
 void *FEGameInterfaceVTable() { return &teststub::giVTable; }
 void *FEObjectInitializerVTable() { return &teststub::initializerVTable; }
 void *FEngMovieStarterVTable() { return &teststub::movieStarterVTable; }

@@ -2,6 +2,12 @@
 #include <cstddef>
 #include "bridge/Bridge.h"
 #include "bWare/bString.h"
+#include "FEHash.h"
+#include "FEMath.h"
+#include "FEObject.h"
+#include "FEString.h"
+#include "cFEngRender.h"
+#include <cstring>
 
 using L = long double;
 
@@ -267,4 +273,197 @@ void *FEngFont::GetJoyEventTextureInfo(const uint16_t *text)
         }
     }
     return bridge::GetTextureInfo(hash, 1, 0);
+}
+
+// ---- font objects ----
+
+FEngFont *FEngFont::Construct(const uint8_t *chunk)
+{
+    char *name = reinterpret_cast<char *>(const_cast<uint8_t *>(chunk + 8));
+    mpTexture = nullptr;
+    mpData = nullptr;
+    _unknown10 = 0;
+    mu32NameHash = 0;
+    mu32TextureHash = 0;
+    mfLineHeight = 0;
+    mpcName = name;
+    mpcTextureName = name + 0x100;
+    const uint32_t fullHash = FEHashUpper(name);
+    // "_<LANGUAGE>" suffix: for every position, every language id 0..13 (table 0x7F7020 has 11; others "UNKNOWN")
+    for (int32_t pos = 0; pos < bStrLen(mpcName); ++pos) {
+        for (int32_t lang = 0; lang < 14; ++lang) {
+            const char *suffix = bridge::LanguageSuffix(lang);
+            if (bStrICmp(mpcName + pos, suffix) == 0 && pos > 0 && mpcName[pos - 1] == '_') {
+                mpcName[pos - 1] = 0;
+                break;
+            }
+        }
+    }
+    mpData = static_cast<FEngFontData *>(bridge::RealFont_Create(mpcTextureName + 0x100));
+    mu32NameHash = FEHashUpper(mpcName);
+    mu32TextureHash = FEHashUpper(mpcTextureName);
+    int32_t lineHeight;
+    std::memcpy(&lineHeight, reinterpret_cast<const uint8_t *>(mpData) + 0x24, 4);
+    mfLineHeight = static_cast<float>(lineHeight);
+    mpTexture = bridge::GetTextureInfo(mu32TextureHash, 0, 0);
+    mfBaseline = 0;
+    mfLeadingScale = 1.0f;
+    const uint8_t *m = bridge::FontMetricsTable();
+    for (int i = 0; i < 4; ++i, m += 12) {
+        uint32_t h;
+        std::memcpy(&h, m, 4);
+        if (h == fullHash) {   // PC: the hash before the suffix was cut
+            std::memcpy(&mfBaseline, m + 4, 4);
+            std::memcpy(&mfLeadingScale, m + 8, 4);
+            break;
+        }
+    }
+    return this;
+}
+
+void FEngFont::Destroy() { bridge::RealFont_Destroy(mpData); }
+
+void FEngFont::NotifyTextureLoading(uint32_t a, uint32_t b)
+{
+    bridge::FEngFontList *l = bridge::FontList();
+    auto *sentinel = reinterpret_cast<FEngFont *>(l);
+    for (FEngFont *f = l->mpHead; f != sentinel; f = f->mpNext) {
+        void *t = bridge::FixupTextureInfoNull(f->mpTexture, f->mu32TextureHash, a, b);
+        if (t != f->mpTexture) f->mpTexture = t;
+    }
+}
+
+FEngFont *FEngFindFontNative(uint32_t hash)
+{
+    bridge::FEngFontList *l = bridge::FontList();
+    auto *sentinel = reinterpret_cast<FEngFont *>(l);
+    for (;;) {
+        for (FEngFont *f = l->mpHead; f != sentinel; f = f->mpNext)
+            if (f->mu32NameHash == hash) return f;
+        const uint32_t *alias = bridge::FontAlias();
+        if (hash != alias[0]) return nullptr;
+        hash = alias[1];   // PC: the alias is looked up again (and again, if it aliases itself)
+    }
+}
+
+int32_t LoaderFEngFont(const uint8_t *chunk)
+{
+    uint32_t id;
+    std::memcpy(&id, chunk, 4);
+    if (id != 0x30201u) return 0;
+    void *mem = bridge::Alloc(static_cast<uint32_t>(sizeof(FEngFont)));
+    FEngFont *f = mem ? static_cast<FEngFont *>(mem)->Construct(chunk) : nullptr;
+    bridge::FEngFontList *l = bridge::FontList();
+    FEngFont *head = l->mpHead;   // PC: no null check
+    l->mpHead = f;
+    head->mpPrev = f;
+    f->mpPrev = reinterpret_cast<FEngFont *>(l);
+    f->mpNext = head;
+    return 1;
+}
+
+// ---- rendering ----
+
+void FEngFont::RenderCharacter(const FEngGlyph *g, float x, float y, const uint32_t *colours, FERenderObject *cached,
+                               void *renderInfo, bool useZ)
+{
+    const uint8_t *tex = static_cast<const uint8_t *>(mpTexture);
+    int16_t tw16, th16;
+    std::memcpy(&tw16, tex + 0x44, 2);
+    std::memcpy(&th16, tex + 0x46, 2);
+    const L tw = tw16, th = th16;
+    const float u0 = static_cast<float>(L(int32_t(g->mu16X) - 1) / tw);
+    const float u1 = static_cast<float>(L(int32_t(g->mu8Width) + g->mu16X + 1) / tw);
+    const float v0 = static_cast<float>(L(int32_t(g->mu16Y) - 1) / th);
+    const float v1 = static_cast<float>(L(int32_t(g->mu8Height) + g->mu16Y + 1) / th);
+    L w = g->mu8Width;
+    if (w < 4.0L) w = 4.0L;   // PC: test 0x05 (narrow glyphs drawn 4 wide)
+    const L x0e = L(g->mi8XOffset) + x;
+    const float x0 = static_cast<float>(x0e);
+    const float x1 = static_cast<float>(x0e + w);
+    const float y0 = static_cast<float>((L(g->mi8YOffset) + mfBaseline) + y);
+    const float y1 = static_cast<float>(L(g->mu8Height) + y0);
+    float z = 0;
+    if (useZ) z = static_cast<const float *>(cached->mpObject->mpData)[9];
+    cached->AddPoly(x0, y0, x1, y1, z, u0, v0, u1, v1, colours, renderInfo, useZ);
+}
+
+void FEngFont::RenderString(const int32_t *colour, const uint16_t *text, FEObject *obj, const bMatrix4 *matrix,
+                            FERenderObject *cached, void *renderInfo)
+{
+    auto *str = reinterpret_cast<FEString *>(obj);
+    const uint32_t justify = str->_unknown6C;
+    int32_t leading;
+    std::memcpy(&leading, reinterpret_cast<const uint8_t *>(obj) + 0x70, 4);
+    const int32_t spacing = FEFtol(L(leading) * mfLeadingScale);
+    const uint32_t flags = obj->mu32Flags;
+    uint32_t maxWidth;
+    std::memcpy(&maxWidth, reinterpret_cast<const uint8_t *>(obj) + 0x74, 4);
+    L height;
+    if (justify & 5) height = L(static_cast<int32_t>(GetNumWordWrappedLines(text, flags, maxWidth))) * (L(leading) * mfLeadingScale + mfLineHeight);
+    else height = GetTextHeight(text, spacing);
+    float y = justify & 4 ? static_cast<float>(height * -0.5L) : justify & 8 ? static_cast<float>(-height) : 0.0f;
+    auto lineX = [&](L w) -> float { return justify & 1 ? static_cast<float>(w * -0.5L) : justify & 2 ? static_cast<float>(-w) : 0.0f; };
+    float x = lineX(GetLineWidth(text, flags, maxWidth, nullptr));
+    float lineStart = x;
+    const uint32_t p = static_cast<uint32_t>(((((colour[0] / 2) | (static_cast<uint32_t>(colour[3]) << 8)) << 8) | static_cast<uint32_t>(colour[1] / 2)) << 8) | static_cast<uint32_t>(colour[2] / 2);
+    const uint32_t colours[4] = {p, p, p, p};
+    if (!mpTexture) return;
+    cached->mTransform = *matrix;
+    bool wrapped = false;
+    float lineWidth = static_cast<float>(GetLineWidth(text, flags, maxWidth, &wrapped));
+    uint16_t c = *text;
+    bool resetKern = false;
+    uint32_t count = 0;
+    while (c) {
+        if (resetKern) { count = 0; resetKern = false; }
+        bool newLine = false;
+        if (!(flags & 0x20) && (c == '\n' || c == '^')) {
+            ++text;
+            if (!*text) break;
+            lineWidth = static_cast<float>(GetLineWidth(text, flags, maxWidth, &wrapped));
+            x = lineStart = lineX(lineWidth);
+            newLine = true;
+        } else {
+            bool token = false;
+            if (!(flags & 0x820) && c == '$') {
+                const uint16_t *q = text + 1;
+                uint32_t len = 0;
+                while (*q && *q != '$') { ++q; ++len; }
+                if (len) {
+                    text = FEngSkipJoyEventTexture(text, flags);
+                    resetKern = true;
+                    token = true;
+                }
+            }
+            if (!token) {
+                bool kern = true;
+                if ((flags & 0x80) && c == 0xA0) {
+                    kern = false;
+                    c = ' ';
+                } else {
+                    if (c >= 0xFF80) c &= 0xFF;
+                    if (c == 0x99) c = 0x2122;
+                    else if (c == 0x9C) c = 0x153;
+                }
+                if (const FEngGlyph *g = mpData->FindCharacter(c)) {
+                    if (count && kern) x = static_cast<float>(L(mpData->GetKerning(g, text[-1])) + x);
+                    RenderCharacter(g, x, y, colours, cached, renderInfo, (flags >> 8) & 1);
+                    x = static_cast<float>(L(g->mi16Advance) + x);
+                }
+                ++text;
+            }
+            // word wrap: past the measured line width -> skip spaces, next line
+            if (maxWidth && wrapped && L(x) - lineStart >= lineWidth) {   // PC: NaN does not wrap
+                while (*text == ' ') ++text;
+                lineWidth = static_cast<float>(GetLineWidth(text, flags, maxWidth, &wrapped));
+                x = lineStart = lineX(lineWidth);
+                newLine = true;
+            }
+        }
+        if (newLine) y = static_cast<float>((L(spacing) + mfLineHeight) + y);
+        ++count;
+        c = *text;
+    }
+    cached->Render();
 }

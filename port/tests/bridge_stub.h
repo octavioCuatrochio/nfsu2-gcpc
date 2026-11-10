@@ -52,6 +52,8 @@ extern int32_t discError;
 extern const char *singlePackage;
 extern uint8_t mouseGlobals[0x24];
 extern int32_t language;
+extern uint8_t fontMetrics[48];
+extern const void *realFontData;
 extern int giVTable, initializerVTable, movieStarterVTable, movieStopperVTable, dirtyMakerVTable;
 extern int32_t insideScreenCtor, gameFlowState;
 extern float worldTime, realTime;

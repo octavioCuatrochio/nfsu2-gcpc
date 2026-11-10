@@ -236,6 +236,19 @@ void FEngFont_RenderString(void *f, const int32_t *c, const uint16_t *t, ::FEObj
 {
     reinterpret_cast<void(THISCALL *)(void *, const int32_t *, const uint16_t *, ::FEObject *, const ::bMatrix4 *, ::FERenderObject *, void *)>(0x51C110)(f, c, t, o, m, r, i);
 }
+FEngFontList *FontList() { return reinterpret_cast<FEngFontList *>(0x863768); }
+const uint32_t *FontAlias() { return reinterpret_cast<const uint32_t *>(0x7F9184); }
+const uint8_t *FontMetricsTable() { return reinterpret_cast<const uint8_t *>(0x7F918C); }
+const char *LanguageSuffix(int32_t lang)
+{
+    const auto *t = reinterpret_cast<const uint8_t *>(0x7F7020);
+    for (int i = 0; i < 11; ++i, t += 16)
+        if (*reinterpret_cast<const int32_t *>(t) == lang) return *reinterpret_cast<const char *const *>(t + 4);
+    return reinterpret_cast<const char *>(0x79AA54);
+}
+void *RealFont_Create(const void *d) { return reinterpret_cast<void *(__cdecl *)(const void *)>(0x6F4690)(d); }
+void RealFont_Destroy(void *f) { reinterpret_cast<void(__cdecl *)(void *)>(0x6F46C0)(f); }
+void *FixupTextureInfoNull(void *t, uint32_t h, uint32_t a, uint32_t b) { return reinterpret_cast<void *(__cdecl *)(void *, uint32_t, uint32_t, uint32_t)>(0x4902D0)(t, h, a, b); }
 void *FEGameInterfaceVTable() { return reinterpret_cast<void *>(0x79BCD8); }
 void *FEObjectInitializerVTable() { return reinterpret_cast<void *>(0x79AAEC); }
 void *FEngMovieStarterVTable() { return reinterpret_cast<void *>(0x79AB84); }

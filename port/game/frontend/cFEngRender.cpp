@@ -5,6 +5,7 @@
 #include "FEPackageManager.h"
 #include "FERender.h"
 #include "FEString.h"
+#include "FEngFont.h"
 #include "FEMath.h"
 #include "bWare/bSlotPool.h"
 #include "bridge/Bridge.h"
@@ -668,5 +669,5 @@ void cFEngRender::RenderString(FEObject *obj, FERenderObject *cached, void *rend
     static uint16_t buffer[0x400];   // PC: 0x800 bytes on the stack
     const uint16_t *text = str->mstrText.mpsString;
     if (!(obj->mu32Flags & 2) && bridge::FEngGetLocalizedString(buffer, 0x800, str->mu32LabelHash)) text = buffer;
-    bridge::FEngFont_RenderString(font, colour, text, obj, &m, cached, renderInfo);
+    static_cast<FEngFont *>(font)->RenderString(colour, text, obj, &m, cached, renderInfo);
 }

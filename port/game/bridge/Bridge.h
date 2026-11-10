@@ -20,6 +20,7 @@ struct FEObject;
 
 struct bASinTableEntry;
 struct FESortGlobals;
+struct FEngFont;
 struct FEngine;
 struct FERenderBucket;
 struct ePoly;
@@ -126,6 +127,15 @@ void *MovieTexture();                            // PC 0x8385C0 (TextureInfo of 
 void FEngFont_RenderString(void *font, const int32_t *colour, const uint16_t *text, ::FEObject *obj, const ::bMatrix4 *m,
                            ::FERenderObject *cached, void *renderInfo);
 // cFEng unit
+// FEngFont unit
+struct FEngFontList { ::FEngFont *mpHead, *mpTail; };
+FEngFontList *FontList();                        // PC 0x863768
+const uint32_t *FontAlias();                     // PC 0x7F9184: {hash, alias}
+const uint8_t *FontMetricsTable();               // PC 0x7F918C: 4 x {hash, baseline, leading scale}
+const char *LanguageSuffix(int32_t lang);         // PC table 0x7F7020 (11 x 16 {id, name, ...}); else "UNKNOWN" (0x79AA54)
+void *RealFont_Create(const void *data);         // PC 6F4690 (RealFontOld::Font::Create)
+void RealFont_Destroy(void *font);               // PC 6F46C0
+void *FixupTextureInfoNull(void *tex, uint32_t hash, uint32_t a, uint32_t b);   // PC 4902D0
 void *FEGameInterfaceVTable();                   // PC 0x79BCD8 (cFEng)
 void *FEObjectInitializerVTable();               // PC 0x79AAEC
 void *FEngMovieStarterVTable();                  // PC 0x79AB84

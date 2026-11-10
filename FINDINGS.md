@@ -48,8 +48,9 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FEngFont (FEngFont.cpp): +0x0C font data (+0x0A glyph count, +0x0C flags 0x40000 = 16-byte glyphs, +0x14 table
   offset), +0x24 line height. Done: GetTextWidth/Height, GetLineWidth, X/YOffset, FindCharacter, kerning, joy tokens.
   Glyph: +0 code, +0xB kern count, +0xC kern index (16-byte), +0xE advance (fonts in use are 16-byte). Control chars
-  index up to 32 entries before the glyph table (PC reads it). Done also: CharacterWidth, WordWrappedLines, GetJoyEventTextureInfo
-  50BB10 (+ WideToCharString 4FF980). Next: RenderString 51C110.
+  index up to 32 entries before the glyph table (PC reads it). FEngFont unit complete: ctor/dtor/loader/FindFont,
+  NotifyTextureLoading, RenderString 51C110 + glyph quad 51BFC0 (joy tokens are skipped, not drawn, on PC). In-game
+  text pixel-identical to the original (A/B diff of a settled screen: grab 3 s and 9 s after input to avoid crossfades).
 - FEScrollBar (FEScrollBar.cpp, PC 0x58, bools at +0..+3; GC 0x64): done (ctor 542AC0, Update 538080, SetPos*
   52E200/52E320, arrow/backing visibility). PC helpers: 4953E0 FindImage by name, 495590 SetWidth, 525DB0 SetHeight.
   FEngSNPrintf 50C960 ignores its size. Referee: originals copy bool bytes raw -> pass 0/1 low bytes.

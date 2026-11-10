@@ -2280,6 +2280,84 @@ static void TestCFEngUnit()
     teststub::insideScreenCtor = 0;
 }
 
+// FEngFont unit: construction (language suffix, metrics table), loader + FindFont (+ alias), texture notify,
+// RenderString glyph placement (needs the renderer's pools: called from TestCFEngRender).
+static void TestFontUnit()
+{
+    alignas(8) static uint8_t chunk[0x208 + 0x400] = {};
+    const uint32_t id = 0x30201u;
+    std::memcpy(chunk, &id, 4);
+    std::strcpy(reinterpret_cast<char *>(chunk + 8), "Body_FRENCH");
+    std::strcpy(reinterpret_cast<char *>(chunk + 0x108), "BODYTEX");
+    uint8_t *data = chunk + 0x208;
+    const int32_t lh = 20;
+    std::memcpy(data + 0x24, &lh, 4);
+    const uint32_t full = FEHashUpper("Body_FRENCH");
+    const float base = 3, scale = 2;
+    std::memcpy(teststub::fontMetrics + 12, &full, 4);
+    std::memcpy(teststub::fontMetrics + 16, &base, 4);
+    std::memcpy(teststub::fontMetrics + 20, &scale, 4);
+    CHECK(LoaderFEngFont(chunk) == 1);
+    FEngFont *f = bridge::FontList()->mpHead;
+    CHECK(f && std::string(f->mpcName) == "Body" && f->mu32NameHash == FEHashUpper("Body") && f->mu32TextureHash == FEHashUpper("BODYTEX"));
+    CHECK(f->mfLineHeight == 20 && f->mfBaseline == 3 && f->mfLeadingScale == 2 && teststub::realFontData == data && f->mpTexture == teststub::movieTexture);
+    CHECK(FEngFindFontNative(FEHashUpper("Body")) == f && FEngFindFontNative(0x1234) == nullptr);
+    f->mu32NameHash = 0x5B9D88B9u;
+    CHECK(FEngFindFontNative(0x9583AA1Au) == f);   // alias
+    f->mu32NameHash = FEHashUpper("Body");
+    uint32_t bad = 0x30202u;
+    std::memcpy(chunk, &bad, 4);
+    CHECK(LoaderFEngFont(chunk) == 0);
+    void *old = f->mpTexture;
+    f->mpTexture = nullptr;
+    f->mu32TextureHash = 0x77;
+    FEngFont::NotifyTextureLoading(0, 0);
+    CHECK(f->mpTexture == teststub::movieTexture);
+    f->mpTexture = old;
+    // glyphs 'A', 'B' (16-byte entries): 8x10 at (16, 0), offsets (1, 2), advance 9
+    std::memset(data, 0, 0x400);
+    const uint16_t count = 2;
+    const uint32_t flags16 = 0x40000, tableOff = 0x200;
+    std::memcpy(data + 0xA, &count, 2);
+    std::memcpy(data + 0xC, &flags16, 4);
+    std::memcpy(data + 0x14, &tableOff, 4);
+    for (int i = 0; i < 2; ++i) {
+        auto *g = reinterpret_cast<FEngGlyph *>(data + 0x200 + i * 16);
+        g->mu16Code = static_cast<uint16_t>('A' + i); g->mu8Width = 8; g->mu8Height = 10; g->mu16X = 16; g->mu16Y = 0;
+        g->mi8XOffset = 1; g->mi8YOffset = 2; g->mi16Advance = 9;
+    }
+    f->mpData = reinterpret_cast<FEngFontData *>(data);
+    f->mfBaseline = 0;
+    alignas(8) static uint8_t sm[sizeof(FEString)];
+    std::memset(sm, 0, sizeof sm);
+    auto *so = reinterpret_cast<FEObject *>(sm);
+    float sd[20] = {};
+    so->mpData = sd;
+    alignas(8) static uint8_t cm[sizeof(FERenderObject)];
+    auto *c = reinterpret_cast<FERenderObject *>(cm);
+    c->Construct(so, f->mpTexture);
+    const int32_t colour[4] = {0x80, 0x80, 0x80, 0xFF};
+    bMatrix4 id4;
+    bIdentity(&id4);
+    const uint16_t text[] = {'A', 'B', 0};
+    teststub::delivered.clear();
+    f->RenderString(colour, text, so, &id4, c, nullptr);
+    FERenderEPoly *p0 = c->mpPolyHead, *p1 = p0->mpNext;
+    CHECK(p0 != c->PolySentinel() && p1 != c->PolySentinel() && p1->mpNext == c->PolySentinel());
+    CHECK(p0->mPoly.mVerts[0][0] == 1 && p0->mPoly.mVerts[0][1] == 2 && p0->mPoly.mVerts[2][0] == 9 && p0->mPoly.mVerts[2][1] == 12);
+    CHECK(p1->mPoly.mVerts[0][0] == 10 && p0->mPoly.mColours[0] == 0xFF404040u && (c->mu32Flags & 2));
+    // centred (justify 1): line width 18 -> starts at -9
+    c->Clear(0);
+    reinterpret_cast<FEString *>(so)->_unknown6C = 1;
+    f->RenderString(colour, text, so, &id4, c, nullptr);
+    CHECK(c->mpPolyHead->mPoly.mVerts[0][0] == -8);
+    c->Clear(0);
+    // unlink the test font
+    bridge::FontList()->mpHead = f->mpNext;
+    f->mpNext->mpPrev = reinterpret_cast<FEngFont *>(bridge::FontList());
+    f->Destroy();
+}
+
 static void TestCFEngRender()
 {
     static cFEngRender r;
@@ -2416,6 +2494,7 @@ static void TestCFEngRender()
     r.RemoveCachedRender(img, 0);
     CHECK(img->mpCachedRender == nullptr);
     r.RemoveCachedRender(o, 0);
+    TestFontUnit();
     r.Destroy();
     *bridge::FERenderEPolyPool() = nullptr;
 }

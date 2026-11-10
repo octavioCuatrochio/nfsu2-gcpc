@@ -407,6 +407,13 @@ uint32_t THISCALL FEngMovieStarter_Hook(void *self, FEObject *o) { return FEngMo
 uint32_t THISCALL FEngMovieStopper_Hook(void *self, FEObject *o) { return FEngMovieStopper_Function(self, o); }
 uint32_t THISCALL RenderObjectDisconnect_Hook(void *self, FEObject *o) { return RenderObjectDisconnect_Function(self, o); }
 uint32_t THISCALL FEDirtyMaker_Hook(void *self, FEObject *o) { return FEDirtyMaker_Function(self, o); }
+// FEngFont unit
+FEngFont *THISCALL FEngFont_Ctor(FEngFont *self, const uint8_t *chunk) { return self->Construct(chunk); }
+void THISCALL FEngFont_Dtor(FEngFont *self) { self->Destroy(); }
+void FEngFont_NotifyTextureLoading(uint32_t a, uint32_t b) { FEngFont::NotifyTextureLoading(a, b); }
+void THISCALL FEngFont_RenderString(FEngFont *self, const int32_t *c, const uint16_t *t, FEObject *o, const bMatrix4 *m, FERenderObject *r, void *i) { self->RenderString(c, t, o, m, r, i); }
+void THISCALL FEngFont_RenderCharacter(FEngFont *self, const FEngGlyph *g, float x, float y, const uint32_t *c, FERenderObject *r, void *i, uint32_t z) { self->RenderCharacter(g, x, y, c, r, i, z & 0xFF); }
+FEngFont *FEngFindFont_Hook(uint32_t h) { return FEngFindFontNative(h); }
 FEButtonWidget *THISCALL FEButtonWidget_Ctor(FEButtonWidget *self, const float *pos, const float *size, bool en) { return self->Construct(pos, size, en); }
 void THISCALL FEButtonWidget_Show(FEButtonWidget *self) { self->Show(); }
 void THISCALL FEButtonWidget_Hide(FEButtonWidget *self) { self->Hide(); }
@@ -900,6 +907,13 @@ const Replacement kReplacements[] = {
     {0x51C8A0, (const void *)&FEngMovieStopper_Hook, "FEngMovieStopper::Function", {0x8B, 0x44, 0x24, 0x04, 0x83, 0x78}},
     {0x5374F0, (const void *)&RenderObjectDisconnect_Hook, "RenderObjectDisconnect::Function", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x51}},
     {0x537630, (const void *)&FEDirtyMaker_Hook, "FEDirtyMaker::Function", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x81}},
+    {0x51BDC0, (const void *)&FEngFont_Ctor, "FEngFont::FEngFont", {0x53, 0x55, 0x56, 0x8B, 0xF1, 0x57}},
+    {0x51BF60, (const void *)&FEngFont_Dtor, "FEngFont::~FEngFont", {0x8B, 0x41, 0x0C, 0x50, 0xE8, 0x57}},
+    {0x51BF70, (const void *)&FEngFont_NotifyTextureLoading, "FEngFont::NotifyTextureLoading", {0x55, 0x56, 0x8B, 0x35, 0x68, 0x37}},
+    {0x51C110, (const void *)&FEngFont_RenderString, "FEngFont::RenderString", {0x83, 0xEC, 0x38, 0x53, 0x55, 0x56}},
+    {0x51BFC0, (const void *)&FEngFont_RenderCharacter, "FEngFont::RenderCharacter", {0x83, 0xEC, 0x1C, 0x8B, 0x54, 0x24}},
+    {0x51BD70, (const void *)&FEngFindFont_Hook, "FindFont", {0x56, 0x57, 0xB9, 0x68, 0x37, 0x86}},
+    {0x52CD00, (const void *)&LoaderFEngFont, "LoaderFEngFont", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
     {0x51DFC0, (const void *)&FEButtonWidget_Ctor, "FEButtonWidget::FEButtonWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50D530, (const void *)&FEButtonWidget_Show, "FEButtonWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x50D550, (const void *)&FEButtonWidget_Hide, "FEButtonWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
