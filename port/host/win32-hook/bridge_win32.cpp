@@ -502,4 +502,8 @@ void CustomizationScreenManager_ChangeToNextScreen()
 uint8_t *AudioSettings() { return reinterpret_cast<uint8_t *>(0x83AA28); }
 void EAXSound_UpdateAudioSettings() { reinterpret_cast<void(THISCALL *)(void *, void *)>(0x469050)(*reinterpret_cast<void **>(0x82B884), reinterpret_cast<void *>(0x83AA28)); }
 uint8_t *GameByte(uint32_t a) { return reinterpret_cast<uint8_t *>(static_cast<uintptr_t>(a)); }
+void *JumpCamObject() { return *reinterpret_cast<void **>(0x8650B8); }
+void JumpCam_Set(int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t, int32_t, int32_t)>(0x578EF0)(JumpCamObject(), 3, 0, v, 1); }
+int32_t FtoL(float v) { return static_cast<int32_t>(v); }
+bool AutoSaveSecondStateAllowed() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x502FE0)(reinterpret_cast<void *>(0x83A9E0)) != 0; }
 }  // namespace bridge

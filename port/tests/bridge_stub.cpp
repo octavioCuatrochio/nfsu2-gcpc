@@ -79,6 +79,8 @@ int32_t playerToEdit = 0;
 uint32_t chosenBrands[8] = {};
 uint8_t audioSettings[0x40] = {};
 uint8_t gameBytes[0x100] = {};
+void *jumpCamObject = nullptr;
+bool autoSaveAllowed = false;
 bool browsingParts = false;
 const uint8_t *perfPackage = nullptr, *perfPart = nullptr;
 uint8_t controllerOptions[0x28 * 2] = {};
@@ -914,5 +916,17 @@ void EAXSound_UpdateAudioSettings() { teststub::delivered.push_back({"audiosetti
 uint8_t *GameByte(uint32_t a) { return reinterpret_cast<uint8_t *>(static_cast<uintptr_t>(a)); }
 #else
 uint8_t *GameByte(uint32_t a) { return &teststub::gameBytes[a & 0xFF]; }
+#endif
+#ifdef NFSU2_REFEREE
+void *JumpCamObject() { return nullptr; }   // referee: the camera call is not exercised (no object in DllMain)
+#else
+void *JumpCamObject() { return teststub::jumpCamObject; }
+#endif
+void JumpCam_Set(int32_t v) { teststub::delivered.push_back({"jumpcam", nullptr, nullptr, static_cast<uint32_t>(v), 0}); }
+int32_t FtoL(float v) { return static_cast<int32_t>(v); }
+#ifdef NFSU2_REFEREE
+bool AutoSaveSecondStateAllowed() { return reinterpret_cast<uint8_t(__thiscall *)(void *)>(0x502FE0)(reinterpret_cast<void *>(0x83A9E0)) != 0; }
+#else
+bool AutoSaveSecondStateAllowed() { return teststub::autoSaveAllowed; }
 #endif
 }  // namespace bridge

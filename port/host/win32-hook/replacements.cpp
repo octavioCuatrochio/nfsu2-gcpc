@@ -601,6 +601,10 @@ void THISCALL OC_DriveCam_Act(OptionCycle *self, const char *, uint32_t msg) { s
 void THISCALL OC_DriveCam_Draw(OptionCycle *self) { self->DriveCamDraw(); }
 void THISCALL OC_SplitTime_Act(OptionCycle *self, const char *, uint32_t msg) { self->SplitTimeAct(msg); }
 void THISCALL OC_SplitTime_Draw(OptionCycle *self) { self->SplitTimeDraw(); }
+void THISCALL OC_JumpCams_Act(OptionCycle *self, const char *, uint32_t msg) { self->JumpCamsAct(msg); }
+void THISCALL OC_JumpCams_Draw(OptionCycle *self) { self->JumpCamsDraw(); }
+void THISCALL OC_AutoSave_Act(OptionCycle *self, const char *, uint32_t msg) { self->AutoSaveAct(msg); }
+void THISCALL OC_AutoSave_Draw(OptionCycle *self) { self->AutoSaveDraw(); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1224,6 +1228,10 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x49AD40, (const void *)&OC_JumpCams_Act, "GOJumpCams::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0xF1}},
+    {0x49ADC0, (const void *)&OC_JumpCams_Draw, "GOJumpCams::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x49B170, (const void *)&OC_AutoSave_Act, "GOAutoSave::Act", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
+    {0x49B210, (const void *)&OC_AutoSave_Draw, "GOAutoSave::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x4B75D0, (const void *)&OC_Transmission_Act, "POTransmission::Act", {0x8B, 0x54, 0x24, 0x08, 0x81, 0xFA}},
     {0x4B7630, (const void *)&OC_Transmission_Draw, "POTransmission::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x4B7690, (const void *)&OC_Handling_Act, "POHandling::Act", {0x8B, 0x54, 0x24, 0x08, 0x81, 0xFA}},

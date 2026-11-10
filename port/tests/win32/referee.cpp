@@ -3179,33 +3179,36 @@ static void CheckOptionToggles(int iters)
 static void CheckOptionCycles(int iters)
 {
     struct G { uint32_t addr, size; };
-    const G gs[6] = {{0x83AA50, 4}, {0x83AA1A, 1}, {0x83AA1B, 1}, {0x83AC30, 4}, {0x83AA1C, 1}, {0x850078, 4}};
-    uint8_t saved[6][4], savedRec[0x50]; int32_t savedP;
-    for (int k = 0; k < 6; ++k) std::memcpy(saved[k], reinterpret_cast<void *>(gs[k].addr), gs[k].size);
+    const G gs[9] = {{0x83AA50, 4}, {0x83AA1A, 1}, {0x83AA1B, 1}, {0x83AC30, 4}, {0x83AA1C, 1}, {0x850078, 4}, {0x83AA20, 4}, {0x844AD8, 1}, {0x844AD9, 1}};
+    uint8_t saved[9][4], savedRec[0x50]; int32_t savedP;
+    for (int k = 0; k < 9; ++k) std::memcpy(saved[k], reinterpret_cast<void *>(gs[k].addr), gs[k].size);
     std::memcpy(savedRec, reinterpret_cast<void *>(0x83AA64), sizeof savedRec);
     std::memcpy(&savedP, reinterpret_cast<void *>(0x836364), 4);
     using Act = void (OptionCycle::*)(uint32_t);
-    const struct { uint32_t pc; Act act; const char *name; } fs[9] = {
+    const struct { uint32_t pc; Act act; const char *name; } fs[11] = {
         {0x49AB80, &OptionCycle::AudioModeAct, "AOAudioMode"}, {0x49AE80, &OptionCycle::SpeedoUnitsAct, "GOSpeedoUnits"},
         {0x49AFE0, &OptionCycle::RacingMiniMapAct, "GORacingMiniMap"}, {0x49AF20, &OptionCycle::DifficultyAct, "GOCareerDifficulty"},
         {0x49B0B0, &OptionCycle::ExploringMiniMapAct, "GOExploringMiniMap"}, {0x4B75D0, &OptionCycle::TransmissionAct, "POTransmission"},
         {0x4B7690, &OptionCycle::HandlingAct, "POHandling"}, {0x4B7750, &OptionCycle::DriveCamAct, "PODriveCam"},
-        {0x4B7AA0, &OptionCycle::SplitTimeAct, "POSplitTime"}};
+        {0x4B7AA0, &OptionCycle::SplitTimeAct, "POSplitTime"}, {0x49AD40, &OptionCycle::JumpCamsAct, "GOJumpCams"},
+        {0x49B170, &OptionCycle::AutoSaveAct, "GOAutoSave"}};
     static OptionCycle A, B;
     for (int it = 0; it < iters; ++it) {
-        const auto &f = fs[rng() % 9];
+        const auto &f = fs[rng() % 11];
         uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
         for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
         A.base.base.base.vtable = brand_fake::vtable;
         std::memcpy(&B, &A, sizeof A);
-        uint32_t vals[6];
+        uint32_t vals[9];
         for (int k = 0; k < 5; ++k) vals[k] = rng() % 4 ? rng() % 4 : rng();
         vals[5] = rng() % 2 ? 4u : rng() % 8;
-        auto set = [&] { for (int k = 0; k < 6; ++k) std::memcpy(reinterpret_cast<void *>(gs[k].addr), &vals[k], gs[k].size); };
-        auto get = [&](uint32_t *o) { for (int k = 0; k < 6; ++k) { o[k] = 0; std::memcpy(&o[k], reinterpret_cast<void *>(gs[k].addr), gs[k].size); } };
+        { const float fv[4] = {0.0f, 127.0f, -0.0f, std::numeric_limits<float>::quiet_NaN()}; std::memcpy(&vals[6], &fv[rng() % 4], 4); }
+        vals[7] = rng() % 2; vals[8] = rng() % 2;
+        auto set = [&] { for (int k = 0; k < 9; ++k) std::memcpy(reinterpret_cast<void *>(gs[k].addr), &vals[k], gs[k].size); };
+        auto get = [&](uint32_t *o) { for (int k = 0; k < 9; ++k) { o[k] = 0; std::memcpy(&o[k], reinterpret_cast<void *>(gs[k].addr), gs[k].size); } };
         const uint32_t msgs[3] = {0x9120409Eu, 0xB5971BF1u, rng()};
         const uint32_t m = msgs[rng() % 3];
-        uint32_t sa[6], sb[6];
+        uint32_t sa[9], sb[9];
         uint8_t rec[0x50]; for (auto &b : rec) b = static_cast<uint8_t>(rng() % 3 ? rng() % 6 : rng());
         const int32_t pl = static_cast<int32_t>(rng() % 2);
         std::memcpy(reinterpret_cast<void *>(0x836364), &pl, 4);
@@ -3218,7 +3221,7 @@ static void CheckOptionCycles(int iters)
         std::memcpy(rb, reinterpret_cast<void *>(0x83AA64), sizeof rb);
         EXPECT(la == lb && std::memcmp(sa, sb, sizeof sa) == 0 && std::memcmp(ra, rb, sizeof ra) == 0, "%s::Act %x", f.name, m);
     }
-    for (int k = 0; k < 6; ++k) std::memcpy(reinterpret_cast<void *>(gs[k].addr), saved[k], gs[k].size);
+    for (int k = 0; k < 9; ++k) std::memcpy(reinterpret_cast<void *>(gs[k].addr), saved[k], gs[k].size);
     std::memcpy(reinterpret_cast<void *>(0x83AA64), savedRec, sizeof savedRec);
     std::memcpy(reinterpret_cast<void *>(0x836364), &savedP, 4);
 }

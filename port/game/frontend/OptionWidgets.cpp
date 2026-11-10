@@ -199,3 +199,41 @@ void OptionCycle::SplitTimeDraw() const
 {
     SetNameValue(base, 0x084BC378u, Pick(EditedRecord()[0x14], {0xD93F8F55u, 0xC44D3943u, 0x17FAFC32u, 0x1EA459F8u, 0xCCFAu}));
 }
+
+void OptionCycle::JumpCamsAct(uint32_t msg)
+{
+    if (msg == kRight || msg == kLeft) {
+        float &f = *reinterpret_cast<float *>(bridge::GameByte(0x83AA20));
+        const float v = f == 0.0f ? 127.0f : 0.0f;
+        f = v;
+        if (bridge::JumpCamObject()) bridge::JumpCam_Set(bridge::FtoL(v));
+    }
+    bridge::FEWidget_Draw(this);
+}
+void OptionCycle::JumpCamsDraw() const
+{
+    SetNameValue(base, 0xF26A5CBFu, *reinterpret_cast<const float *>(bridge::GameByte(0x83AA20)) == 0.0f ? 0xCCFAu : 0x63Cu);
+}
+
+void OptionCycle::AutoSaveAct(uint32_t msg)
+{
+    uint8_t &on = *bridge::GameByte(0x844AD8), &second = *bridge::GameByte(0x844AD9);
+    auto set = [&](uint8_t a, uint8_t b) { on = a; second = b; };
+    if (msg == kRight) {
+        if (second) set(1, 0);
+        else if (on) set(0, 0);
+        else if (bridge::AutoSaveSecondStateAllowed()) set(1, 1);
+        else set(1, 0);
+    } else if (msg == kLeft) {
+        if (second) set(0, 0);
+        else if (!on) set(1, 0);
+        else if (bridge::AutoSaveSecondStateAllowed()) set(1, 1);
+        else set(0, 0);
+    }
+    BlinkDraw(this, msg);
+}
+void OptionCycle::AutoSaveDraw() const
+{
+    const uint32_t v = *bridge::GameByte(0x844AD9) ? 0x1B7ABF8Eu : *bridge::GameByte(0x844AD8) ? 0x1B7ABF8Fu : 0x1B7ABF90u;
+    SetNameValue(base, 0x996463E6u, v);
+}

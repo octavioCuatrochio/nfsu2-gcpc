@@ -74,6 +74,15 @@ struct OptionCycle {
     void HandlingAct(uint32_t msg);        void HandlingDraw() const;
     void DriveCamAct(uint32_t msg);        void DriveCamDraw() const;
     void SplitTimeAct(uint32_t msg);       void SplitTimeDraw() const;
+    // GOJumpCams 791C00: Act 49AD40 / Draw 49ADC0. Float 0x83AA20: left/right -> 127 if it was 0 else 0 (NaN -> 0);
+    // when *0x8650B8 exists: its 578EF0(3, 0, _ftol(value), 1). Draw only (no BlinkArrows). Draw: name 0xF26A5CBF,
+    // 0xCCFA if 0 else 0x63C.
+    void JumpCamsAct(uint32_t msg);        void JumpCamsDraw() const;
+    // GOAutoSave 793D68: Act 49B170 / Draw 49B210. Bytes 0x844AD8 (on) / 0x844AD9 (second state, needs 502FE0 on
+    // 0x83A9E0): right: AD9 -> on only; on -> off; off -> on (+AD9 if the check passes). Left: AD9 -> off; off -> on;
+    // on -> on+AD9 if the check passes else off. Then BlinkArrows + Draw. Draw: name 0x996463E6, AD9 0x1B7ABF8E,
+    // on 0x1B7ABF8F, off 0x1B7ABF90.
+    void AutoSaveAct(uint32_t msg);        void AutoSaveDraw() const;
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

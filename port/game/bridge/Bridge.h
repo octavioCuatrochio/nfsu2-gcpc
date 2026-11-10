@@ -409,4 +409,8 @@ void CustomizationScreenManager_ChangeToNextScreen();   // PC 54F980 Instance() 
 uint8_t *AudioSettings();                        // PC 0x83AA28 (GC 0x803BC274)
 void EAXSound_UpdateAudioSettings();             // PC 469050(&0x83AA28) (__thiscall on *(0x82B884), ret 4)
 uint8_t *GameByte(uint32_t pcAddress);           // a PC global byte by address (option flags; tests remap)
+void *JumpCamObject();                           // PC *(0x8650B8)
+void JumpCam_Set(int32_t value);                 // PC 578EF0(3, 0, value, 1) (__thiscall on *(0x8650B8))
+int32_t FtoL(float v);                           // PC _ftol 75BED4 (truncation)
+bool AutoSaveSecondStateAllowed();               // PC 502FE0 (__thiscall on 0x83A9E0)
 }  // namespace bridge
