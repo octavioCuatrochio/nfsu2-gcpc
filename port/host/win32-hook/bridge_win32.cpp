@@ -149,6 +149,7 @@ void PlayFrontendSound(uint32_t trigger)
     const int32_t idx = reinterpret_cast<const int8_t *>(0x8380B8)[trigger];
     if (idx != -1) reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x458520)(*reinterpret_cast<void **>(0x82B884), idx);
 }
+long double FEngFont_GetLineWidth(void *f, const uint16_t *t, uint32_t fl, int32_t m, bool *tr) { return reinterpret_cast<long double(THISCALL *)(void *, const uint16_t *, uint32_t, int32_t, bool *)>(0x50BCE0)(f, t, fl, m, tr); }
 bool TextInputFocused() { return *reinterpret_cast<const uint8_t *>(0x83A9C0) && *reinterpret_cast<const uint32_t *>(0x83A9C4); }
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }

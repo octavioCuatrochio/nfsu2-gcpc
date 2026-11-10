@@ -45,6 +45,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - Widgets (FEWidget.cpp): PC FEWidget 0x2C (GC + 4), FEButtonWidget 0x38 (+0x2C object, +0x30 size copy). Next:
   FEngTestForIntersection 52D020 <- FEngGet2DExtents 51D9F0 <- FEngGetObjBBox 51D8A0 (string bbox, inlined
   localized fetch), then FELabelWidget / FEStatWidget. Options screens are hard to reach by key automation.
+- FEngFont (FEngFont.cpp): +0x0C font data (+0x0A glyph count, +0x0C flags 0x40000 = 16-byte glyphs, +0x14 table
+  offset), +0x24 line height. Done: GetTextWidth/Height, X/YOffset, glyph bsearch 6F45B0. Next: GetLineWidth 50BCE0
+  (needs 50BA70/50BAC0 joy-event textures, 4FDA70 FindCharacter, 6F45F0 kerning), WordWrap 50BC10/50C080, RenderString.
+- PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.
 - Referee: bridge_stub.cpp under NFSU2_REFEREE must call game-interface slots through the vtable (fake gi).

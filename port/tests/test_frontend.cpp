@@ -10,6 +10,7 @@
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/FEngFont.h"
 #include "frontend/FEString.h"
 #include <cmath>
 #include "frontend/FEPool.h"
@@ -2449,6 +2450,38 @@ static void TestFEngExtents()
     CHECK(!FEngTestForIntersection(std::nanf(""), 20, b) && !FEngTestForIntersection(1, 1, nullptr));
 }
 
+// FEngFont measurement: offsets, glyph search, text height (lines, spacing, glyph-less last line), text width.
+static void TestFEngFontMeasure()
+{
+    CHECK(FEngFont::CalculateXOffset(1, 10) == -5 && FEngFont::CalculateXOffset(2, 10) == -10 && FEngFont::CalculateXOffset(4, 10) == 0);
+    CHECK(FEngFont::CalculateYOffset(4, 8) == -4 && FEngFont::CalculateYOffset(8, 8) == -8 && FEngFont::CalculateYOffset(3, 8) == 0);
+    // font data: 3 glyphs 'A','B','D' (12-byte entries) at +0x20
+    alignas(8) uint8_t data[0x20 + 3 * 12] = {};
+    auto *fd = reinterpret_cast<FEngFontData *>(data);
+    fd->mu16NumGlyphs = 3;
+    fd->mu32GlyphTableOffset = 0x20;
+    const uint16_t codes[3] = {'A', 'B', 'D'};
+    for (int i = 0; i < 3; ++i) std::memcpy(data + 0x20 + i * 12, &codes[i], 2);
+    CHECK(FEngFindGlyph('B', data + 0x20, 3, 12) == data + 0x20 + 12 && FEngFindGlyph('D', data + 0x20, 3, 12) == data + 0x20 + 24);
+    CHECK(FEngFindGlyph('C', data + 0x20, 3, 12) == nullptr && FEngFindGlyph('A', data + 0x20, 0, 12) == nullptr);
+    alignas(8) uint8_t fm[sizeof(FEngFont)] = {};
+    auto *f = reinterpret_cast<FEngFont *>(fm);
+    f->mpData = fd;
+    f->mfLineHeight = 20;
+    const uint16_t t1[] = {'A', 'B', 0};
+    const uint16_t t2[] = {'A', '\n', 'B', 0};
+    const uint16_t t3[] = {'A', '\n', 0};          // last line empty: not counted
+    const uint16_t t4[] = {'A', '\n', 'C', 0};     // 'C' has no glyph: last line not counted
+    const uint16_t t5[] = {0};
+    CHECK(f->GetTextHeight(t1, 0) == 20 && f->GetTextHeight(t2, 5) == 45 && f->GetTextHeight(t3, 0) == 20);
+    CHECK(f->GetTextHeight(t4, 0) == 20 && f->GetTextHeight(t5, 0) == 20 && f->GetTextHeight(nullptr, 0) == 0);
+    // width: stub GetLineWidth = 10 per char up to a newline; PC measures every suffix
+    const uint16_t w1[] = {'A', 'B', '\n', 'C', 'D', 'E', 0};
+    CHECK(f->GetTextWidth(w1, 0) == 20 && f->GetTextWidth(w1, 0x20) == 30);   // flag 0 never measures "CDE" whole (PC quirk)
+    const uint16_t w2[] = {'A', 'B', 'C', '\n', 'D', 'E', 0};   // second line minus its first char: 10 < 30
+    CHECK(f->GetTextWidth(w2, 0) == 30);
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -2625,6 +2658,7 @@ int main()
     TestFEngPosition();
     TestButtonWidget();
     TestFEngExtents();
+    TestFEngFontMeasure();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();

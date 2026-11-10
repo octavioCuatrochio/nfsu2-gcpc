@@ -247,6 +247,11 @@ void *FEStatWidgetVTable() { return &teststub::feWidgetVTable; }
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
 void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
 void PlayFrontendSound(uint32_t t) { teststub::delivered.push_back({"sound", nullptr, nullptr, t, 0}); }
+#ifdef NFSU2_REFEREE
+long double FEngFont_GetLineWidth(void *f, const uint16_t *t, uint32_t fl, int32_t m, bool *tr) { return reinterpret_cast<long double(__attribute__((thiscall)) *)(void *, const uint16_t *, uint32_t, int32_t, bool *)>(0x50BCE0)(f, t, fl, m, tr); }
+#else
+long double FEngFont_GetLineWidth(void *, const uint16_t *t, uint32_t, int32_t, bool *) { int n = 0; while (t && t[n] && t[n] != '\n' && t[n] != '^') ++n; return 10.0L * n; }
+#endif
 bool TextInputFocused() { return teststub::textInputFocused; }
 #ifdef NFSU2_REFEREE
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }

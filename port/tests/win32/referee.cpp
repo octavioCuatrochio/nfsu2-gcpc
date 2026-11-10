@@ -25,6 +25,7 @@
 #include "frontend/FETypeLib.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/FEngFont.h"
 #include "frontend/FEScript.h"
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEPool.h"
@@ -1925,6 +1926,55 @@ static void CheckLabelStatWidgets(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEngFont: glyph binary search, justification offsets, text height on synthetic fonts, both precisions.
+static void CheckFEngFontMeasure(int iters)
+{
+    auto oFind = ORIG<const void *(__cdecl *)(uint32_t, const void *, uint32_t, uint32_t)>(0x6F45B0);
+    auto oX = ORIG<long double(THISCALL *)(void *, uint32_t, float)>(0x50C020);
+    auto oY = ORIG<long double(THISCALL *)(void *, uint32_t, float)>(0x50C050);
+    auto oH = ORIG<long double(THISCALL *)(FEngFont *, const uint16_t *, int32_t)>(0x50BF40);
+    alignas(8) static uint8_t data[0x20 + 64 * 16];
+    alignas(8) static uint8_t fm[sizeof(FEngFont)];
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            std::memset(data, 0, sizeof data);
+            auto *fd = reinterpret_cast<FEngFontData *>(data);
+            const uint32_t n = rng() % 64, size = rng() % 2 ? 16 : 12;
+            fd->mu16NumGlyphs = static_cast<uint16_t>(n);
+            fd->mu32Flags = size == 16 ? 0x40000 : (rng() & 0xFFFBFFFF);
+            fd->mu32GlyphTableOffset = 0x20;
+            uint16_t code = 0x20 + static_cast<uint16_t>(rng() % 3);
+            for (uint32_t i = 0; i < n; ++i) {
+                std::memcpy(data + 0x20 + i * size, &code, 2);
+                code = static_cast<uint16_t>(code + 1 + (rng() % 4 == 0 ? rng() % 3 : 0));
+            }
+            const uint16_t key = static_cast<uint16_t>(0x1E + rng() % 90);
+            EXPECT(oFind(key, data + 0x20, n, size) == FEngFindGlyph(key, data + 0x20, n, size), "FEngFindGlyph %x n %u", key, n);
+            const float w = RefCoord();
+            const uint32_t j = rng() & 0xFF;
+            long double xa = oX(nullptr, j, w), xb = FEngFont::CalculateXOffset(j, w), ya = oY(nullptr, j, w), yb = FEngFont::CalculateYOffset(j, w);
+            EXPECT(std::memcmp(&xa, &xb, 10) == 0 && std::memcmp(&ya, &yb, 10) == 0, "CalculateX/YOffset %x pc=%x", j, pc);
+            std::memset(fm, 0, sizeof fm);
+            auto *f = reinterpret_cast<FEngFont *>(fm);
+            f->mpData = fd;
+            f->mfLineHeight = RefCoord() / 7.0f;
+            uint16_t text[12];
+            const int len = static_cast<int>(rng() % 11);
+            for (int i = 0; i < len; ++i) {
+                const uint32_t r = rng() % 8;
+                text[i] = r == 0 ? '\n' : r == 1 ? '^' : r == 2 ? '\r' : static_cast<uint16_t>(0x20 + rng() % 80 + (rng() % 9 == 0 ? 0x100 : 0));
+            }
+            text[len] = 0;
+            const int32_t spacing = static_cast<int32_t>(rng() % 20) - 5;
+            long double ha = oH(f, text, spacing), hb = f->GetTextHeight(text, spacing);
+            EXPECT(std::memcmp(&ha, &hb, 10) == 0, "GetTextHeight len %d pc=%x: %Lg vs %Lg", len, pc, ha, hb);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2510,6 +2560,7 @@ static int RunAll()
     REFEREE_RUN(CheckButtonWidget(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
+    REFEREE_RUN(CheckFEngFontMeasure(iters * 3));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));
