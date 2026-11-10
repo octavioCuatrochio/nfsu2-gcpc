@@ -21,6 +21,7 @@
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FENode.h"
 #include "frontend/FEPackageManager.h"
@@ -316,6 +317,13 @@ void THISCALL cFEng_RegisterJoy(cFEng *self) { self->RegisterJoy(); }
 void THISCALL cFEng_UnRegisterJoy(cFEng *self) { self->UnRegisterJoy(); }
 uint32_t THISCALL cFEng_GetJoyPadMask(cFEng *self, uint8_t pad) { return self->GetJoyPadMask(pad); }
 void THISCALL cFEng_SetCurrentButton(cFEng *self, const char *p, uint32_t h) { self->SetCurrentButton(p, h); }
+FEScrollBar *THISCALL FEScrollBar_Ctor(FEScrollBar *self, const char *pkg, const char *base, uint32_t v, uint32_t r, uint32_t a5) { return self->Construct(pkg, base, v & 0xFF, r & 0xFF, a5 & 0xFF); }
+void THISCALL FEScrollBar_Update(FEScrollBar *self, int32_t v, int32_t t, int32_t i) { self->Update(v, t, i); }
+void THISCALL FEScrollBar_SetPosResized(FEScrollBar *self, int32_t v, int32_t t, int32_t i) { self->SetPosResized(v, t, i); }
+void THISCALL FEScrollBar_SetPosNonResized(FEScrollBar *self, int32_t v, int32_t t, int32_t i) { self->SetPosNonResized(v, t, i); }
+void THISCALL FEScrollBar_SetArrowVisibility(FEScrollBar *self, int32_t a, uint32_t v) { self->SetArrowVisibility(a, v & 0xFF); }
+void THISCALL FEScrollBar_SetBackingVisibility(FEScrollBar *self, uint32_t v) { self->SetBackingVisibility(v & 0xFF); }
+FEObject *FEngFindImageByName(const char *pkg, const char *name) { return FEngFindImage(pkg, name); }
 FEButtonWidget *THISCALL FEButtonWidget_Ctor(FEButtonWidget *self, const float *pos, const float *size, bool en) { return self->Construct(pos, size, en); }
 void THISCALL FEButtonWidget_Show(FEButtonWidget *self) { self->Show(); }
 void THISCALL FEButtonWidget_Hide(FEButtonWidget *self) { self->Hide(); }
@@ -709,7 +717,7 @@ const Replacement kReplacements[] = {
     {0x51CE60, (const void *)&FEngQueueMessageToPackage, "FEngQueueMessageToPackage", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}},
     {0x51CE80, (const void *)&FEngSetPackageVisibility, "FEngSetPackageVisibility", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xB9}},
     {0x5379C0, (const void *)&FEngFindObject, "FEngFindObject", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
-    {0x537A60, (const void *)&FEngFindImage, "FEngFindImage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x537A60, (const void *)static_cast<FEObject *(*)(const char *, uint32_t)>(&FEngFindImage), "FEngFindImage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
     {0x542630, (const void *)&FEngSetPosition, "FEngSetPosition", {0x8B, 0x44, 0x24, 0x08, 0x56, 0x57}},
     {0x5426C0, (const void *)static_cast<void (*)(const char *, const char *, const char *, bool)>(&FEngSetScript), "FEngSetScript(pkg, obj, name)", {0x8B, 0x44, 0x24, 0x08, 0x56, 0x57}},
     {0x537C00, (const void *)static_cast<void (*)(const char *, uint32_t, const char *, bool)>(&FEngSetScript), "FEngSetScript(pkg, hash, name)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
@@ -717,6 +725,15 @@ const Replacement kReplacements[] = {
     {0x52CE40, (const void *)&cFEng_SetCurrentButton, "cFEng::SetCurrentButton", {0x8B, 0x44, 0x24, 0x04, 0x55, 0x8B}},
     {0x52CEA0, (const void *)static_cast<void (*)(const char *, uint32_t)>(&FEngSetCurrentButton), "FEngSetCurrentButton(hash)", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
     {0x52CEC0, (const void *)static_cast<void (*)(const char *, const FEObject *)>(&FEngSetCurrentButton), "FEngSetCurrentButton(obj)", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x542AC0, (const void *)&FEScrollBar_Ctor, "FEScrollBar::FEScrollBar", {0x8A, 0x44, 0x24, 0x0C, 0x8A, 0x54}},
+    {0x538080, (const void *)&FEScrollBar_Update, "FEScrollBar::Update", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x56}},
+    {0x52E200, (const void *)&FEScrollBar_SetPosResized, "FEScrollBar::SetPosResized", {0x51, 0xDB, 0x44, 0x24, 0x08, 0x56}},
+    {0x52E320, (const void *)&FEScrollBar_SetPosNonResized, "FEScrollBar::SetPosNonResized", {0x51, 0x56, 0x8B, 0xF1, 0x8A, 0x0E}},
+    {0x50D820, (const void *)&FEScrollBar_SetArrowVisibility, "FEScrollBar::SetArrowVisibility", {0x8A, 0x44, 0x24, 0x08, 0x84, 0xC0}},
+    {0x50D880, (const void *)&FEScrollBar_SetBackingVisibility, "FEScrollBar::SetBackingVisibility", {0x8A, 0x44, 0x24, 0x04, 0x8B, 0xD1}},
+    {0x4953E0, (const void *)&FEngFindImageByName, "FEngFindImage(name)", {0x8B, 0x44, 0x24, 0x08, 0x50, 0xE8}},
+    {0x495590, (const void *)&FEngSetWidth, "FEngSetWidth", {0x83, 0xEC, 0x08, 0x56, 0x8B, 0x74}},
+    {0x525DB0, (const void *)&FEngSetHeight, "FEngSetHeight", {0x51, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
     {0x51DFC0, (const void *)&FEButtonWidget_Ctor, "FEButtonWidget::FEButtonWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50D530, (const void *)&FEButtonWidget_Show, "FEButtonWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x50D550, (const void *)&FEButtonWidget_Hide, "FEButtonWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},

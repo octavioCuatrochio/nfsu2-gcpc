@@ -25,6 +25,7 @@
 #include "frontend/FETypeLib.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FEScript.h"
 #include "frontend/FEMultiPool.h"
@@ -1766,6 +1767,88 @@ static void CheckFEngPosition(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEScrollBar (null-base ctor, Update, SetPos*, arrow / backing visibility) + FEngSetWidth/Height on synthetic objects.
+static void CheckScrollBar(int iters)
+{
+    auto oCtor = ORIG<FEScrollBar *(THISCALL *)(FEScrollBar *, const char *, const char *, uint32_t, uint32_t, uint32_t)>(0x542AC0);
+    using M3 = void(THISCALL *)(FEScrollBar *, int32_t, int32_t, int32_t);
+    const M3 o3[3] = {ORIG<M3>(0x538080), ORIG<M3>(0x52E200), ORIG<M3>(0x52E320)};
+    auto oArrow = ORIG<void(THISCALL *)(FEScrollBar *, int32_t, uint32_t)>(0x50D820);
+    auto oBacking = ORIG<void(THISCALL *)(FEScrollBar *, uint32_t)>(0x50D880);
+    auto oW = ORIG<void(__cdecl *)(FEObject *, float)>(0x495590);
+    auto oH = ORIG<void(__cdecl *)(FEObject *, float)>(0x525DB0);
+    struct Arena { FEScrollBar b; unsigned char om[6][sizeof(FEObject)]; float d[6][20]; };
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&B, &A, sizeof A);
+            const uint32_t v = (rng() & ~0xFFu) | (rng() & 1), r = (rng() & ~0xFFu) | (rng() & 1), a5 = (rng() & ~0xFFu) | (rng() & 1);   // bools: garbage high bytes
+            oCtor(&A.b, "Pkg", nullptr, v, r, a5);
+            B.b.Construct("Pkg", nullptr, v & 0xFF, r & 0xFF, a5 & 0xFF);
+            {
+                int off = -1;
+                for (size_t i = 0; i < sizeof A.b && off < 0; ++i)
+                    if (reinterpret_cast<uint8_t *>(&A.b)[i] != reinterpret_cast<uint8_t *>(&B.b)[i]) off = static_cast<int>(i);
+                EXPECT(off < 0, "FEScrollBar ctor: byte %x %02x vs %02x", off, off < 0 ? 0 : reinterpret_cast<uint8_t *>(&A.b)[off], off < 0 ? 0 : reinterpret_cast<uint8_t *>(&B.b)[off]);
+            }
+            // random state + objects
+            for (size_t i = 0; i < sizeof A.b; ++i) reinterpret_cast<uint8_t *>(&A.b)[i] = static_cast<uint8_t>(rng());
+            A.b.mbVertical = rng() % 2; A.b.mbResized = rng() % 2; A.b.mbNoMove = rng() % 3 == 0;
+            float *fl[] = {&A.b.mBackingX, &A.b.mBackingY, &A.b.mBackingW, &A.b.mBackingH, &A.b.mHandleW, &A.b.mHandleH};
+            for (float *f : fl) *f = RefCoord() / static_cast<float>(1 + rng() % 5);
+            FEObject **slots[] = {&A.b.mpBacking, &A.b.mpHandle, &A.b.mpArrow1, &A.b.mpArrow2, &A.b.mpBackingEnd1, &A.b.mpBackingEnd2};
+            for (int k = 0; k < 6; ++k) {
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 3 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+                *slots[k] = rng() % 8 ? o : nullptr;
+            }
+            std::memcpy(&B, &A, sizeof A);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            FEObject **bslots[] = {&B.b.mpBacking, &B.b.mpHandle, &B.b.mpArrow1, &B.b.mpArrow2, &B.b.mpBackingEnd1, &B.b.mpBackingEnd2};
+            for (int k = 0; k < 6; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) + delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            }
+            const int32_t total = static_cast<int32_t>(rng() % 40) - 2, visible = static_cast<int32_t>(rng() % 30) - 2;
+            const int32_t index = static_cast<int32_t>(rng() % 45) - 2;
+            const int op = static_cast<int>(rng() % 7);
+            if (op < 3) {
+                o3[op](&A.b, visible, total, index);
+                if (op == 0) B.b.Update(visible, total, index);
+                else if (op == 1) B.b.SetPosResized(visible, total, index);
+                else B.b.SetPosNonResized(visible, total, index);
+            } else if (op == 3) {
+                const int32_t arrow = static_cast<int32_t>(rng() % 4);
+                const uint32_t vis = rng();
+                oArrow(&A.b, arrow, vis);
+                B.b.SetArrowVisibility(arrow, vis & 0xFF);
+            } else if (op == 4) {
+                const uint32_t vis = rng();
+                oBacking(&A.b, vis);
+                B.b.SetBackingVisibility(vis & 0xFF);
+            } else {
+                const float x = RefCoord();
+                (op == 5 ? oW : oH)(A.b.mpHandle, x);
+                (op == 5 ? FEngSetWidth : FEngSetHeight)(B.b.mpHandle, x);
+            }
+            // compare (B's pointers rebased)
+            for (int k = 0; k < 6; ++k)
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) - delta);
+            for (int k = 0; k < 6; ++k) reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
+            EXPECT(std::memcmp(&A, &B, offsetof(Arena, d)) == 0 && std::memcmp(A.d, B.d, sizeof A.d) == 0, "FEScrollBar op %d pc=%x v%d t%d i%d vert %d", op, pc, visible, total, index, A.b.mbVertical);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -2642,6 +2725,7 @@ static int RunAll()
     REFEREE_RUN(CheckFEngRotationZ(iters));
     REFEREE_RUN(CheckFEngPosition(iters * 3));
     REFEREE_RUN(CheckButtonWidget(iters));
+    REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckFEngFontMeasure(iters * 3));

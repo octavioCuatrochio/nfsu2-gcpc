@@ -10,6 +10,7 @@
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FEString.h"
 #include <cmath>
@@ -2367,6 +2368,57 @@ static void TestFEngPosition()
 }
 
 // FEButtonWidget: construction, show/hide, focus scripts, positioning (box and centred text), mouse check.
+static void TestScrollBar()
+{
+    alignas(8) unsigned char bm[sizeof(FEScrollBar)];
+    std::memset(bm, 0x5A, sizeof bm);
+    auto *b = reinterpret_cast<FEScrollBar *>(bm);
+    CHECK(b->Construct("Pkg", nullptr, true, true, true) == b);   // no base name: all zero
+    CHECK(b->mbVertical == 1 && b->mbResized == 1 && b->mbNoMove == 0 && b->_unknown03 == 1 && b->mpHandle == nullptr && b->mBackingH == 0 && b->_unknown38 == 0);
+    alignas(8) unsigned char om[6][sizeof(FEObject)] = {};
+    float od[6][20] = {};
+    FEObject *o[6];
+    for (int i = 0; i < 6; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mu32Type = 1; o[i]->mpData = od[i]; }
+    b->mpBacking = o[0]; b->mpHandle = o[1]; b->mpArrow1 = o[2]; b->mpArrow2 = o[3]; b->mpBackingEnd1 = o[4]; b->mpBackingEnd2 = o[5];
+    // vertical, resized: backing (100, 50) 10 x 200; handle centred at x 105, 10 wide
+    b->mBackingX = 100; b->mBackingY = 50; b->mBackingW = 10; b->mBackingH = 200;
+    od[1][7] = 105; od[1][14] = 10; od[1][15] = 10;
+    b->SetPosResized(5, 20, 3);                       // length 50, step 150 / 15 = 10, top 2 * 10 + 50
+    CHECK(od[1][15] == 50 && od[1][14] == 10 && b->mStep == 10 && b->mHandleY == 70 && od[1][7] == 105 && od[1][8] == 95);
+    b->SetPosResized(20, 20, 1);                      // nothing to scroll: step divides by 1
+    CHECK(od[1][15] == 200 && b->mStep == 0 && b->mHandleY == 50);
+    // horizontal, fixed handle 20 wide on a 100 backing at x 0
+    b->mbVertical = 0; b->mbResized = 0; b->mBackingX = 0; b->mBackingW = 100; b->mHandleW = 20;
+    od[1][8] = 7;
+    b->SetPosNonResized(5, 10, 1);
+    CHECK(b->mHandleX == 10 && od[1][7] == 10 && od[1][8] == 7 && b->mStep == 16);
+    b->SetPosNonResized(5, 10, 10);
+    CHECK(b->mHandleX == 90 && od[1][7] == 90);
+    b->mbNoMove = 1;
+    b->SetPosNonResized(5, 10, 3);                    // 10 + 2 * 16, handle not moved
+    CHECK(b->mHandleX == 42 && od[1][7] == 90);
+    b->mbNoMove = 0;
+    // update: hide handle + arrows when everything fits; else show (handle only with an index) and position
+    b->Update(10, 10, 3);
+    CHECK((o[1]->mu32Flags & 1) && (o[2]->mu32Flags & 1) && (o[3]->mu32Flags & 1) && !(o[0]->mu32Flags & 1));
+    b->Update(5, 10, 0);
+    CHECK((o[1]->mu32Flags & 1) && !(o[2]->mu32Flags & 1) && !(o[5]->mu32Flags & 1) && b->mHandleX == -6);   // index 0: 10 - 16
+    b->Update(5, 10, 3);
+    CHECK(!(o[1]->mu32Flags & 1) && od[1][7] == 42);
+    b->Update(-1, 0, 3);                               // total 0: hidden
+    CHECK(o[1]->mu32Flags & 1);
+    b->SetArrowVisibility(2, true);
+    b->SetArrowVisibility(3, true);                   // only 1 and 2
+    CHECK((o[2]->mu32Flags & 1) && !(o[3]->mu32Flags & 1));
+    b->SetBackingVisibility(false);
+    CHECK((o[0]->mu32Flags & 1) && (o[4]->mu32Flags & 1) && (o[5]->mu32Flags & 1));
+    b->SetBackingVisibility(true);
+    CHECK(!(o[0]->mu32Flags & 1) && !(o[4]->mu32Flags & 1) && !(o[5]->mu32Flags & 1));
+    FEngSetWidth(o[0], 33);
+    FEngSetHeight(o[0], 44);
+    CHECK(od[0][14] == 33 && od[0][15] == 44);
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -2721,6 +2773,7 @@ int main()
     TestFEngUtil();
     TestFEngPosition();
     TestButtonWidget();
+    TestScrollBar();
     TestFEngExtents();
     TestFEngFontMeasure();
     TestProcessPads();

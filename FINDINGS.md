@@ -50,6 +50,9 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   Glyph: +0 code, +0xB kern count, +0xC kern index (16-byte), +0xE advance (fonts in use are 16-byte). Control chars
   index up to 32 entries before the glyph table (PC reads it). Done also: CharacterWidth, WordWrappedLines, GetJoyEventTextureInfo
   50BB10 (+ WideToCharString 4FF980). Next: RenderString 51C110.
+- FEScrollBar (FEScrollBar.cpp, PC 0x58, bools at +0..+3; GC 0x64): done (ctor 542AC0, Update 538080, SetPos*
+  52E200/52E320, arrow/backing visibility). PC helpers: 4953E0 FindImage by name, 495590 SetWidth, 525DB0 SetHeight.
+  FEngSNPrintf 50C960 ignores its size. Referee: originals copy bool bytes raw -> pass 0/1 low bytes.
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.
