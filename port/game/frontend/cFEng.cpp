@@ -648,3 +648,18 @@ void FEngRenderBackground()
     cFEng *fe = bridge::cFEngInstance();
     if (bridge::DrawFEng() && fe) fe->DrawBackground();
 }
+
+void FEngPopChildPackages(const FEPackage *parent)
+{
+    cFEng *fe = bridge::cFEngInstance();   // PC: no null check here (the engine is read unconditionally)
+    for (FEPackage *p = fe->mpEngine->mpPackages; p;) {
+        auto *next = reinterpret_cast<FEPackage *>(p->node.next);
+        if (p->mpParent == parent) {
+            FEngPopChildPackages(p);
+            if (cFEng *f = bridge::cFEngInstance()) f->Popper(p->mpcName);
+        }
+        p = next;
+    }
+}
+
+bool cFEng_SetCellData(void *, uint32_t, uint32_t) { return false; }

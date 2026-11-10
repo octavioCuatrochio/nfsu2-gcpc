@@ -178,3 +178,8 @@ static_assert(offsetof(cFEng, mpEngine) == 8 && offsetof(cFEng, mpSortHead) == 0
 void FEngRenderForeground();
 // GC FEngRenderBackground 8014F2A8 / PC 537930 (__cdecl): DrawBackground under the same conditions.
 void FEngRenderBackground();
+// PC 537DA0 (__cdecl, PC only; caller 4E4A5A): every active package pushed by `parent` (FEPackage +0x3C) has its own
+// children popped first (recursion), then cFEng::Popper (inlined). The next link is read before the recursion.
+void FEngPopChildPackages(const FEPackage *parent);
+// PC 50C7B0 (ret 0xC; GC cFEng::SetCellData 8014E320, a static code-list-box callback): false.
+bool cFEng_SetCellData(void *listBox, uint32_t a, uint32_t b);

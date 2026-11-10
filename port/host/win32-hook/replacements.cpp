@@ -574,6 +574,8 @@ void THISCALL FEButtonMap_ComputeButtonLocation(const FEButtonMap *self, FEObjec
 FEObject *THISCALL FEButtonMap_GetButtonFrom(const FEButtonMap *self, FEObject *f, uint32_t d, void *gi, uint32_t w) { return self->GetButtonFrom(f, d, gi, w); }
 uint32_t THISCALL FEJoyPad_HeldFor(const FEJoyPad *self, uint32_t m) { return self->HeldFor(m); }
 void THISCALL FEJoyPad_Update(FEJoyPad *self, uint32_t bits, uint32_t d) { self->Update(bits, d); }
+void __cdecl FEngPopChildPackages_Hook(const FEPackage *p) { FEngPopChildPackages(p); }
+uint32_t THISCALL cFEng_SetCellData_Hook(void *, void *lb, uint32_t a, uint32_t b) { return cFEng_SetCellData(lb, a, b); }
 void __cdecl FEngRenderForeground_Hook() { FEngRenderForeground(); }
 void __cdecl FEngRenderBackground_Hook() { FEngRenderBackground(); }
 FERefList *THISCALL FERefList_ScalarDtor(FERefList *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
@@ -1206,6 +1208,8 @@ const Replacement kReplacements[] = {
     {0x5189E0, (const void *)&FEButtonMap_GetButtonFrom, "FEButtonMap::GetButtonFrom", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
     {0x504FF0, (const void *)&FEJoyPad_HeldFor, "FEJoyPad::HeldFor", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
     {0x504FA0, (const void *)&FEJoyPad_Update, "FEJoyPad::Update", {0x8B, 0xD1, 0x8B, 0x4C, 0x24, 0x04}},
+    {0x537DA0, (const void *)&FEngPopChildPackages_Hook, "FEngPopChildPackages", {0x51, 0xA1, 0xC4, 0x84, 0x83, 0x00}},
+    {0x50C7B0, (const void *)&cFEng_SetCellData_Hook, "cFEng::SetCellData", {0x32, 0xC0, 0xC2, 0x0C, 0x00, 0x90}},
     {0x5378C0, (const void *)&FEngRenderForeground_Hook, "FEngRenderForeground", {0xA1, 0xC4, 0x91, 0x7F, 0x00, 0x85}},
     {0x537930, (const void *)&FEngRenderBackground_Hook, "FEngRenderBackground", {0xA1, 0xC4, 0x91, 0x7F, 0x00, 0x85}},
     {0x525E50, (const void *)&FERefList_ScalarDtor, "FERefList scalar dtor", {0x56, 0x8B, 0xF1, 0x8A, 0x46, 0x04}},
