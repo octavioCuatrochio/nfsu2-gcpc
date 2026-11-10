@@ -61,6 +61,8 @@ extern int fakeFont;
 extern int32_t joyPluggedPort;
 extern int32_t tuningCategory, allPortsFlag, activePort, lastButton;   // TuningSlidersMenu globals
 extern bool speedMetric, hasLastButton, drawFEng, cursorEnabled;
+extern int32_t playerToEdit;
+extern uint8_t controllerOptions[0x28 * 2];
 extern int32_t discError;
 extern const char *singlePackage;
 extern uint8_t mouseGlobals[0x24];

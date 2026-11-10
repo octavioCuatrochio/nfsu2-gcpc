@@ -381,4 +381,12 @@ bool DrawFEng();                                 // PC *(int*)0x7F91C4 (GC DrawF
 void DrawFEGraphs();                             // PC 510090: *(0x838564) ? its vtable +0xC : nothing (GC DrawFEGraphs)
 bool MouseCursorEnabled();                       // PC byte 0x7FA29C (1 at start)
 void DrawMouseCursor(int32_t x, int32_t y);      // PC 50B460 (__cdecl, PC only)
+// ---- UIWheelOptionsMenu ----
+void *UIWheelOptionsMenuVTable();                // PC 0x795E4C
+void *WCOWheelRangeVTable();                     // PC 0x791E40
+void *WCOStrengthOfForceVTable();                // PC 0x791E90
+void *WCOOverallForceStrengthVTable();           // PC 0x791EE0
+int32_t PlayerToEditForOptions();                // PC *(int*)0x836364 (GC GetPlayerToEditForOptions)
+uint8_t *PlayerControllerOptions(int32_t player);   // PC 0x83AA64 + player * 0x28
+float FEWidget_GetValue(void *widget);           // slider widget vtable +0x48 (x87 result, rounded to float)
 }  // namespace bridge

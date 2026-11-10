@@ -11,6 +11,7 @@
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
 #include "frontend/TuningSlidersMenu.h"
+#include "frontend/UIWheelOptionsMenu.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -2783,6 +2784,36 @@ static void TestRenderEntryPoints()
     fe->mpEngine = saved;
 }
 
+// UIWheelOptionsMenu: WCO slider conversions, Act writes the player's option, Setup adds 3 sliders, sound filter.
+static void TestWheelOptions()
+{
+    CHECK(FilterSoundForMenu(0, 4) == 0 && FilterSoundForMenu(0, 5) == 0 && FilterSoundForMenu(1, 7) == 7);
+    alignas(8) static unsigned char wm[sizeof(WCOSlider)];
+    std::memset(wm, 0, sizeof wm);
+    auto *w = reinterpret_cast<WCOSlider *>(wm);
+    w->mPlayer = 1;
+    auto opt = [](int k) -> float & { return *reinterpret_cast<float *>(teststub::controllerOptions + 0x28 + 0x1C + 4 * k); };
+    auto *sf = reinterpret_cast<WCOStrengthOfForce *>(w);
+    w->base.mSlider.mValue = 0.5f;
+    CHECK(sf->GetValue() == 11.0L);
+    w->base.mSlider.mValue = -1.0f;
+    CHECK(sf->GetValue() == 20.0L);
+    w->base.mSlider.mValue = 3.0f;
+    CHECK(sf->GetValue() == 2.0L);
+    opt(1) = 11.0f;
+    sf->SetInitialValues();
+    CHECK(std::fabs(w->base.mSlider.mValue - 0.5f) < 1e-6f && w->base.mSlider.mMin == 0.0f && w->base.mSlider.mMax == 1.0f);
+    opt(0) = 0.0f;   // below the wheel range minimum: clamped to 0.1
+    reinterpret_cast<WCOWheelRange *>(w)->SetInitialValues();
+    CHECK(w->base.mSlider.mValue == 0.1f && w->base.mSlider.mMin == 0.1f);
+    opt(2) = 0.25f;
+    reinterpret_cast<WCOOverallForceStrength *>(w)->SetInitialValues();
+    CHECK(w->base.mSlider.mValue == 0.25f);
+    teststub::delivered.clear();
+    reinterpret_cast<WCOOverallForceStrength *>(w)->Act("Pkg", 0x12345678u);   // stub GetValue = 0.5
+    CHECK(opt(2) == 0.5f && std::string(teststub::delivered.back().kind) == "draw");
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -3894,6 +3925,7 @@ int main()
     TestInputWidget();
     TestTuningSlidersMenu();
     TestRenderEntryPoints();
+    TestWheelOptions();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

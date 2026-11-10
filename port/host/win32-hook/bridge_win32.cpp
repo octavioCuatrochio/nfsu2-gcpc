@@ -470,4 +470,12 @@ bool DrawFEng() { return *reinterpret_cast<const int32_t *>(0x7F91C4) != 0; }
 void DrawFEGraphs() { reinterpret_cast<void(__cdecl *)()>(0x510090)(); }
 bool MouseCursorEnabled() { return *reinterpret_cast<const uint8_t *>(0x7FA29C) != 0; }
 void DrawMouseCursor(int32_t x, int32_t y) { reinterpret_cast<void(__cdecl *)(int32_t, int32_t)>(0x50B460)(x, y); }
+// ---- UIWheelOptionsMenu ----
+void *UIWheelOptionsMenuVTable() { return reinterpret_cast<void *>(0x795E4C); }
+void *WCOWheelRangeVTable() { return reinterpret_cast<void *>(0x791E40); }
+void *WCOStrengthOfForceVTable() { return reinterpret_cast<void *>(0x791E90); }
+void *WCOOverallForceStrengthVTable() { return reinterpret_cast<void *>(0x791EE0); }
+int32_t PlayerToEditForOptions() { return *reinterpret_cast<const int32_t *>(0x836364); }
+uint8_t *PlayerControllerOptions(int32_t p) { return reinterpret_cast<uint8_t *>(0x83AA64 + p * 0x28); }
+float FEWidget_GetValue(void *w) { return (*reinterpret_cast<float(THISCALL ***)(void *)>(w))[0x48 / 4](w); }
 }  // namespace bridge

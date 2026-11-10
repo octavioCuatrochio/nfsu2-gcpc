@@ -33,6 +33,8 @@ void FEngSetVisible(const char *pkg, uint32_t objHash);                      // 
 void FEngSetScript(FEObject *obj, uint32_t id, bool restart);
 // GC 80150630 (+ 80150698 inlined) / PC 51D040: current script is `name` (FEngHashStringUpper) and not past its end.
 bool FEngIsScriptRunning(const FEObject *obj, const char *name);
+// PC 537D40 (__cdecl): FEngFindObject(pkg, objHash) has script id current and not past its end.
+bool FEngIsScriptRunning(const char *pkg, uint32_t objHash, uint32_t scriptId);
 // PC 52D100 (__cdecl, PC only): the click button (0x8763F2, left-handed 0x8763F5) is down over obj
 bool FEngIsClickedOn(const FEObject *obj);
 // GC 80150328 / PC 51CED0: rotation about z by `degrees` (matrix from bSinF, bMatrixToQuaternion, SetRotation).

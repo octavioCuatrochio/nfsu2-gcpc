@@ -75,6 +75,8 @@ int fakeFont = 0;
 int32_t joyPluggedPort = -1;
 int32_t tuningCategory = 0, allPortsFlag = 0, activePort = 0, lastButton = 0;
 bool speedMetric = false, hasLastButton = false, drawFEng = true, cursorEnabled = false;
+int32_t playerToEdit = 0;
+uint8_t controllerOptions[0x28 * 2] = {};
 int32_t discError = 0;
 const char *singlePackage = nullptr;
 uint8_t mouseGlobals[0x24] = {};
@@ -851,4 +853,21 @@ bool DrawFEng() { return teststub::drawFEng; }
 void DrawFEGraphs() { teststub::delivered.push_back({"fegraphs", nullptr, nullptr, 0, 0}); }
 bool MouseCursorEnabled() { return teststub::cursorEnabled; }
 void DrawMouseCursor(int32_t x, int32_t y) { teststub::delivered.push_back({"cursor", nullptr, nullptr, static_cast<uint32_t>(x), static_cast<uint32_t>(y)}); }
+// ---- UIWheelOptionsMenu ----
+#ifdef NFSU2_REFEREE
+void *UIWheelOptionsMenuVTable() { return reinterpret_cast<void *>(0x795E4C); }
+void *WCOWheelRangeVTable() { return reinterpret_cast<void *>(0x791E40); }
+void *WCOStrengthOfForceVTable() { return reinterpret_cast<void *>(0x791E90); }
+void *WCOOverallForceStrengthVTable() { return reinterpret_cast<void *>(0x791EE0); }
+float FEWidget_GetValue(void *w) { return (*reinterpret_cast<float(__thiscall ***)(void *)>(w))[0x48 / 4](w); }
+uint8_t *PlayerControllerOptions(int32_t p) { return reinterpret_cast<uint8_t *>(0x83AA64 + p * 0x28); }
+#else
+void *UIWheelOptionsMenuVTable() { return &teststub::fakeFont; }
+void *WCOWheelRangeVTable() { return &teststub::feButtonWidgetVTable; }
+void *WCOStrengthOfForceVTable() { return &teststub::feButtonWidgetVTable; }
+void *WCOOverallForceStrengthVTable() { return &teststub::feButtonWidgetVTable; }
+float FEWidget_GetValue(void *w) { teststub::delivered.push_back({"getvalue", w, nullptr, 0, 0}); return 0.5f; }
+uint8_t *PlayerControllerOptions(int32_t p) { return teststub::controllerOptions + p * 0x28; }
+#endif
+int32_t PlayerToEditForOptions() { return teststub::playerToEdit; }
 }  // namespace bridge

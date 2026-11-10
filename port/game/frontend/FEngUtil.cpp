@@ -512,3 +512,11 @@ bool FEngIsClickedOn(const FEObject *obj)
     const uint8_t clicked = ms[0x1C] ? ms[0x21] : ms[0x1E];
     return clicked && FEngTestForIntersection(x, y, obj);
 }
+
+bool FEngIsScriptRunning(const char *pkg, uint32_t objHash, uint32_t scriptId)
+{
+    const FEObject *obj = FEngFindObject(pkg, objHash);
+    if (!obj) return false;
+    const FEScript *s = obj->mpCurrentScript;
+    return s && s->mu32Id == scriptId && s->mi32Time <= s->mi32Length;
+}

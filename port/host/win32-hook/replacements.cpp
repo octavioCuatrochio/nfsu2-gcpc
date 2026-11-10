@@ -22,6 +22,7 @@
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
 #include "frontend/TuningSlidersMenu.h"
+#include "frontend/UIWheelOptionsMenu.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -548,6 +549,24 @@ void THISCALL TSM_SetupDrivetrain(TuningSlidersMenu *self) { self->SetupDrivetra
 void THISCALL TSM_SetupAero(TuningSlidersMenu *self) { self->SetupAero(); }
 void THISCALL TSM_SetupWheelBrakes(TuningSlidersMenu *self) { self->SetupWheelBrakes(); }
 uint32_t __cdecl FEngMapPortToControlMask_Hook(int32_t p) { return FEngMapPortToControlMask(p); }
+UIWheelOptionsMenu *THISCALL UWOM_Ctor(UIWheelOptionsMenu *self, const ScreenConstructorData *d) { return self->Construct(d); }
+UIWheelOptionsMenu *THISCALL UWOM_ScalarDtor(UIWheelOptionsMenu *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL UWOM_Dtor(UIWheelOptionsMenu *self) { self->Destruct(); }
+void THISCALL UWOM_Notify(UIWheelOptionsMenu *self, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { self->NotificationMessage(m, o, a, p); }
+uint32_t THISCALL UWOM_NotifySound(void *, uint32_t m, FEObject *, uint32_t, uint32_t, uint32_t e) { return UIWheelOptionsMenu::NotifySoundMessage(m, e); }
+void THISCALL UWOM_Setup(UIWheelOptionsMenu *self) { self->Setup(); }
+uint32_t __cdecl FilterSoundForMenu_Hook(uint32_t m, uint32_t e) { return FilterSoundForMenu(m, e); }
+bool __cdecl FEngIsScriptRunningId_Hook(const char *pkg, uint32_t h, uint32_t id) { return FEngIsScriptRunning(pkg, h, id); }
+void THISCALL WCOWheelRange_Act(WCOWheelRange *self, const char *p, uint32_t m) { self->Act(p, m); }
+void THISCALL WCOStrengthOfForce_Act(WCOStrengthOfForce *self, const char *p, uint32_t m) { self->Act(p, m); }
+void THISCALL WCOOverall_Act(WCOOverallForceStrength *self, const char *p, uint32_t m) { self->Act(p, m); }
+void THISCALL WCOWheelRange_Draw(WCOWheelRange *self) { self->Draw(); }
+void THISCALL WCOStrengthOfForce_Draw(WCOStrengthOfForce *self) { self->Draw(); }
+void THISCALL WCOOverall_Draw(WCOOverallForceStrength *self) { self->Draw(); }
+void THISCALL WCOWheelRange_SetInit(WCOWheelRange *self) { self->SetInitialValues(); }
+void THISCALL WCOStrengthOfForce_SetInit(WCOStrengthOfForce *self) { self->SetInitialValues(); }
+void THISCALL WCOOverall_SetInit(WCOOverallForceStrength *self) { self->SetInitialValues(); }
+long double THISCALL WCOStrengthOfForce_GetValue(const WCOStrengthOfForce *self) { return self->GetValue(); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -919,7 +938,7 @@ const Replacement kReplacements[] = {
     {0x50CB00, (const void *)&FEngSetSize, "FEngSetSize", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x51CF70, (const void *)static_cast<void (*)(FEObject *, const char *, bool)>(&FEngSetScript), "FEngSetScript(name)", {0x57, 0x8B, 0x7C, 0x24, 0x08, 0x85}},
     {0x51CFE0, (const void *)static_cast<void (*)(FEObject *, uint32_t, bool)>(&FEngSetScript), "FEngSetScript(id)", {0x57, 0x8B, 0x7C, 0x24, 0x08, 0x85}},
-    {0x51D040, (const void *)&FEngIsScriptRunning, "FEngIsScriptRunning(name)", {0x8B, 0x44, 0x24, 0x08, 0x50, 0xE8}},
+    {0x51D040, (const void *)static_cast<bool (*)(const FEObject *, const char *)>(&FEngIsScriptRunning), "FEngIsScriptRunning(name)", {0x8B, 0x44, 0x24, 0x08, 0x50, 0xE8}},
     {0x51CED0, (const void *)&FEngSetRotationZ, "FEngSetRotationZ", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
     {0x51D070, (const void *)&FEngGetTopLeft, "FEngGetTopLeft", {0x51, 0x53, 0x56, 0x8B, 0x74, 0x24}},
     {0x51D170, (const void *)&FEngGetBottomRight, "FEngGetBottomRight", {0x81, 0xEC, 0x08, 0x08, 0x00, 0x00}},
@@ -1171,6 +1190,24 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x4CFBA0, (const void *)&UWOM_Ctor, "UIWheelOptionsMenu::UIWheelOptionsMenu", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
+    {0x4CFC80, (const void *)&UWOM_ScalarDtor, "UIWheelOptionsMenu scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4CFCA0, (const void *)&UWOM_Dtor, "UIWheelOptionsMenu::~UIWheelOptionsMenu", {0xC7, 0x01, 0x4C, 0x5E, 0x79, 0x00}},
+    {0x49CBB0, (const void *)&UWOM_Notify, "UIWheelOptionsMenu::NotificationMessage", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54}},
+    {0x49DFC0, (const void *)&UWOM_NotifySound, "UIWheelOptionsMenu::NotifySoundMessage", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x4C}},
+    {0x4B8A10, (const void *)&UWOM_Setup, "UIWheelOptionsMenu::Setup", {0x6A, 0xFF, 0x68, 0xCC, 0x36, 0x77}},
+    {0x50D1D0, (const void *)&FilterSoundForMenu_Hook, "FilterSoundForMenu", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0xC8}},
+    {0x537D40, (const void *)&FEngIsScriptRunningId_Hook, "FEngIsScriptRunning(pkg,hash,id)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x49B350, (const void *)&WCOWheelRange_Act, "WCOWheelRange::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49B400, (const void *)&WCOStrengthOfForce_Act, "WCOStrengthOfForce::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49B550, (const void *)&WCOOverall_Act, "WCOOverallForceStrength::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x49B3A0, (const void *)&WCOWheelRange_Draw, "WCOWheelRange::Draw", {0x8B, 0x41, 0x2C, 0x68, 0xD2, 0xB0}},
+    {0x49B4B0, (const void *)&WCOStrengthOfForce_Draw, "WCOStrengthOfForce::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x96, 0xB3}},
+    {0x49B5A0, (const void *)&WCOOverall_Draw, "WCOOverallForceStrength::Draw", {0x8B, 0x41, 0x2C, 0x68, 0xE8, 0x2A}},
+    {0x49B3C0, (const void *)&WCOWheelRange_SetInit, "WCOWheelRange::SetInitialValues", {0x51, 0x8B, 0x81, 0x98, 0x00, 0x00}},
+    {0x49B4D0, (const void *)&WCOStrengthOfForce_SetInit, "WCOStrengthOfForce::SetInitialValues", {0x51, 0x8B, 0x81, 0x98, 0x00, 0x00}},
+    {0x49B5C0, (const void *)&WCOOverall_SetInit, "WCOOverallForceStrength::SetInitialValues", {0x51, 0x8B, 0x81, 0x98, 0x00, 0x00}},
+    {0x49B450, (const void *)&WCOStrengthOfForce_GetValue, "WCOStrengthOfForce::GetValue", {0x51, 0x8B, 0x81, 0x84, 0x00, 0x00}},
     {0x51D8A0, (const void *)&FEngGetObjBBox, "FEngGetObjBBox", {0x81, 0xEC, 0x10, 0x08, 0x00, 0x00}},
     {0x51D9F0, (const void *)&FEngGet2DExtents, "FEngGet2DExtents", {0x83, 0xEC, 0x18, 0x53, 0x55, 0x8B}},
     {0x52D020, (const void *)static_cast<bool (*)(float, float, const FEObject *)>(&FEngTestForIntersection), "FEngTestForIntersection", {0x8B, 0x44, 0x24, 0x0C, 0x83, 0xEC}},

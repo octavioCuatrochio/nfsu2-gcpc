@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <random>
 #include <vector>
 #include <array>
@@ -27,6 +28,7 @@
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
 #include "frontend/TuningSlidersMenu.h"
+#include "frontend/UIWheelOptionsMenu.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FEScript.h"
@@ -2472,12 +2474,15 @@ static void CheckTuningSlider(int iters)
             auto lb = slider_fake::log;
             for (auto &e : lb) if (e.first == 0x0C) e.second = (e.second & 0xFF) | (static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&A.w.mSlider)) << 8);
             // compare with B's pointers mapped back into A
-            wire(B, label, extra);   // (pointers differ by arena only; rewire A-relative for the memcmp)
-            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
-            uint8_t *wb = reinterpret_cast<uint8_t *>(&B.w);
-            for (size_t off = 0; off + 4 <= sizeof B.w; off += 4) {
-                uintptr_t v; std::memcpy(&v, wb + off, 4);
-                if (v >= reinterpret_cast<uintptr_t>(&B) && v < reinterpret_cast<uintptr_t>(&B) + sizeof B) { v -= delta; std::memcpy(wb + off, &v, 4); }
+            // B's object pointers mapped into A for the memcmp: only the known pointer fields (a blanket scan of
+            // random bytes gave false mismatches)
+            {
+                Arena &R = B;
+                R.w.base.base.mpObject = obj(A, 0); R.w.base.base.mpValue = obj(A, 1);
+                R.w.base.mpLeftArrow = obj(A, 2); R.w.base.mpRightArrow = obj(A, 3);
+                R.w.base.base.base.mpLabel = label ? obj(A, 4) : nullptr;
+                R.w.mpMinLabel = obj(A, 5); R.w.mpMaxLabel = obj(A, 6); R.w.mpExtra = extra ? obj(A, 7) : nullptr;
+                R.w.mSlider.base.base.mpBacking = obj(A, 8); R.w.mSlider.base.base.mpValue = obj(A, 9);
             }
             for (int k = 0; k < K; ++k) reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
             EXPECT(la == lb && std::memcmp(&A, &B, offsetof(Arena, d)) == 0 && std::memcmp(A.d, B.d, sizeof A.d) == 0, "TuningSlider op %d pc=%x", op, pc);
@@ -3013,6 +3018,44 @@ static void CheckTuningPure(int iters)
         const int32_t v = static_cast<int32_t>(rng());
         EXPECT(oTip(v) == TuningSlidersMenu::GetTipHash(v) && oMask(v) == FEngMapPortToControlMask(v), "tuning pure %d", v);
     }
+}
+
+// WCO* sliders: GetValue / SetInitialValues against the real option record (0x83AA64, saved and restored),
+// FilterSoundForMenu.
+static void CheckWheelOptions(int iters)
+{
+    auto oGet = ORIG<float(THISCALL *)(const void *)>(0x49B450);
+    const uintptr_t initAddr[3] = {0x49B3C0, 0x49B4D0, 0x49B5C0};
+    auto oFilter = ORIG<uint32_t(__cdecl *)(uint32_t, uint32_t)>(0x50D1D0);
+    uint8_t saved[0x50];
+    std::memcpy(saved, reinterpret_cast<void *>(0x83AA64), sizeof saved);
+    static WCOSlider A, B;
+    const float specials[] = {0.0f, -0.0f, 1.0f, 2.0f, 20.0f, 0.5f, -3.0f, 25.0f, std::numeric_limits<float>::quiet_NaN(), 1e-30f};
+    const unsigned int savedCw = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            A.mPlayer = static_cast<int32_t>(rng() % 2);
+            auto rf = [&] { return rng() % 3 ? specials[rng() % 10] : RefCoord() / 10.0f; };
+            A.base.mSlider.mValue = rf();
+            for (int k = 0; k < 3; ++k) *reinterpret_cast<float *>(0x83AA64 + A.mPlayer * 0x28 + 0x1C + 4 * k) = rf();
+            std::memcpy(&B, &A, sizeof A);
+            const float ga = oGet(&A), gb = static_cast<float>(reinterpret_cast<WCOStrengthOfForce *>(&B)->GetValue());
+            EXPECT(std::memcmp(&ga, &gb, 4) == 0, "WCOStrengthOfForce::GetValue %g: %g vs %g", A.base.mSlider.mValue, ga, gb);
+            const int k = static_cast<int>(rng() % 3);
+            ORIG<void(THISCALL *)(void *)>(initAddr[k])(&A);
+            if (k == 0) reinterpret_cast<WCOWheelRange *>(&B)->SetInitialValues();
+            else if (k == 1) reinterpret_cast<WCOStrengthOfForce *>(&B)->SetInitialValues();
+            else reinterpret_cast<WCOOverallForceStrength *>(&B)->SetInitialValues();
+            EXPECT(std::memcmp(&A, &B, sizeof A) == 0, "WCO SetInitialValues %d", k);
+            const uint32_t m = rng() % 2 ? 0x911AB364u : rng(), e = rng() % 8;
+            EXPECT(oFilter(m, e) == FilterSoundForMenu(m, e), "FilterSoundForMenu");
+        }
+    }
+    _controlfp(savedCw, _MCW_PC);
+    std::memcpy(reinterpret_cast<void *>(0x83AA64), saved, sizeof saved);
 }
 
 static void CheckButtonWidget(int iters)
@@ -3917,6 +3960,7 @@ static int RunAll()
     REFEREE_RUN(CheckWidgetSmall(iters));
     REFEREE_RUN(CheckInputWidget(iters));
     REFEREE_RUN(CheckTuningPure(iters));
+    REFEREE_RUN(CheckWheelOptions(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));
