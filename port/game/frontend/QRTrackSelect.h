@@ -49,6 +49,7 @@ struct SelectableTrack {
 
     int32_t TrackNumber() const { return mpInfo ? mpInfo->mTrackNumber : mTrackNumber; }   // PC inlined (movsx)
     uint32_t CalcIconHash() const;  // GC 800E40FC / PC 4984B0
+    uint32_t CalcLanguageHash() const;   // GC 800E40BC (PC: inlined in RefreshHeader): CalcTrackNameHash(number, dir)
 };
 
 // PC 0x30, vtable 0x78F8C8 (0 scalar dtor 4B4B60). Embedded at UIQRTrackSelect +0x118; global *0x836344 = this.
@@ -68,6 +69,9 @@ struct TrackMapScroller {
     uint8_t mbZoomNow;           // +0x2C
     uint8_t _pad2D[3];
 
+    // GC 800E426C (PC: inlined into the UIQRTrackSelect ctor 4E2F30, image looked up first): vtable 0x78F8C8, global
+    // *0x836344 = this, image hidden, state cleared.
+    void Construct(FEObject *image);
     void Destruct();                                     // GC 800E42E0 / PC 4985A0
     TrackMapScroller *ScalarDeletingDestructor(uint32_t f);   // PC 4B4B60 (ret 4)
     void SetTrackMap(SelectableTrack *t);                // GC 800E4380 / PC 498600 (ret 4; PC: no same-id check)
@@ -75,7 +79,8 @@ struct TrackMapScroller {
     void InitZoom(float seconds);                        // GC 800E4624 / PC 4B4B80 (ret 4)
     void ZoomIn(float t);                                // GC 800E46F4 / PC 498630 (ret 4)
 };
-// GC 800E43D0 / PC 4AEBF0 (__cdecl): LoadResourceFile callback, param = the scroller.
+// GC 800E43D0 / PC 4AEBF0 (__cdecl): LoadResourceFile callback, param = the scroller (GC: through the static
+// TexturesLoadedCallbackBridge 80117540; PC: one function).
 void TrackMapScroller_TexturesLoadedCallback(void *scroller);
 
 // PC 0x160 (factory 4EF9A0: operator new 0x160), vtable 0x7974F0: 0 4DF120, 1 40D080, 2 NotificationMessage 4EFA10,
@@ -112,6 +117,10 @@ struct UIQRTrackSelect {
     void Scroll(int32_t dir);                                       // GC 800E5334 / PC 4E3270 (ret 4)
     void RefreshHeader();                                           // GC 800E5404 / PC 4CE170
     void DisplayRaceType();                                         // GC 800E5854 / PC 4988C0
+    // PC: inlined into BuildPresetTrackList / RefreshHeader.
+    static uint16_t *GetSelectedTrack();            // GC 800E4DB0: online (0x8500B8) or quick race track settings
+    SelectableTrack *FindTrack(int32_t number);     // GC 800E51B0: first by track number, null if none
+    int32_t GetNodeIndex(const SelectableTrack *t); // GC 800E59C4: 1-based position, 0 if not in the list
 };
 // PC 4987A0 (__cdecl, bList::Sort callback): 0 (b first) only when a is locked and b is not.
 int32_t QRTrack_SortCompare(SelectableTrack *a, SelectableTrack *b);

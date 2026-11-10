@@ -139,6 +139,13 @@ struct cFEng {
     // inlined); package +0x14 = 1; Update(engine, 0) unless +0x16; package data activated with the sorter entry's
     // argument; movies started; priority = the entry's level. No null check on the sorter entry (PC).
     void InitPackage(FEPackage *pkg);
+    // GC 8014DE24 (PC: inlined into InitPackage, which GC calls first): package data activated with the sorter
+    // entry's argument, movies started, priority = the entry's level. PC has no FEngHidePCObjects pass.
+    void PackageWasLoaded(FEPackage *pkg);
+    // GC 8014E744 / 8014EB8C (PC: inlined into Pusher 555D00): push unless already active (PC checks the active
+    // list; GC the idle one).
+    void PushPackage(const char *name, int32_t priority, uint32_t mask);
+    bool IsPackageLoaded(const char *name) const;
     // GC 8014DF08 / PC 51C8C0 (ret 4): movies stopped, cached renders dropped, package data unactivated. True.
     bool PackageWillUnload(FEPackage *pkg);
     // GC 8014E6D8 / PC 537540: UI_MagazineBack.fng rendered (RenderPackageSpecial) when pushed.

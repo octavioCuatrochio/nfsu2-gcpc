@@ -118,13 +118,16 @@ void PostRaceMenu::SetupRace()
     if (bridge::GameModeFlags() == 1) {
         if (bridge::CareerState_513FA0()) AddPR(*this, PRKind::NextEvent, 0x12BB5EA2u, 0x23F359B8u, false);
         AddPR(*this, PRKind::QuitToFreeRoam, 0x62AA0DF6u, 0xC3E5BCDCu, true);
-        if (bridge::GameModeFlags() == 1 && *bridge::GameByte(0x85BA67)) AddPR(*this, PRKind::WorldMap, 0x3109913Cu, 0x5E670A9Eu, true);
+        if (NeedToSeeReturnToWorldMap()) AddPR(*this, PRKind::WorldMap, 0x3109913Cu, 0x5E670A9Eu, true);
     }
     AddPR(*this, PRKind::RestartRace, 0xB295A6B6u, 0x80833FC2u, true);
     AddPR(*this, PRKind::Stats, 0x70BB9626u, 0xF82DF37Eu, false);
     if (bridge::GameModeFlags() != 4 && bridge::PostRaceReplayAvailable()) AddPR(*this, PRKind::Replay, 0x84D1D864u, 0x7840428Au, false);
     AddPR(*this, PRKind::QuitToFrontEnd, 0x4C9E34E6u, 0xC7E1420Cu, true);
 }
+
+bool PostRaceMenu::NeedToSeeReturnToWorldMap() { return bridge::GameModeFlags() == 1 && *bridge::GameByte(0x85BA67); }
+void PostRaceMenu::RestartRace() { bridge::RaceCoordinator_PostMessage(9, 0); }
 
 void PostRaceMenu::QuitToWorldMap()
 {
@@ -187,11 +190,11 @@ void PostRaceMenu::NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg
     case 0xB4623F67u: bridge::FEngSendMessageToPackage(0x251BF83Eu, pkg); return;   // dialog "no"
     case 0x911AB364u: bridge::PostRaceManager_Back(); return;
     case 0xD78D7BF1u: QuitGame(); return;
-    case 0xE1A57D51u: bridge::RaceCoordinator_PostMessage(9, 0); return;   // restart
+    case 0xE1A57D51u: RestartRace(); return;   // restart
     case 0xE1FDE1D1u:
         if (base.mPrevMsg == 0x30ED2368u) bridge::FEngSendMessageToPackage(0x24DD40CFu, pkg);
         else if (base.mPrevMsg == 0xB5AF2461u) bridge::RaceCoordinator_RequestUnPause(1);
-        else if (base.mPrevMsg == 0xE1A57D51u) bridge::RaceCoordinator_PostMessage(9, 0);
+        else if (base.mPrevMsg == 0xE1A57D51u) RestartRace();
         return;
     default: return;
     }

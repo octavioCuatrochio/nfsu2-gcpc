@@ -16,6 +16,7 @@ struct UIStartCareer {
     IconOption *mpStartIcon;         // +0x150 the 790CC0 icon (locked by 0x251BF83E when the profile has no name)
 
     static UIStartCareer *Create(const ScreenConstructorData *data);   // PC 4ED710 (__cdecl)
+    UIStartCareer *Construct(const ScreenConstructorData *data);       // GC 800D1F40 (PC: inlined into Create)
     void Destruct();                                                   // GC 80117774 / PC 4DF390
     UIStartCareer *ScalarDeletingDestructor(uint32_t f);               // PC 4DF370 (ret 4)
     void NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg);   // GC 800D2150 / PC 4AF2C0

@@ -995,3 +995,40 @@ void FEDateWidget::SetDate()
 {
     bridge::FEPrintfInts3(base.mpValue, "%d/%d/%d", mDate[1], mDate[0], mDate[2]);
 }
+
+// ---- slider destructors ----
+void *cSlider::CSliderVTable() { return bridge::cSliderVTable(); }
+
+cSlider *cSlider::ScalarDeletingDestructor(uint32_t f)
+{
+    Destruct();
+    if (f & 1) bridge::FreeArray(this);
+    return this;
+}
+
+PreviewSlider *PreviewSlider::ScalarDeletingDestructor(uint32_t f)
+{
+    base.Destruct();
+    if (f & 1) bridge::FreeArray(this);
+    return this;
+}
+
+void PreviewSlider::Init(const SliderInitParams *params, const char *previewBar, float preview)
+{
+    base.Init(params, false);
+    if (previewBar) mpPreviewBar = FEngFindImage(base.mpPackage, FEHashUpper(previewBar));
+    mPreview = preview;
+}
+
+void TuningSlider::Destruct()
+{
+    mSlider.base.base.Destruct();
+    base.base.base.vtable = bridge::FEWidgetVTable();
+}
+
+TuningSlider *TuningSlider::ScalarDeletingDestructor(uint32_t f)
+{
+    Destruct();
+    if (f & 1) bridge::FreeArray(this);
+    return this;
+}

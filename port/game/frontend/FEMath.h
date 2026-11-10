@@ -47,3 +47,10 @@ FEColor FEColorSub(const FEColor &a, const FEColor &b);
 // PC 5054D0 (__thiscall on the colour; GC FEColor::operator unsigned long): channels clamped to 0..255, packed
 // c[3] << 24 | c[2] << 16 | c[1] << 8 | c[0] (alpha, red, green, blue).
 uint32_t FEColorPack(const FEColor &c);
+// GC FEColor::FEColor(unsigned long) 801424D4 / PC 5054A0 (__thiscall, ret 4): no clamping, c[0] = low byte (blue).
+void FEColorUnpack(FEColor *c, uint32_t argb);
+// GC FEColor::operator= 801425AC / PC 505560 (__thiscall, ret 4, returns this): channels copied 3, 2, 1, 0.
+FEColor *FEColorAssign(FEColor *c, const FEColor &src);
+// GC FEColor::operator+= 801425D4 (PC: inlined into FEObject::SetTrackValue / FEKeyTrack::SetBaseValueAt):
+// per-channel 32-bit wraparound add.
+void FEColorAddTo(FEColor *c, const FEColor &d);

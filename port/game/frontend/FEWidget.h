@@ -179,6 +179,9 @@ struct cSlider {
     void SetCurValue(float v);                     // GC 80120078 / PC 4FF550 (ret 4): clamp to [min, max]
     void Highlight();                              // GC 801200AC / PC 526D90 (FEngSetScript inlined x6)
     void UnHighlight();                            // GC 80120138 / PC 526F80
+    void Destruct() { vtable = CSliderVTable(); }  // GC 8018B758 / PC 4957A0
+    cSlider *ScalarDeletingDestructor(uint32_t f); // PC 4957B0 (ret 4)
+    static void *CSliderVTable();
 };
 
 // GC PreviewSlider (PC 0x4C, vtable 0x79AE30; ctor inlined in its screen, e.g. 559CF8): cSlider + a bar showing
@@ -190,6 +193,11 @@ struct PreviewSlider {
 
     void Toggle(bool on);      // GC 801206AC / PC 5122B0 (ret 4): cSlider objects, handle again, preview bar
     void Draw();               // GC 8012046C / PC 527170
+    // GC PreviewSliderInitParams: SliderInitParams + preview bar name (+0x30, null: keep) + preview value (+0x34).
+    // GC 80120760 (GC-only: PC's vtable 0x79AE30 keeps cSlider::Init; TuningSlider::SetSliderObjects sets the bar).
+    void Init(const SliderInitParams *params, const char *previewBar, float preview);
+    // GC 8018B92C / 8018B960 (ThreeStageSlider too) / PC 512220 (ret 4): cSlider dtor, then free.
+    PreviewSlider *ScalarDeletingDestructor(uint32_t f);
 };
 
 // GC ThreeStageSlider (PC 0x50, vtable 0x79AE54; ctor inlined in TuningSlider 522AF0): the value moves inside
@@ -266,6 +274,8 @@ struct TuningSlider {
     void Act(const char *pkg, uint32_t msg);
     // PC 565050 (ret 0xC; GC: FEToggleWidget's): toggle CheckMouse, then a click on mpExtra sends 0xC519BFC3 to pkg.
     void CheckMouse(const char *pkg, float x, float y);
+    void Destruct();                 // GC 80310014 / PC 531030: slider vtable back to cSlider's, then FEWidget's
+    TuningSlider *ScalarDeletingDestructor(uint32_t f);   // PC 531010 (ret 4; slot 0 of 0x79B7B0)
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

@@ -19,6 +19,9 @@ struct FEButtonMap {
     // the pass bit (PC 0x7F7CB0: 1, 1, 2, 2). Score: 1500 if the angle is off (dot^2 < 0.25), else
     // (1 - dot^2) * 200 + distance; nullptr if nothing beats 1500.
     FEObject *GetButtonFrom(FEObject *from, uint32_t dir, void *gi, uint32_t wrap) const;
+    // GC 8013DD84 (PC: inlined into FEPackageReader::ReadObjectChunk 5554A0): free the old array, new uninitialised
+    // array of `count` pointers (none for 0).
+    void SetCount(uint32_t count);
 };
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FEButtonMap) == 8);

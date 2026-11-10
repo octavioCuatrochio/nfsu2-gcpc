@@ -93,6 +93,9 @@ struct FEPackage {
     // Pre-order walk over all objects (groups recurse after their own callback); false if a callback stopped it.
     bool ForAllObjects(FEObjectCallback *cb);                   // GC 801391DC / PC 504880
     bool ForAllChildren(struct FEGroup *group, FEObjectCallback *cb);   // GC 80139144 / PC 504830
+    // GC 80139040 (PC: inlined into FEngine::UnloadPackage 5362E0 / UnloadLibraryPackage 52C500): hand the resource
+    // requests back to the game interface (slot 2 UnloadResources) if there is one.
+    void Shutdown(void *gameInterface);
     FEObject *FindObjectByGUID(uint32_t guid);                  // GC 801392C8 / PC 517FE0 (FEFindByGUID: obj+0xC)
     FEObject *FindObjectByHash(uint32_t nameHash);              // GC 80139274 / PC 517F80 (FEFindByHash: obj+0x10)
     // Control masks (GC 801390CC.., PC: only SetControlMask 5047E0 is a function, the others are inlined).

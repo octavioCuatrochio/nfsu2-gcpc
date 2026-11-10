@@ -110,6 +110,11 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
 {
     reinterpret_cast<void(THISCALL *)(void *, uint32_t, void *, uint32_t, FEPackage *)>(0x55B5C0)(screen, msg, obj, arg, pkg);
 }
+void MenuScreen_BaseNotifySound(void *screen, uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg)
+{
+    reinterpret_cast<void(THISCALL *)(void *, uint32_t, void *, uint32_t, FEPackage *)>(0x51DCD0)(screen, msg, obj, arg, pkg);
+}
+void *FEPackageManagerVTable() { return reinterpret_cast<void *>(0x79B910); }
 int32_t FEngLoadCounter() { return *reinterpret_cast<const int32_t *>(0x8384D0); }
 int32_t *FEngLoadCounterPtr() { return reinterpret_cast<int32_t *>(0x8384D0); }
 const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, uint8_t *f)
@@ -388,7 +393,6 @@ int32_t GetMovieNameEnum(const char *n) { return reinterpret_cast<int32_t(__cdec
 void CalculateMovieFilename(char *o, int32_t s, const char *n) { reinterpret_cast<void(__cdecl *)(char *, int32_t, const char *)>(0x51C740)(o, s, n); }
 bool FILE_exists(const char *p) { return reinterpret_cast<uint8_t(__cdecl *)(const char *)>(0x6F909D)(p) != 0; }
 void MovieStart(const char *p, bool l, int32_t w) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, int32_t)>(0x566020)(p, l, w); }
-void FEngine_InitObjects(::FEngine *e) { reinterpret_cast<void(THISCALL *)(void *)>(0x51A7E0)(e); }
 int32_t *DiscErrorOccurred() { return reinterpret_cast<int32_t *>(0x864F2C); }
 const char **FEngPleaseRenderSinglePackage() { return reinterpret_cast<const char **>(0x8384B4); }
 const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D4); }
@@ -396,7 +400,6 @@ void FEGameInterface_RenderObject(void *gi, FEObject *o) { (*reinterpret_cast<vo
 void cFEngRender_GenerateRenderContext(void *r, uint32_t c, FEObject *g) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, FEObject *)>(0x51B7F0)(r, c, g); }
 void cFEngRender_AddToRenderList(void *r, FEObject *o) { reinterpret_cast<void(THISCALL *)(void *, FEObject *)>(0x51B850)(r, o); }
 void cFEngRender_PackageFinished(void *r, FEPackage *p) { reinterpret_cast<void(THISCALL *)(void *, FEPackage *)>(0x5371F0)(r, p); }
-void FEPackageManager_NotifySoundMessage(FEPackageManager *m, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, uint32_t, uint32_t, uint32_t)>(0x52CC90)(m, a, b, c, d); }
 void bWareFree(void *p) { reinterpret_cast<void(__cdecl *)(void *)>(0x440540)(p); }
 uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }
 uint32_t *BRandomSeed() { return reinterpret_cast<uint32_t *>(0x7EA624); }
@@ -699,6 +702,17 @@ void GetLocalizedStringBuf(char *b, int32_t n, uint32_t h) { reinterpret_cast<vo
 void FEngPrintfFloatString(const char *p, uint32_t h, const char *f, double v, const char *s) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f, v, s); }
 // ---- QuickRaceSettings / UIQRModeOptions ----
 ::QuickRaceSettings *QuickRaceSettingsInstance() { return reinterpret_cast<::QuickRaceSettings *>(0x83AAB4); }
+uint32_t StockCarIdByType(int32_t player, uint32_t type)
+{
+    auto *db = reinterpret_cast<uint8_t *>(0x83AD90 + player * 0xAB4C);
+    const int32_t n = *reinterpret_cast<int32_t *>(db + 0x540);
+    for (int32_t i = 0; i < n; ++i) {
+        uint8_t *r = db + i * 0x1C;
+        if ((*reinterpret_cast<uint32_t(THISCALL ***)(void *)>(r))[1](r) == type) return *reinterpret_cast<uint32_t *>(r + 8);
+    }
+    return 0;
+}
+uint32_t DefaultPlayerCarType(int32_t player) { return *reinterpret_cast<const uint32_t *>(player ? 0x7FAA4C : 0x7FAA48); }
 const ::TrackInfo *TrackInfo_GetTrackInfo(uint32_t t) { return reinterpret_cast<const ::TrackInfo *(__cdecl *)(uint32_t)>(0x5D3E40)(t); }
 void FEngSendMessageToPackage(uint32_t m, const char *p) { reinterpret_cast<void(__cdecl *)(uint32_t, const char *)>(0x55DDA0)(m, p); }
 void FEPrintfIntString(FEObject *o, const char *f, int32_t v, const char *s) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v, s); }

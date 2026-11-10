@@ -32,6 +32,8 @@ struct PostRaceMenu {
     void Setup();                                                 // GC 800F3190 / PC 4D7160
     void SetupRace();                                             // GC 800F3250 / PC 4BEE10
     static void QuitToWorldMap();                                 // GC 800F3080 / PC 4A3DC0 (__cdecl-like, no this)
+    static bool NeedToSeeReturnToWorldMap();   // GC 800F315C (PC inlined in Setup): career && PC byte 0x85BA67
+    static void RestartRace();                 // GC 800F3564 (PC inlined in NotificationMessage): RCPostMessage(9, 0)
     void QuitRaceToFreeRoam();                                    // GC 800F30C4 / PC 4A3DF0
     void QuitRaceToFreeRoamRaceDone();                            // GC 800F30FC / PC 4A3E30
     void QuitGame();                                              // GC 800F3590 / PC 4A3E80

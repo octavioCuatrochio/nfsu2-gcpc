@@ -38,6 +38,10 @@ struct IconOption {
     IconOption *Construct(uint32_t nameHash, uint32_t header, uint32_t desc);   // GC 801570E0 / PC 51F670 (ret 0xC)
     void Destruct();                                  // GC 8030D3E0 / PC 527770: ThumbnailNode vtable
     IconOption *ScalarDeletingDestructor(uint32_t f);  // PC 4AEB70 (ret 4; slot 0 of every option vtable)
+    // GC 80157158 (PC: inlined into IconPanel / IconScroller AddOption): image, its size and packed colour.
+    void SetFEngObject(FEObject *img);
+    // GC 801571B4 (PC: inlined into IconPanel::SetSelection): animate towards `target` over `duration` s from now.
+    void StartScale(float target, float duration);
 };
 
 // GC CPPaintOption (ChoosePaintScreen, GC builds it inline); PC has a ctor 521FF0 (ret 0x14), vtable 0x79B604 with
@@ -88,7 +92,8 @@ struct IconPanel {
     void ScrollWrapped(int32_t dir);               // GC 80158B68 / PC 51FAC0 (ret 4)
     void ScrollNext();                             // PC 527730: ScrollWrapped / Scroll (+1) by mbWrap
     void ScrollPrev();                             // PC 527750 (-1)
-    void AnimateList(float *w, float *h);          // GC 80158C74 (+ AnimateSelected 80158CAC inlined) / PC 51FB70 (ret 8)
+    void AnimateList(float *w, float *h);          // GC 80158C74 / PC 51FB70 (ret 8): AnimateSelected (inlined)
+    void AnimateSelected(float *w, float *h);      // GC 80158CAC: scale animations; total size incl. spacing
     bool IsHead() const;                           // GC 8018BF40 / PC 5276D0
     bool IsTail() const;                           // GC 8018BF54 / PC 527700
 };

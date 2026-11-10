@@ -149,14 +149,8 @@ FEObject *FEObject::CopyConstruct(void *mem, const FEObject &src, bool reference
     o->mScripts = FEMinList{bridge::FEMinListVTable(), 0, nullptr, nullptr};
     o->mu32GUID = bridge::NextFEObjectGUID();
 
-    // SetDataSize (GC, inlined on PC)
-    uint32_t size = src.mu32DataSize;
-    bridge::ObjDataPool()->Free(o->mpData);
-    o->mpData = nullptr;
-    void *data = bridge::ObjDataPool()->Alloc(size);
-    o->mu32DataSize = size;
-    o->mpData = data;
-    std::memset(data, 0, size);
+    o->SetDataSize(src.mu32DataSize);   // (inlined on PC)
+    std::memset(o->mpData, 0, o->mu32DataSize);
 
     o->mu32Type = src.mu32Type;
     o->mu32Flags = src.mu32Flags;
@@ -176,7 +170,7 @@ FEObject *FEObject::CopyConstruct(void *mem, const FEObject &src, bool reference
     }
 
     for (FEMinNode *n = src.mScripts.head; n; n = n->next) {
-        void *mem2 = FEPoolNew<FEScript, 32>(*bridge::FEScriptPool(), FEScriptBlock_Construct);
+        void *mem2 = FEScript::PoolNew();
         FEScript *s = FEScript::CopyConstruct(mem2, *reinterpret_cast<const FEScript *>(n), reference);
         if (s) AppendNode(o->mScripts, &s->node);
     }
@@ -304,4 +298,22 @@ void FEObject::SetRotation(const FEQuaternion &q, bool add)
         t->mu8Flags &= 0x7F;
     }
     apply(static_cast<uint8_t *>(mpData) + GetDataOffset(kTrackRotation));
+}
+
+void FEObject::SetDataSize(uint32_t size)
+{
+    bridge::ObjDataPool()->Free(mpData);
+    mpData = nullptr;
+    void *data = bridge::ObjDataPool()->Alloc(size);
+    mu32DataSize = size;
+    mpData = data;
+}
+
+void FEObject::SetScript(FEScript *s, bool restart)
+{
+    if (s != mpCurrentScript) {
+        SetCurrentScript(s);
+        mpCurrentScript->mi32Time = 0;
+    }
+    if (restart) s->mi32Time = 0;
 }

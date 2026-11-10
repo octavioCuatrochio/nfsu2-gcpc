@@ -79,29 +79,19 @@ void FEngSetSize(FEObject *obj, float w, float h)
     obj->mu32Flags |= kFEObjectDirty;
 }
 
-namespace {
-void SetScriptImpl(FEObject *obj, FEScript *s, bool restart)
-{
-    if (s != obj->mpCurrentScript) {
-        obj->SetCurrentScript(s);   // PC: +0x54 = s; SetupMoveToTracks (517720)
-        obj->mpCurrentScript->mi32Time = 0;
-    }
-    if (restart) s->mi32Time = 0;
-}
-}  // namespace
 
 void FEngSetScript(FEObject *obj, const char *name, bool restart)
 {
     if (!obj) return;
     for (auto *s = reinterpret_cast<FEScript *>(obj->mScripts.head); s; s = reinterpret_cast<FEScript *>(s->node.next))
-        if (s->mu32Id == FEHashUpper(name)) { SetScriptImpl(obj, s, restart); return; }
+        if (s->mu32Id == FEHashUpper(name)) { obj->SetScript(s, restart); return; }
 }
 
 void FEngSetScript(FEObject *obj, uint32_t id, bool restart)
 {
     if (!obj) return;
     for (auto *s = reinterpret_cast<FEScript *>(obj->mScripts.head); s; s = reinterpret_cast<FEScript *>(s->node.next))
-        if (s->mu32Id == id) { SetScriptImpl(obj, s, restart); return; }
+        if (s->mu32Id == id) { obj->SetScript(s, restart); return; }
 }
 
 bool FEngIsScriptRunning(const FEObject *obj, const char *name)
@@ -536,10 +526,7 @@ void FEngSetColor(FEObject *obj, uint32_t argb)
 {
     if (!obj) return;
     FEColor c;
-    c.c[3] = static_cast<int32_t>(argb >> 24);
-    c.c[0] = static_cast<int32_t>(argb & 0xFF);
-    c.c[2] = static_cast<int32_t>((argb >> 16) & 0xFF);
-    c.c[1] = static_cast<int32_t>((argb >> 8) & 0xFF);
+    FEColorUnpack(&c, argb);   // (inlined on PC)
     if (obj->mu32Type >= 0x100) return;
     if (!FEColorClose(c, *static_cast<const FEColor *>(obj->mpData))) obj->mu32Flags |= 0x400000u;
     obj->SetTrackValue(0, c, false);

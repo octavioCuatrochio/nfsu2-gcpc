@@ -42,6 +42,12 @@ struct SlotPool {
     void ExpandSlotPool(int32_t n);
     // GC 8005C938 / PC 440B40 (__cdecl): one block (0x30 + size * n) from bWareMalloc; null if that fails.
     static SlotPool *NewSlotPool(uint32_t slotSize, int32_t numSlots, const char *name, uint32_t memFlags);
+    // GC 8005C9C0 (PC: inlined, = bWareFree 440540 which checks null): free one pool block.
+    static void DeleteSlotPool(SlotPool *pool);
+    // GC 8005CC44 / PC 440650: recount each expansion pool's allocations (slots minus its free-list entries, found
+    // with GetSlotNumber from that pool on), then unlink and free every expansion pool with none allocated (its
+    // free-list entries removed, total slots reduced).
+    void CleanupExpandedSlotPools();
 };
 
 // Global pool registry (PC TheSlotPoolManager @ 0x828530, game data via bridge).
@@ -53,6 +59,12 @@ struct SlotPoolManager {
     // GC 8005CF8C / PC 440DA0 (ret 4): unlink, (flag 8 + allocations: GetAllocatedSlot(0), a leftover leak report),
     // then free every pool of the chain with bWareFree. Null is fine.
     void DeleteSlotPool(SlotPool *pool);
+    void Construct();                // GC 8005CE74 / PC 4407B0: enabled, empty list
+    // GC 8005CE90 / PC 4407D0: disabled, list reset to empty BEFORE the delete loop, so nothing is freed (both).
+    void Destruct();
+    // GC 8005CF18 (PC: inlined into bNewSlotPool 440DF0): size rounded up to 4; linked at the tail when enabled.
+    SlotPool *NewSlotPool(int32_t slotSize, int32_t numSlots, const char *name, uint32_t memFlags);
+    void CleanupExpandedSlotPools();   // GC 8005D020 / PC 440800: every registered pool
 };
 
 // GC 8005C83C / PC 440DF0: slot size rounded up to 4; registered with the manager when enabled.

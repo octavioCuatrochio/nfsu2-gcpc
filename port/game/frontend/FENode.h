@@ -21,6 +21,8 @@ int32_t FEStricmp(const char *a, const char *b);
 // GC 80141A0C FEList::FindNode(name, start) / PC 519E50 (__thiscall, list unused, ret 8): first node from `start`
 // (following next) whose name matches (hash, then FEStricmp); a null name matches unnamed nodes.
 FENode *FEListFindNode(const char *name, FENode *start);
+// GC 80141AA4 FEList::FindNode(name) (PC: inlined): search from the list head.
+inline FENode *FEListFindNode(const char *name, const FEMinList &list) { return FEListFindNode(name, reinterpret_cast<FENode *>(list.head)); }
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FENode) == 0x14 && offsetof(FENode, mpcName) == 0xC && offsetof(FENode, mu32NameHash) == 0x10);

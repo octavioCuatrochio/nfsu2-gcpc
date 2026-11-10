@@ -143,19 +143,86 @@ void SlotPoolManager::DeleteSlotPool(SlotPool *pool)
     }
 }
 
-SlotPool *bNewSlotPool(int32_t slotSize, int32_t numSlots, const char *name, uint32_t memFlags)
+SlotPool *SlotPoolManager::NewSlotPool(int32_t slotSize, int32_t numSlots, const char *name, uint32_t memFlags)
 {
     SlotPool *p = SlotPool::NewSlotPool(static_cast<uint32_t>(slotSize + 3) & ~3u, numSlots, name, memFlags);
     if (!p) return nullptr;
-    SlotPoolManager *m = bridge::TheSlotPoolManager();
-    if (m->mi32Enabled == 1) {   // AddTail
-        SlotPool *tail = m->mpTail;
+    if (mi32Enabled == 1) {   // AddTail
+        SlotPool *tail = mpTail;
         tail->mpListNext = p;
-        m->mpTail = p;
+        mpTail = p;
         p->mpListPrev = tail;
-        p->mpListNext = m->Sentinel();
+        p->mpListNext = Sentinel();
     }
     return p;
+}
+
+SlotPool *bNewSlotPool(int32_t slotSize, int32_t numSlots, const char *name, uint32_t memFlags)
+{
+    return bridge::TheSlotPoolManager()->NewSlotPool(slotSize, numSlots, name, memFlags);
+}
+
+void SlotPoolManager::Construct()
+{
+    mpHead = mpTail = Sentinel();
+    mi32Enabled = 1;
+}
+
+void SlotPoolManager::Destruct()
+{
+    mi32Enabled = 0;
+    mpHead = mpTail = Sentinel();
+    while (mpHead != Sentinel()) {   // never runs (list just emptied), like the original
+        SlotPool *p = mpHead;
+        p->mpListPrev->mpListNext = p->mpListNext;
+        p->mpListNext->mpListPrev = p->mpListPrev;
+        bridge::FreeArray(p);
+    }
+}
+
+void SlotPoolManager::CleanupExpandedSlotPools()
+{
+    for (SlotPool *p = mpHead; p != Sentinel(); p = p->mpListNext) p->CleanupExpandedSlotPools();
+}
+
+void SlotPool::DeleteSlotPool(SlotPool *pool)
+{
+    if (pool) bridge::bWareFree(pool);
+}
+
+void SlotPool::CleanupExpandedSlotPools()
+{
+    if (!mpNext) return;
+    for (SlotPool *p = mpNext; p; p = p->mpNext) p->mi32NumAllocated = p->mi32NumSlots;
+    for (void *f = mpFreeList; f; f = *static_cast<void **>(f)) {
+        for (SlotPool *p = mpNext; p; p = p->mpNext) {
+            const int32_t i = GetSlotNumber(p, f);
+            if (i >= 0 && i < p->mi32NumSlots) {
+                --p->mi32NumAllocated;
+                break;
+            }
+        }
+    }
+    SlotPool *prev = this;
+    for (SlotPool *p = mpNext; p;) {
+        SlotPool *next = p->mpNext;
+        if (p->mi32NumAllocated == 0) {
+            void **link = &mpFreeList;
+            for (void *f = *link; f;) {
+                void *fn = *static_cast<void **>(f);
+                const int32_t i = GetSlotNumber(p, f);
+                if (i >= 0 && i < p->mi32NumSlots) *link = fn;
+                else link = static_cast<void **>(f);
+                f = fn;
+            }
+            mi32TotalSlots -= p->mi32NumSlots;
+            prev->mpNext = p->mpNext;
+            DeleteSlotPool(p);
+        } else {
+            prev = p;
+        }
+        p = next;
+    }
 }
 
 void bDeleteSlotPool(SlotPool *pool) { bridge::TheSlotPoolManager()->DeleteSlotPool(pool); }

@@ -1,4 +1,6 @@
 #include "QuickRaceSettings.h"
+#include "bridge/Bridge.h"
+#include <cstring>
 
 namespace {
 constexpr int32_t kMode12 = 12;
@@ -69,3 +71,60 @@ void QuickRaceSettings::SetNumOpponents(int32_t n) { (mRaceMode == kMode12 ? mNu
 void QuickRaceSettings::SetAISkill(int32_t n) { (mRaceMode == kMode12 ? mAISkill12 : Mode()->mAISkill) = static_cast<uint8_t>(n); }
 void QuickRaceSettings::SetTrafficLevel(int32_t n) { (mRaceMode == kMode12 ? mTrafficLevel12 : Mode()->mTrafficLevel) = static_cast<uint8_t>(n); }
 void QuickRaceSettings::SetCatchUp(uint8_t on) { (mRaceMode == kMode12 ? mbCatchUp12 : Mode()->mbCatchUp) = on; }
+
+void QuickRaceSettings::Default()
+{
+    mRaceMode = 0;
+    auto *rec = reinterpret_cast<uint8_t *>(mModes);   // 13 records: modes 0..11 + the one at +0x100
+    for (int i = 0; i < 13; ++i, rec += sizeof(QRModeSettings)) {   // SingleRaceSettings::Default (inlined)
+        rec[0] = 1;   // players
+        rec[1] = 3;   // opponents
+        rec[2] = 1;   // AI skill
+        rec[3] = 1;
+        rec[4] = 1;   // traffic
+        rec[5] = 1;   // catch-up
+        rec[6] = 0;
+    }
+    mModes[1].mTrack.mLaps = 1;
+    mModes[2].mTrack.mLaps = 1;
+    mModes[5].mNumOpponents = 1;
+    mModes[0].mTrack.mTrack = 0xFB5;
+    mModes[3].mTrack.mLaps = 3;
+    mModes[3].mTrafficLevel = 2;
+    mModes[9].mTrack.mLaps = 0;
+    mModes[9].mNumOpponents = 0;
+    mModes[5].mAISkill = 0;
+    mModes[10].mAISkill = 0;
+    mModes[10].mTrack.mTrack = 0x11F9;
+    mModes[10].mTrafficLevel = 0;
+    mModes[10].mTrack.mLaps = 10;
+    mModes[4].mNumOpponents = 5;
+    mPointsToWin = 2;
+    mTimeLimit = 0;
+    for (int32_t p = 0; p < 2; ++p)   // player 2 uses its own default type (PC also does the player-1 search first)
+        mSelectedCar[p] = static_cast<int32_t>(bridge::StockCarIdByType(p, bridge::DefaultPlayerCarType(p)));
+    TourneyDefault();
+}
+
+void QuickRaceSettings::TourneyDefault() { TournamentSettingsDefault(reinterpret_cast<uint8_t *>(this) + 0x100); }
+
+void TournamentSettingsDefault(void *ts)
+{
+    auto *t = static_cast<uint8_t *>(ts);
+    t[1] = 3;
+    t[5] = 3;
+    t[0] = 1;
+    t[2] = 1;
+    t[3] = 1;
+    t[4] = 1;
+    t[0x19] = 1;
+    t[0x1A] = 0;
+    std::memset(t + 0x14, 0, 4);
+    for (auto *tr = reinterpret_cast<QRTrackSettings *>(t + 0x1C); tr != reinterpret_cast<QRTrackSettings *>(t + 0x7C); ++tr) {
+        tr->mTrack = 0;
+        tr->mDirection = 0;
+        tr->mLaps = 3;
+        tr->mbLapKO = 0;
+        tr->_pad09[0] = 0;
+    }
+}

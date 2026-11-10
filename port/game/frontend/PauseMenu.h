@@ -32,6 +32,19 @@ struct PauseMenu {
     void QuitToCrib();                                         // GC 801009DC / PC 4A7C70
     void QuitToWorldMap();                                     // GC 80100A1C / PC 4A7CC0
     void QuitGame();                                           // GC 80100A5C / PC 4A7CF0
+    // Inlined on PC (Setup*/NotificationMessage). PC versions: Restart/Replay also hide in online mode 0x200.
+    static bool NeedToSeeJumpToGarage();             // GC 801000E8: career (mode 1) && crib reachable (PC byte 0x8635A8)
+    static bool NeedToSeeReplay();                   // GC 8010011C: mode not 4 / 8 (PC: / 0x200)
+    static bool NeedToSeeReturnToExploreMode();      // GC 8010014C: not (career && race type 7)
+    static bool NeedToSeeQuitToMainMenu() { return true; }   // GC 80100180
+    static bool NeedToSeeReturnToWorldMap();         // GC 80100188: career && PC byte 0x85BA67
+    static bool NeedToSeeResumeRace() { return true; }       // GC 801001BC
+    static bool NeedToSeeRestartRace();              // GC 801001C4: race type != 7, mode not 8 (PC: / 0x200)
+    static bool NeedToSeeQuitRaceToExploreMode();    // GC 80100200: career && race type != 7 (GC LAN check moot)
+    static void RestartRace();                       // GC 80100960: RequestUnPause(3)
+    static void QuitRace();                          // GC 80100988: RequestUnPause(4)
+    static void QuitRaceToFreeRoam();                // GC 801009B0: RCPostMessage(0xB, 0)
+    // GC 80100AD0 EnableVOIP: empty, network (not ported).
 };
 
 // GC 801002D0 / PC 4A7C40: free roam 3, race type 7 -> 2, other races 3.

@@ -6,6 +6,7 @@
 #include "FENode.h"
 #include "FEngine.h"
 #include "cFEng.h"
+#include "UIWidgetMenu.h"
 
 uint32_t FEPackageData::GetNameHash() const
 {
@@ -149,10 +150,39 @@ uint32_t FEPackageManager::GetActiveScreensChecksum()
     return sum;
 }
 
+void FEPackageData::NotificationMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg)
+{
+    if (mpScreen) bridge::MenuScreen_BaseNotify(mpScreen, msg, obj, arg, pkg);
+}
+
+void FEPackageData::NotifySoundMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg)
+{
+    if (mpScreen) bridge::MenuScreen_BaseNotifySound(mpScreen, msg, obj, arg, pkg);
+}
+
+void FEPackageManager::Construct()
+{
+    vtable = bridge::FEPackageManagerVTable();
+    mList.next = mList.prev = &mList;
+}
+
+void FEPackageManager::Destruct()
+{
+    vtable = bridge::FEPackageManagerVTable();
+    DeleteAllNodeOwners(reinterpret_cast<WidgetListNode *>(&mList));   // bTList::DeleteAllElements (PC 4358E0)
+}
+
+FEPackageManager *FEPackageManager::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) bridge::FreeArray(this);
+    return this;
+}
+
 void FEPackageManager::SendMessageToPackage(const char *name, uint32_t msg)
 {
     FEPackageData *d = FindFEPackageData(name);
-    if (d && d->mpPackage && d->mpScreen) bridge::MenuScreen_BaseNotify(d->mpScreen, msg, nullptr, 0, d->mpPackage);
+    if (d && d->mpPackage) d->NotificationMessage(msg, nullptr, 0, d->mpPackage);
 }
 
 void FEPackageManager::BroadcastMessage(uint32_t msg, uint32_t arg)
@@ -162,13 +192,19 @@ void FEPackageManager::BroadcastMessage(uint32_t msg, uint32_t arg)
     for (FEPackageData *d = FEPackageData::FromNode(mList.next); d != Sentinel(); d = FEPackageData::FromNode(d->node.next))
         if (d->mpPackage && n < 32) list[n++] = d;
     for (int i = 0; i < n; ++i)
-        if (list[i]->mpPackage && list[i]->mpScreen) bridge::MenuScreen_BaseNotify(list[i]->mpScreen, msg, nullptr, arg, list[i]->mpPackage);
+        if (list[i]->mpPackage) list[i]->NotificationMessage(msg, nullptr, arg, list[i]->mpPackage);
 }
 
 void FEPackageManager::NotificationMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg)
 {
     for (FEPackageData *d = FEPackageData::FromNode(mList.next); d != Sentinel(); d = FEPackageData::FromNode(d->node.next))
-        if (d->mpPackage && d->mpPackage == pkg && d->mpScreen) bridge::MenuScreen_BaseNotify(d->mpScreen, msg, obj, arg, pkg);
+        if (d->mpPackage && d->mpPackage == pkg) d->NotificationMessage(msg, obj, arg, pkg);
+}
+
+void FEPackageManager::NotifySoundMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg)
+{
+    for (FEPackageData *d = FEPackageData::FromNode(mList.next); d != Sentinel(); d = FEPackageData::FromNode(d->node.next))
+        if (d->mpPackage && d->mpPackage == pkg) d->NotifySoundMessage(msg, obj, arg, pkg);
 }
 
 void FEPackageManager::CloseAllPackages(int32_t all)
@@ -248,7 +284,7 @@ FEPackage *FEngFindPackage(const char *name)
         FEngine *e = fe->mpEngine;
         if (!e) return nullptr;
         if (FENode *n = FEListFindNode(name, reinterpret_cast<FENode *>(e->mpPackages))) return reinterpret_cast<FEPackage *>(n);
-        return reinterpret_cast<FEPackage *>(FEListFindNode(name, reinterpret_cast<FENode *>(e->mIdlePackages.head)));
+        return e->FindIdlePackage(name);
     }
     FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(name);
     return d ? d->mpPackage : nullptr;

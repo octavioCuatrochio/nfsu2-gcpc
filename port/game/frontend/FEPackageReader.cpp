@@ -5,6 +5,7 @@
 #include "FENode.h"
 #include "FEObject.h"
 #include "FEPackage.h"
+#include "FEButtonMap.h"
 #include "FEScript.h"
 #include "FEString.h"
 #include "FEMultiPool.h"
@@ -221,10 +222,7 @@ bool FEPackageReader::ReadObjectChunk()
         if (c[0] == 0x6E747542u) {   // "Butn"
             const uint32_t n = c[2];
             mu32NumButtons = n;
-            bridge::FreeArray(mpPackage->mppButtons);
-            mpPackage->mppButtons = nullptr;
-            if (n) mpPackage->mppButtons = static_cast<FEObject **>(bridge::Alloc(n * 4));
-            mpPackage->mu32NumButtons = n;
+            reinterpret_cast<FEButtonMap *>(&mpPackage->mppButtons)->SetCount(n);   // FEPackage +0x90 = FEButtonMap
         }
     }
     for (; c < end; c = NextChunk(c)) {
@@ -355,12 +353,7 @@ FEObject *FEPackageReader::CreateObject(uint32_t type)
     else if (mem) obj = bridge::FEObjectTypeConstruct(mem, type);
     if (type == 6) reinterpret_cast<FECodeListBox *>(obj)->mpGameInterface = mpGameInterface;   // PC: even when null
     obj->mu32Type = type;   // PC: no null check
-    const uint32_t size = GetTypeSize(type);   // (inlined)
-    bridge::ObjDataPool()->Free(obj->mpData);
-    obj->mpData = nullptr;
-    void *data = bridge::ObjDataPool()->Alloc(size);
-    obj->mu32DataSize = size;
-    obj->mpData = data;
+    obj->SetDataSize(GetTypeSize(type));   // (both inlined)
     return obj;
 }
 
@@ -394,8 +387,8 @@ void FEPackageReader::ProcessListBoxTag(const uint8_t *tag)
     case 0x5443: lb->SetCellType(v[0]); break;                                                           // "CT"
     case 0x6343: {   // "Cc": next cell, color
         if (++mi32ListCell != 0) lb->IncrementCellByColumn();
-        const FEColor c{{static_cast<int32_t>(v[0] & 0xFF), static_cast<int32_t>((v[0] >> 8) & 0xFF),
-                         static_cast<int32_t>((v[0] >> 16) & 0xFF), static_cast<int32_t>(v[0] >> 24)}};   // PC 5054A0
+        FEColor c;
+        FEColorUnpack(&c, v[0]);   // PC 5054A0
         lb->SetCellColor(c);
         break;
     }
@@ -483,7 +476,7 @@ bool FEPackageReader::ReadScriptTags(const uint8_t *tags, uint32_t size)
         const uint32_t *v = reinterpret_cast<const uint32_t *>(t + 4);
         switch (*reinterpret_cast<const uint16_t *>(t)) {
         case 0x6E53: {   // "Sn": new script
-            s = static_cast<FEScript *>(FEPoolNew<FEScript, 32>(*bridge::FEScriptPool(), FEScriptBlock_Construct));
+            s = static_cast<FEScript *>(FEScript::PoolNew());
             s->node.next = s->node.prev = reinterpret_cast<FEMinNode *>(FEMINNODE_UNLINKED);
             s->node.vtable = bridge::FEScriptVTable();
             s->mEvents.mu32Count = 0; s->mEvents.mpEvents = nullptr; s->mpcName = nullptr; s->mu32Id = 0;
@@ -496,7 +489,7 @@ bool FEPackageReader::ReadScriptTags(const uint8_t *tags, uint32_t size)
         }
         case 0x6853:   // "Sh": header
             if (!s) {
-                s = FEScript::Construct(FEPoolNew<FEScript, 32>(*bridge::FEScriptPool(), FEScriptBlock_Construct));
+                s = FEScript::Construct(FEScript::PoolNew());
                 s->mi32Time = 0;
                 trackIndex = -1;
                 dataIndex = 0;
@@ -658,7 +651,7 @@ bool FEPackageReader::FindReferencedObject(uint32_t refHash, FEObject **obj, FEP
 
 FEPackage *FEngine_FindLibraryPackage(FEngine *engine, uint32_t hash)
 {
-    for (FEPackage *p = reinterpret_cast<FEPackage *>(engine->mLibraries.head); p; p = reinterpret_cast<FEPackage *>(p->node.next)) {
+    for (FEPackage *p = engine->GetFirstLibrary(); p; p = reinterpret_cast<FEPackage *>(p->node.next)) {
         if (FEHashUpper(p->mpcFilename + 2) == hash) return p;   // PC: no null check on the filename
     }
     return nullptr;

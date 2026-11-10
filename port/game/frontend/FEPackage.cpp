@@ -197,7 +197,7 @@ void FEPackage::IssueScriptMessages(void *engine, FEObject *obj, FEScript *scrip
             else queue(nullptr);
             break;
         case 0xFFFFFFFFu:
-            bridge::FEngine_SendMessageToGame(engine, e.mu32MsgId, obj, this);
+            static_cast<FEngine *>(engine)->SendMessageToGame(e.mu32MsgId, obj, this);
             break;
         default: {
             void *found = FindObjectByGUID(e.mu32Target);
@@ -420,4 +420,9 @@ void FEMessageTargets::SetCapacity(uint32_t n)
         mpObjects = objs;
     }
     mu32Capacity = n;
+}
+
+void FEPackage::Shutdown(void *gameInterface)
+{
+    if (gameInterface) bridge::FEGameInterface_ReleaseResources(gameInterface, this, mu32NumResources, mpResources);
 }

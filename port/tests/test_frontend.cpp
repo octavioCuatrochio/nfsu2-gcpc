@@ -5010,8 +5010,95 @@ static void TestMagazineScreens()
     CHECK(v->mbLoaded == 0 && v->mbReady == 0 && has("magunload", 1));
 }
 
+// Whole-file leftovers: SlotPool cleanup + manager, package manager sound / dtor, QR helpers, pause conditions.
+static void TestWholeFileLeftovers()
+{
+    const int live = teststub::liveAllocations;
+    SlotPool *p = SlotPool::NewSlotPool(8, 4, "cleanup", 0);
+    void *s[7];
+    for (auto &x : s) x = p->Malloc();                           // p: 4, q: 2 (s4 s5), r: 2 (s6 + 1 free)
+    SlotPool *q = p->mpNext, *r = q->mpNext;
+    CHECK(q && r && !r->mpNext && p->mi32TotalSlots == 8);
+    p->Free(s[4]); p->Free(s[5]); p->Free(s[1]);
+    p->CleanupExpandedSlotPools();
+    CHECK(p->mpNext == r && p->mi32TotalSlots == 6 && r->mi32NumAllocated == 1);
+    int n = 0;
+    for (void *f = p->mpFreeList; f; f = *static_cast<void **>(f), ++n) CHECK(f != s[4] && f != s[5]);
+    CHECK(n == 2);                                               // s1 and r's spare slot
+    p->CleanupExpandedSlotPools();
+    CHECK(p->mpNext == r && p->mi32TotalSlots == 6);
+    SlotPoolManager mgr;
+    mgr.Construct();
+    CHECK(mgr.mi32Enabled == 1 && mgr.mpHead == mgr.Sentinel());
+    SlotPool *m1 = mgr.NewSlotPool(5, 2, "m", 0);
+    CHECK(m1 && m1->mu32SlotSize == 8 && mgr.mpHead == m1 && mgr.mpTail == m1 && m1->mpListNext == mgr.Sentinel());
+    mgr.CleanupExpandedSlotPools();
+    mgr.Destruct();                                              // empties the list, frees nothing
+    CHECK(mgr.mi32Enabled == 0 && mgr.mpHead == mgr.Sentinel() && mgr.mpTail == mgr.Sentinel());
+    SlotPool::DeleteSlotPool(m1);
+    SlotPool::DeleteSlotPool(nullptr);
+    while (p) { SlotPool *nx = p->mpNext; SlotPool::DeleteSlotPool(p); p = nx; }
+    CHECK(teststub::liveAllocations == live);
+
+    // FEPackageManager: NotifySoundMessage filter, ctor / dtor (entries deleted through slot 0)
+    FEPackageManager m{};
+    m.Construct();
+    CHECK(m.vtable == bridge::FEPackageManagerVTable() && m.mList.next == &m.mList);
+    static uint32_t chunk[4] = {0x30203};
+    FEPackage pk{}, other{};
+    int scr;
+    for (int i = 0; i < 2; ++i) {
+        auto *d = static_cast<FEPackageData *>(bridge::Alloc(sizeof(FEPackageData)));
+        std::memset(d, 0, sizeof *d);
+        d->vtable = bridge::FEPackageDataVTable();
+        d->mpChunk = chunk;
+        d->mpPackage = &pk;
+        d->mpScreen = i ? &scr : nullptr;
+        d->node.prev = m.mList.prev; d->node.next = &m.mList; m.mList.prev->next = &d->node; m.mList.prev = &d->node;
+    }
+    auto &dl = teststub::delivered;
+    dl.clear();
+    m.NotifySoundMessage(0x41, nullptr, 2, &other);
+    m.NotifySoundMessage(0x42, nullptr, 3, &pk);
+    CHECK(dl.size() == 1 && std::string(dl[0].kind) == "notifysound" && dl[0].a == &scr && dl[0].msg == 0x42 && dl[0].arg == 3);
+    dl.clear();
+    m.Destruct();
+    CHECK(m.mList.next == &m.mList && teststub::liveAllocations == live);
+
+    // UIQRTrackSelect helpers
+    alignas(8) static unsigned char qb[sizeof(UIQRTrackSelect)] = {};
+    auto *qs = reinterpret_cast<UIQRTrackSelect *>(qb);
+    SelectableTrack t[3] = {};
+    qs->mHead = qs->mTail = qs->Sentinel();
+    for (int i = 0; i < 3; ++i) {
+        t[i].mTrackNumber = 100 + i;
+        t[i].prev = qs->mTail; t[i].next = qs->Sentinel(); qs->mTail->next = &t[i]; qs->mTail = &t[i];
+    }
+    CHECK(qs->FindTrack(101) == &t[1] && qs->FindTrack(7) == nullptr);
+    CHECK(qs->GetNodeIndex(&t[0]) == 1 && qs->GetNodeIndex(&t[2]) == 3 && qs->GetNodeIndex(nullptr) == 0);
+
+    // QuickRaceSettings::Default (stub: player 1 default type 7 -> id 0x100, player 2 type 9 -> none)
+    static QuickRaceSettings qrs;
+    std::memset(&qrs, 0xCD, sizeof qrs);
+    qrs.Default();
+    CHECK(qrs.mRaceMode == 0 && qrs.mSelectedCar[0] == 0x100 && qrs.mSelectedCar[1] == 0 && qrs.mModes[0].mTrack.mTrack == 0xFB5);
+    CHECK(qrs.mModes[10].mTrack.mLaps == 10 && qrs.mModes[4].mNumOpponents == 5 && qrs.mModes[6].mNumOpponents == 3);
+    CHECK(qrs.mPointsToWin == 2 && qrs.mTimeLimit == 0 && qrs.mbCatchUp12 == 1 && qrs.mTourneyTracks[6].mLaps == 3 && qrs.mOutrunScores[3] == 0);
+
+    // PauseMenu conditions (PC versions)
+    const int32_t savedMode = teststub::gameModeFlags, savedRace = teststub::raceType;
+    teststub::gameModeFlags = 1; teststub::raceType = 7;
+    CHECK(!PauseMenu::NeedToSeeRestartRace() && !PauseMenu::NeedToSeeQuitRaceToExploreMode() && !PauseMenu::NeedToSeeReturnToExploreMode());
+    teststub::raceType = 2;
+    CHECK(PauseMenu::NeedToSeeRestartRace() && PauseMenu::NeedToSeeQuitRaceToExploreMode() && PauseMenu::NeedToSeeReplay());
+    teststub::gameModeFlags = 0x200;
+    CHECK(!PauseMenu::NeedToSeeRestartRace() && !PauseMenu::NeedToSeeReplay() && PauseMenu::NeedToSeeReturnToExploreMode());
+    teststub::gameModeFlags = savedMode; teststub::raceType = savedRace;
+}
+
 int main()
 {
+    TestWholeFileLeftovers();
     TestLevelSorter();
     TestCFEngQueue();
     TestPackageManager();

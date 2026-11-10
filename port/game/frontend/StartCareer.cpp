@@ -29,12 +29,16 @@ void SCReact(SCKind k, const char *pkg, uint32_t msg, uint32_t a3)
 UIStartCareer *UIStartCareer::Create(const ScreenConstructorData *data)
 {
     auto *s = static_cast<UIStartCareer *>(bridge::Alloc(sizeof(UIStartCareer)));
-    if (s) {
-        s->base.Construct(data);
-        s->base.base.vtable = bridge::UIStartCareerVTable();
-    }
+    if (s) s->Construct(data);
     s->Setup();   // PC: virtual slot 5, no null check
     return s;
+}
+
+UIStartCareer *UIStartCareer::Construct(const ScreenConstructorData *data)
+{
+    base.Construct(data);
+    base.base.vtable = bridge::UIStartCareerVTable();
+    return this;
 }
 
 void UIStartCareer::Destruct()

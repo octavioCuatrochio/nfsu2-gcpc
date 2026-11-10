@@ -77,6 +77,13 @@ struct ThumbnailScroller {
     void StartDim();                                   // GC 80157E24 / PC 5388F0
     void StopDim();                                    // GC 80157E50 / PC 538900
     ThumbnailNode *FindNode(uint32_t id);              // GC 801583E8 / PC 51F7A0 (ret 4)
+    // GC 80158454 (PC: inlined into the ctor 5435D0): centre of the master object.
+    void SetMasterObject(FEObject *master);
+    // GC 8015832C (GC-only, no PC caller): alpha - 2.5, floored at 40, if the node's image has data.
+    void UpdateFade(ThumbnailNode *n);
+    // GC 80157A30 / 80157A34: empty on GC (the latter only walks the list with a null callback); no PC code.
+    static void TriggerProperArrowAnimation(ThumbnailNode *, ThumbnailNode *) {}
+    void UpdateArrowVisibility() {}
     int32_t GetCurrenNodeIndex() const;                // GC 80158418 / PC 51F7E0 (1-based; 0 = none)
 };
 

@@ -4467,6 +4467,71 @@ static void CheckMagazineSetups(int iters)
     *seed = savedSeed;
 }
 
+// Batch "whole files": FEColor unpack / assign, QuickRaceSettings::Default + TournamentSettings::Default (car DB is
+// static data, empty during DllMain), FEngine::SetInitialState (no packages; static pads), slider dtors (flag 0).
+static void CheckWholeFileLeftovers(int iters)
+{
+    auto oUnpack = ORIG<FEColor *(THISCALL *)(FEColor *, uint32_t)>(0x5054A0);
+    auto oAssign = ORIG<FEColor *(THISCALL *)(FEColor *, const FEColor *)>(0x505560);
+    auto oDefault = ORIG<void(THISCALL *)(QuickRaceSettings *)>(0x515800);
+    auto oTourney = ORIG<void(THISCALL *)(void *)>(0x515750);
+    auto oInit = ORIG<void(THISCALL *)(FEngine *)>(0x51A7E0);
+    auto oCSlider = ORIG<cSlider *(THISCALL *)(cSlider *, uint32_t)>(0x4957B0);
+    auto oPreview = ORIG<PreviewSlider *(THISCALL *)(PreviewSlider *, uint32_t)>(0x512220);
+    auto oTuning = ORIG<TuningSlider *(THISCALL *)(TuningSlider *, uint32_t)>(0x531010);
+    static QuickRaceSettings qa, qb;
+    static uint8_t ea[sizeof(FEngine)], eb[sizeof(FEngine)];
+    static FEJoyPad pa[4], pb[4];
+    for (int it = 0; it < iters; ++it) {
+        const uint32_t v = rng();
+        FEColor a, b;
+        for (int i = 0; i < 4; ++i) a.c[i] = b.c[i] = static_cast<int32_t>(rng());
+        EXPECT(oUnpack(&a, v) == &a, "FEColor unpack ret");
+        FEColorUnpack(&b, v);
+        EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "FEColor unpack %08X", v);
+        FEColor src{{static_cast<int32_t>(rng()), static_cast<int32_t>(rng()), static_cast<int32_t>(rng()), static_cast<int32_t>(rng())}};
+        EXPECT(oAssign(&a, &src) == &a && FEColorAssign(&b, src) == &b && std::memcmp(&a, &b, sizeof a) == 0, "FEColor assign");
+
+        auto *qr = reinterpret_cast<uint8_t *>(&qa);
+        for (size_t i = 0; i < sizeof qa; ++i) qr[i] = static_cast<uint8_t>(rng());
+        std::memcpy(&qb, &qa, sizeof qa);
+        if (it & 1) {
+            oDefault(&qa);
+            qb.Default();
+        } else {
+            oTourney(reinterpret_cast<uint8_t *>(&qa) + 0x100);
+            TournamentSettingsDefault(reinterpret_cast<uint8_t *>(&qb) + 0x100);
+        }
+        EXPECT(std::memcmp(&qa, &qb, sizeof qa) == 0, "QuickRaceSettings %s", it & 1 ? "Default" : "TourneyDefault");
+
+        for (size_t i = 0; i < sizeof ea; ++i) ea[i] = static_cast<uint8_t>(rng());
+        auto *pr = reinterpret_cast<uint8_t *>(pa);
+        for (size_t i = 0; i < sizeof pa; ++i) pr[i] = static_cast<uint8_t>(rng());
+        auto *fa = reinterpret_cast<FEngine *>(ea);
+        fa->mpPackages = nullptr;
+        fa->mu32NumJoyPads = rng() % 5;
+        fa->mbMouseEnabled = static_cast<uint8_t>(rng() & 1);
+        fa->mpJoyPads = pa;
+        std::memcpy(eb, ea, sizeof ea);
+        std::memcpy(pb, pa, sizeof pa);
+        reinterpret_cast<FEngine *>(eb)->mpJoyPads = pb;
+        oInit(fa);
+        reinterpret_cast<FEngine *>(eb)->SetInitialState();
+        reinterpret_cast<FEngine *>(eb)->mpJoyPads = pa;
+        EXPECT(std::memcmp(ea, eb, sizeof ea) == 0 && std::memcmp(pa, pb, sizeof pa) == 0, "FEngine::SetInitialState pads %u", fa->mu32NumJoyPads);
+
+        alignas(8) static uint8_t sa[sizeof(TuningSlider)], sb[sizeof(TuningSlider)];
+        for (size_t i = 0; i < sizeof sa; ++i) sa[i] = sb[i] = static_cast<uint8_t>(rng());
+        switch (it % 3) {
+        case 0: EXPECT(oCSlider(reinterpret_cast<cSlider *>(sa), 0) == reinterpret_cast<cSlider *>(sa), "cSlider dtor ret");
+                reinterpret_cast<cSlider *>(sb)->ScalarDeletingDestructor(0); break;
+        case 1: oPreview(reinterpret_cast<PreviewSlider *>(sa), 0); reinterpret_cast<PreviewSlider *>(sb)->ScalarDeletingDestructor(0); break;
+        default: oTuning(reinterpret_cast<TuningSlider *>(sa), 0); reinterpret_cast<TuningSlider *>(sb)->ScalarDeletingDestructor(0); break;
+        }
+        EXPECT(std::memcmp(sa, sb, sizeof sa) == 0, "slider dtor %d", it % 3);
+    }
+}
+
 static void CheckCarTunePauseSound(int iters)
 {
     auto o = ORIG<uint32_t(THISCALL *)(void *, uint32_t, void *, uint32_t, uint32_t, uint32_t)>(0x510EB0);
@@ -4875,6 +4940,7 @@ static int RunAll()
     REFEREE_RUN(CheckQRTrackSelect(iters));
     REFEREE_RUN(CheckQuickRaceSettings(iters));
     REFEREE_RUN(CheckCarTunePauseSound(iters));
+    REFEREE_RUN(CheckWholeFileLeftovers(iters));
     REFEREE_RUN(CheckMagazine(iters));
     REFEREE_RUN(CheckMagazineSetups(iters));
     REFEREE_RUN(CheckOptionsMain(iters));

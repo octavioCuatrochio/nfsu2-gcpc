@@ -54,6 +54,25 @@ FEColor FEColorSub(const FEColor &a, const FEColor &b)
     return r;
 }
 
+void FEColorUnpack(FEColor *c, uint32_t argb)
+{
+    c->c[3] = static_cast<int32_t>(argb >> 24);
+    c->c[2] = static_cast<int32_t>((argb >> 16) & 0xFF);
+    c->c[1] = static_cast<int32_t>((argb >> 8) & 0xFF);
+    c->c[0] = static_cast<int32_t>(argb & 0xFF);
+}
+
+FEColor *FEColorAssign(FEColor *c, const FEColor &src)
+{
+    for (int i = 3; i >= 0; --i) c->c[i] = src.c[i];
+    return c;
+}
+
+void FEColorAddTo(FEColor *c, const FEColor &d)
+{
+    for (int i = 0; i < 4; ++i) c->c[i] = static_cast<int32_t>(static_cast<uint32_t>(c->c[i]) + static_cast<uint32_t>(d.c[i]));
+}
+
 int32_t FEFtol(long double x)
 {
     if (!(x > -9.2e18L && x < 9.2e18L)) return 0;   // x87 "integer indefinite" (0x8000000000000000): low dword 0

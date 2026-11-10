@@ -671,3 +671,11 @@ void cFEngRender::RenderString(FEObject *obj, FERenderObject *cached, void *rend
     if (!(obj->mu32Flags & 2) && bridge::FEngGetLocalizedString(buffer, 0x800, str->mu32LabelHash)) text = buffer;
     static_cast<FEngFont *>(font)->RenderString(colour, text, obj, &m, cached, renderInfo);
 }
+
+FERenderEPoly *FERenderObject::AddPolyTextured(float x0, float y0, float x1, float y1, float z, float u0, float v0,
+                                               float u1, float v1, const uint32_t *colours, void *texture, void *renderInfo)
+{
+    FERenderEPoly *p = AddPoly(x0, y0, x1, y1, z, u0, v0, u1, v1, colours, renderInfo, false);
+    if (p) p->mpTexture = texture;
+    return p;
+}

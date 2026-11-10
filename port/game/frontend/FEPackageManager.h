@@ -41,10 +41,15 @@ struct FEPackageData {
     // GC 8014A7AC (PC: inlined into FEPackageManager::GetPackageData): raw -> mpData; LZ -> a NEW buffer every call
     // (bMalloc + LZDecompress, previous one not freed, like the original); other ids -> null.
     uint8_t *GetDataChunk();
+    // GC 8014A920 / 8014A94C (PC: inlined into the manager loops): forward to the screen, if any
+    // (MenuScreen::BaseNotify / BaseNotifySound, bridge).
+    void NotificationMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg);
+    void NotifySoundMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg);
 };
 
+// PC vtable 0x79B910 (0 scalar dtor 52CC70). Global instance PC 0x8637B0 (static ctor 77D530, atexit dtor 781FD0).
 struct FEPackageManager {
-    uint32_t _unknown00;
+    void *vtable;                    // +0x00 (GC: vptr at +8, after the list)
     FEPkgNode mList;                 // +0x04 sentinel {head, tail}
 
     FEPackageData *Sentinel() { return FEPackageData::FromNode(&mList); }   // "object" whose node is the sentinel
@@ -68,6 +73,11 @@ struct FEPackageManager {
     void BroadcastMessage(uint32_t msg, uint32_t arg);
     // GC 8014ABC4 / PC 55DCE0 (ret 0x10): every entry whose package is `pkg`.
     void NotificationMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg);
+    // GC 8014AB38 / PC 52CC90 (ret 0x10): same filter, BaseNotifySound.
+    void NotifySoundMessage(uint32_t msg, void *obj, uint32_t arg, FEPackage *pkg);
+    void Construct();                                // GC (static init) / PC 52CC50: vtable, empty list
+    void Destruct();                                 // GC 803108D4 / PC 52CC40: vtable, delete every entry (slot 0, 1)
+    FEPackageManager *ScalarDeletingDestructor(uint32_t flags);   // PC 52CC70 (ret 4)
     // GC 8014ADE4 / PC 542390 (ret 4): Close every entry (all if `all`, else only non-permanent ones; permanent
     // ones get HackClearCache). Snapshot of at most 256 entries (no bounds check in the original).
     void CloseAllPackages(int32_t all);

@@ -67,6 +67,8 @@ struct FEScriptEventList {
     uint32_t mu32Count;              // +0x0
     FEScriptEvent *mpEvents;         // +0x4
     void SetCount(uint32_t count);   // PC 519A10: keeps the first entries, new ones zeroed
+    // GC FEEventList::operator= 8013FDC4 (PC: inlined into the FEScript copy ctor 551BE0): same count, events copied.
+    void Assign(const FEScriptEventList &src);
 };
 
 struct FEScript {
@@ -85,6 +87,10 @@ struct FEScript {
     static FEScript *CopyConstruct(void *mem, const FEScript &src, bool reference);   // GC 8013D2E0 / PC 551BE0
     void Destruct();                         // GC 8013D1E8 / PC 535170
     FEScript *ScalarDeletingDestructor(uint32_t flags);   // PC 53EE30 (vtable slot 0, pooled delete)
+    // GC operator new 8013D514 / delete 8013D668 (PC: inlined): 32-per-block pool (bridge::FEScriptPool). GC's new
+    // re-runs Init on the slot; PC callers construct explicitly.
+    static void *PoolNew();
+    static void PoolDelete(FEScript *s);
     void SetName(const char *name);          // PC 518730
     FEKeyTrack *FindTrack(int track) const;  // GC 8013D920 / PC 504A00: first track whose data index matches
     void SetTrackCount(uint32_t count);      // PC 535210: old tracks destroyed, new ones default-constructed

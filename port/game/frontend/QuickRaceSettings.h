@@ -40,6 +40,12 @@ struct QuickRaceSettings {       // PC 0x128 at 0x83AAB4
     uint8_t mbCatchUp12;                 // +0x119
     uint8_t _pad11A[2];
     QRTrackSettings mTrack12;            // +0x11C
+    QRTrackSettings mTourneyTracks[7];   // +0x128 (GC TournamentSettings: +0x100.. is that struct, 8 track records)
+
+    // GC 80130DC4 / PC 515800: per-mode defaults (13 records incl. the +0x100 one), mode tweaks, selected cars =
+    // stock car ids of the default player car types (FEPlayerCarDB::GetStockCarByCarType inlined), then TourneyDefault.
+    void Default();
+    void TourneyDefault();   // TournamentSettingsDefault(this + 0x100)
 
     QRModeSettings *Mode();              // +0x10 + mRaceMode * 0x14 (no bounds check)
     const QRModeSettings *Mode() const;
@@ -67,9 +73,13 @@ struct QuickRaceSettings {       // PC 0x128 at 0x83AAB4
     void SetSelectedCar(int32_t car, int32_t player) { mSelectedCar[player] = car; }   // GC 8013121C / PC 502A40 (ret 8)
 };
 
+// GC TournamentSettings::Default / PC 515750 (__thiscall; QuickRaceSettings +0x100 and the 525C90 object): bytes
+// +0 1, +1 3, +2..+4 1, +5 3, +0x14 dword 0, +0x19 1, +0x1A 0; 8 tracks at +0x1C (0xC): track 0, laps 3, dir 0, flags 0.
+void TournamentSettingsDefault(void *t);
+
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(QRModeSettings) == 0x14 && offsetof(QRModeSettings, mTrack) == 8);
-static_assert(sizeof(QuickRaceSettings) == 0x128 && offsetof(QuickRaceSettings, mModes) == 0x10 &&
+static_assert(sizeof(QuickRaceSettings) == 0x17C && offsetof(QuickRaceSettings, mModes) == 0x10 &&
               offsetof(QuickRaceSettings, mNumPlayers12) == 0x100 && offsetof(QuickRaceSettings, mPointsToWin) == 0x108 &&
               offsetof(QuickRaceSettings, mOutrunScores) == 0x114 && offsetof(QuickRaceSettings, mbCatchUp12) == 0x119 &&
               offsetof(QuickRaceSettings, mTrack12) == 0x11C);

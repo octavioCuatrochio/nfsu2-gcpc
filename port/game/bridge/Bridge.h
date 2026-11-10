@@ -163,7 +163,6 @@ int32_t GetMovieNameEnum(const char *name);      // PC 51C580
 void CalculateMovieFilename(char *out, int32_t size, const char *name);   // PC 51C740
 bool FILE_exists(const char *path);              // PC 6F909D
 void MovieStart(const char *path, bool loop, int32_t which);              // PC 566020
-void FEngine_InitObjects(::FEngine *engine);     // PC 51A7E0 (FEngine, not rewritten)
 int32_t *DiscErrorOccurred();                    // PC 0x864F2C g_discErrorOccured
 const char **FEngPleaseRenderSinglePackage();    // PC 0x8384B4
 const uint8_t *MouseGlobals();                   // PC 0x8763D4: +0 x, +4 y (int), +0x1C left-handed, +0x1D / +0x20 buttons
@@ -171,7 +170,6 @@ void FEGameInterface_RenderObject(void *gi, ::FEObject *obj);                   
 void cFEngRender_GenerateRenderContext(void *render, uint32_t context, ::FEObject *group);  // PC 51B7F0 (__thiscall, ret 8)
 void cFEngRender_AddToRenderList(void *render, ::FEObject *obj);                           // PC 51B850 (ret 4)
 void cFEngRender_PackageFinished(void *render, ::FEPackage *pkg);                          // PC 5371F0 (ret 4)
-void FEPackageManager_NotifySoundMessage(::FEPackageManager *m, uint32_t a, uint32_t b, uint32_t c, uint32_t d);   // PC 52CC90 (ret 0x10)
 void FEGameInterface_GetViewTransformation(void *gi, void *matrix);                          // +0x3C (FEMatrix4)
 ::FESortGlobals *FEngSortGlobals();   // PC 0x838488
 uint32_t FEngHashStringUpper(const char *fmt);   // PC 50B9C0 (__cdecl, varargs): bVSPrintf into 0x100 bytes, then FEHashUpper
@@ -332,6 +330,8 @@ bool IsCurrentlyHotChunking();                                     // PC 0x57109
 ::SlotPool *LevelSorterSlots();                                                    // PC *(0x8384B0) (game global)
 // MenuScreen::BaseNotify(msg, obj, arg, pkg): game-side screen notification            PC 0x55B5C0 (__thiscall)
 void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, ::FEPackage *pkg);
+void MenuScreen_BaseNotifySound(void *screen, uint32_t msg, void *obj, uint32_t arg, ::FEPackage *pkg);   // PC 51DCD0 (ret 0x10)
+void *FEPackageManagerVTable();                                    // PC 0x79B910 (slot 0 = 52CC70)
 void *bMalloc(uint32_t size, uint32_t flags);                                      // PC 0x440820 (__cdecl; GC bMalloc(int,int))
 void LZDecompress(const uint8_t *src, uint8_t *dst);                               // PC 0x574670 (__cdecl)
 ::FEPackageManager *TheFEPackageManager();                                         // PC 0x8637B0 (game global)                                                       // PC 0x440540 (__cdecl)
@@ -544,6 +544,10 @@ void GetLocalizedStringBuf(char *buf, int32_t len, uint32_t hash);   // PC 4FFA5
 void FEngPrintfFloatString(const char *pkg, uint32_t objHash, const char *fmt, double v, const char *s);   // PC 537B80
 // ---- QuickRaceSettings / UIQRModeOptions (online helpers: network code, stubbed natively) ----
 ::QuickRaceSettings *QuickRaceSettingsInstance();   // PC 0x83AAB4
+// FEPlayerCarDB::GetStockCarByCarType (inlined in PC 515800): player p's car DB (PC 0x83AD90 + p * 0xAB4C; count
+// +0x540, 0x1C-byte records, type = virtual slot 1) -> the first record of `type`'s id (+8), 0 if none.
+uint32_t StockCarIdByType(int32_t player, uint32_t type);
+uint32_t DefaultPlayerCarType(int32_t player);   // DefaultPlayer1CarType / 2: PC 0x7FAA48 / 0x7FAA4C
 const ::TrackInfo *TrackInfo_GetTrackInfo(uint32_t track);   // PC 5D3E40 (__cdecl)
 void FEngSendMessageToPackage(uint32_t msg, const char *pkg);   // PC 55DDA0 (__cdecl)
 void FEPrintfIntString(FEObject *str, const char *fmt, int32_t v, const char *s);   // PC 537BE0

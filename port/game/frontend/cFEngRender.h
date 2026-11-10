@@ -50,6 +50,9 @@ struct FERenderObject {
     // (u0,v0)-(u1,v1), 4 colours; appended. `renderInfo` unused on PC.
     FERenderEPoly *AddPoly(float x0, float y0, float x1, float y1, float z, float u0, float v0, float u1, float v1,
                            const uint32_t *colours, void *renderInfo, bool flag2);
+    // GC 80142FC4 (GC-only, used by FEngFont::RenderJoyEventTexture): AddPoly(.., false) with a texture override.
+    FERenderEPoly *AddPolyTextured(float x0, float y0, float x1, float y1, float z, float u0, float v0, float u1,
+                                   float v1, const uint32_t *colours, void *texture, void *renderInfo);
     // GC 80143044 / PC 51A1C0 (ret 0x30): without clip info: AddPoly(.., renderInfo, false). Else the quad
     // (transformed, z too) is clipped (ClipAligned when clip flag 1, else ClipGeneral) and fanned into quads
     // (v0, v[k+1], v[k+2], v[k+2]); colours become floats (/255) for the clip and bytes (*255, _ftol) after, taken

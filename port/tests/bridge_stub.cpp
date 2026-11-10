@@ -232,6 +232,12 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
     teststub::delivered.push_back({"notify", screen, pkg, msg, arg});
     (void)obj;
 }
+void MenuScreen_BaseNotifySound(void *screen, uint32_t msg, void *, uint32_t arg, FEPackage *pkg)
+{
+    teststub::delivered.push_back({"notifysound", screen, pkg, msg, arg});
+}
+int fePackageManagerVTable = 0;
+void *FEPackageManagerVTable() { return &fePackageManagerVTable; }
 int32_t FEngLoadCounter() { return teststub::fengLoadCounter; }
 int32_t *FEngLoadCounterPtr() { return &teststub::fengLoadCounter; }
 const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, uint8_t *f)
@@ -312,7 +318,6 @@ int32_t GetMovieNameEnum(const char *) { return 0; }
 void CalculateMovieFilename(char *o, int32_t, const char *) { o[0] = 0; }
 bool FILE_exists(const char *) { return false; }
 void MovieStart(const char *, bool, int32_t) {}
-void FEngine_InitObjects(::FEngine *) {}
 void *cFEngRenderVTable() { return reinterpret_cast<void *>(0x79BBA0); }
 int32_t CurrentLanguage() { return *reinterpret_cast<const int32_t *>(0x7F70D0); }
 int32_t MovieActive() { return *reinterpret_cast<const int32_t *>(0x8383AC); }
@@ -331,7 +336,6 @@ int32_t *DiscErrorOccurred() { return reinterpret_cast<int32_t *>(0x864F2C); }
 const char **FEngPleaseRenderSinglePackage() { return reinterpret_cast<const char **>(0x8384B4); }
 const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D4); }
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, FEObject *)>(gi))[0x34 / 4](gi, o); }
-void FEPackageManager_NotifySoundMessage(FEPackageManager *m, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, uint32_t, uint32_t, uint32_t, uint32_t)>(0x52CC90)(m, a, b, c, d); }
 #else
 FEngFontList *FontList() { static FEngFontList l{reinterpret_cast<::FEngFont *>(&l), reinterpret_cast<::FEngFont *>(&l)}; return &l; }
 const uint32_t *FontAlias() { static const uint32_t a[2] = {0x9583AA1Au, 0x5B9D88B9u}; return a; }
@@ -368,7 +372,6 @@ int32_t GetMovieNameEnum(const char *) { return 7; }
 void CalculateMovieFilename(char *o, int32_t, const char *n) { std::strcpy(o, n); }
 bool FILE_exists(const char *p) { return p[0] == 'Y'; }
 void MovieStart(const char *p, bool l, int32_t w) { teststub::delivered.push_back({"moviestart", const_cast<char *>(p), nullptr, static_cast<uint32_t>(w), l}); }
-void FEngine_InitObjects(::FEngine *e) { teststub::delivered.push_back({"initobjects", e, nullptr, 0, 0}); }
 void *cFEngRenderVTable() { return &teststub::fakeFont; }
 int32_t CurrentLanguage() { return teststub::language; }
 int32_t MovieActive() { return 1; }
@@ -393,7 +396,6 @@ int32_t *DiscErrorOccurred() { return &teststub::discError; }
 const char **FEngPleaseRenderSinglePackage() { return &teststub::singlePackage; }
 const uint8_t *MouseGlobals() { return teststub::mouseGlobals; }
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { teststub::delivered.push_back({"renderobj", gi, reinterpret_cast<FEPackage *>(o), 0, 0}); }
-void FEPackageManager_NotifySoundMessage(FEPackageManager *m, uint32_t a, uint32_t, uint32_t, uint32_t) { teststub::delivered.push_back({"soundmsg", m, nullptr, a, 0}); }
 void FEGameInterface_BeginPackageRendering(void *gi, FEPackage *p, uint32_t f) { teststub::delivered.push_back({"beginrender", gi, p, f, 0}); }
 void FEGameInterface_EndPackageRendering(void *gi, FEPackage *p) { teststub::delivered.push_back({"endrender", gi, p, 0, 0}); }
 void FEGameInterface_GenerateRenderContext(void *gi, uint32_t c, FEObject *g) { teststub::delivered.push_back({"genctx", gi, reinterpret_cast<FEPackage *>(g), c, 0}); }
@@ -1163,6 +1165,22 @@ void GetLocalizedStringBuf(char *b, int32_t n, uint32_t) { std::snprintf(b, stat
 void FEngPrintfFloatString(const char *, uint32_t h, const char *, double v, const char *) { teststub::delivered.push_back({"fengprintf", nullptr, nullptr, h, static_cast<uint32_t>(v * 100.0 + 0.5)}); }
 // ---- QuickRaceSettings / UIQRModeOptions (network helpers are no-ops) ----
 ::QuickRaceSettings *QuickRaceSettingsInstance() { static ::QuickRaceSettings q; return &q; }
+#ifdef NFSU2_REFEREE
+uint32_t StockCarIdByType(int32_t player, uint32_t type)
+{
+    auto *db = reinterpret_cast<uint8_t *>(0x83AD90 + player * 0xAB4C);
+    const int32_t n = *reinterpret_cast<int32_t *>(db + 0x540);
+    for (int32_t i = 0; i < n; ++i) {
+        uint8_t *r = db + i * 0x1C;
+        if ((*reinterpret_cast<uint32_t(__attribute__((thiscall)) ***)(void *)>(r))[1](r) == type) return *reinterpret_cast<uint32_t *>(r + 8);
+    }
+    return 0;
+}
+uint32_t DefaultPlayerCarType(int32_t player) { return *reinterpret_cast<const uint32_t *>(player ? 0x7FAA4C : 0x7FAA48); }
+#else
+uint32_t StockCarIdByType(int32_t player, uint32_t type) { return type == 7 ? 0x100u + static_cast<uint32_t>(player) : 0; }
+uint32_t DefaultPlayerCarType(int32_t player) { return player ? 9u : 7u; }
+#endif
 const ::TrackInfo *TrackInfo_GetTrackInfo(uint32_t) { return static_cast<const ::TrackInfo *>(teststub::currentTrackInfo); }
 void FEngSendMessageToPackage(uint32_t m, const char *) { teststub::delivered.push_back({"sendmsg", nullptr, nullptr, m, 0}); }
 void FEPrintfIntString(FEObject *, const char *, int32_t v, const char *) { teststub::delivered.push_back({"feprintf", nullptr, nullptr, 0, static_cast<uint32_t>(v)}); }

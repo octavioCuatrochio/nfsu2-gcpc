@@ -126,10 +126,7 @@ void QRToggleWidget::Act(QRToggle k, const char *pkg, uint32_t msg)
             const bool on = s.GetCurrentTrackSettings()->mbLapKO == 0;
             s.GetCurrentTrackSettings()->mbLapKO = on;
         }
-        if (s.GetCurrentTrackSettings()->mbLapKO) {
-            s.GetCurrentTrackSettings()->mLaps = 3;
-            s.SetNumOpponents(3);
-        }
+        UIQRModeOptions::SetupForLapKO();
         bridge::FEngSendMessageToPackage(0x92B703B5u, pkg);
         break;
     case QRToggle::TrackDirection: {
@@ -467,4 +464,25 @@ void UIQRModeOptions::NotificationMessage(uint32_t msg, FEObject *obj, uint32_t 
         return;
     default: return;
     }
+}
+
+void UIQRModeOptions::SetupForLapKO()
+{
+    QuickRaceSettings &s = QRS();
+    if (s.GetCurrentTrackSettings()->mbLapKO) {
+        s.GetCurrentTrackSettings()->mLaps = 3;
+        s.SetNumOpponents(3);
+    }
+}
+
+void UIQRModeOptions::SetupStreetCross()
+{
+    if (Online()) return bridge::QRModeOptions_BoilerPlateOnline(this);
+    AddDirectionIfUnlocked(*this, CurrentTrackInfo());
+    Add(*this, QRToggle::NumLaps);
+    if (!Splitscreen()) {
+        Add(*this, QRToggle::NumOpponents);   // (the drag-track clamp is in its ctor)
+        Add(*this, QRToggle::AISkill);
+    }
+    Add(*this, QRToggle::CatchUp);
 }

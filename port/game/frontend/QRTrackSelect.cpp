@@ -200,21 +200,7 @@ UIQRTrackSelect *UIQRTrackSelect::Construct(const ScreenConstructorData *data)
     mScroller.Construct(base.mpPackageName, "ICON_MASTER", "TRACK_ICON", 1, "", "");
     mScrollBar.Construct(base.mpPackageName, "ScrollBar", false, false, false);
 
-    // TrackMapScroller::TrackMapScroller (PC inlined)
-    mMap.mpImage = FEngFindImage(base.mpPackageName, kMapImage);
-    mMap.vtable = bridge::GameVTable(kTrackMapVTable);
-    mMap.mpTrack = nullptr;
-    mMap.mWantedId = 0;
-    mMap.mZoomTimer = 0;
-    mMap.mbZoomNow = 0;
-    *bridge::TrackMapScrollerInstance() = &mMap;
-    FEngSetInvisible(mMap.mpImage);
-    mMap.mLoadingId = 0;
-    mMap.mpLoading = nullptr;
-    mMap.mbLoaded = 0;
-    mMap.mShownId = 0;
-    mMap.mpShown = nullptr;
-    mMap.mpUnload = nullptr;
+    mMap.Construct(FEngFindImage(base.mpPackageName, kMapImage));
 
     _unknown148 = FEngFindImage(base.mpPackageName, kMapImage);
     mScrollTime = 0;
@@ -341,7 +327,7 @@ void UIQRTrackSelect::BuildPresetTrackList()
     }
 
     if (bridge::GameModeFlags() == 8) mpSelected = mHead;
-    const uint16_t *settings = Online() ? OnlineTrack() : reinterpret_cast<uint16_t *>(bridge::QR_CurrentTrackSettings());
+    const uint16_t *settings = GetSelectedTrack();
     const uint16_t wanted = settings[0];
     const int32_t dir = *reinterpret_cast<const int32_t *>(settings + 2);
     if (bridge::GameModeFlags() != 8) {
@@ -349,12 +335,7 @@ void UIQRTrackSelect::BuildPresetTrackList()
             if (!mpSelected) mpSelected = mHead;
             StoreTrack(static_cast<uint16_t>(mpSelected->TrackNumber()), 0);
         } else {
-            SelectableTrack *first = mHead, *found = nullptr;
-            for (SelectableTrack *t = first; t != s; t = t->next)
-                if (t->TrackNumber() == static_cast<int32_t>(wanted)) {
-                    found = t;
-                    break;
-                }
+            SelectableTrack *first = mHead, *found = FindTrack(wanted);
             mpSelected = found;
             if (!found || (found->mbLocked && !Online())) {
                 mpSelected = first;
@@ -404,16 +385,10 @@ void UIQRTrackSelect::RefreshHeader()
 {
     const char *pkg = base.mpPackageName;
     SelectableTrack *cur = mpSelected;
-    FEngSetLanguageHash(FEngFindString(pkg, 0xF601F2D4u), bridge::CalcTrackNameHash(cur->TrackNumber(), cur->mDirection));
+    FEngSetLanguageHash(FEngFindString(pkg, 0xF601F2D4u), cur->CalcLanguageHash());
     FEngSetInvisible(FEngFindString(base.mpPackageName, 0x53C956C4u));
 
-    SelectableTrack *const s = Sentinel();
-    int32_t index = 1;   // 1-based position of the selection (0: not in the list)
-    SelectableTrack *t = mHead;
-    for (; t != s; t = t->next, ++index)
-        if (t == mpSelected) break;
-    if (t == s) index = 0;
-    mScrollBar.Update(1, mNumTracks, index);
+    mScrollBar.Update(1, mNumTracks, GetNodeIndex(mpSelected));
 
     FEObject *arrow1 = FEngFindObject(base.mpPackageName, FEHashUpper("ScrollBar_Arrow_1"));
     FEObject *arrow2 = FEngFindObject(base.mpPackageName, FEHashUpper("ScrollBar_Arrow_2"));
@@ -547,4 +522,44 @@ uint32_t UIQRTrackSelect::NotifySoundMessage(uint32_t msg, FEObject *, uint32_t,
         if (mpSelected == mTail) return 0;
     }
     return FilterSoundForHorizontalMenu(msg, event, true);
+}
+
+uint32_t SelectableTrack::CalcLanguageHash() const { return bridge::CalcTrackNameHash(TrackNumber(), mDirection); }
+
+void TrackMapScroller::Construct(FEObject *image)
+{
+    mpImage = image;
+    vtable = bridge::GameVTable(kTrackMapVTable);
+    mpTrack = nullptr;
+    mWantedId = 0;
+    mZoomTimer = 0;
+    mbZoomNow = 0;
+    *bridge::TrackMapScrollerInstance() = this;
+    FEngSetInvisible(mpImage);
+    mLoadingId = 0;
+    mpLoading = nullptr;
+    mbLoaded = 0;
+    mShownId = 0;
+    mpShown = nullptr;
+    mpUnload = nullptr;
+}
+
+uint16_t *UIQRTrackSelect::GetSelectedTrack()
+{
+    return Online() ? OnlineTrack() : reinterpret_cast<uint16_t *>(bridge::QR_CurrentTrackSettings());
+}
+
+SelectableTrack *UIQRTrackSelect::FindTrack(int32_t number)
+{
+    for (SelectableTrack *t = mHead; t != Sentinel(); t = t->next)
+        if (t->TrackNumber() == number) return t;
+    return nullptr;
+}
+
+int32_t UIQRTrackSelect::GetNodeIndex(const SelectableTrack *sel)
+{
+    int32_t index = 1;
+    for (SelectableTrack *t = mHead; t != Sentinel(); t = t->next, ++index)
+        if (t == sel) return index;
+    return 0;
 }

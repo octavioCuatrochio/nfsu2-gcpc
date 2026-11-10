@@ -8,6 +8,7 @@
 struct FEObject;
 struct FEPackage;
 struct FEMessageResponse;
+struct FEObjectCallback;
 
 // Queued message (0x20 bytes, game heap). GC FEMessageNode.
 struct FEMessageNode {
@@ -192,6 +193,20 @@ struct FEngine {
     void RecordLastPackageButton(uint32_t pkgHash, uint32_t guid);   // GC 80148CAC / PC 50B300: replaces older entries
     uint32_t RecallLastPackageButton(uint32_t pkgHash) const;        // GC 80148D1C / PC 50B360: 0 if none
     bool ProcessCodeListBoxResponses(FEObject *listBox, FEPackage *pkg, uint32_t msg);   // GC 80148360 / PC 52C750
+    // GC 80148D9C (PC: inlined into ProcessResponses): pops the newest marker; null if none.
+    const char *RecallPackageMarker();
+    // GC 80145958 (PC: inlined into the cFEng ctor 5372E0): running flag, copied to every active package.
+    void SetExecution(bool on);
+    // GC 80145980 / PC 51A7E0: objects back to their initial state (callback 0x79AAEC), pads reset, mouse reset
+    // when enabled.
+    void SetInitialState();
+    // GC 801479F4 (PC: inlined into 51A7E0): every active package until a callback returns false.
+    bool ForAllObjects(FEObjectCallback *cb);
+    FEPackage *FindIdlePackage(const char *name);   // GC 80145ECC (PC: inlined into PushPackage / FEngFindPackage)
+    FEPackage *GetFirstLibrary() const { return reinterpret_cast<FEPackage *>(mLibraries.head); }   // GC 80145EF0
+    // GC 80147B20 (PC: inlined into FEPackage::IssueScriptMessages 534C70): game interface (mpUIData) slot 6 with
+    // arg 0 (GC passes the event arg).
+    void SendMessageToGame(uint32_t msg, FEObject *obj, FEPackage *pkg);
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

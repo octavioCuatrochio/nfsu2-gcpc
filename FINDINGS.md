@@ -3,6 +3,24 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 
 ## Port status / next
 - Network (online / LAN / EA Messenger) functions are not ported: stubbed through the bridge (see AGENTS.md).
+- Whole-file rule: a GC decomp file (gc_functions.decomp_file) counts as done only when every function has a rewrite
+  row. Leftover query: files with 0 < done < n (see `rewrite` join). Folded dtors / NotifySoundMessage: read the PC
+  vtable slot (search .rdata for a rewritten virtual, slot 0 = dtor, MenuScreen slot 3 = sound); inlined ones get a
+  named port function + `rewritten` row (pc_addr NULL). As of this batch only Camera.c and 3 network functions
+  (UIQRModeOptions HandlePasswordEntryRestrictions / BoilerPlateOnline, PauseMenu::EnableVOIP) are left in started files.
+- Option/menu dtors fold: IconOption subclasses (MM*/CC*/MS*/OM*/PM*/pm_*) slot 0 = 4AEB70; toggle widgets (GO*/PO*/
+  PPO*/TO*/OO*/COWheelOptions/AOAudioMode) 4AEA10; AO*Vol sliders 4CF620. Sound slot 3: 49CB40 (horizontal, back) /
+  49DFC0 (FilterSoundForMenu) / 570A70 (returns 0).
+- QuickRaceSettings is 0x17C on PC (+0x100 = GC TournamentSettings: 8 track records from +0x11C; next global 0x83AC30).
+  Default 515800 (car ids: DB 0x83AD90 + p*0xAB4C, count +0x540, 0x1C records, type = vslot 1, id +8; default types
+  0x7FAA48/4C), TournamentSettings::Default 515750 (also called by 525C90 which then uses ECX: thunked hook).
+- FEPackageManager PC: vtable 0x79B910 at +0 (ctor 52CC50, dtor 52CC40 = DeleteAllElements, scalar 52CC70; static init
+  77D530 / atexit 781FD0). NotifySoundMessage 52CC90 (cFEng 52CDC0 = mov ecx + jmp). FEngine::SetInitialState 51A7E0.
+- SlotPoolManager PC: ctor 4407B0, dtor 4407D0 (empties the list BEFORE its delete loop: frees nothing, GC too),
+  CleanupExpandedSlotPools 440800 -> SlotPool 440650; SlotPool::DeleteSlotPool = bWareFree 440540 (null-safe).
+- FEColor PC: unpack 5054A0, operator= 505560 (thiscall, ret 4). cSlider scalar dtor 4957B0, Preview/ThreeStage 512220,
+  TuningSlider 531010. UIMagazineSelect::RefreshHeader 510E40 = jmp 50DA50 (not hooked).
+- PC FEObject::SetScript (inlined): restart on the same script only rewinds (GC redoes SetCurrentScript too).
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
 - TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:

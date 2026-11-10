@@ -69,3 +69,11 @@ FEObject *FEButtonMap::GetButtonFrom(FEObject *from, uint32_t dir, void *gi, uin
     }
     return best < 1500.0f ? mppButtons[bestIndex] : nullptr;
 }
+
+void FEButtonMap::SetCount(uint32_t count)
+{
+    bridge::FreeArray(mppButtons);
+    mppButtons = nullptr;
+    if (count) mppButtons = static_cast<FEObject **>(bridge::Alloc(count * 4));
+    mu32Count = count;
+}

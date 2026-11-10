@@ -172,19 +172,12 @@ void PauseMenu::Setup()
 
 void PauseMenu::SetupExplore()
 {
-    const int32_t mode = bridge::GameModeFlags();
-    bool crib;
-    if (mode == 1) {
-        if (bridge::RaceType() != 7) AddPM(*this, PMKind::ResumeFreeRoam, 0x62AA0DF6u, 0xC3E5BCDCu, false);
-        crib = true;   // PC: race type 7 jumps straight to the crib check
-    } else {
-        AddPM(*this, PMKind::ResumeFreeRoam, 0x62AA0DF6u, 0xC44A6515u, false);
-        crib = bridge::GameModeFlags() == 1;
-    }
-    if (crib && *bridge::GameByte(0x8635A8)) AddPM(*this, PMKind::QuitToCrib, 0xB8038AC0u, 0x453890E1u, true);
+    // Career race type 7 has no resume icon; other modes use the "resume" description.
+    if (NeedToSeeReturnToExploreMode())
+        AddPM(*this, PMKind::ResumeFreeRoam, 0x62AA0DF6u, bridge::GameModeFlags() == 1 ? 0xC3E5BCDCu : 0xC44A6515u, false);
+    if (NeedToSeeJumpToGarage()) AddPM(*this, PMKind::QuitToCrib, 0xB8038AC0u, 0x453890E1u, true);
     if (NeedToSeeOptions()) AddPM(*this, PMKind::SwitchToOptions, 0x520DE4E3u, 0xB34993C9u, false);
-    const int32_t m = bridge::GameModeFlags();
-    if (m != 4 && m != 8 && m != 0x200) AddReplay(*this);
+    if (NeedToSeeReplay()) AddReplay(*this);
     AddQuitToFrontEnd(*this, true);   // SetupExplore inlines every quit icon
 }
 
@@ -194,20 +187,38 @@ void PauseMenu::SetupRace()
         AddQuitToFrontEnd(*this, true);
         return;
     }
-    if (bridge::GameModeFlags() == 1 && *bridge::GameByte(0x85BA67))
-        AddPM(*this, PMKind::ReturnToWorldMap, 0x3109913Cu, 0x5E670A9Eu, true);
-    AddPM(*this, PMKind::ResumeRace, 0x12BB5EA2u, 0xF6601088u, true);
-    int32_t mode = bridge::GameModeFlags();
-    if (bridge::RaceType() != 7 && mode != 8 && mode != 0x200) {
-        AddPM(*this, PMKind::RestartRace, 0xB295A6B6u, 0x80833FC2u, true);
-        mode = bridge::GameModeFlags();
-    }
-    if (mode == 1 && bridge::RaceType() != 7) AddPM(*this, PMKind::QuitRaceToFreeRoam, 0x62AA0DF6u, 0xDB4E3C0Du, true);
+    if (NeedToSeeReturnToWorldMap()) AddPM(*this, PMKind::ReturnToWorldMap, 0x3109913Cu, 0x5E670A9Eu, true);
+    if (NeedToSeeResumeRace()) AddPM(*this, PMKind::ResumeRace, 0x12BB5EA2u, 0xF6601088u, true);
+    if (NeedToSeeRestartRace()) AddPM(*this, PMKind::RestartRace, 0xB295A6B6u, 0x80833FC2u, true);
+    if (NeedToSeeQuitRaceToExploreMode()) AddPM(*this, PMKind::QuitRaceToFreeRoam, 0x62AA0DF6u, 0xDB4E3C0Du, true);
     if (NeedToSeeOptions()) AddPM(*this, PMKind::SwitchToOptions, 0x520DE4E3u, 0xB34993C9u, false);
-    mode = bridge::GameModeFlags();
-    if (mode != 4 && mode != 8 && mode != 0x200) AddReplay(*this);
-    AddQuitToFrontEnd(*this, true);   // mode 8 inline; others through ctor 4C27F0 (same result)
+    if (NeedToSeeReplay()) AddReplay(*this);
+    if (NeedToSeeQuitToMainMenu()) AddQuitToFrontEnd(*this, true);   // mode 8 inline; others through ctor 4C27F0 (same result)
 }
+
+bool PauseMenu::NeedToSeeJumpToGarage() { return bridge::GameModeFlags() == 1 && *bridge::GameByte(0x8635A8); }
+
+bool PauseMenu::NeedToSeeReplay()
+{
+    const int32_t m = bridge::GameModeFlags();
+    return m != 4 && m != 8 && m != 0x200;
+}
+
+bool PauseMenu::NeedToSeeReturnToExploreMode() { return !(bridge::GameModeFlags() == 1 && bridge::RaceType() == 7); }
+
+bool PauseMenu::NeedToSeeReturnToWorldMap() { return bridge::GameModeFlags() == 1 && *bridge::GameByte(0x85BA67); }
+
+bool PauseMenu::NeedToSeeRestartRace()
+{
+    const int32_t m = bridge::GameModeFlags();
+    return bridge::RaceType() != 7 && m != 8 && m != 0x200;
+}
+
+bool PauseMenu::NeedToSeeQuitRaceToExploreMode() { return bridge::GameModeFlags() == 1 && bridge::RaceType() != 7; }
+
+void PauseMenu::RestartRace() { bridge::RaceCoordinator_RequestUnPause(3); }
+void PauseMenu::QuitRace() { bridge::RaceCoordinator_RequestUnPause(4); }
+void PauseMenu::QuitRaceToFreeRoam() { bridge::RaceCoordinator_PostMessage(0xB, 0); }
 
 bool PauseMenu::OkToHandleInput() const
 {
@@ -269,11 +280,11 @@ void PauseMenu::NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg, u
         FEngSetScript(pkg, kOutObject, "FORWARD", true);
         PopHelpBarIfPushed();
         return;
-    case 0x30F32A49u: bridge::RaceCoordinator_RequestUnPause(4); return;
+    case 0x30F32A49u: QuitRace(); return;
     case 0x33C42E03u: QuitToWorldMap(); return;
     case 0x43DA9FD0u: QuitToCrib(); return;
     case 0x451E768Eu:   // quit race to free roam: yes
-        bridge::RaceCoordinator_PostMessage(0xB, 0);
+        QuitRaceToFreeRoam();
         PopHelpBarIfPushed();
         return;
     case 0xB4623F67u:   // dialog "no": undim, help bar back
@@ -285,15 +296,15 @@ void PauseMenu::NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg, u
         return;
     case 0x911AB364u:
     case 0xB5AF2461u: leave(); return;
-    case 0xE1A57D51u: bridge::RaceCoordinator_RequestUnPause(3); return;   // restart: yes
+    case 0xE1A57D51u: RestartRace(); return;   // restart: yes
     case 0xE1FDE1D1u:
         switch (base.mPrevMsg) {
         case 0x30ED2368u: QuitGame(); return;
-        case 0x30F32A49u: bridge::RaceCoordinator_RequestUnPause(4); return;
+        case 0x30F32A49u: QuitRace(); return;
         case 0x43DA9FD0u: QuitToCrib(); return;
         case 0x911AB364u:
         case 0xB5AF2461u: bridge::RaceCoordinator_RequestUnPause(1); return;
-        case 0xE1A57D51u: bridge::RaceCoordinator_RequestUnPause(3); return;
+        case 0xE1A57D51u: RestartRace(); return;
         default: return;
         }
     default: return;

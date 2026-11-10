@@ -103,7 +103,7 @@ ThumbnailScroller *ThumbnailScroller::Construct(const char *pkg, const char *mas
 
     mpMaster = FEngFindObject(mpPackage, FEHashUpper(master));
     FEngGetSize(mpMaster, &mMasterW, &mMasterH);
-    FEngGetCenter(mpMaster, &mCenterX, &mCenterY);
+    SetMasterObject(mpMaster);
     mpNext = GetNextNode(nullptr);
     FEngSetInvisible(mpMaster);
     FEngGetCenter(mpMaster, &mOriginX, &mOriginY);
@@ -481,4 +481,15 @@ void ThumbnailScroller::StopDim()
 {
     mbFadeAlpha = 1;
     SetVisibility(true);
+}
+
+void ThumbnailScroller::SetMasterObject(FEObject *master) { FEngGetCenter(master, &mCenterX, &mCenterY); }
+
+void ThumbnailScroller::UpdateFade(ThumbnailNode *n)
+{
+    if (!n || !n->mpObject || !n->mpObject->mpData) return;
+    const uint32_t c = FEngGetObjectColorPacked(n->mpObject);
+    float a = static_cast<float>(c >> 24) - 2.5f;
+    if (a < 40.0f) a = 40.0f;
+    FEngSetColor(n->mpObject, (c & 0xFFFFFFu) | (static_cast<uint32_t>(static_cast<int32_t>(a)) << 24));
 }

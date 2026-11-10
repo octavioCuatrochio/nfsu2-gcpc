@@ -61,6 +61,12 @@ struct UIQRModeOptions {
     void SetupGT();                  // GC 800E335C / PC 4CDB40
     void SetupShortTrack();          // GC 800E3B20 (and SetupURL 800E3E7C, folded) / PC 4B47B0
     void SetupFreeRun();             // GC 800E3D60 / PC 4B4A10
+    // GC 800E3038 (GC-only: PC's Setup has no street-cross case): direction (reversible + unlocked), laps, opponents /
+    // AI skill unless splitscreen, catch-up.
+    void SetupStreetCross();
+    // GC 800E20DC (PC: inlined into the lap-KO toggle's Act 4B4020): lap KO on -> 3 laps, 3 opponents.
+    static void SetupForLapKO();
+    // GC 800E1EA0 HandlePasswordEntryRestrictions / 800E355C BoilerPlateOnline: network, not ported (bridged).
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

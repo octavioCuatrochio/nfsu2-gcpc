@@ -61,6 +61,7 @@ struct UIMagazineSelect {
     void Setup();                                                   // GC 80187494 / PC 550DD0
     void BuildShowcaseList();                                       // GC 80187560 / PC 523F60
     void PopulateDataInfoStuff();                                   // GC 80187684 / PC 54B150
+    void RefreshHeader() { base.RefreshHeader(); }                  // GC 80187910 / PC 510E40 (jmp 50DA50)
     void DeallocateScreenShot();                                    // GC 801878C0 / PC 510E10
 };
 

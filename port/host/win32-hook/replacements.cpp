@@ -184,6 +184,10 @@ void *THISCALL SlotPool_FastMalloc(SlotPool *self) { return self->FastMalloc(); 
 void THISCALL SlotPool_Free(SlotPool *self, void *p) { self->Free(p); }
 void *THISCALL SlotPool_Malloc(SlotPool *self) { return self->Malloc(); }
 void THISCALL SlotPoolManager_Delete(SlotPoolManager *self, SlotPool *p) { self->DeleteSlotPool(p); }
+SlotPoolManager *THISCALL SlotPoolManager_Ctor(SlotPoolManager *self) { self->Construct(); return self; }
+void THISCALL SlotPoolManager_Dtor(SlotPoolManager *self) { self->Destruct(); }
+void THISCALL SlotPoolManager_Cleanup(SlotPoolManager *self) { self->CleanupExpandedSlotPools(); }
+void THISCALL SlotPool_Cleanup(SlotPool *self) { self->CleanupExpandedSlotPools(); }
 void *THISCALL SlotPool_GetAllocatedSlot(SlotPool *self, int32_t n) { return self->GetAllocatedSlot(n); }
 void THISCALL SlotPool_Expand(SlotPool *self, int32_t n) { self->ExpandSlotPool(n); }
 SlotPool *__cdecl SlotPool_New(uint32_t size, int32_t n, const char *name, uint32_t flags) { return SlotPool::NewSlotPool(size, n, name, flags); }
@@ -246,6 +250,10 @@ uint32_t THISCALL FEPackageData_GetNameHash(const FEPackageData *self) { return 
 void THISCALL FEPkgMgr_SendMessageToPackage(FEPackageManager *self, const char *n, uint32_t m) { self->SendMessageToPackage(n, m); }
 void THISCALL FEPkgMgr_BroadcastMessage(FEPackageManager *self, uint32_t m, uint32_t a) { self->BroadcastMessage(m, a); }
 void THISCALL FEPkgMgr_NotificationMessage(FEPackageManager *self, uint32_t m, void *o, uint32_t a, FEPackage *p) { self->NotificationMessage(m, o, a, p); }
+void THISCALL FEPkgMgr_NotifySoundMessage(FEPackageManager *self, uint32_t m, void *o, uint32_t a, FEPackage *p) { self->NotifySoundMessage(m, o, a, p); }
+FEPackageManager *THISCALL FEPkgMgr_Ctor(FEPackageManager *self) { self->Construct(); return self; }
+void THISCALL FEPkgMgr_Dtor(FEPackageManager *self) { self->Destruct(); }
+FEPackageManager *THISCALL FEPkgMgr_ScalarDtor(FEPackageManager *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 FEPackageData *THISCALL FEPackageData_Ctor(FEPackageData *self, uint32_t *c) { self->Construct(c); return self; }
 void THISCALL FEPackageData_Dtor(FEPackageData *self) { self->Destruct(); }
 FEPackageData *THISCALL FEPackageData_ScalarDtor(FEPackageData *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
@@ -323,6 +331,7 @@ void THISCALL FEMessageTargets_SetCapacity(FEMessageTargets *self, uint32_t n) {
 FEPackage *THISCALL FEngine_LoadPackageHook(FEngine *self, const void *d, uint8_t f) { return FEngine_LoadPackage(self, d, f); }
 FEObject *THISCALL FEngine_FindObject(FEngine *self, uint32_t h, const char *p) { return self->FindObject(h, p); }
 void THISCALL FEngine_UpdateHook(FEngine *self, uint32_t delta, uint32_t whole) { self->Update(delta, whole); }
+void THISCALL FEngine_SetInitialState(FEngine *self) { self->SetInitialState(); }
 void THISCALL FEngine_ProcessPadsForPackage(FEngine *self, FEPackage *p) { self->ProcessPadsForPackage(p); }
 void THISCALL FEngine_ProcessMouseForPackage(FEngine *self, FEPackage *p) { self->ProcessMouseForPackage(p); }
 void THISCALL FEQuaternion_GetMatrix(const FEQuaternion *q, FEMatrix4 *out) { FEQuatGetMatrix(q, out); }
@@ -380,6 +389,9 @@ TuningSlider *THISCALL TuningSlider_Ctor(TuningSlider *self, int32_t type, const
 void THISCALL TuningSlider_SetSliderObjects(TuningSlider *self, FEObject *a, FEObject *b, FEObject *c, FEObject *d, FEObject *e, FEObject *f, FEObject *g) { self->SetSliderObjects(a, b, c, d, e, f, g); }
 void THISCALL TuningSlider_Position(TuningSlider *self) { self->Position(); }
 void THISCALL TuningSlider_Hide(TuningSlider *self) { self->Hide(); }
+TuningSlider *THISCALL TuningSlider_ScalarDtor(TuningSlider *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+cSlider *THISCALL cSlider_ScalarDtor(cSlider *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+PreviewSlider *THISCALL PreviewSlider_ScalarDtor(PreviewSlider *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL TuningSlider_Show(TuningSlider *self) { self->Show(); }
 void THISCALL TuningSlider_SetFocus(TuningSlider *self, const char *pkg) { self->SetFocus(pkg); }
 void THISCALL TuningSlider_UnsetFocus(TuningSlider *self) { self->UnsetFocus(); }
@@ -760,6 +772,8 @@ void THISCALL QTS_DisplayRaceType(UIQRTrackSelect *s) { s->DisplayRaceType(); }
 
 // ---- QuickRaceSettings / QR toggles / UIQRModeOptions ----
 int32_t THISCALL QRS_GetNumPlayers(QuickRaceSettings *s) { return s->GetNumPlayers(); }
+void THISCALL QRS_Default(QuickRaceSettings *s) { s->Default(); }
+void THISCALL QRS_TourneyDefault(void *t) { TournamentSettingsDefault(t); }
 int32_t THISCALL QRS_GetNumOpponents(QuickRaceSettings *s) { return s->GetNumOpponents(); }
 int32_t THISCALL QRS_GetAISkill(QuickRaceSettings *s) { return s->GetAISkill(); }
 int32_t THISCALL QRS_GetTrafficLevel(QuickRaceSettings *s) { return s->GetTrafficLevel(); }
@@ -859,6 +873,8 @@ void THISCALL MVW_Notify(MagazineViewScreen *m, uint32_t msg, void *, uint32_t, 
 
 FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
 uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
+FEColor *THISCALL FEColor_Unpack(FEColor *c, uint32_t argb) { FEColorUnpack(c, argb); return c; }
+FEColor *THISCALL FEColor_Assign(FEColor *c, const FEColor *src) { return FEColorAssign(c, *src); }
 void THISCALL ISX_StaticArrow2(FEScrollBar *s) { FEScrollBar_StaticArrow2(s); }
 UIOptionsMain *THISCALL UOM_Ctor(UIOptionsMain *s, const ScreenConstructorData *d) { return s->Construct(d); }
 void THISCALL UOM_Dtor(UIOptionsMain *s) { s->Destruct(); }
@@ -1222,6 +1238,10 @@ const Replacement kReplacements[] = {
     {0x43CDF0, (const void *)&SlotPool_Free, "SlotPool::Free", {0x8B, 0x41, 0x18, 0x8B, 0x54, 0x24}},
     {0x440C30, (const void *)&SlotPool_GetAllocatedSlot, "SlotPool::GetAllocatedSlot", {0x51, 0x53, 0x55, 0x56, 0x57, 0x6A}},
     {0x440DA0, (const void *)&SlotPoolManager_Delete, "SlotPoolManager::DeleteSlotPool", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x4407B0, (const void *)&SlotPoolManager_Ctor, "SlotPoolManager::SlotPoolManager", {0x8B, 0xC1, 0x8D, 0x50, 0x04, 0x89}},
+    {0x4407D0, (const void *)&SlotPoolManager_Dtor, "SlotPoolManager::~SlotPoolManager", {0x56, 0x8D, 0x71, 0x04, 0x8B, 0xC6}},
+    {0x440800, (const void *)&SlotPoolManager_Cleanup, "SlotPoolManager::CleanupExpandedSlotPools", {0x56, 0x8B, 0x71, 0x04, 0x57, 0x8D}},
+    {0x440650, (const void *)&SlotPool_Cleanup, "SlotPool::CleanupExpandedSlotPools", {0x83, 0xEC, 0x14, 0x8B, 0x41, 0x08}},
     {0x440DF0, (const void *)&bNewSlotPool, "bNewSlotPool", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x4C}},
     {0x440E40, (const void *)&bDeleteSlotPool, "bDeleteSlotPool", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xB9}},
     {0x43F8F0, (const void *)&bOMalloc, "bOMalloc(SlotPool *)", {0x8B, 0x4C, 0x24, 0x04, 0x8B, 0x51}},
@@ -1289,6 +1309,10 @@ const Replacement kReplacements[] = {
     {0x55DC20, (const void *)&FEPkgMgr_SendMessageToPackage, "FEPackageManager::SendMessageToPackage", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
     {0x55DC50, (const void *)&FEPkgMgr_BroadcastMessage, "FEPackageManager::BroadcastMessage", {0x8B, 0x41, 0x04, 0x81, 0xEC, 0x80}},
     {0x55DCE0, (const void *)&FEPkgMgr_NotificationMessage, "FEPackageManager::NotificationMessage", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x53}},
+    {0x52CC90, (const void *)&FEPkgMgr_NotifySoundMessage, "FEPackageManager::NotifySoundMessage", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x53}},
+    {0x52CC50, (const void *)&FEPkgMgr_Ctor, "FEPackageManager::FEPackageManager", {0x8B, 0xC1, 0x8D, 0x50, 0x04, 0xC7}},
+    {0x52CC40, (const void *)&FEPkgMgr_Dtor, "FEPackageManager::~FEPackageManager", {0xC7, 0x01, 0x10, 0xB9, 0x79, 0x00}},
+    {0x52CC70, (const void *)&FEPkgMgr_ScalarDtor, "FEPackageManager scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xC8, 0xFF}},
     {0x51B8E0, (const void *)&FEPackageData_Ctor, "FEPackageData::FEPackageData", {0x33, 0xC0, 0x56, 0x8B, 0xF1, 0x8B}},
     {0x51B990, (const void *)&FEPackageData_Dtor, "FEPackageData::~FEPackageData", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x10}},
     {0x52CC20, (const void *)&FEPackageData_ScalarDtor, "FEPackageData scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x68, 0xED}},
@@ -1319,6 +1343,7 @@ const Replacement kReplacements[] = {
     {0x52C570, (const void *)&FEngine_FindObject, "FEngine::FindObject", {0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0}},
     {0x50B2A0, (const void *)&FEngine::IsInputMessage, "FEngine::IsInputMessage", {0x8B, 0x4C, 0x24, 0x04, 0x85, 0xC9}},
     {0x558C00, (const void *)&FEngine_UpdateHook, "FEngine::Update", {0x83, 0xEC, 0x0C, 0x55, 0x8B, 0xE9}},
+    {0x51A7E0, (const void *)&FEngine_SetInitialState, "FEngine::SetInitialState", {0x6A, 0xFF, 0x68, 0x08, 0x71, 0x77}},
     {0x54D4B0, (const void *)&FEngine_ProcessPadsForPackage, "FEngine::ProcessPadsForPackage", {0x8B, 0x44, 0x24, 0x04, 0x81, 0xEC}},
     {0x54E020, (const void *)&FEngine_ProcessMouseForPackage, "FEngine::ProcessMouseForPackage", {0x83, 0xEC, 0x18, 0x56, 0x57, 0x8B}},
     {0x504A50, (const void *)&FEQuaternion_GetMatrix, "FEQuaternion::GetMatrix", {0x83, 0xEC, 0x20, 0xD9, 0x01, 0x8B}, 1, 4, 1},   // 52C639 (original RenderGroup) reuses EDX
@@ -1416,6 +1441,9 @@ const Replacement kReplacements[] = {
     {0x530D20, (const void *)&TuningSlider_SetSliderObjects, "TuningSlider::SetSliderObjects", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x54}},
     {0x530AA0, (const void *)&TuningSlider_Position, "TuningSlider::Position", {0x83, 0xEC, 0x1C, 0x53, 0x56, 0x8B}},
     {0x522BC0, (const void *)&TuningSlider_Hide, "TuningSlider::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x531010, (const void *)&TuningSlider_ScalarDtor, "TuningSlider scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4957B0, (const void *)&cSlider_ScalarDtor, "cSlider scalar dtor", {0xF6, 0x44, 0x24, 0x04, 0x01, 0x56}},
+    {0x512220, (const void *)&PreviewSlider_ScalarDtor, "PreviewSlider scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x78, 0x35}},
     {0x522C30, (const void *)&TuningSlider_Show, "TuningSlider::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x530F30, (const void *)&TuningSlider_SetFocus, "TuningSlider::SetFocus", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x55}},
     {0x522CA0, (const void *)&TuningSlider_UnsetFocus, "TuningSlider::UnsetFocus", {0x53, 0x55, 0x56, 0x57, 0x8B, 0xD9}},
@@ -1716,6 +1744,8 @@ const Replacement kReplacements[] = {
     {0x4CE170, (const void *)&QTS_RefreshHeader, "UIQRTrackSelect::RefreshHeader", {0x81, 0xEC, 0x24, 0x02, 0x00, 0x00}},
     {0x4988C0, (const void *)&QTS_DisplayRaceType, "UIQRTrackSelect::DisplayRaceType", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
     {0x5026F0, (const void *)&QRS_GetNumPlayers, "QuickRaceSettings::GetNumPlayers", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x515800, (const void *)&QRS_Default, "QuickRaceSettings::Default", {0x83, 0xEC, 0x08, 0x53, 0x55, 0x8B}},
+    {0x515750, (const void *)&QRS_TourneyDefault, "TournamentSettings::Default", {0xBA, 0x03, 0x00, 0x00, 0x00, 0x88}, 1, 0, 0},
     {0x502710, (const void *)&QRS_GetNumOpponents, "QuickRaceSettings::GetNumOpponents", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
     {0x502730, (const void *)&QRS_GetAISkill, "QuickRaceSettings::GetAISkill", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
     {0x502750, (const void *)&QRS_GetTrafficLevel, "QuickRaceSettings::GetTrafficLevel", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
@@ -1862,6 +1892,8 @@ const Replacement kReplacements[] = {
     {0x51D7F0, (const void *)&FEngSetColor, "FEngSetColor", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0x74}},
     {0x50CCC0, (const void *)&ISX_GetObjectColor, "FEngGetObjectColor", {0x8B, 0x44, 0x24, 0x08, 0x33, 0xC9}},
     {0x5054D0, (const void *)&ISX_ColorPack, "FEColor pack", {0x8B, 0x41, 0x08, 0x85, 0xC0, 0x56}},
+    {0x5054A0, (const void *)&FEColor_Unpack, "FEColor::FEColor(unsigned long)", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
+    {0x505560, (const void *)&FEColor_Assign, "FEColor::operator=", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x495570, (const void *)&FEngGetObjectColorPacked, "FEngGetObjectColor packed", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xEC}},
     {0x4E3560, (const void *)&UOM_Ctor, "UIOptionsMain::UIOptionsMain", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
     {0x4E36A0, (const void *)&UOM_Dtor, "UIOptionsMain::~UIOptionsMain", {0xC7, 0x01, 0x94, 0x77, 0x79, 0x00}},

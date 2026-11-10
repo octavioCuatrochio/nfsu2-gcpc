@@ -215,7 +215,7 @@ void FEKeyTrack::SetBaseValueAt(int32_t time, const FEColor &value)
     FEColor d = FEColorSub(value, cur);
     FEColor base;
     std::memcpy(&base, &mBaseKey._data[1], sizeof base);
-    for (int i = 0; i < 4; ++i) base.c[i] = static_cast<int32_t>(static_cast<uint32_t>(base.c[i]) + static_cast<uint32_t>(d.c[i]));
+    FEColorAddTo(&base, d);   // operator+= (inlined)
     std::memcpy(&mBaseKey._data[1], &base, sizeof base);
     mu8Flags &= 0x7F;
 }

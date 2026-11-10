@@ -189,9 +189,7 @@ void cFEng::Pusher(uint32_t flags, const char *name, const char *parent, uint32_
     } else {
         n->mi32State = 1;
         if (inst) {
-            FEngine *e = inst->mpEngine;
-            if (!FEListFindNode(name, reinterpret_cast<FENode *>(e->mpPackages)))   // cFEng::PushPackage + IsPackageLoaded
-                bridge::FEngine_PushPackage(e, name, 0, mask);
+            inst->PushPackage(name, 0, mask);
         }
     }
     ResyncSortingLevels();
@@ -352,7 +350,11 @@ void cFEng::RenderObject(FEObject *obj)
 void cFEng::GetViewTransformation(void *matrix) { bIdentity(static_cast<bMatrix4 *>(matrix)); }
 bool cFEng::DoesPointTouchObject(float x, float y, FEObject *obj) { return FEngTestForIntersection(x, y, obj); }
 void cFEng::OutputWarning(const char *, int32_t) {}
-void cFEng::NotifySoundMessage(uint32_t a, uint32_t b, uint32_t c, uint32_t d) { bridge::FEPackageManager_NotifySoundMessage(bridge::TheFEPackageManager(), a, b, c, d); }
+void cFEng::NotifySoundMessage(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+{
+    bridge::TheFEPackageManager()->NotifySoundMessage(a, reinterpret_cast<void *>(static_cast<uintptr_t>(b)), c,
+                                                      reinterpret_cast<FEPackage *>(static_cast<uintptr_t>(d)));
+}
 
 uint8_t *cFEng::GetPackageData(const char *name, uint32_t, uint8_t *flag)
 {
@@ -474,11 +476,9 @@ cFEng *cFEng::Construct()
     *bridge::LevelSorterSlotsPtr() = bNewSlotPool(sizeof(cFEngLevelSorter), 0x20, "LevelSorterSlotPool", 0);
     mpEngine->mpUIData = this;
     mpEngine->SetNumJoyPads(2);
-    bridge::FEngine_InitObjects(mpEngine);
-    uint8_t *e = reinterpret_cast<uint8_t *>(mpEngine);
-    e[0] = 1;
-    for (FEPackage *p = mpEngine->mpPackages; p; p = reinterpret_cast<FEPackage *>(p->node.next)) p->mbFastInterp = e[0];
-    e[2] = 1;
+    mpEngine->SetInitialState();
+    mpEngine->SetExecution(true);
+    mpEngine->mbMouseEnabled = 1;
     mbDrawingForeground = 0;
     mbDrawingBackground = 0;
     mbRendering = 1;
@@ -515,6 +515,21 @@ void cFEng::InitPackage(FEPackage *pkg)
     pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&init));
     pkg->mbFastInterp = 1;
     if (!pkg->_unknown15[1]) pkg->Update(mpEngine, 0);
+    PackageWasLoaded(pkg);   // PC: inlined here
+}
+
+bool cFEng::IsPackageLoaded(const char *name) const
+{
+    return FEListFindNode(name, reinterpret_cast<FENode *>(mpEngine->mpPackages)) != nullptr;   // PC: active list
+}
+
+void cFEng::PushPackage(const char *name, int32_t priority, uint32_t mask)
+{
+    if (!IsPackageLoaded(name)) bridge::FEngine_PushPackage(mpEngine, name, static_cast<uint8_t>(priority), mask);
+}
+
+void cFEng::PackageWasLoaded(FEPackage *pkg)
+{
     cFEngLevelSorter *s = FindInLevelSortingList(pkg->mpcName);
     const int32_t arg = s->mi32Arg;
     if (FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg->mpcName)) d->Activate(pkg, arg);

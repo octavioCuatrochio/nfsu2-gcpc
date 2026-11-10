@@ -44,14 +44,6 @@ void Append(IconPanel &p, IconOption *opt)
     n->next = &p.mOptions;
 }
 
-// IconOption::StartScale (GC 801571B4, PC inlined): animate towards `target` over 0.125 s from now.
-void StartScale(IconOption *o, float target)
-{
-    o->mScaleTarget = target;
-    o->mScaleDuration = 0.125f;   // PC 0x799374
-    o->mScaleStart = static_cast<float>(static_cast<L>(bridge::RealTimer()) * kScaleTimeStep);
-    o->mbScaleDone = 0;
-}
 
 // first option becomes current when none is (AddOption)
 void SelectFirstIfNone(IconPanel &p)
@@ -105,6 +97,22 @@ CPPaintOption *CPPaintOption::Construct(uint32_t paint, uint32_t nameHash, uint3
 }
 
 void IconOption::Destruct() { vtable = bridge::ThumbnailNodeVTable(); }
+
+void IconOption::SetFEngObject(FEObject *img)
+{
+    if (!img) return;
+    mpObject = img;
+    FEngGetSize(img, &mWidth, &mHeight);
+    mColor = FEngGetObjectColorPacked(img);
+}
+
+void IconOption::StartScale(float target, float duration)
+{
+    mScaleTarget = target;
+    mScaleDuration = duration;
+    mScaleStart = static_cast<float>(static_cast<L>(bridge::RealTimer()) * kScaleTimeStep);
+    mbScaleDone = 0;
+}
 
 IconOption *IconOption::ScalarDeletingDestructor(uint32_t f)
 {
@@ -162,9 +170,7 @@ FEObject *IconPanel::AddOption(IconOption *opt)
     if (!img) return nullptr;
     ++mNextNumber;
     if (!opt) return nullptr;
-    opt->mpObject = img;
-    FEngGetSize(img, &opt->mWidth, &opt->mHeight);
-    opt->mColor = FEngGetObjectColorPacked(img);
+    opt->SetFEngObject(img);
     Append(*this, opt);
     SelectFirstIfNone(*this);
     return img;
@@ -210,10 +216,10 @@ bool IconPanel::SetSelection(int32_t index)
 bool IconPanel::SetSelection(IconOption *opt)
 {
     if (opt->mbLocked && !mbAllowLocked) return false;
-    StartScale(mpCurrent, 1.0f);
+    mpCurrent->StartScale(1.0f, 0.125f);   // PC 0x799374
     mpCurrent = opt;
     FEngSetCurrentButton(mpPackageName, opt->mpObject);
-    StartScale(mpCurrent, 1.25f);   // PC 0x799378
+    mpCurrent->StartScale(1.25f, 0.125f);   // PC 0x799378
     return true;
 }
 
@@ -321,7 +327,9 @@ select:
 void IconPanel::ScrollNext() { mbWrap ? ScrollWrapped(1) : Scroll(1); }
 void IconPanel::ScrollPrev() { mbWrap ? ScrollWrapped(-1) : Scroll(-1); }
 
-void IconPanel::AnimateList(float *w, float *h)
+void IconPanel::AnimateList(float *w, float *h) { AnimateSelected(w, h); }
+
+void IconPanel::AnimateSelected(float *w, float *h)
 {
     mbDirty = 0;
     *w = 0.0f;
@@ -415,9 +423,7 @@ FEObject *IconScroller::AddOption(IconOption *opt)
     }
     ++p.mNextNumber;
     if (!opt) return nullptr;
-    opt->mpObject = img;
-    FEngGetSize(img, &opt->mWidth, &opt->mHeight);
-    opt->mColor = FEngGetObjectColorPacked(img);
+    opt->SetFEngObject(img);
     opt->mOffsetX = mNextX;
     opt->mColor = 0xFFFFFFFFu;
     FEngGetSize(opt->mpObject, &opt->mWidth, &opt->mHeight);

@@ -58,6 +58,14 @@ struct FEObject {
     FEScript *FindScript(uint32_t id) const;          // GC 80137E70 / PC 5046B0
     FEMessageResponse *FindResponse(uint32_t msg) const;   // GC 80138228 / PC 5046D0
     static uint32_t GetDataOffset(int track);          // GC 80138B70 / PC 5046F0 (byte offset of a key track in mpData)
+    // GC 80137D90 (PC: inlined into the copy ctor 554300 and FEPackageReader::CreateObject 534DF0): new
+    // uninitialised ObjDataPool block of `size` bytes.
+    void SetDataSize(uint32_t size);
+    // GC 80138B20 (PC: inlined into the FEngSetScript helpers 51CF70 / 51CFE0..): a different script becomes current
+    // (SetupMoveToTracks) at time 0; `restart` rewinds it. GC: `restart` also redoes SetCurrentScript on the same one.
+    void SetScript(FEScript *s, bool restart);
+    // GC 80138AE0 (PC: inlined): by id. PC callers do nothing for an unknown id (GC would pass null on).
+    void SetScript(uint32_t id, bool restart) { if (FEScript *s = FindScript(id)) SetScript(s, restart); }
 };
 
 // FEObject type 5: a group of child objects.

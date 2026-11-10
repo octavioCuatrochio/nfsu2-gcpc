@@ -183,9 +183,7 @@ FEScript *FEScript::CopyConstruct(void *mem, const FEScript &src, bool reference
         if (reference) s->mpTracks[i].AssignReference(src.mpTracks[i]);
         else s->mpTracks[i].Assign(src.mpTracks[i]);
     }
-    s->mEvents.SetCount(src.mEvents.mu32Count);
-    if (s->mEvents.mu32Count)
-        std::memcpy(s->mEvents.mpEvents, src.mEvents.mpEvents, s->mEvents.mu32Count * sizeof(FEScriptEvent));
+    s->mEvents.Assign(src.mEvents);
     return s;
 }
 
@@ -208,7 +206,7 @@ FEScript *FEScript::ScalarDeletingDestructor(uint32_t flags)
     Destruct();
     if (flags & 1) {
         bridge::VirtualScalarDtor(this, 0);
-        FEPoolDelete<FEScript, 32>(*bridge::FEScriptPool(), this);
+        PoolDelete(this);
     }
     return this;
 }
@@ -252,3 +250,12 @@ FEKeyTrack *FEScript::FindTrack(int track) const
         if (mpTracks[i].mi8DataIndex == want) return &mpTracks[i];
     return nullptr;
 }
+
+void FEScriptEventList::Assign(const FEScriptEventList &src)
+{
+    SetCount(src.mu32Count);
+    if (mu32Count) std::memcpy(mpEvents, src.mpEvents, mu32Count * sizeof(FEScriptEvent));
+}
+
+void *FEScript::PoolNew() { return FEPoolNew<FEScript, 32>(*bridge::FEScriptPool(), FEScriptBlock_Construct); }
+void FEScript::PoolDelete(FEScript *s) { FEPoolDelete<FEScript, 32>(*bridge::FEScriptPool(), s); }

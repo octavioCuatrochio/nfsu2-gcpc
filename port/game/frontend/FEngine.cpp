@@ -354,10 +354,7 @@ void FEngine::ProcessResponses(FEMessageResponse *resp, FEObject *obj, FEPackage
         case 0x204: QueuePackagePush(reinterpret_cast<const char *>(r.mParam), pkg, 0); break;
         case 0x2C0: RecordPackageMarker(pkg->mpcName); break;
         case 0x2C1:                                       // RecallPackageMarker (inlined): pop the last name
-            if (mu32NumPackageMarkers) {
-                --mu32NumPackageMarkers;
-                QueuePackageSwitch(macPackageMarkers[0] + mu32NumPackageMarkers * 0x100, pkg);
-            }
+            if (const char *m = RecallPackageMarker()) QueuePackageSwitch(m, pkg);
             break;
         case 0x2C2: ClearPackageMarkers(); break;
         case 0x300:
@@ -414,11 +411,49 @@ void FEngine::AddPackageByPriority(FEPackage *pkg)
 
 void FEngine::AddToIdleList(FEPackage *pkg) { mIdlePackages.AddTail(&pkg->node); }
 
+const char *FEngine::RecallPackageMarker()
+{
+    if (!mu32NumPackageMarkers) return nullptr;
+    --mu32NumPackageMarkers;
+    return macPackageMarkers[mu32NumPackageMarkers];
+}
+
+void FEngine::SetExecution(bool on)
+{
+    _unknown000 = on;
+    for (FEPackage *p = mpPackages; p; p = reinterpret_cast<FEPackage *>(p->node.next)) p->mbFastInterp = _unknown000;
+}
+
+bool FEngine::ForAllObjects(FEObjectCallback *cb)
+{
+    for (FEPackage *p = mpPackages; p; p = reinterpret_cast<FEPackage *>(p->node.next))
+        if (!p->ForAllObjects(cb)) return false;
+    return true;
+}
+
+void FEngine::SetInitialState()
+{
+    struct { void *vtable; } init = {bridge::FEObjectInitializerVTable()};
+    ForAllObjects(reinterpret_cast<FEObjectCallback *>(&init));
+    for (uint32_t i = 0; i < mu32NumJoyPads; i = static_cast<uint8_t>(i + 1)) mpJoyPads[i].Reset();   // byte counter
+    if (mbMouseEnabled) {   // PC clears +0x00..+0x1D (not the 2 padding bytes)
+        mMouse.mi32X = mMouse.mi32Y = mMouse.mi32Wheel = 0;
+        mMouse.mu16Previous = mMouse.mu16Current = 0;
+        mMouse.mHoldTime[0] = mMouse.mHoldTime[1] = mMouse.mHoldTime[2] = 0;
+        mMouse._unknown1C = 0;
+        mMouse.mbMoved = 0;
+    }
+}
+
+FEPackage *FEngine::FindIdlePackage(const char *name) { return reinterpret_cast<FEPackage *>(FEListFindNode(name, mIdlePackages)); }
+
+void FEngine::SendMessageToGame(uint32_t msg, FEObject *obj, FEPackage *pkg) { bridge::FEngine_SendMessageToGame(this, msg, obj, pkg); }
+
 void FEngine::RemoveFromLibraryList(FEPackage *pkg) { mLibraries.RemNode(&pkg->node); }
 
 FEPackage *FEngine::PushPackage(const char *name, uint8_t priority, uint32_t mask)
 {
-    auto *pkg = reinterpret_cast<FEPackage *>(FEListFindNode(name, reinterpret_cast<FENode *>(mIdlePackages.head)));
+    FEPackage *pkg = FindIdlePackage(name);
     if (!pkg) {   // try the base name (after the last '/' or '\\'; signed char length like the original)
         int8_t i = static_cast<int8_t>(std::strlen(name));
         const char *p = name + i - 1;
@@ -434,7 +469,7 @@ FEPackage *FEngine::PushPackage(const char *name, uint8_t priority, uint32_t mas
             --p;
             --i;
         }
-        pkg = reinterpret_cast<FEPackage *>(FEListFindNode(p, reinterpret_cast<FENode *>(mIdlePackages.head)));
+        pkg = FindIdlePackage(p);
     }
     if (pkg) {
         pkg->_unknown15[0] = 1;   // +0x15
@@ -486,7 +521,7 @@ bool FEngine::UnloadPackage(FEPackage *pkg)
         if (lib->mi32Priority - 1 > 0) lib->mi32Priority -= 1;   // library reference count
         else UnloadLibraryPackage(lib);
     }
-    if (mpUIData) bridge::FEGameInterface_ReleaseResources(mpUIData, pkg, pkg->mu32NumResources, pkg->mpResources);
+    pkg->Shutdown(mpUIData);
     if (remove) bridge::VirtualScalarDelete(pkg);
     return true;
 }
@@ -496,7 +531,7 @@ void FEngine::UnloadLibraryPackage(FEPackage *pkg)
     if (!bridge::FEGameInterface_CanUnloadLibrary(mpUIData, pkg)) return;   // PC: no null check here
     RemoveFromLibraryList(pkg);
     const bool remove = mpUIData ? bridge::FEGameInterface_PackageWillUnload(mpUIData, pkg) : true;
-    if (mpUIData) bridge::FEGameInterface_ReleaseResources(mpUIData, pkg, pkg->mu32NumResources, pkg->mpResources);
+    pkg->Shutdown(mpUIData);
     if (remove && pkg) bridge::VirtualScalarDelete(pkg);
 }
 
