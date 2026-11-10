@@ -83,9 +83,25 @@ struct OptionCycle {
     // on -> on+AD9 if the check passes else off. Then BlinkArrows + Draw. Draw: name 0x996463E6, AD9 0x1B7ABF8E,
     // on 0x1B7ABF8F, off 0x1B7ABF90.
     void AutoSaveAct(uint32_t msg);        void AutoSaveDraw() const;
+    // PC-only resolution toggle 791F30: Act 49B600 / Draw 49B690. Index *0x870D1C (0..5) over the mode table
+    // 0x86E880[6] (nonzero = available): right/left move to the next / previous available index (none: the
+    // last / first); an unavailable result restores the old index; a change sets the dirty byte 0x8709D1.
+    // Draw only (no BlinkArrows). Draw: name 0xA9A76BBA, value printed "640x480" .. "1600x1200" (0..5).
+    void ResolutionAct(uint32_t msg);      void ResolutionDraw() const;
+};
+
+// PC-only detail-level slider 791F78 (0x9C): Act 49B740 / Draw 49B7A0 / SetInitialValues 49B7C0. Value = int
+// *0x87099C in [1, 5] (step 1). A moved slider: BlinkArrows, value = _ftol(GetValue), apply (5BE9F0), dirty byte
+// 0x8709D1, Draw of the linked widget (+0x98, virtual), own Draw. Draw: name 0xB55E7665.
+struct DetailSlider {
+    FESliderWidget base;             // +0x00
+    FEWidget *mpLinked;              // +0x98 (redrawn after a change)
+    void Act(uint32_t msg);
+    void Draw() const;
+    void SetInitialValues();
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
-static_assert(sizeof(OptionCycle) == 0x54);
+static_assert(sizeof(OptionCycle) == 0x54 && sizeof(DetailSlider) == 0x9C);
 static_assert(sizeof(AOVolumeSlider) == 0x98 && offsetof(OptionToggle, mPlayer) == 0x54);
 #endif

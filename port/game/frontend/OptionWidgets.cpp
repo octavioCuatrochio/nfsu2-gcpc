@@ -237,3 +237,52 @@ void OptionCycle::AutoSaveDraw() const
     const uint32_t v = *bridge::GameByte(0x844AD9) ? 0x1B7ABF8Eu : *bridge::GameByte(0x844AD8) ? 0x1B7ABF8Fu : 0x1B7ABF90u;
     SetNameValue(base, 0x996463E6u, v);
 }
+
+void OptionCycle::ResolutionAct(uint32_t msg)
+{
+    int32_t &idx = GameInt(0x870D1C);
+    const int32_t *avail = reinterpret_cast<const int32_t *>(bridge::GameByte(0x86E880));
+    const int32_t old = idx;
+    int32_t v = old;
+    if (msg == kRight) {
+        if (v != 5) {
+            do { if (avail[++v]) break; } while (v != 5);
+            idx = v;
+        }
+    } else if (msg == kLeft) {
+        if (v != 0) {
+            do { if (avail[--v]) break; } while (v != 0);
+            idx = v;
+        }
+    }
+    if (!avail[v]) idx = old;
+    else if (v != old) *bridge::GameByte(0x8709D1) = 1;
+    bridge::FEWidget_Draw(this);
+}
+void OptionCycle::ResolutionDraw() const
+{
+    FEngSetLanguageHash(base.base.mpObject, 0xA9A76BBAu);
+    static const char *const kModes[6] = {"640x480", "800x600", "1024x768", "1280x960", "1280x1024", "1600x1200"};
+    const uint32_t i = static_cast<uint32_t>(GameInt(0x870D1C));
+    if (i <= 5) bridge::FEPrintfFormat(base.base.mpValue, kModes[i]);
+}
+
+void DetailSlider::Act(uint32_t msg)
+{
+    if (!bridge::cSlider_Update(&base.mSlider, msg)) return;
+    bridge::FEWidget_BlinkArrows(this, msg);
+    GameInt(0x87099C) = bridge::FtoL(bridge::FEWidget_GetValue(this));
+    bridge::ApplyDetailLevel();
+    *bridge::GameByte(0x8709D1) = 1;
+    bridge::FEWidget_Draw(mpLinked);
+    bridge::FEWidget_Draw(this);
+}
+void DetailSlider::Draw() const { FEngSetLanguageHash(base.base.mpObject, 0xB55E7665u); }
+void DetailSlider::SetInitialValues()
+{
+    cSlider &s = base.mSlider;
+    s.mMin = 1.0f;
+    s.mStep = 1.0f;
+    s.mMax = 5.0f;
+    s.SetCurValue(static_cast<float>(GameInt(0x87099C)));
+}

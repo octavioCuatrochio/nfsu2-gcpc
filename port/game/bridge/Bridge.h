@@ -413,4 +413,5 @@ void *JumpCamObject();                           // PC *(0x8650B8)
 void JumpCam_Set(int32_t value);                 // PC 578EF0(3, 0, value, 1) (__thiscall on *(0x8650B8))
 int32_t FtoL(float v);                           // PC _ftol 75BED4 (truncation)
 bool AutoSaveSecondStateAllowed();               // PC 502FE0 (__thiscall on 0x83A9E0)
+void ApplyDetailLevel();                         // PC 5BE9F0 (__cdecl, no args)
 }  // namespace bridge

@@ -929,4 +929,5 @@ bool AutoSaveSecondStateAllowed() { return reinterpret_cast<uint8_t(__thiscall *
 #else
 bool AutoSaveSecondStateAllowed() { return teststub::autoSaveAllowed; }
 #endif
+void ApplyDetailLevel() { teststub::delivered.push_back({"applydetail", nullptr, nullptr, 0, 0}); }
 }  // namespace bridge

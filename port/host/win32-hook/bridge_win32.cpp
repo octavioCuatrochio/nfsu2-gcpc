@@ -506,4 +506,5 @@ void *JumpCamObject() { return *reinterpret_cast<void **>(0x8650B8); }
 void JumpCam_Set(int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t, int32_t, int32_t)>(0x578EF0)(JumpCamObject(), 3, 0, v, 1); }
 int32_t FtoL(float v) { return static_cast<int32_t>(v); }
 bool AutoSaveSecondStateAllowed() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x502FE0)(reinterpret_cast<void *>(0x83A9E0)) != 0; }
+void ApplyDetailLevel() { reinterpret_cast<void(__cdecl *)()>(0x5BE9F0)(); }
 }  // namespace bridge

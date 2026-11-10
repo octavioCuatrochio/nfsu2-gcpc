@@ -3226,6 +3226,44 @@ static void CheckOptionCycles(int iters)
     std::memcpy(reinterpret_cast<void *>(0x836364), &savedP, 4);
 }
 
+// PC display options: resolution Act over the real mode table (0x86E880, index 0x870D1C, dirty 0x8709D1) and the
+// detail slider's SetInitialValues (0x87099C); all saved / restored.
+static void CheckDisplayOptions(int iters)
+{
+    uint8_t sTab[24], sIdx[4], sDirty, sDetail[4];
+    std::memcpy(sTab, reinterpret_cast<void *>(0x86E880), 24); std::memcpy(sIdx, reinterpret_cast<void *>(0x870D1C), 4);
+    sDirty = *reinterpret_cast<uint8_t *>(0x8709D1); std::memcpy(sDetail, reinterpret_cast<void *>(0x87099C), 4);
+    static OptionCycle A, B;
+    static DetailSlider DA, DB;
+    for (int it = 0; it < iters; ++it) {
+        int32_t tab[6], idx = static_cast<int32_t>(rng() % 6);
+        for (auto &t : tab) t = rng() % 3 ? static_cast<int32_t>(rng() % 2) : static_cast<int32_t>(rng());
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        A.base.base.base.vtable = brand_fake::vtable;
+        std::memcpy(&B, &A, sizeof A);
+        const uint32_t msgs[3] = {0x9120409Eu, 0xB5971BF1u, rng()};
+        const uint32_t m = msgs[rng() % 3];
+        auto set = [&] { std::memcpy(reinterpret_cast<void *>(0x86E880), tab, 24); std::memcpy(reinterpret_cast<void *>(0x870D1C), &idx, 4); *reinterpret_cast<uint8_t *>(0x8709D1) = 0; };
+        int32_t ia, ib; uint8_t da, db;
+        set(); brand_fake::log.clear(); ORIG<void(THISCALL *)(void *, const char *, uint32_t)>(0x49B600)(&A, "Pkg", m); auto la = brand_fake::log;
+        std::memcpy(&ia, reinterpret_cast<void *>(0x870D1C), 4); da = *reinterpret_cast<uint8_t *>(0x8709D1);
+        set(); brand_fake::log.clear(); B.ResolutionAct(m); auto lb = brand_fake::log;
+        std::memcpy(&ib, reinterpret_cast<void *>(0x870D1C), 4); db = *reinterpret_cast<uint8_t *>(0x8709D1);
+        EXPECT(la == lb && ia == ib && da == db, "Resolution::Act %x idx %d -> %d / %d", m, idx, ia, ib);
+        uint8_t *pd = reinterpret_cast<uint8_t *>(&DA);
+        for (size_t i = 0; i < sizeof DA; ++i) pd[i] = static_cast<uint8_t>(rng());
+        std::memcpy(&DB, &DA, sizeof DA);
+        const int32_t detail = rng() % 3 ? static_cast<int32_t>(rng() % 8) - 1 : static_cast<int32_t>(rng());
+        std::memcpy(reinterpret_cast<void *>(0x87099C), &detail, 4);
+        ORIG<void(THISCALL *)(void *)>(0x49B7C0)(&DA);
+        DB.SetInitialValues();
+        EXPECT(std::memcmp(&DA, &DB, sizeof DA) == 0, "DetailSlider::SetInitialValues %d", detail);
+    }
+    std::memcpy(reinterpret_cast<void *>(0x86E880), sTab, 24); std::memcpy(reinterpret_cast<void *>(0x870D1C), sIdx, 4);
+    *reinterpret_cast<uint8_t *>(0x8709D1) = sDirty; std::memcpy(reinterpret_cast<void *>(0x87099C), sDetail, 4);
+}
+
 static void CheckButtonWidget(int iters)
 {
     auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
@@ -4133,6 +4171,7 @@ static int RunAll()
     REFEREE_RUN(CheckAudioOptions(iters));
     REFEREE_RUN(CheckOptionToggles(iters));
     REFEREE_RUN(CheckOptionCycles(iters));
+    REFEREE_RUN(CheckDisplayOptions(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));
