@@ -27,6 +27,24 @@ struct AOVolumeSlider {
 struct AOVolumeInfo { uint32_t vtable, act, draw, init, field, hash; const char *name; };
 extern const AOVolumeInfo kAOVolumes[7];
 
+// On/off toggles (FEToggleWidget layout). Act: left/right flip the byte flag, then (any message) BlinkArrows and
+// Draw (virtual). Draw: name hash, value 0x63C (on) / 0xCCFA (off). Flag kinds: a global byte, a byte in the
+// player options record of the player being edited (*0x836364), or (PC-only 791DB0) of the widget's own player +0x54.
+struct OptionToggle {
+    FEToggleWidget base;             // +0x00
+    int32_t mPlayer;                 // +0x54 (791DB0 only, 0x58 bytes; the others are 0x54)
+};
+enum class ToggleFlag : uint8_t { Global, EditedPlayer, OwnPlayer };
+struct OptionToggleInfo { uint32_t vtable, act, draw; ToggleFlag kind; uint32_t addr; uint32_t nameHash; const char *name; };
+// addr: the byte (Global) or the offset in the 0x28-byte player record (player kinds)
+extern const OptionToggleInfo kOptionToggles[10];
+uint8_t &OptionToggleFlag(const OptionToggle &t, const OptionToggleInfo &info);
+void OptionToggleAct(OptionToggle &t, const OptionToggleInfo &info, uint32_t msg);
+void OptionToggleDraw(const OptionToggle &t, const OptionToggleInfo &info);
+// PC-only 791DB0 Enable / Disable (4B5F70 / 4B5FA0): enabled flag, then "UnHighlight" / "Disabled" on object + value.
+void OptionToggleEnable(OptionToggle &t);
+void OptionToggleDisable(OptionToggle &t);
+
 #if UINTPTR_MAX == 0xFFFFFFFFu
-static_assert(sizeof(AOVolumeSlider) == 0x98);
+static_assert(sizeof(AOVolumeSlider) == 0x98 && offsetof(OptionToggle, mPlayer) == 0x54);
 #endif

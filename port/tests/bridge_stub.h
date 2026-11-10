@@ -64,6 +64,7 @@ extern bool speedMetric, hasLastButton, drawFEng, cursorEnabled;
 extern int32_t playerToEdit;
 extern uint32_t chosenBrands[8];
 extern uint8_t audioSettings[0x40];
+extern uint8_t gameBytes[0x100];
 extern bool browsingParts;
 extern const uint8_t *perfPackage, *perfPart;
 extern uint8_t controllerOptions[0x28 * 2];

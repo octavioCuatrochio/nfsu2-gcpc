@@ -78,6 +78,7 @@ bool speedMetric = false, hasLastButton = false, drawFEng = true, cursorEnabled 
 int32_t playerToEdit = 0;
 uint32_t chosenBrands[8] = {};
 uint8_t audioSettings[0x40] = {};
+uint8_t gameBytes[0x100] = {};
 bool browsingParts = false;
 const uint8_t *perfPackage = nullptr, *perfPart = nullptr;
 uint8_t controllerOptions[0x28 * 2] = {};
@@ -873,7 +874,11 @@ void *WCOOverallForceStrengthVTable() { return &teststub::feButtonWidgetVTable; 
 float FEWidget_GetValue(void *w) { teststub::delivered.push_back({"getvalue", w, nullptr, 0, 0}); return 0.5f; }
 uint8_t *PlayerControllerOptions(int32_t p) { return teststub::controllerOptions + p * 0x28; }
 #endif
+#ifdef NFSU2_REFEREE
+int32_t PlayerToEditForOptions() { return *reinterpret_cast<const int32_t *>(0x836364); }
+#else
 int32_t PlayerToEditForOptions() { return teststub::playerToEdit; }
+#endif
 // ---- ChooseBrandsScreen / customization ----
 #ifdef NFSU2_REFEREE
 void *BrandScrollerThingVTable() { return reinterpret_cast<void *>(0x79B6A0); }
@@ -905,4 +910,9 @@ uint8_t *AudioSettings() { return reinterpret_cast<uint8_t *>(0x83AA28); }
 uint8_t *AudioSettings() { return teststub::audioSettings; }
 #endif
 void EAXSound_UpdateAudioSettings() { teststub::delivered.push_back({"audiosettings", nullptr, nullptr, 0, 0}); }
+#ifdef NFSU2_REFEREE
+uint8_t *GameByte(uint32_t a) { return reinterpret_cast<uint8_t *>(static_cast<uintptr_t>(a)); }
+#else
+uint8_t *GameByte(uint32_t a) { return &teststub::gameBytes[a & 0xFF]; }
+#endif
 }  // namespace bridge

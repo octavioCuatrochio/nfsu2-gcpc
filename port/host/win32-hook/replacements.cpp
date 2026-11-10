@@ -579,6 +579,10 @@ void THISCALL BST_Draw(BrandScrollerThing *self) { self->Draw(); }
 template <int I> void THISCALL AOVol_Act(AOVolumeSlider *self, const char *, uint32_t m) { self->Act(m, kAOVolumes[I].field); }
 template <int I> void THISCALL AOVol_Draw(AOVolumeSlider *self) { self->Draw(kAOVolumes[I].hash); }
 template <int I> void THISCALL AOVol_Init(AOVolumeSlider *self) { self->SetInitialValues(kAOVolumes[I].field); }
+template <int I> void THISCALL OptToggle_Act(OptionToggle *self, const char *, uint32_t m) { OptionToggleAct(*self, kOptionToggles[I], m); }
+template <int I> void THISCALL OptToggle_Draw(OptionToggle *self) { OptionToggleDraw(*self, kOptionToggles[I]); }
+void THISCALL OptToggle_Enable(OptionToggle *self) { OptionToggleEnable(*self); }
+void THISCALL OptToggle_Disable(OptionToggle *self) { OptionToggleDisable(*self); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1202,6 +1206,28 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x49AC20, (const void *)&OptToggle_Act<0>, "OOShowPlayers::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x49AC60, (const void *)&OptToggle_Draw<0>, "OOShowPlayers::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x49ACB0, (const void *)&OptToggle_Act<1>, "OOBadConnectionWarning::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x49ACF0, (const void *)&OptToggle_Draw<1>, "OOBadConnectionWarning::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x49AE00, (const void *)&OptToggle_Act<2>, "GORearview::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
+    {0x49AE40, (const void *)&OptToggle_Draw<2>, "GORearview::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B7860, (const void *)&OptToggle_Act<3>, "POGauges::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x4B78B0, (const void *)&OptToggle_Draw<3>, "POGauges::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B78F0, (const void *)&OptToggle_Act<4>, "POPosition::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x4B7940, (const void *)&OptToggle_Draw<4>, "POPosition::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B7980, (const void *)&OptToggle_Act<5>, "POLapInfo::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x4B79D0, (const void *)&OptToggle_Draw<5>, "POLapInfo::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B7A10, (const void *)&OptToggle_Act<6>, "POScore::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x4B7A60, (const void *)&OptToggle_Draw<6>, "POScore::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B7BB0, (const void *)&OptToggle_Act<7>, "POLeaderBoard::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x4B7C00, (const void *)&OptToggle_Draw<7>, "POLeaderBoard::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B7C40, (const void *)&OptToggle_Act<8>, "POTrannyPrompt::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x4B7C90, (const void *)&OptToggle_Draw<8>, "POTrannyPrompt::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x49B260, (const void *)&OptToggle_Act<9>, "PCPlayerToggle791DB0::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x49B2B0, (const void *)&OptToggle_Draw<9>, "PCPlayerToggle791DB0::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B5F70, (const void *)&OptToggle_Enable, "PCPlayerToggle791DB0::Enable", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B5FA0, (const void *)&OptToggle_Disable, "PCPlayerToggle791DB0::Disable", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x49A720, (const void *)&AOVol_Act<0>, "AOMasterVol::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
     {0x49A770, (const void *)&AOVol_Draw<0>, "AOMasterVol::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x3E, 0x2C}},
     {0x49A790, (const void *)&AOVol_Init<0>, "AOMasterVol::SetInitialValues", {0x51, 0xA1, 0x28, 0xAA, 0x83, 0x00}},

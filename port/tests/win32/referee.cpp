@@ -3139,6 +3139,41 @@ static void CheckAudioOptions(int iters)
     std::memcpy(reinterpret_cast<void *>(0x83AA28), saved, sizeof saved);
 }
 
+// On/off option toggles: Act on the real flag bytes (globals, player records 0x83AA64, edited player 0x836364:
+// all saved / restored) through a fake vtable recording BlinkArrows + Draw.
+static void CheckOptionToggles(int iters)
+{
+    uint8_t savedRec[0x50], savedG[3]; int32_t savedP;
+    std::memcpy(savedRec, reinterpret_cast<void *>(0x83AA64), sizeof savedRec);
+    const uint32_t gl[3] = {0x8500C9, 0x8500CA, 0x83AA18};
+    for (int k = 0; k < 3; ++k) savedG[k] = *reinterpret_cast<uint8_t *>(gl[k]);
+    std::memcpy(&savedP, reinterpret_cast<void *>(0x836364), 4);
+    static OptionToggle A, B;
+    for (int it = 0; it < iters; ++it) {
+        const OptionToggleInfo &v = kOptionToggles[rng() % 10];
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        A.mPlayer = static_cast<int32_t>(rng() % 2);
+        A.base.base.base.vtable = brand_fake::vtable;
+        std::memcpy(&B, &A, sizeof A);
+        const int32_t p = static_cast<int32_t>(rng() % 2);
+        std::memcpy(reinterpret_cast<void *>(0x836364), &p, 4);
+        uint8_t start[0x50]; for (auto &b : start) b = static_cast<uint8_t>(rng() % 3 ? rng() % 2 : rng());
+        uint8_t g0[3]; for (auto &b : g0) b = static_cast<uint8_t>(rng() % 3 ? rng() % 2 : rng());
+        auto setState = [&] { std::memcpy(reinterpret_cast<void *>(0x83AA64), start, sizeof start); for (int k = 0; k < 3; ++k) *reinterpret_cast<uint8_t *>(gl[k]) = g0[k]; };
+        auto getState = [&](uint8_t *o) { std::memcpy(o, reinterpret_cast<void *>(0x83AA64), 0x50); for (int k = 0; k < 3; ++k) o[0x50 + k] = *reinterpret_cast<uint8_t *>(gl[k]); };
+        const uint32_t msgs[3] = {0x9120409Eu, 0xB5971BF1u, rng()};
+        const uint32_t m = msgs[rng() % 3];
+        uint8_t sa[0x53], sb[0x53];
+        setState(); brand_fake::log.clear(); ORIG<void(THISCALL *)(void *, const char *, uint32_t)>(v.act)(&A, "Pkg", m); auto la = brand_fake::log; getState(sa);
+        setState(); brand_fake::log.clear(); OptionToggleAct(B, v, m); auto lb = brand_fake::log; getState(sb);
+        EXPECT(la == lb && std::memcmp(sa, sb, sizeof sa) == 0 && std::memcmp(&A, &B, sizeof A) == 0, "%s::Act %x", v.name, m);
+    }
+    std::memcpy(reinterpret_cast<void *>(0x83AA64), savedRec, sizeof savedRec);
+    for (int k = 0; k < 3; ++k) *reinterpret_cast<uint8_t *>(gl[k]) = savedG[k];
+    std::memcpy(reinterpret_cast<void *>(0x836364), &savedP, 4);
+}
+
 static void CheckButtonWidget(int iters)
 {
     auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
@@ -4044,6 +4079,7 @@ static int RunAll()
     REFEREE_RUN(CheckWheelOptions(iters));
     REFEREE_RUN(CheckBrandScroller(iters));
     REFEREE_RUN(CheckAudioOptions(iters));
+    REFEREE_RUN(CheckOptionToggles(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));
