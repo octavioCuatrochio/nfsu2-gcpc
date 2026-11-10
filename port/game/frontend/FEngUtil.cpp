@@ -340,3 +340,42 @@ void FEngSetPackageVisibility(const char *pkg, uint8_t visible)
 {
     if (FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg)) d->mVisible = visible;
 }
+
+FEObject *FEngFindObject(const char *pkg, uint32_t objHash)
+{
+    if (pkg)
+        if (FEPackage *p = FEngFindPackage(pkg))
+            if (FEObject *o = p->FindObjectByHash(objHash)) return o;
+    cFEng *fe = bridge::cFEngInstance();
+    return fe ? fe->mpEngine->FindObject(objHash, pkg) : nullptr;
+}
+
+FEObject *FEngFindImage(const char *pkg, uint32_t objHash)
+{
+    FEObject *o = FEngFindObject(pkg, objHash);
+    return o && o->mu32Type == 1 ? o : nullptr;
+}
+
+void FEngSetPosition(const char *pkg, const char *obj, const FEVector3 *pos)
+{
+    FEObject *o = FEngFindObject(pkg, FEHashUpper(obj));
+    if (!o || static_cast<int32_t>(o->mu32Type) >= 0x100) return;
+    const auto &cur = *reinterpret_cast<const FEVector3 *>(static_cast<const uint8_t *>(o->mpData) + 0x1C);
+    if (!FEVector3Close(*pos, cur)) o->mu32Flags |= kFEObjectDirty;
+    o->SetTrackValue(2, *pos, false);
+}
+
+void FEngSetScript(const char *pkg, const char *obj, const char *script, bool restart)
+{
+    FEngSetScript(FEngFindObject(pkg, FEHashUpper(obj)), script, restart);
+}
+
+void FEngSetScript(const char *pkg, uint32_t objHash, const char *script, bool restart)
+{
+    FEngSetScript(FEngFindObject(pkg, objHash), script, restart);
+}
+
+void FEngSetScript(const char *pkg, uint32_t objHash, uint32_t scriptId, bool restart)
+{
+    FEngSetScript(FEngFindObject(pkg, objHash), scriptId, restart);
+}

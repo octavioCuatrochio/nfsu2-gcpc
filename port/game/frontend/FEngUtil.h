@@ -57,3 +57,15 @@ void FEngPostMessageToFEng(uint32_t msg, FEObject *obj, FEObject *target, FEPack
 void FEngQueueControllerMessageToPackage(uint32_t msg, const char *pkg, uint32_t arg);
 void FEngQueueMessageToPackage(uint32_t msg, const char *pkg);           // GC 8014F8E0 / PC 51CE60 (arg 0)
 void FEngSetPackageVisibility(const char *pkg, uint8_t visible);         // GC 80150274 / PC 51CE80
+
+// Object lookup by package name + object name hash: the loaded package first, else FEngine::FindObject (also
+// when no package name). GC 8014FA3C / PC 5379C0; FEngFindImage GC 8014FAE4 / PC 537A60 (only type 1).
+FEObject *FEngFindObject(const char *pkg, uint32_t objHash);
+FEObject *FEngFindImage(const char *pkg, uint32_t objHash);
+// GC 801503E8 (name variant) / PC 542630: position track of the named object (types < 0x100; dirty on change).
+void FEngSetPosition(const char *pkg, const char *obj, const struct FEVector3 *pos);
+// FEngSetScript lookups: PC 5426C0 (object name, script name), 537C00 (object hash, script name), 537C60
+// (object hash, script id); a missing object reaches FEngSetScript(null, ...), which does nothing.
+void FEngSetScript(const char *pkg, const char *obj, const char *script, bool restart);
+void FEngSetScript(const char *pkg, uint32_t objHash, const char *script, bool restart);
+void FEngSetScript(const char *pkg, uint32_t objHash, uint32_t scriptId, bool restart);
