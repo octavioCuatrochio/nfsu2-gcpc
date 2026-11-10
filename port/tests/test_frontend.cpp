@@ -9,6 +9,7 @@
 #include "frontend/FEButtonMap.h"
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
+#include "frontend/FEWidget.h"
 #include "frontend/FEString.h"
 #include <cmath>
 #include "frontend/FEPool.h"
@@ -2364,6 +2365,57 @@ static void TestFEngPosition()
     CHECK(gd[7] == 7);
 }
 
+// FEButtonWidget: construction, show/hide, focus scripts, positioning (box and centred text), mouse check.
+static void TestButtonWidget()
+{
+    alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
+    std::memset(wm, 0x5A, sizeof wm);
+    auto *w = reinterpret_cast<FEButtonWidget *>(wm);
+    const float pos[2] = {100, 200}, size[2] = {80, 30};
+    CHECK(w->Construct(pos, size, true) == w);
+    CHECK(w->base.vtable == &teststub::feButtonWidgetVTable && w->base.mPosX == 100 && w->base.mSizeY == 30 && w->base.mLabelOffsetX == -276.0f);
+    CHECK(w->base.mbEnabled == 1 && w->base.mbHidden == 0 && w->base.mpLabel == nullptr && w->mpObject == nullptr && w->mWidth == 80);
+    CHECK(reinterpret_cast<uintptr_t>(w->base._unknown04) == (sizeof(void *) == 8 ? 0x5A5A5A5A5A5A5A5Aull : 0x5A5A5A5Au));   // untouched
+    alignas(8) unsigned char om[sizeof(FEString)] = {}, lm[sizeof(FEObject)] = {};
+    float od[20] = {}, ld[20] = {};
+    auto *o = reinterpret_cast<FEObject *>(om);
+    auto *lbl = reinterpret_cast<FEObject *>(lm);
+    o->mu32Type = 1; o->mpData = od; od[14] = 80; od[15] = 30;
+    lbl->mu32Type = 3; lbl->mpData = ld;
+    w->mpObject = o;
+    w->base.mpLabel = lbl;
+    w->Position();                                   // box: top-left at (100, 200) -> centre (140, 215)
+    CHECK(od[7] == 140 && od[8] == 215 && ld[7] == 376 && ld[8] == 210);
+    w->Hide();
+    CHECK((o->mu32Flags & 1) && (lbl->mu32Flags & 1));
+    w->Show();
+    CHECK(!(o->mu32Flags & 1) && !(lbl->mu32Flags & 1));
+    // focus scripts
+    alignas(8) unsigned char sm[2][sizeof(FEScript)] = {};
+    auto *hi = reinterpret_cast<FEScript *>(sm[0]);
+    auto *un = reinterpret_cast<FEScript *>(sm[1]);
+    hi->mu32Id = FEHashUpper("Highlight"); hi->mi32Time = 5;
+    un->mu32Id = FEHashUpper("UnHighlight"); un->mi32Time = 5;
+    o->mScripts.vtable = &teststub::feMinListVTable;
+    o->mScripts.AddTail(&hi->node);
+    o->mScripts.AddTail(&un->node);
+    w->SetFocus("Pkg");
+    CHECK(o->mpCurrentScript == hi && hi->mi32Time == 0);
+    w->UnsetFocus();
+    CHECK(o->mpCurrentScript == un && un->mi32Time == 0);
+    auto &dl = teststub::delivered;
+    dl.clear();
+    teststub::hitResult = false;
+    w->CheckMouse("Pkg", 1, 2);
+    CHECK(dl.size() == 1 && std::string(dl[0].kind) == "hittest" && dl[0].a == o);
+    teststub::hitResult = true;
+    dl.clear();
+    w->CheckMouse("Pkg", 1, 2);
+    CHECK(dl.size() == 4 && std::string(dl[2].kind) == "sound" && dl[2].msg == 8 && std::string(dl[3].kind) == "act" && dl[3].msg == 0x0C407210u);
+    teststub::hitResult = false;
+    dl.clear();
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -2538,6 +2590,7 @@ int main()
     TestCFEngJoy();
     TestFEngUtil();
     TestFEngPosition();
+    TestButtonWidget();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();

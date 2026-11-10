@@ -379,3 +379,14 @@ void FEngSetScript(const char *pkg, uint32_t objHash, uint32_t scriptId, bool re
 {
     FEngSetScript(FEngFindObject(pkg, objHash), scriptId, restart);
 }
+
+void FEngSetCurrentButton(const char *pkg, uint32_t buttonHash)
+{
+    if (cFEng *fe = bridge::cFEngInstance()) fe->SetCurrentButton(pkg, buttonHash);
+}
+
+void FEngSetCurrentButton(const char *pkg, const FEObject *button)
+{
+    cFEng *fe = bridge::cFEngInstance();
+    if (fe && button) fe->SetCurrentButton(pkg, button->mu32NameHash);
+}

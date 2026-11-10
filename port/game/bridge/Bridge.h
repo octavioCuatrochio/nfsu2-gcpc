@@ -111,6 +111,12 @@ long double FEngFont_GetTextHeight(void *font, const uint16_t *text, uint32_t ar
 long double FEngFont_CalculateXOffset(void *font, uint32_t justify, float width);       // PC 50C020 (ret 8)
 long double FEngFont_CalculateYOffset(void *font, uint32_t justify, float height);      // PC 50C050 (ret 8)
 bool FEngGetLocalizedString(uint16_t *buffer, int32_t bytes, uint32_t labelHash);        // PC 512570 (__cdecl)
+void *FEWidgetVTable();                          // PC 0x790B98
+void *FEButtonWidgetVTable();                    // PC 0x79B2F8
+bool FEngTestForIntersection(float x, float y, ::FEObject *obj);   // PC 52D020 (__cdecl; not rewritten: FEngGet2DExtents)
+uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
+void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04
+void PlayFrontendSound(uint32_t trigger);       // PC: idx = (int8) table 0x8380B8[trigger]; != -1 -> PlayUISoundFX 458520
 bool TextInputFocused();   // PC globals 0x83A9C0 (byte, FocusedTextbox active) && 0x83A9C4 (dword) both nonzero
 void SetHoldDirtyFlags(uint32_t v);                                   // uHoldDirtyFlags, PC 0x7F7C8C
 // constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)

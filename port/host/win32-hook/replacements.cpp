@@ -20,6 +20,7 @@
 #include "frontend/FEButtonMap.h"
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
+#include "frontend/FEWidget.h"
 #include "frontend/FENode.h"
 #include "frontend/FEPackageManager.h"
 #include "frontend/cFEng.h"
@@ -313,6 +314,14 @@ void THISCALL FEngine_SetNumJoyPads(FEngine *self, uint8_t n) { self->SetNumJoyP
 void THISCALL cFEng_RegisterJoy(cFEng *self) { self->RegisterJoy(); }
 void THISCALL cFEng_UnRegisterJoy(cFEng *self) { self->UnRegisterJoy(); }
 uint32_t THISCALL cFEng_GetJoyPadMask(cFEng *self, uint8_t pad) { return self->GetJoyPadMask(pad); }
+void THISCALL cFEng_SetCurrentButton(cFEng *self, const char *p, uint32_t h) { self->SetCurrentButton(p, h); }
+FEButtonWidget *THISCALL FEButtonWidget_Ctor(FEButtonWidget *self, const float *pos, const float *size, bool en) { return self->Construct(pos, size, en); }
+void THISCALL FEButtonWidget_Show(FEButtonWidget *self) { self->Show(); }
+void THISCALL FEButtonWidget_Hide(FEButtonWidget *self) { self->Hide(); }
+void THISCALL FEButtonWidget_SetFocus(FEButtonWidget *self, const char *p) { self->SetFocus(p); }
+void THISCALL FEButtonWidget_UnsetFocus(FEButtonWidget *self) { self->UnsetFocus(); }
+void THISCALL FEButtonWidget_Position(FEButtonWidget *self) { self->Position(); }
+void THISCALL FEButtonWidget_CheckMouse(FEButtonWidget *self, const char *p, float x, float y) { self->CheckMouse(p, x, y); }
 FEJoyPad *THISCALL FEJoyPad_Ctor(FEJoyPad *self) { return self->Construct(); }
 void THISCALL FEngine_Dtor(FEngine *self) { self->Destruct(); }
 void THISCALL FETypeNode_Dtor(FETypeNode *self) { self->Destruct(); }
@@ -685,6 +694,16 @@ const Replacement kReplacements[] = {
     {0x5426C0, (const void *)static_cast<void (*)(const char *, const char *, const char *, bool)>(&FEngSetScript), "FEngSetScript(pkg, obj, name)", {0x8B, 0x44, 0x24, 0x08, 0x56, 0x57}},
     {0x537C00, (const void *)static_cast<void (*)(const char *, uint32_t, const char *, bool)>(&FEngSetScript), "FEngSetScript(pkg, hash, name)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
     {0x537C60, (const void *)static_cast<void (*)(const char *, uint32_t, uint32_t, bool)>(&FEngSetScript), "FEngSetScript(pkg, hash, id)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x52CE40, (const void *)&cFEng_SetCurrentButton, "cFEng::SetCurrentButton", {0x8B, 0x44, 0x24, 0x04, 0x55, 0x8B}},
+    {0x52CEA0, (const void *)static_cast<void (*)(const char *, uint32_t)>(&FEngSetCurrentButton), "FEngSetCurrentButton(hash)", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x52CEC0, (const void *)static_cast<void (*)(const char *, const FEObject *)>(&FEngSetCurrentButton), "FEngSetCurrentButton(obj)", {0x8B, 0x0D, 0xC4, 0x84, 0x83, 0x00}},
+    {0x51DFC0, (const void *)&FEButtonWidget_Ctor, "FEButtonWidget::FEButtonWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
+    {0x50D530, (const void *)&FEButtonWidget_Show, "FEButtonWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x50D550, (const void *)&FEButtonWidget_Hide, "FEButtonWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x52D770, (const void *)&FEButtonWidget_SetFocus, "FEButtonWidget::SetFocus", {0x53, 0x8B, 0xD9, 0x8B, 0x0D, 0xC4}},
+    {0x51E020, (const void *)&FEButtonWidget_UnsetFocus, "FEButtonWidget::UnsetFocus", {0x53, 0x8B, 0xD9, 0x57, 0x8B, 0x7B}},
+    {0x52D6B0, (const void *)&FEButtonWidget_Position, "FEButtonWidget::Position", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0xF1}},
+    {0x52D650, (const void *)&FEButtonWidget_CheckMouse, "FEButtonWidget::CheckMouse", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x519AE0, (const void *)&FEJoyPad_Ctor, "FEJoyPad::FEJoyPad", {0x8B, 0xD1, 0x57, 0x33, 0xC0, 0x8D}},
     {0x52C430, (const void *)&FEngine_Dtor, "FEngine::~FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
     {0x535870, (const void *)&FETypeNode_Dtor, "FETypeNode::~FETypeNode", {0x6A, 0xFF, 0x68, 0x28, 0x70, 0x77}},

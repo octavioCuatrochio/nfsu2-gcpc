@@ -69,3 +69,6 @@ void FEngSetPosition(const char *pkg, const char *obj, const struct FEVector3 *p
 void FEngSetScript(const char *pkg, const char *obj, const char *script, bool restart);
 void FEngSetScript(const char *pkg, uint32_t objHash, const char *script, bool restart);
 void FEngSetScript(const char *pkg, uint32_t objHash, uint32_t scriptId, bool restart);
+
+void FEngSetCurrentButton(const char *pkg, uint32_t buttonHash);         // GC 8014F6F8 / PC 52CEA0
+void FEngSetCurrentButton(const char *pkg, const FEObject *button);      // GC 8014F734 / PC 52CEC0 (null: nothing)

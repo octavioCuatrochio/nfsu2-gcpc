@@ -60,6 +60,8 @@ std::vector<void *> hitObjects;
 std::vector<HitTest> hitTests;
 bool textInputFocused = false;
 int fakeFont = 0;
+int feWidgetVTable = 0, feButtonWidgetVTable = 0;
+bool hitResult = false;
 std::vector<void *> renderedObjects;
 float viewMatrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 FESortGlobals sortGlobals{};
@@ -231,6 +233,17 @@ long double FEngFont_CalculateXOffset(void *, uint32_t j, float w) { return j & 
 long double FEngFont_CalculateYOffset(void *, uint32_t j, float h) { return j & 4 ? -h / 2.0L : 0.0L; }
 bool FEngGetLocalizedString(uint16_t *b, int32_t, uint32_t h) { if (h != 0x77) return false; b[0] = 'A'; b[1] = 'B'; b[2] = 'C'; b[3] = 0; return true; }
 #endif
+#ifdef NFSU2_REFEREE
+void *FEWidgetVTable() { return reinterpret_cast<void *>(0x790B98); }
+void *FEButtonWidgetVTable() { return reinterpret_cast<void *>(0x79B2F8); }
+#else
+void *FEWidgetVTable() { return &teststub::feWidgetVTable; }
+void *FEButtonWidgetVTable() { return &teststub::feButtonWidgetVTable; }
+#endif
+bool FEngTestForIntersection(float x, float y, FEObject *o) { teststub::delivered.push_back({"hittest", o, nullptr, uint32_t(x), uint32_t(y)}); return teststub::hitResult; }
+uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
+void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
+void PlayFrontendSound(uint32_t t) { teststub::delivered.push_back({"sound", nullptr, nullptr, t, 0}); }
 bool TextInputFocused() { return teststub::textInputFocused; }
 #ifdef NFSU2_REFEREE
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }

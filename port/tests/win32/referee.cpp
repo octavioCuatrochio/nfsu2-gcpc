@@ -24,6 +24,7 @@
 #include "frontend/FERender.h"
 #include "frontend/FETypeLib.h"
 #include "frontend/FEngUtil.h"
+#include "frontend/FEWidget.h"
 #include "frontend/FEScript.h"
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEPool.h"
@@ -1764,6 +1765,62 @@ static void CheckFEngPosition(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
+static void CheckButtonWidget(int iters)
+{
+    auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
+    auto oShow = ORIG<void(THISCALL *)(FEButtonWidget *)>(0x50D530);
+    auto oHide = ORIG<void(THISCALL *)(FEButtonWidget *)>(0x50D550);
+    auto oPos = ORIG<void(THISCALL *)(FEButtonWidget *)>(0x52D6B0);
+    struct Arena { FEButtonWidget w; unsigned char om[2][sizeof(FEString)]; float d[2][20]; };
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            const float pos[2] = {RefCoord(), RefCoord()}, size[2] = {RefCoord(), RefCoord()};
+            oCtor(&A.w, pos, size, rng() & 1);   // a constructed widget (vtable, offsets) for the member functions
+            // set up objects for the member functions
+            for (int k = 0; k < 2; ++k) {
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 2 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+            }
+            A.w.mpObject = rng() % 6 ? reinterpret_cast<FEObject *>(A.om[0]) : nullptr;
+            A.w.base.mpLabel = rng() % 3 ? reinterpret_cast<FEObject *>(A.om[1]) : nullptr;
+            std::memcpy(&B, &A, sizeof A);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            auto rbp = [&](void *q) { return q ? reinterpret_cast<void *>(reinterpret_cast<uint8_t *>(q) + delta) : nullptr; };
+            B.w.mpObject = static_cast<FEObject *>(rbp(A.w.mpObject));
+            B.w.base.mpLabel = static_cast<FEObject *>(rbp(A.w.base.mpLabel));
+            for (int k = 0; k < 2; ++k) reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            const int op = static_cast<int>(rng() % 3);
+            if (op == 0) { oShow(&A.w); B.w.Show(); }
+            else if (op == 1) { oHide(&A.w); B.w.Hide(); }
+            else { oPos(&A.w); B.w.Position(); }
+            bool same = std::memcmp(A.d, B.d, sizeof A.d) == 0;
+            for (int k = 0; k < 2; ++k) same &= reinterpret_cast<FEObject *>(A.om[k])->mu32Flags == reinterpret_cast<FEObject *>(B.om[k])->mu32Flags;
+            EXPECT(same, "FEButtonWidget op %d pc=%x", op, pc);
+        }
+        // constructor
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A.w);
+            for (size_t i = 0; i < sizeof A.w; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&B.w, &A.w, sizeof A.w);
+            const float pos[2] = {RefCoord(), RefCoord()}, size[2] = {RefCoord(), RefCoord()};
+            const uint32_t en = rng() % 2;
+            FEButtonWidget *ra = oCtor(&A.w, pos, size, en), *rb = B.w.Construct(pos, size, en != 0);
+            EXPECT(ra == &A.w && rb == &B.w && std::memcmp(&A.w, &B.w, sizeof A.w) == 0, "FEButtonWidget ctor");
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2346,6 +2403,7 @@ static int RunAll()
     REFEREE_RUN(CheckFEngUtil(iters * 5));
     REFEREE_RUN(CheckFEngRotationZ(iters));
     REFEREE_RUN(CheckFEngPosition(iters * 3));
+    REFEREE_RUN(CheckButtonWidget(iters));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));

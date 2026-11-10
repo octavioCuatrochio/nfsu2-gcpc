@@ -273,3 +273,14 @@ uint32_t cFEng::GetJoyPadMask(uint8_t pad)
         if (reinterpret_cast<const uint32_t *>(&map[i].mState)[pad]) mask |= map[i].mu32Mask;
     return mask;
 }
+
+void cFEng::SetCurrentButton(const char *pkgName, uint32_t buttonHash)
+{
+    FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkgName);
+    FEPackage *p = d ? d->mpPackage : nullptr;
+    if (!p) return;
+    FEObject *button = nullptr;
+    for (uint32_t i = 0; i < p->mu32NumButtons; ++i)
+        if (p->mppButtons[i]->mu32NameHash == buttonHash) button = p->mppButtons[i];
+    if (button) p->SetCurrentButton(mpEngine, button, true);
+}

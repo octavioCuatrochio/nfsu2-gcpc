@@ -69,6 +69,9 @@ struct cFEng {
     // GC 8014EFD0 / PC 537750 (ret 4): PopPackage and drop the sorter entry (no renumbering).
     void ForceUnloadPackage(const char *name);
     static void SetButtonState(const char *pkgName, uint32_t buttonHash, bool enable);
+    // GC 8014EA20 / PC 52CE40 (ret 8): the loaded package's button with that name hash (the last match) becomes
+    // current (FEPackage::SetCurrentButton(engine, button, true)).
+    void SetCurrentButton(const char *pkgName, uint32_t buttonHash);
     // GC 8014E798 / 8014E7F0, PC 51CB20 / 51CB60 (ret 0xC): parent looked up by name (null name -> no parent).
     void QueuePushPackage(const char *name, const char *parent, uint32_t mask);
     void QueuePushModalPackage(const char *name, const char *parent, uint32_t mask);
