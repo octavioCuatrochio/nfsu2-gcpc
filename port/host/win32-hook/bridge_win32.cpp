@@ -110,6 +110,12 @@ const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, ui
 {
     return (*reinterpret_cast<const void *(THISCALL ***)(void *, const char *, void **, uint8_t *)>(gi))[0](gi, n, b, f);
 }
+void FEGameInterface_ReleaseResources(void *gi, FEPackage *p, uint32_t n, void *r)
+{
+    (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *, uint32_t, void *)>(gi))[2](gi, p, n, r);
+}
+bool FEGameInterface_PackageWillUnload(void *gi, FEPackage *p) { return (*reinterpret_cast<bool(THISCALL ***)(void *, FEPackage *)>(gi))[4](gi, p); }
+bool FEGameInterface_CanUnloadLibrary(void *gi, FEPackage *p) { return (*reinterpret_cast<bool(THISCALL ***)(void *, FEPackage *)>(gi))[5](gi, p); }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }
 FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
 {

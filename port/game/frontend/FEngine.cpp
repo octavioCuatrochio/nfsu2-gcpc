@@ -1,3 +1,6 @@
+#include "FEScript.h"
+#include "FENode.h"
+#include "FEPackageReader.h"
 #include "FEngine.h"
 #include "FECodeListBox.h"
 #include "FEListBox.h"
@@ -366,4 +369,132 @@ void FEngine::ProcessResponses(FEMessageResponse *resp, FEObject *obj, FEPackage
         default: break;
         }
     }
+}
+
+namespace {
+// unlink without a membership check (PC: inlined FEMinList::RemNode), then delete through the vtable
+void UnlinkAndDelete(FEMinList &l, FEMinNode *n)
+{
+    l.RemNode(n);
+    bridge::VirtualScalarDelete(n);
+}
+
+// PC callback 0x79AAEC (slot 1 517EE0): back to script 0x1744B3 at time 0, all track flags dirty.
+void ResetToInitialScript(FEObject *o)
+{
+    FEScript *s = o->FindScript(0x1744B3);
+    o->SetCurrentScript(s);
+    s->mi32Time = 0;   // PC: no null check
+    o->mu32Flags |= 0x3C00000;
+}
+template <typename F> void ForEachObject(FEMinNode *head, F f)
+{
+    for (FEMinNode *n = head; n; n = n->next) {
+        auto *o = reinterpret_cast<FEObject *>(n);
+        f(o);
+        if (o->mu32Type == 5) ForEachObject(reinterpret_cast<FEGroup *>(o)->mChildren.head, f);
+    }
+}
+
+bool IsSpecialTarget(const FEObject *t)
+{
+    const auto v = static_cast<int32_t>(reinterpret_cast<intptr_t>(t));
+    return v == 0 || (v >= -6 && v <= -1);
+}
+}  // namespace
+
+void FEngine::AddPackageByPriority(FEPackage *pkg)
+{
+    FEMinList &l = ActiveList();
+    auto *after = reinterpret_cast<FEPackage *>(l.tail);
+    while (after && after->mi32Priority > pkg->mi32Priority) after = reinterpret_cast<FEPackage *>(after->node.prev);
+    l.AddNode(after ? &after->node : nullptr, &pkg->node);
+}
+
+void FEngine::AddToIdleList(FEPackage *pkg) { mIdlePackages.AddTail(&pkg->node); }
+
+void FEngine::RemoveFromLibraryList(FEPackage *pkg) { mLibraries.RemNode(&pkg->node); }
+
+FEPackage *FEngine::PushPackage(const char *name, uint8_t priority, uint32_t mask)
+{
+    auto *pkg = reinterpret_cast<FEPackage *>(FEListFindNode(name, reinterpret_cast<FENode *>(mIdlePackages.head)));
+    if (!pkg) {   // try the base name (after the last '/' or '\\'; signed char length like the original)
+        int8_t i = static_cast<int8_t>(std::strlen(name));
+        const char *p = name + i - 1;
+        for (;;) {   // PC 5558B0..5558D7 (may read the byte before the string, like the original)
+            if (*p == '/' || *p == '\\') {
+                if (i != 0) ++p;
+                break;
+            }
+            if (i <= 0) {
+                ++p;
+                break;
+            }
+            --p;
+            --i;
+        }
+        pkg = reinterpret_cast<FEPackage *>(FEListFindNode(p, reinterpret_cast<FENode *>(mIdlePackages.head)));
+    }
+    if (pkg) {
+        pkg->_unknown15[0] = 1;   // +0x15
+        ForEachObject(pkg->mObjects.head, ResetToInitialScript);
+        mIdlePackages.RemNode(&pkg->node);
+    } else {
+        void *buffer;
+        uint8_t freeBuffer;
+        const void *data = bridge::FEGameInterface_GetPackageData(mpUIData, name, &buffer, &freeBuffer);
+        if (!data) return nullptr;
+        pkg = FEngine_LoadPackage(this, data, 0);
+        if (freeBuffer) bridge::FreeArray(buffer);
+        if (!pkg) return nullptr;
+    }
+    pkg->SetControlMask(mask);
+    pkg->mi32Priority = priority;
+    pkg->mbFastInterp = _unknown000;
+    if (mpUIData) bridge::FEGameInterface_LibraryLoaded(mpUIData, pkg);   // interface +0xC: package activated
+    AddPackageByPriority(pkg);
+    return pkg;
+}
+
+bool FEngine::UnloadPackage(FEPackage *pkg)
+{
+    FEMinList &active = ActiveList();
+    FEMinNode *n = active.head;
+    while (n && n != &pkg->node) n = n->next;
+    if (!n) return false;
+    const bool remove = mpUIData ? bridge::FEGameInterface_PackageWillUnload(mpUIData, pkg) : true;
+    active.RemNode(&pkg->node);
+    for (FEMinNode *c = mPackageCommands.head, *next; c; c = next) {
+        next = c->next;
+        if (reinterpret_cast<FEPackageCommand *>(c)->mpPackage == pkg) UnlinkAndDelete(mPackageCommands, c);
+    }
+    for (FEMinNode *m = mMessages.head, *next; m; m = next) {
+        next = m->next;
+        auto *msg = reinterpret_cast<FEMessageNode *>(m);
+        bool drop = msg->mpPackage == pkg;   // "Removing message from package" (debug print stub)
+        if (!drop && !IsSpecialTarget(msg->mpTarget)) drop = pkg->FindObjectByGUID(msg->mpTarget->mu32GUID) != nullptr;
+        if (drop) UnlinkAndDelete(mMessages, m);
+    }
+    if (pkg->_unknown15[0]) {   // +0x15: keep it loaded
+        AddToIdleList(pkg);
+        return true;
+    }
+    for (FEMinNode *r = pkg->mList74.head; r; r = r->next) {
+        FEPackage *lib = FEngine_FindLibraryPackage(this, reinterpret_cast<FENode *>(r)->mu32NameHash);
+        if (!lib) continue;
+        if (lib->mi32Priority - 1 > 0) lib->mi32Priority -= 1;   // library reference count
+        else UnloadLibraryPackage(lib);
+    }
+    if (mpUIData) bridge::FEGameInterface_ReleaseResources(mpUIData, pkg, pkg->mu32NumResources, pkg->mpResources);
+    if (remove) bridge::VirtualScalarDelete(pkg);
+    return true;
+}
+
+void FEngine::UnloadLibraryPackage(FEPackage *pkg)
+{
+    if (!bridge::FEGameInterface_CanUnloadLibrary(mpUIData, pkg)) return;   // PC: no null check here
+    RemoveFromLibraryList(pkg);
+    const bool remove = mpUIData ? bridge::FEGameInterface_PackageWillUnload(mpUIData, pkg) : true;
+    if (mpUIData) bridge::FEGameInterface_ReleaseResources(mpUIData, pkg, pkg->mu32NumResources, pkg->mpResources);
+    if (remove && pkg) bridge::VirtualScalarDelete(pkg);
 }

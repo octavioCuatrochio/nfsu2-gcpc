@@ -50,6 +50,7 @@ int32_t fengLoadCounter = 0;
 int feCodeListBoxVTable = 0, feListBoxVTable = 0, fePackageDataVTable = 0, fePackageVTable = 0, feNodeVTable = 0, fePackageList74VTable = 0, resourceConnectorVTable = 0;
 bool loadResourcesResult = true, readerChunkResult = true;
 const void *libraryData = nullptr;
+bool willUnloadResult = true;
 void *screenResult = nullptr;
 bool hotChunking = false;
 ::SlotPool *levelSorterSlots = nullptr;
@@ -137,6 +138,9 @@ const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, ui
     if (*f) *b = bridge::Alloc(4);
     return teststub::libraryData;
 }
+void FEGameInterface_ReleaseResources(void *gi, FEPackage *p, uint32_t n, void *) { teststub::delivered.push_back({"releaseres", gi, p, n, 0}); }
+bool FEGameInterface_PackageWillUnload(void *gi, FEPackage *p) { teststub::delivered.push_back({"willunload", gi, p, 0, 0}); return teststub::willUnloadResult; }
+bool FEGameInterface_CanUnloadLibrary(void *gi, FEPackage *p) { teststub::delivered.push_back({"canunloadlib", gi, p, 0, 0}); return true; }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { teststub::delivered.push_back({"libloaded", gi, p, 0, 0}); }
 FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
 {

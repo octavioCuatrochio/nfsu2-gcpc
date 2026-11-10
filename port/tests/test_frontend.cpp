@@ -1785,6 +1785,65 @@ static void TestCodeListBox()
     CHECK(teststub::liveAllocations == live0);
 }
 
+// FEngine::PushPackage / UnloadPackage on a private engine: idle reactivation, priority order, loading through the
+// game interface, queue cleanup on unload, idle keep, library release.
+static void TestEnginePushUnload()
+{
+    const int live0 = teststub::liveAllocations;
+    auto *e = static_cast<FEngine *>(std::calloc(1, sizeof(FEngine)));
+    for (FEMinList *l : {&e->ActiveList(), &e->mIdlePackages, &e->mLibraries, &e->mMessages, &e->mPackageCommands}) l->vtable = &teststub::feMinListVTable;
+    int gi = 0;
+    e->mpUIData = &gi;
+    auto *idle = static_cast<FEPackage *>(bridge::Alloc(sizeof(FEPackage)));
+    idle->Construct();
+    reinterpret_cast<FENode *>(idle)->SetName("Menu.fng");
+    e->mIdlePackages.AddTail(&idle->node);
+    auto *other = static_cast<FEPackage *>(bridge::Alloc(sizeof(FEPackage)));
+    other->Construct();
+    other->mi32Priority = 5;
+    e->ActiveList().AddTail(&other->node);
+    auto &dl = teststub::delivered;
+    dl.clear();
+    // by base name, reactivated, inserted before the higher-priority one
+    FEPackage *p = e->PushPackage("data\\front\\Menu.fng", 2, 0x33);
+    CHECK(p == idle && e->mIdlePackages.count == 0 && e->ActiveList().head == &idle->node && e->ActiveList().count == 2);
+    CHECK(p->mi32Priority == 2 && p->mu32ControlMask == 0x33 && p->mu32SavedInputControlMask == 0x33 && p->_unknown15[0] == 1);
+    CHECK(dl.size() == 1 && std::string(dl[0].kind) == "libloaded" && dl[0].pkg == p);
+    // not available: game has no data
+    teststub::libraryData = nullptr;
+    CHECK(e->PushPackage("Nope.fng", 1, 0) == nullptr);
+    // unload: queued command and messages of the package are dropped; +0x15 -> back to idle
+    auto *cmd = static_cast<FEPackageCommand *>(bridge::Alloc(sizeof(FEPackageCommand)));
+    std::memset(cmd, 0, sizeof *cmd);
+    cmd->node.node.vtable = nullptr;
+    cmd->mpPackage = p;
+    e->mPackageCommands.AddTail(&cmd->node.node);
+    auto *msg = static_cast<FEMessageNode *>(bridge::Alloc(sizeof(FEMessageNode)));
+    std::memset(msg, 0, sizeof *msg);
+    msg->mpPackage = p;
+    e->mMessages.AddTail(&msg->node);
+    auto *keep = static_cast<FEMessageNode *>(bridge::Alloc(sizeof(FEMessageNode)));
+    std::memset(keep, 0, sizeof *keep);
+    keep->mpPackage = other;
+    keep->mpTarget = reinterpret_cast<FEObject *>(intptr_t{-5});
+    e->mMessages.AddTail(&keep->node);
+    dl.clear();
+    CHECK(e->UnloadPackage(p));
+    CHECK(e->mPackageCommands.count == 0 && e->mMessages.count == 1 && e->mMessages.head == &keep->node);
+    CHECK(e->mIdlePackages.head == &p->node && e->ActiveList().count == 1 && dl.size() == 1 && std::string(dl[0].kind) == "willunload");
+    CHECK(!e->UnloadPackage(p));   // not active any more
+    // a normal package is released and deleted
+    dl.clear();
+    CHECK(e->UnloadPackage(other));
+    CHECK(e->ActiveList().count == 0 && dl.size() == 2 && std::string(dl[1].kind) == "releaseres");
+    bridge::FreeArray(e->mMessages.RemHead());
+    e->mIdlePackages.RemNode(&p->node);
+    bridge::VirtualScalarDelete(p);
+    std::free(e);
+    dl.clear();
+    CHECK(teststub::liveAllocations == live0);
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -1951,6 +2010,7 @@ int main()
     TestReaderInsertTrack();
     TestListBoxCells();
     TestCodeListBox();
+    TestEnginePushUnload();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

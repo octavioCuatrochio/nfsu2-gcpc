@@ -36,6 +36,7 @@ extern int32_t fengLoadCounter;
 extern int feCodeListBoxVTable, feListBoxVTable, fePackageDataVTable, fePackageVTable, feNodeVTable, fePackageList74VTable, resourceConnectorVTable;
 extern bool loadResourcesResult, readerChunkResult;
 extern const void *libraryData;
+extern bool willUnloadResult;
    // FEGameInterface_GetPackageData result
 extern void *screenResult;   // ScreenFactory result
 extern bool hotChunking;

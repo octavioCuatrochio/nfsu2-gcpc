@@ -80,6 +80,19 @@ struct FEngine {
     // adjusts control masks (PC: the FEPackage mask setters are inlined).
     void QueuePackageSwitch(const char *name, FEPackage *pkg);                       // GC 80147B64 / PC 51AB20
     void QueuePackagePush(const char *name, FEPackage *pkg, uint32_t mask);          // GC 80147C00 / PC 51AC10
+    FEMinList &ActiveList() { return *reinterpret_cast<FEMinList *>(&mpActiveListVTable); }   // +0xDC
+    // GC 80145CF8 / PC 555860 (ret 0xC): an idle package (by name, then by its base name) is reactivated (objects
+    // reset to script 0x1744B3), else the game supplies the data and it is loaded; then priority, control mask,
+    // fast-interp flag (engine +0), game notified (interface +0xC) and inserted by priority. Null if unavailable.
+    FEPackage *PushPackage(const char *name, uint8_t priority, uint32_t mask);
+    // GC 80145A94 / PC 5362E0 (ret 4): false if not active. Removes it, drops its queued commands and messages
+    // (sent by it or targeting one of its objects); idle-capable packages (+0x15) go to the idle list, others
+    // release their libraries and resources and are deleted (if the game agrees).
+    bool UnloadPackage(FEPackage *pkg);
+    void AddToIdleList(FEPackage *pkg);              // GC 80145EA0 / PC 51A8B0 (tail of mIdlePackages)
+    void RemoveFromLibraryList(FEPackage *pkg);      // GC 80145F24 / PC 51A910
+    void UnloadLibraryPackage(FEPackage *pkg);       // GC 80145C30 / PC 52C500
+    void AddPackageByPriority(FEPackage *pkg);       // PC 518280 (GC: inlined): after the last with priority <= pkg's
     void QueuePackagePushForModal(const char *name, FEPackage *pkg, uint32_t mask);  // GC 80147CA0 / PC 51ACE0
     void QueuePackagePop(FEPackage *pkg);                                            // GC 80147D50 / PC 51ADB0
     void QueuePackageUserTransfer(FEPackage *pkg, bool flag, uint32_t mask);         // GC 80147EC4 / PC 51AF50
