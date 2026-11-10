@@ -6,7 +6,22 @@
 
 namespace {
 // The original moves these floats through integer registers (bit copy, NaN payloads kept).
-inline void Raw(float &dst, const float &src) { std::memcpy(&dst, &src, 4); }
+// Bit copy (the original moves the dword with integer registers). Reading the source through volatile bytes keeps
+// compilers from forwarding a value already loaded onto the x87 stack (clang 22 did, via fstp, which quiets sNaNs).
+inline void Raw(float &dst, const float &src)
+{
+    const volatile unsigned char *s = reinterpret_cast<const volatile unsigned char *>(&src);
+    unsigned char b[4] = {s[0], s[1], s[2], s[3]};
+    std::memcpy(&dst, b, 4);
+}
+
+// Round to float through memory, like the original's fstp DWORD + reload. Without the volatile hop clang 22 keeps
+// accumulating in the unrounded x87 register after `fst` (differs at 53-bit precision).
+inline float StoreF(long double x)
+{
+    volatile float v = static_cast<float>(x);
+    return v;
+}
 
 // One axis of ScrollSelection (PC 516EE2.. for X, 516F8B.. for Y). `savedFlags` is the flags copy the original
 // keeps on the stack (wrap paths OR 8 into it, also for Y).
@@ -22,9 +37,10 @@ void ScrollAxis(FEListBox *lb, int32_t delta, uint32_t savedFlags, uint32_t &sel
     } else if (idx < 0) {
         // wrap backwards: start from the wrapped slot's position and add sizes up to the old selection
         uint32_t i = static_cast<uint32_t>(n + idx);
-        target = scroll = slots[i].mfPosition;
+        Raw(scroll, slots[i].mfPosition);
+        Raw(target, scroll);
         do {
-            scroll = static_cast<float>(static_cast<long double>(slots[i].mfSize) + scroll);
+            scroll = StoreF(static_cast<long double>(slots[i].mfSize) + scroll);
             i = (i + 1) % count;
         } while (i != sel);
         set = false;
@@ -34,7 +50,7 @@ void ScrollAxis(FEListBox *lb, int32_t delta, uint32_t savedFlags, uint32_t &sel
         do {
             const uint32_t k = i % count;
             ++i;
-            target = static_cast<float>(static_cast<long double>(slots[k].mfSize) + target);
+            target = StoreF(static_cast<long double>(slots[k].mfSize) + target);
         } while (i != static_cast<uint32_t>(idx));
         set = false;
     }
@@ -48,7 +64,7 @@ void ScrollAxis(FEListBox *lb, int32_t delta, uint32_t savedFlags, uint32_t &sel
     long double rest = 0.0f;   // sizes from the selection to the end
     for (uint32_t i = sel; i < count; ++i) rest = rest + slots[i].mfSize;
     if (lb->mu32Flags & 4) {
-        if (rest < view) target = static_cast<float>(target - (view - rest));
+        if (rest < view) target = StoreF(target - (view - rest));
     } else if (rest < view) {
         lb->mu32Flags |= shortFlag;
     }

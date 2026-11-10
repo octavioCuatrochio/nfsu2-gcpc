@@ -234,6 +234,11 @@ static void CheckListBoxScroll(int iters)
             std::memcpy(&b, &a, sizeof a);
             orig(&a, dx, dy);
             b.ScrollSelection(dx, dy);
+            if (std::memcmp(&a, &b, sizeof a) != 0) {
+                const uint32_t *wa = reinterpret_cast<const uint32_t *>(&a), *wb = reinterpret_cast<const uint32_t *>(&b);
+                for (size_t w = 0; w < sizeof a / 4; ++w)
+                    if (wa[w] != wb[w] && failures < 20) std::printf("  +0x%02X: %08X / %08X\n", static_cast<unsigned>(w * 4), wa[w], wb[w]);
+            }
             EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "FEListBox::ScrollSelection flags=%02X n=%u/%u sel=%u/%u d=%d/%d pc=%x: flags %X/%X tgt %g/%g %g/%g dir %g/%g %g/%g",
                    b.mu32Flags, a.mu32NumColumns, a.mu32NumRows, a.mu32SelColumn, a.mu32SelRow, dx, dy, pc,
                    a.mu32Flags, b.mu32Flags, a.mfTargetX, b.mfTargetX, a.mfTargetY, b.mfTargetY, a.mfDirX, b.mfDirX, a.mfDirY, b.mfDirY);

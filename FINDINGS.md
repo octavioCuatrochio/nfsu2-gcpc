@@ -71,13 +71,15 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   brute-force the order. eMulVector 441000 and ePoly ctor 5BB1C0 (engine) are hooked too.
 - FEToggleWidget (PC 0x54, vtable 0x79B3B8, 17 slots; +0x40 BlinkArrows) = FEStatWidget + arrows +0x4C/+0x50; ctor 51E230.
   FEToggleImageWidget (+0x54 image) has no PC vtable: ctor inlined into BrandScrollerThing 521E30 (vtable 0x79B6A0,
-  +0x58 brand data, +0x5C index; ChooseBrandsScreen). Both rewritten + hooked; referee CheckToggleWidget written but
-  NOT RUN yet. Widget vtable slots: 0 dtor, 1 Act, 2 CheckMouse, 3 ?, 4 Position, 5 Show, 6 Hide, 7 Enable, 8 Disable,
+  +0x58 brand data, +0x5C index; ChooseBrandsScreen). Both rewritten + hooked, referee CheckToggleWidget 0 mismatches. Widget vtable slots: 0 dtor, 1 Act, 2 CheckMouse, 3 ?, 4 Position, 5 Show, 6 Hide, 7 Enable, 8 Disable,
   9 SetFocus, 10 UnsetFocus, 11 SetPos, 12/13 SetPosX/Y, 14 DetermineSpecialSound, 15 DetermineSoundTrigger.
   MakeFrontendSound inlined on PC: table 0x837FE0[event * 0x1B + trigger] (int8, -1 = none) -> PlayUISoundFX 458520.
   Toggle CheckMouse fetches the trigger (+0x3C) before the special sound (+0x38), GC the other way round.
-- Build host note: /opt/llvm-mingw needs glibc >= 2.44 + libedit.so.0; on older hosts there is no PE linker -> only
-  native tests + `clang++-22 --target=i686-w64-mingw32 -fsyntax-only` against its sysroot are possible.
+- Build host (glibc too old for /opt/llvm-mingw's clang): cmake/i686-host-clang.cmake = host clang-22 + ld.lld 22
+  (unpacked from the lld-22/liblld-22 .debs into ~/.local/opt/lld-22, no sudo) + llvm-mingw as sysroot; resource
+  dir shim ~/.local/opt/mingw-clang-rd (clang-22 include + llvm-mingw lib/windows). MUST be -march=pentium4 (llvm-mingw's
+  i686 default): plain i686 keeps floats on x87 and drops float casts / reuses unrounded regs after fst -> referee
+  mismatches in slerp + FEListBox scroll. FEListBox Raw()/StoreF() now force the bit copy / rounding through memory.
 - audit_hooks.py: indexes all E8 calls in one pass + one objdump sweep (2m12s -> 4.5s, same output).
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).

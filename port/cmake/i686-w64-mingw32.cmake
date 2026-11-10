@@ -8,3 +8,6 @@ set(CMAKE_FIND_ROOT_PATH ${LLVM_MINGW}/i686-w64-mingw32)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+# Pin llvm-mingw's i686 default (SSE floats: float casts round exactly; see i686-host-clang.cmake).
+set(CMAKE_C_FLAGS_INIT "-march=pentium4")
+set(CMAKE_CXX_FLAGS_INIT "-march=pentium4")
