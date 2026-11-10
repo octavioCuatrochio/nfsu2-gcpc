@@ -1,5 +1,6 @@
 #include "FERender.h"
 #include <cstring>
+#include <initializer_list>
 #include "bridge/Bridge.h"
 #include "FEngine.h"
 #include "FEObject.h"
@@ -197,4 +198,35 @@ FEngine *FEngine::Construct(void *mem)
     std::memset(e->mLastButtons, 0, sizeof e->mLastButtons);
     e->mTypeLib.Startup();
     return e;
+}
+
+void FEngine::ReleaseAll()
+{
+    while (FEMinNode *p = ActiveList().head) {
+        ActiveList().RemNode(p);
+        bridge::VirtualScalarDelete(p);
+    }
+    mIdlePackages.Purge();
+    mLibraries.Purge();
+    mMessages.Purge();
+    bridge::FreeArray(mpJoyPads);
+    mpJoyPads = nullptr;
+    mu32NumJoyPads = 0;
+    _unknown5250 = 0;
+    _unknown030 = 0;
+    _unknown02C = 0;
+    mu32NumPackageMarkers = 0;
+    std::memset(macPackageMarkers, 0, sizeof macPackageMarkers);
+    mi32LastButtonIndex = 0;
+    std::memset(mLastButtons, 0, sizeof mLastButtons);
+    mTypeLib.mTypes.Purge();
+}
+
+void FEngine::Destruct()
+{
+    ReleaseAll();
+    for (FEMinList *l : {&mTypeLib.mTypes, &mPackageCommands, &mMessages, &mLibraries, &mIdlePackages, &ActiveList()}) {
+        l->vtable = bridge::FEMinListVTable();
+        l->Purge();
+    }
 }

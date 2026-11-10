@@ -54,6 +54,14 @@ static const void *make_counting_stub(size_t index, const void *target)
     return p;
 }
 
+static void report_now(const char *title)
+{
+    log("%s", title);
+    for (size_t i = 0; i < kReplacementCount; ++i) log("  %10ld  %06X %s", g_calls[i], kReplacements[i].addr, kReplacements[i].name);
+}
+
+void report_final() { report_now("calls at exit:"); }
+
 static DWORD WINAPI report_calls(LPVOID)
 {
     static LONG last[kMaxHooks] = {};

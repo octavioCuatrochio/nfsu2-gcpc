@@ -156,6 +156,10 @@ struct FEngine {
     // and pressed-button tables cleared, then mTypeLib.Startup(). Leaves mpUIData, joypad hold data, the sorter
     // entries and the +0x34..+0x83 release state untouched (like the original).
     static FEngine *Construct(void *mem);
+    // GC 80145724 / PC 51A640: deletes active packages (virtual), purges idle, libraries, messages; frees the pads;
+    // clears input/marker/last-button state; purges the type library. (PC: package commands are not purged.)
+    void ReleaseAll();
+    void Destruct();   // GC 80145680 / PC 52C430: ReleaseAll, then each list (types .. active) reset + purged
     void RenderObject(FEObject *obj, const struct FEMatrix4 *m, uint16_t ctx);   // GC 801478F8 / PC 51A970 (ret 0xC)
     // GC 80147728 / PC 52C5D0 (ret 0x10): group transform (rotation about pivot, then position) * parent; children
     // get a new render context id (game interface +0x28 GenerateRenderContext).

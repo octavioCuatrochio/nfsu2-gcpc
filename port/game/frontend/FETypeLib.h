@@ -15,6 +15,8 @@ struct FEFieldNode {
     void *mpDefault;                 // +0x20 default value (operator new[]), may be null
 
     void SetDefault(const void *value);   // GC 80142344 (PC: inlined): replaces the default with a copy
+    void Destruct();                      // GC 8030D518 / PC 514720: vtable 0x79B018, frees the default, ~FENode
+    FEFieldNode *ScalarDeletingDestructor(uint32_t flags);   // PC 514700 (vtable slot 0, ret 4)
 };
 using FETypeParam = FEFieldNode;
 
@@ -28,6 +30,8 @@ struct FETypeNode {
     void AddFieldNode(FEFieldNode *field);            // PC 514780 (ret 4; GC: inlined): append + UpdateOffsets
     void UpdateOffsets();                             // GC 80142454 (PC: inlined): offsets = running size sum
     FEFieldNode *GetField(const char *name) const;    // GC 80142480 / PC 519F10 (ret 4): case-insensitive name
+    void Destruct();                                  // GC 8030D56C / PC 535870: purge fields (list vtable 0x79A9EC), ~FENode
+    FETypeNode *ScalarDeletingDestructor(uint32_t flags);   // PC 535850 (vtable slot 0, ret 4)
 };
 
 // GC FETypeLib (PC FEngine +0x4134): FEMinList of FETypeNode (vtable 0x79B878) + one byte.

@@ -31,7 +31,9 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FETypeLib (FEngine +0x4134, 0x14 bytes) rewritten: Startup 5359D0 builds types Image 1, CBV Image 9, Anim Image
   10, Simple Image 11, String 2, Model 3, Movie 7, Effect 8, List 4, Group 5, Code List 6. Base fields Color(6)/
   Pivot(4)/Position(4)/Rotation(5)/Size(4) -> data offsets 0/16/28/40/56; image + Upper Left/Lower Right (3).
-  FEngine ctor 536170 rewritten (FEngine::Construct).
+  FEngine ctor 536170 rewritten (FEngine::Construct); teardown ReleaseAll 51A640 / ~FEngine 52C430 / type+field
+  node dtors rewritten but unreachable in game: exit (Alt+F4, exit code 0) never destroys cFEng.
+- Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.
 - Referee: bridge_stub.cpp under NFSU2_REFEREE must call game-interface slots through the vtable (fake gi).
 - Single instance: an earlier SPEED2.EXE still running makes a new launch exit quietly -> check pgrep before A/B.

@@ -147,3 +147,31 @@ bool FETypeLib::Startup()
     add(CreateBaseObjectType("Code List"), 6);
     return true;
 }
+
+void FEFieldNode::Destruct()
+{
+    node.node.vtable = bridge::FEFieldNodeVTable();
+    bridge::FreeArray(mpDefault);
+    node.Destruct();
+}
+
+FEFieldNode *FEFieldNode::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) bridge::FreeArray(this);
+    return this;
+}
+
+void FETypeNode::Destruct()
+{
+    mParams.vtable = bridge::FEMinListVTable();
+    mParams.Purge();
+    node.Destruct();
+}
+
+FETypeNode *FETypeNode::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) bridge::FreeArray(this);
+    return this;
+}

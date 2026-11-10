@@ -307,6 +307,12 @@ FETypeNode *THISCALL FETypeLib_CreateBaseObjectType(FETypeLib *self, const char 
 FETypeNode *THISCALL FETypeLib_CreateImageObjectType(FETypeLib *self, const char *n) { return self->CreateImageObjectType(n); }
 bool THISCALL FETypeLib_Startup(FETypeLib *self) { return self->Startup(); }
 FEngine *THISCALL FEngine_Ctor(void *self) { return FEngine::Construct(self); }
+void THISCALL FEngine_ReleaseAll(FEngine *self) { self->ReleaseAll(); }
+void THISCALL FEngine_Dtor(FEngine *self) { self->Destruct(); }
+void THISCALL FETypeNode_Dtor(FETypeNode *self) { self->Destruct(); }
+FETypeNode *THISCALL FETypeNode_ScalarDtor(FETypeNode *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL FEFieldNode_Dtor(FEFieldNode *self) { self->Destruct(); }
+FEFieldNode *THISCALL FEFieldNode_ScalarDtor(FEFieldNode *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL FEButtonMap_ComputeButtonLocation(const FEButtonMap *self, FEObject *o, void *gi, FEVector2 *out) { self->ComputeButtonLocation(o, gi, out); }
 FEObject *THISCALL FEButtonMap_GetButtonFrom(const FEButtonMap *self, FEObject *f, uint32_t d, void *gi, uint32_t w) { return self->GetButtonFrom(f, d, gi, w); }
 uint32_t THISCALL FEJoyPad_HeldFor(const FEJoyPad *self, uint32_t m) { return self->HeldFor(m); }
@@ -634,6 +640,12 @@ const Replacement kReplacements[] = {
     {0x5358D0, (const void *)&FETypeLib_CreateImageObjectType, "FETypeLib::CreateImageObjectType", {0x83, 0xEC, 0x08, 0x8B, 0x44, 0x24}},
     {0x5359D0, (const void *)&FETypeLib_Startup, "FETypeLib::Startup", {0x83, 0xEC, 0x14, 0x53, 0x57, 0x68}},
     {0x536170, (const void *)&FEngine_Ctor, "FEngine::FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
+    {0x51A640, (const void *)&FEngine_ReleaseAll, "FEngine::ReleaseAll", {0x53, 0x56, 0x57, 0x8B, 0xF1, 0x33}},
+    {0x52C430, (const void *)&FEngine_Dtor, "FEngine::~FEngine", {0x6A, 0xFF, 0x68, 0x54, 0x76, 0x77}},
+    {0x535870, (const void *)&FETypeNode_Dtor, "FETypeNode::~FETypeNode", {0x6A, 0xFF, 0x68, 0x28, 0x70, 0x77}},
+    {0x535850, (const void *)&FETypeNode_ScalarDtor, "FETypeNode scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x514720, (const void *)&FEFieldNode_Dtor, "FEFieldNode::~FEFieldNode", {0x6A, 0xFF, 0x68, 0x28, 0x70, 0x77}},
+    {0x514700, (const void *)&FEFieldNode_ScalarDtor, "FEFieldNode scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
     {0x504B50, (const void *)static_cast<void (*)(FEVector3 *, const float *, const FEVector3 *)>(&FEMultMatrix), "FEMultMatrix", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}, 1, 12, 0},
     {0x504BB0, (const void *)&FEButtonMap_ComputeButtonLocation, "FEButtonMap::ComputeButtonLocation", {0x8B, 0x4C, 0x24, 0x08, 0x83, 0xEC}},
     {0x5189E0, (const void *)&FEButtonMap_GetButtonFrom, "FEButtonMap::GetButtonFrom", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},

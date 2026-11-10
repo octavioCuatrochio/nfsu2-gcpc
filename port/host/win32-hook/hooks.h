@@ -25,5 +25,6 @@ extern const size_t kReplacementCount;
 
 void log(const char *fmt, ...);
 void install_all();
+void report_final();   // logs every hook's call count (process detach: shutdown-only functions)
 
 }  // namespace hook

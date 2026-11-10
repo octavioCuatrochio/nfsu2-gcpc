@@ -27,6 +27,8 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
     if (reason == DLL_PROCESS_ATTACH) {
         hook::log("nfsu2port: loaded into SPEED2.EXE");
         hook::install_all();
+    } else if (reason == DLL_PROCESS_DETACH) {
+        hook::report_final();
     }
     return TRUE;
 }

@@ -1,3 +1,4 @@
+#include "frontend/FETypeLib.h"
 #include "frontend/FERender.h"
 #include "frontend/FEPackageManager.h"
 #include "frontend/FEPackage.h"
@@ -104,6 +105,8 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feListBoxVTable) static_cast<FEListBox *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feNodeVTable) { static_cast<FENode *>(o)->Destruct(); FreeArray(o); }
     else if (vt == &teststub::fePackageVTable) static_cast<FEPackage *>(o)->ScalarDeletingDestructor(1);
+    else if (vt == &teststub::feTypeNodeVTable) static_cast<FETypeNode *>(o)->ScalarDeletingDestructor(1);
+    else if (vt == &teststub::feFieldNodeVTable) static_cast<FEFieldNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageDataVTable) static_cast<FEPackageData *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageCommandVTable) {   // ~FENode frees the name
         FreeArray(static_cast<FENode *>(o)->mpcName);

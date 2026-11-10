@@ -2191,18 +2191,14 @@ static void TestEngineConstructTypes()
     FETypeNode *anim = e->mTypeLib.FindType(10);
     CHECK(anim->GetField("Frame Number")->mu32Offset == 84 && *static_cast<const uint32_t *>(anim->GetField("Frame Number")->mpDefault) == 0);
     CHECK(e->mTypeLib.FindType(5)->mParams.count == 5 && std::string(e->mTypeLib.FindType(6)->node.mpcName) == "Code List" && !e->mTypeLib.FindType(12));
-    // free (the original never tears the library down here)
-    while (FEMinNode *tn = e->mTypeLib.mTypes.RemHead()) {
-        auto *t = reinterpret_cast<FETypeNode *>(tn);
-        while (FEMinNode *fn = t->mParams.RemHead()) {
-            auto *f = reinterpret_cast<FEFieldNode *>(fn);
-            bridge::FreeArray(f->mpDefault);
-            bridge::FreeArray(f->node.mpcName);
-            bridge::FreeArray(f);
-        }
-        bridge::FreeArray(t->node.mpcName);
-        bridge::FreeArray(t);
-    }
+    // teardown: ReleaseAll frees pads, purges messages and the type library; Destruct purges every list
+    e->mpJoyPads = static_cast<FEJoyPad *>(bridge::Alloc(2 * sizeof(FEJoyPad)));
+    e->mu32NumJoyPads = 2;
+    e->QueueMessage(0x1234, nullptr, nullptr, nullptr, 0);
+    e->mu32NumPackageMarkers = 3;
+    e->Destruct();
+    CHECK(e->mpJoyPads == nullptr && e->mu32NumJoyPads == 0 && e->mMessages.count == 0 && e->mTypeLib.mTypes.count == 0);
+    CHECK(e->mu32NumPackageMarkers == 0 && e->mIdlePackages.vtable == &teststub::feMinListVTable);
     CHECK(teststub::liveAllocations == live0);
 }
 
