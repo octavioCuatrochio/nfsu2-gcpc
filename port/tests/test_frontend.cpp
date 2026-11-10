@@ -15,6 +15,7 @@
 #include "frontend/ChooseBrandsScreen.h"
 #include "frontend/UIOptionsScreen.h"
 #include "frontend/UIPauseOptions.h"
+#include "frontend/IconScroller.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -2976,6 +2977,96 @@ static void TestPauseOptions()
     teststub::levelSorterSlots = nullptr;
 }
 
+// Icon scrollers: list navigation (locked icons, wrap), indices, scale animation, thumbnail_scale, menu messages.
+static void TestIconScroller()
+{
+    // thumbnail_scale: centre 0, width 100 -> [-50, 50], ramps of 10
+    CHECK(thumbnail_scale(-60, 0, 100, 10) == 0 && thumbnail_scale(60, 0, 100, 10) == 0);
+    CHECK(thumbnail_scale(-45, 0, 100, 10) == 0.5L && thumbnail_scale(45, 0, 100, 10) == 0.5L && thumbnail_scale(0, 0, 100, 10) == 1);
+    CHECK(FEColorPack(FEColor{{-5, 300, 0x12, 0x80}}) == 0x8012FF00u);
+
+    alignas(8) static unsigned char pm[sizeof(IconScrollerMenu)];
+    std::memset(pm, 0, sizeof pm);
+    auto *menu = reinterpret_cast<IconScrollerMenu *>(pm);
+    IconPanel &p = menu->mScroller.base;
+    p.vtable = bridge::IconScrollerVTable();
+    p.mOptions.next = p.mOptions.prev = &p.mOptions;
+    menu->base.mSoundTrigger = 9;
+    IconOption *o[4];
+    for (int i = 0; i < 4; ++i) {
+        o[i] = static_cast<IconOption *>(bridge::Alloc(sizeof(IconOption)));
+        o[i]->Construct(i, 0x100u + i, 0x200u + i, 0x300u + i, false);
+        WidgetListNode *tail = p.mOptions.prev;
+        tail->next = &o[i]->node; p.mOptions.prev = &o[i]->node; o[i]->node.prev = tail; o[i]->node.next = &p.mOptions;
+    }
+    p.mpCurrent = o[0];
+    CHECK(p.IsHead() && !p.IsTail() && p.GetOptionIndex() == 1 && p.GetOptionIndex(o[3]) == 4 && p.GetOptionIndex(nullptr) == -1);
+    // plain IconPanel selection (scale animation) through the panel vtable
+    p.vtable = bridge::IconPanelVTable();
+    teststub::realTimer = 4000;
+    p.Scroll(1);
+    CHECK(p.mpCurrent == o[1] && p.mbDirty == 1 && p.mLastDir == 1);
+    CHECK(o[1]->mScaleTarget == 1.25f && o[1]->mbScaleDone == 0 && o[1]->mScaleStart == 1.0f && o[0]->mScaleTarget == 1.0f);
+    o[2]->mbLocked = 1;
+    p.Scroll(1);
+    CHECK(p.mpCurrent == o[3]);           // locked icon skipped
+    p.Scroll(1);
+    CHECK(p.mpCurrent == o[3]);           // no wrap
+    p.ScrollWrapped(1);
+    CHECK(p.mpCurrent == o[0]);
+    p.ScrollWrapped(-1);
+    CHECK(p.mpCurrent == o[3] && p.mLastDir == -1);
+    p.mbAllowLocked = 1;
+    p.Scroll(-1);
+    CHECK(p.mpCurrent == o[2]);           // locked allowed
+    p.mbAllowLocked = 0;
+    CHECK(!p.SetSelection(o[2]) && !p.SetSelection(2) && p.SetSelection(0) && p.mpCurrent == o[0]);
+    // scale animation: half way at 1.125, done after the duration (scale keeps the overshoot)
+    float w = 0, h = 0;
+    for (auto *x : o) { x->mWidth = 10; x->mHeight = 20; }
+    p.mSpacing = 10;
+    o[0]->mbScaleDone = 0; o[0]->mScale = 1.0f; o[0]->mScaleTarget = 1.25f; o[0]->mScaleStart = 1.0f; o[0]->mScaleDuration = 0.125f;
+    for (int i = 1; i < 4; ++i) o[i]->mbScaleDone = 1;
+    teststub::realTimer = 4250;   // 1.0625 s: half way
+    p.AnimateList(&w, &h);
+    CHECK(p.mbDirty == 1 && o[0]->mbScaleDone == 0 && w == 11.25f + 30 + 30 && h == 22.5f + 60 + 30);
+    teststub::realTimer = 4600;
+    p.AnimateList(&w, &h);
+    CHECK(p.mbDirty == 0 && o[0]->mbScaleDone == 1 && o[0]->mScale > 1.25f);
+    // menu navigation: horizontal scroller -> left / right move, up / down ignored; sounds by event
+    p.vtable = bridge::IconPanelVTable();
+    p.mbInputEnabled = 1; p.mbHorizontal = 1; p.mpCurrent = o[0];
+    teststub::delivered.clear();
+    menu->NotificationMessage(0x911C0A4Bu, nullptr, 0, 0);
+    CHECK(p.mpCurrent == o[0] && teststub::delivered.empty());
+    teststub::hasLastButton = true; teststub::lastButton = 0;
+    menu->NotificationMessage(0xB5971BF1u, nullptr, 0, 0);
+    CHECK(p.mpCurrent == o[1] && teststub::lastButton == 2);
+    menu->NotificationMessage(0x9120409Eu, nullptr, 0, 0);
+    CHECK(p.mpCurrent == o[0] && teststub::lastButton == 1);
+    teststub::hasLastButton = false;
+    // accept on a lock-shown icon: nothing but sound 0x13; normal accept: stored, input stopped (no package: skipped)
+    o[0]->mbShowLock = 1;
+    menu->NotificationMessage(0x0C407210u, nullptr, 0, 0);
+    CHECK(menu->mPrevMsg == 0);
+    o[0]->mbShowLock = 0;
+    o[0]->mbActsDirectly = 1;
+    o[0]->mpObject = nullptr;
+    teststub::delivered.clear();
+    menu->NotificationMessage(0x0C407210u, nullptr, 7, 8);   // acts directly: React (object matches: both null)
+    CHECK(menu->mPrevMsg == 0x0C407210u && menu->mPrevArg == 7 && menu->mPrevPkg == 8);
+    bool reacted = false;
+    for (const auto &e : teststub::delivered) reacted |= std::string(e.kind) == "react" && e.a == o[0];
+    CHECK(reacted);
+    menu->NotificationMessage(0x0153E234u, nullptr, 0, 0);
+    CHECK(menu->mScroller.mbFade == 1);
+    // teardown: options deleted through their vtable
+    const int deletes = teststub::virtualDeletes;
+    DeleteAllNodeOwners(&p.mOptions);
+    CHECK(teststub::virtualDeletes == deletes + 4 && p.mOptions.next == &p.mOptions);
+    teststub::realTimer = 0;
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -4091,6 +4182,7 @@ int main()
     TestChooseBrands();
     TestOptionsScreen();
     TestPauseOptions();
+    TestIconScroller();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

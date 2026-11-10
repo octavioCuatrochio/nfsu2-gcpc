@@ -112,7 +112,17 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   LeaderBoard unless isInPerformanceTuning 0x89E7E6). Headers: Header_text/Header_text2/Back_button/Select_button.
   FEngGet/SetLastButton 50B8A0/50B8C0 rewritten (FindScreenCreateData 50B840 = static table 0x7F7DC8, 0x1C stride:
   referee-safe). AddToggleOption(w, true) = 54F170 vs (w, int 1) = 54EF30: pick per call site.
-  Next: UIOptionsMain (5) + UIPauseOptionsMain (5) + IconOption (3) icon scrollers, then PauseMenu (23).
+- Icon unit (IconScroller.cpp) done: IconOption (PC 0x4C, vtable 79B604, base ThumbnailNode 79AFDC; React = slot 1,
+  ret 0x14 (pkg, msg, obj, a3, a4)), IconPanel (0x38, 795CBC), IconScroller (0xE8, 79C0F4; +0x38 FEScrollBar "ScrollBar",
+  +0x90 tCubic1D -> SplineSeek 574E30 with *0x865198), IconScrollerMenu (0x150, 7974D4; slot 4 RefreshHeader, 6 AddOption).
+  MSVC vtables list the overloads reversed vs GC: slot 4 SetSelection(int), 5 SetSelection(IconOption*). PC-only: slot 6
+  HandleMouse (panel 52F5A0 hit test, scroller 538B80 scroll-bar mHit -10/1 -> +1, -1/10 -> -1), ScrollNext/Prev 527730/
+  527750 (wrap choice). Quirks kept: vertical SetInitialPos centres x by the height; AnimateList stores the overshooting
+  scale when done; IconScroller::AddOption sets colour 0xFFFFFFFF. Menu messages: 0x9120409E/0xB5971BF1 left/right
+  (horizontal), 0x72619778/0x911C0A4B up/down (vertical), sounds = MakeFrontendSound(event, +0x30 trigger 9).
+  In-game A/B of the main menu / quick-race scroller identical except the highlight pulse phase. Also FEngSetColor 51D7F0,
+  FEngGetObjectColor 50CCC0 (+ packed 495570), FEColorPack 5054D0 (FEColor c[0] = blue .. c[3] = alpha).
+  Next: UIOptionsMain (5) + UIPauseOptionsMain (5) (IconScrollerMenu subclasses), then PauseMenu (23).
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

@@ -62,6 +62,7 @@
 #include <string>
 #include "bridge_stub.h"
 #include "frontend/UIPauseOptions.h"
+#include "frontend/IconScroller.h"
 #define THISCALL __attribute__((thiscall))
 
 static std::mt19937 rng(12345);
@@ -3288,6 +3289,154 @@ static void CheckPauseOptions(int iters)
     *reinterpret_cast<uint8_t *>(0x844AD8) = s0; *reinterpret_cast<uint8_t *>(0x844AD9) = s1;
 }
 
+// Icon scrollers: thumbnail_scale 50D8D0, FEColor pack 5054D0, IconPanel navigation (Scroll / ScrollWrapped / IsHead /
+// IsTail / GetOptionIndex, SetSelection through the real vtable), AnimateList 51FB70 (no objects), and IconScroller
+// ClipEdges / PositionOption / UpdateFade on synthetic image objects.
+namespace iconref {
+constexpr int kN = 5;
+struct Arena {
+    IconScroller sc;
+    IconOption opt[kN];
+    unsigned char om[kN][sizeof(FEObject)];
+    int32_t data[kN][32];
+};
+// options linked in order; objects optional (type 1 images with random data)
+static void Build(Arena &a, bool objects)
+{
+    uint8_t *pa = reinterpret_cast<uint8_t *>(&a);
+    for (size_t i = 0; i < sizeof a; ++i) pa[i] = static_cast<uint8_t>(rng());
+    IconPanel &p = a.sc.base;
+    p.vtable = bridge::IconPanelVTable();
+    p.mOptions.next = p.mOptions.prev = &p.mOptions;
+    p.mpPackageName = nullptr;
+    p.mbAllowLocked = static_cast<uint8_t>(rng() % 4 == 0);
+    p.mbWrap = static_cast<uint8_t>(rng() & 1);
+    const int n = 1 + static_cast<int>(rng() % kN);
+    for (int i = 0; i < n; ++i) {
+        IconOption &o = a.opt[i];
+        o.vtable = bridge::IconOptionVTable();
+        o.mbLocked = static_cast<uint8_t>(rng() % 3 == 0);
+        o.mbScaleDone = static_cast<uint8_t>(rng() & 1);
+        o.mScaleTarget = rng() & 1 ? 1.25f : 1.0f;
+        o.mScale = rng() % 3 ? 1.0f : RefCoord();
+        o.mScaleDuration = 0.125f;
+        o.mScaleStart = static_cast<float>(rng() % 4000) * 0.00025f;
+        o.mWidth = RefCoord(); o.mHeight = RefCoord();
+        o.mOffsetX = RefCoord(); o.mOffsetY = RefCoord();
+        if (objects) {
+            auto *ob = reinterpret_cast<FEObject *>(a.om[i]);
+            std::memset(a.om[i], 0, sizeof a.om[i]);
+            for (auto &d : a.data[i]) d = static_cast<int32_t>(rng() % 3 ? rng() % 256 : rng());
+            auto *f = reinterpret_cast<float *>(a.data[i]);
+            for (int k = 4; k < 16; ++k) f[k] = RefCoord();
+            ob->mpData = a.data[i];
+            ob->mu32Type = 1;
+            ob->mu32Flags = rng() & 0x400001u;
+            o.mpObject = ob;
+        } else o.mpObject = nullptr;
+        WidgetListNode *tail = p.mOptions.prev;
+        tail->next = &o.node; p.mOptions.prev = &o.node; o.node.prev = tail; o.node.next = &p.mOptions;
+    }
+    a.opt[0].mbLocked = 0;   // ScrollWrapped loops forever when every icon is locked (original)
+    p.mpCurrent = &a.opt[rng() % n];
+}
+// B = copy of A with pointers moved into B
+static void Copy(Arena &b, const Arena &a)
+{
+    std::memcpy(&b, &a, sizeof a);
+    const intptr_t d = reinterpret_cast<const uint8_t *>(&b) - reinterpret_cast<const uint8_t *>(&a);
+    auto mv = [&](auto *q) { return q ? reinterpret_cast<decltype(q)>(reinterpret_cast<uint8_t *>(q) + d) : q; };
+    IconPanel &p = b.sc.base;
+    p.mOptions.next = mv(p.mOptions.next); p.mOptions.prev = mv(p.mOptions.prev);
+    p.mpCurrent = mv(p.mpCurrent);
+    for (int i = 0; i < kN; ++i) {
+        b.opt[i].node.next = mv(b.opt[i].node.next); b.opt[i].node.prev = mv(b.opt[i].node.prev);
+        b.opt[i].mpObject = mv(b.opt[i].mpObject);
+        reinterpret_cast<FEObject *>(b.om[i])->mpData = b.data[i];
+    }
+}
+static bool Same(const Arena &a, const Arena &b)
+{
+    const intptr_t d = reinterpret_cast<const uint8_t *>(&b) - reinterpret_cast<const uint8_t *>(&a);
+    Arena c;
+    std::memcpy(&c, &b, sizeof c);
+    auto back = [&](auto *q) { return q ? reinterpret_cast<decltype(q)>(reinterpret_cast<uint8_t *>(q) - d) : q; };
+    IconPanel &p = c.sc.base;
+    p.mOptions.next = back(p.mOptions.next); p.mOptions.prev = back(p.mOptions.prev); p.mpCurrent = back(p.mpCurrent);
+    for (int i = 0; i < kN; ++i) {
+        c.opt[i].node.next = back(c.opt[i].node.next); c.opt[i].node.prev = back(c.opt[i].node.prev);
+        c.opt[i].mpObject = back(c.opt[i].mpObject);
+        reinterpret_cast<FEObject *>(c.om[i])->mpData = reinterpret_cast<const FEObject *>(a.om[i])->mpData;
+    }
+    return std::memcmp(&a, &c, sizeof c) == 0;
+}
+}  // namespace iconref
+
+static void CheckIconScroller(int iters)
+{
+    using namespace iconref;
+    auto oThumb = ORIG<long double(__cdecl *)(float, float, float, float)>(0x50D8D0);
+    auto oPack = ORIG<uint32_t(THISCALL *)(const FEColor *)>(0x5054D0);
+    auto oScroll = ORIG<void(THISCALL *)(IconPanel *, int32_t)>(0x51F9F0);
+    auto oScrollW = ORIG<void(THISCALL *)(IconPanel *, int32_t)>(0x51FAC0);
+    auto oHead = ORIG<uint32_t(THISCALL *)(IconPanel *)>(0x5276D0);
+    auto oTail = ORIG<uint32_t(THISCALL *)(IconPanel *)>(0x527700);
+    auto oIndex = ORIG<int32_t(THISCALL *)(IconPanel *)>(0x495910);
+    auto oAnimate = ORIG<void(THISCALL *)(IconPanel *, float *, float *)>(0x51FB70);
+    auto oPosition = ORIG<void(THISCALL *)(IconScroller *, IconOption *)>(0x52F8C0);
+    auto oFade = ORIG<void(THISCALL *)(IconScroller *, IconOption *, float)>(0x51FD60);
+    int32_t *timer = reinterpret_cast<int32_t *>(0x8651AC);
+    const int32_t savedTimer = *timer;
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            const float x = RefCoord(), c = RefCoord(), w = RefCoord(), r = rng() % 4 ? std::fabs(RefCoord()) : RefCoord();
+            const long double ta = oThumb(x, c, w, r), tb = thumbnail_scale(x, c, w, r);
+            EXPECT(std::memcmp(&ta, &tb, 10) == 0 || (ta != ta && tb != tb), "thumbnail_scale %g %g %g %g", x, c, w, r);
+            FEColor col{{static_cast<int32_t>(rng() % 600) - 150, static_cast<int32_t>(rng()), static_cast<int32_t>(rng() % 300), static_cast<int32_t>(rng() % 300) - 20}};
+            EXPECT(oPack(&col) == FEColorPack(col), "FEColorPack");
+            // navigation
+            Build(A, false);
+            Copy(B, A);
+            const int op = static_cast<int>(rng() % 6);
+            const int32_t dir = rng() % 5 == 0 ? static_cast<int32_t>(rng() % 5) - 2 : (rng() & 1 ? 1 : -1);
+            *timer = static_cast<int32_t>(rng() % 100000);
+            uint32_t ra = 0, rb = 0;
+            switch (op) {
+            case 0: oScroll(&A.sc.base, dir); B.sc.base.Scroll(dir); break;
+            case 1: oScrollW(&A.sc.base, dir); B.sc.base.ScrollWrapped(dir); break;
+            case 2: ra = oHead(&A.sc.base) & 0xFF; rb = B.sc.base.IsHead(); break;
+            case 3: ra = oTail(&A.sc.base) & 0xFF; rb = B.sc.base.IsTail(); break;
+            case 4: ra = static_cast<uint32_t>(oIndex(&A.sc.base)); rb = static_cast<uint32_t>(B.sc.base.GetOptionIndex()); break;
+            default: {
+                float wa = 0, ha = 0, wb = 0, hb = 0;
+                oAnimate(&A.sc.base, &wa, &ha);
+                B.sc.base.AnimateList(&wb, &hb);
+                ra = std::memcmp(&wa, &wb, 4) == 0 && std::memcmp(&ha, &hb, 4) == 0;
+                rb = 1;
+            }
+            }
+            EXPECT(ra == rb && Same(A, B), "IconPanel op %d dir %d pc=%x", op, dir, pc);
+            // positioning on objects
+            Build(A, true);
+            IconScroller &s = A.sc;
+            s.mPos.mVal = RefCoord(); s.mCenterX = RefCoord(); s.mCenterY = RefCoord(); s.mStripWidth = std::fabs(RefCoord());
+            s.mAlign = static_cast<int32_t>(rng() % 4); s.mbFade = static_cast<uint8_t>(rng() & 1);
+            Copy(B, A);
+            const int k = static_cast<int>(rng() % kN);
+            if (A.opt[k].mpObject && A.opt[k].vtable == bridge::IconOptionVTable()) {
+                if (rng() & 1) { oPosition(&A.sc, &A.opt[k]); B.sc.PositionOption(&B.opt[k]); }
+                else { const float f = rng() & 1 ? static_cast<float>(rng() % 1000) / 999.0f : RefCoord(); oFade(&A.sc, &A.opt[k], f); B.sc.UpdateFade(&B.opt[k], f); }
+                EXPECT(Same(A, B), "IconScroller position/fade %d pc=%x", k, pc);
+            }
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+    *timer = savedTimer;
+}
+
 static void CheckDisplayOptions(int iters)
 {
     uint8_t sTab[24], sIdx[4], sDirty, sDetail[4];
@@ -4233,6 +4382,7 @@ static int RunAll()
     REFEREE_RUN(CheckOptionCycles(iters));
     REFEREE_RUN(CheckDisplayOptions(iters));
     REFEREE_RUN(CheckPauseOptions(iters));
+    REFEREE_RUN(CheckIconScroller(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));

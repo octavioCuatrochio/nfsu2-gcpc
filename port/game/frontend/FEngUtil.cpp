@@ -531,3 +531,24 @@ void FEngSetLastButton(const char *pkg, int32_t button)
 {
     if (int32_t *slot = bridge::ScreenLastButtonSlot(FEHashUpper(pkg))) *slot = button;
 }
+
+void FEngSetColor(FEObject *obj, uint32_t argb)
+{
+    if (!obj) return;
+    FEColor c;
+    c.c[3] = static_cast<int32_t>(argb >> 24);
+    c.c[0] = static_cast<int32_t>(argb & 0xFF);
+    c.c[2] = static_cast<int32_t>((argb >> 16) & 0xFF);
+    c.c[1] = static_cast<int32_t>((argb >> 8) & 0xFF);
+    if (obj->mu32Type >= 0x100) return;
+    if (!FEColorClose(c, *static_cast<const FEColor *>(obj->mpData))) obj->mu32Flags |= 0x400000u;
+    obj->SetTrackValue(0, c, false);
+}
+
+FEColor FEngGetObjectColor(const FEObject *obj)
+{
+    if (!obj) return FEColor{{0, 0, 0, 0}};
+    return *static_cast<const FEColor *>(obj->mpData);
+}
+
+uint32_t FEngGetObjectColorPacked(const FEObject *obj) { return FEColorPack(FEngGetObjectColor(obj)); }

@@ -106,3 +106,9 @@ bool FEngTestForIntersection(float x, float y, const float *pos, const float *si
 // 0 when the screen has no record. GC 8014A44C / PC 50B8C0: store it (no record: nothing).
 int32_t FEngGetLastButton(const char *pkg);
 void FEngSetLastButton(const char *pkg, int32_t button);
+// GC 801511A8 / PC 51D7F0: packed ARGB -> colour track 0 (FEObject::SetTrackValue); dirty (0x400000) when the data
+// colour differs by more than 1 in a channel. Null or type >= 0x100: nothing.
+void FEngSetColor(FEObject *obj, uint32_t argb);
+// GC 80151218 / PC 50CCC0 (struct return): the object's data colour (null: all 0). PC 495570: the same, packed (FEColorPack).
+struct FEColor FEngGetObjectColor(const FEObject *obj);
+uint32_t FEngGetObjectColorPacked(const FEObject *obj);

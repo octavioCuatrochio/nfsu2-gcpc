@@ -27,6 +27,8 @@
 #include "frontend/OptionWidgets.h"
 #include "frontend/UIOptionsScreen.h"
 #include "frontend/UIPauseOptions.h"
+#include "frontend/IconScroller.h"
+#include "frontend/FEMath.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -645,6 +647,56 @@ void THISCALL UOS_SetupGameplay(UIOptionsScreen *self) { self->SetupGameplay(); 
 void THISCALL UOS_SetupPlayer(UIOptionsScreen *self) { self->SetupPlayer(); }
 void THISCALL UOS_SetupOnline(UIOptionsScreen *self) { self->SetupOnline(); }
 void THISCALL UOS_SetupTrailers(UIOptionsScreen *self) { self->SetupTrailers(); }
+IconOption *THISCALL IO_Ctor(IconOption *s, uint32_t id, uint32_t n, uint32_t hd, uint32_t ds, uint32_t lock) { return s->Construct(id, n, hd, ds, (lock & 0xFF) != 0); }
+void THISCALL IO_Dtor(IconOption *s) { s->Destruct(); }
+IconOption *THISCALL IO_ScalarDtor(IconOption *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+IconPanel *THISCALL IP_Ctor(IconPanel *s, const char *p, const char *a, const char *b, const char *c, const char *pre, uint32_t wrap) { return s->Construct(p, a, b, c, pre, (wrap & 0xFF) != 0); }
+void THISCALL IP_Dtor(IconPanel *s) { s->Destruct(); }
+IconPanel *THISCALL IP_ScalarDtor(IconPanel *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL IP_Update(IconPanel *s) { s->Update(); }
+FEObject *THISCALL IP_AddOption(IconPanel *s, IconOption *o) { return s->AddOption(o); }
+void THISCALL IP_ClearList(IconPanel *s) { s->ClearList(); }
+void THISCALL IP_Act(IconPanel *s, uint32_t m, FEObject *o, uint32_t a, uint32_t b) { s->Act(m, o, a, b); }
+int32_t THISCALL IP_GetIndex(IconPanel *s) { return s->GetOptionIndex(); }
+int32_t THISCALL IP_GetIndexOf(IconPanel *s, const IconOption *o) { return s->GetOptionIndex(o); }
+bool THISCALL IP_SetSelIdx(IconPanel *s, int32_t i) { return s->SetSelection(i); }
+bool THISCALL IP_SetSelOpt(IconPanel *s, IconOption *o) { return s->SetSelection(o); }
+bool THISCALL IP_HandleMouse(IconPanel *s) { return s->HandleMouse(); }
+void THISCALL IP_SetInitialPos(IconPanel *s) { s->SetInitialPos(); }
+void THISCALL IP_Scroll(IconPanel *s, int32_t d) { s->Scroll(d); }
+void THISCALL IP_ScrollWrapped(IconPanel *s, int32_t d) { s->ScrollWrapped(d); }
+void THISCALL IP_ScrollNext(IconPanel *s) { s->ScrollNext(); }
+void THISCALL IP_ScrollPrev(IconPanel *s) { s->ScrollPrev(); }
+void THISCALL IP_AnimateList(IconPanel *s, float *x, float *y) { s->AnimateList(x, y); }
+bool THISCALL IP_IsHead(IconPanel *s) { return s->IsHead(); }
+bool THISCALL IP_IsTail(IconPanel *s) { return s->IsTail(); }
+IconScroller *THISCALL IS_Ctor(IconScroller *s, const char *p, const char *a, const char *b, const char *c, const char *pre, float wd) { return s->Construct(p, a, b, c, pre, wd); }
+void THISCALL IS_Update(IconScroller *s) { s->Update(); }
+FEObject *THISCALL IS_AddOption(IconScroller *s, IconOption *o) { return s->AddOption(o); }
+void THISCALL IS_SetInitialPos(IconScroller *s, int32_t i) { s->SetInitialPos(i); }
+bool THISCALL IS_SetSelIdx(IconScroller *s, int32_t i) { return s->SetSelection(i); }
+bool THISCALL IS_SetSelOpt(IconScroller *s, IconOption *o) { return s->SetSelection(o); }
+void THISCALL IS_StartDim(IconScroller *s) { s->StartDim(); }
+void THISCALL IS_StopDim(IconScroller *s) { s->StopDim(); }
+void THISCALL IS_ClipEdges(IconScroller *s, IconOption *o, float x) { s->ClipEdges(o, x); }
+void THISCALL IS_PositionOption(IconScroller *s, IconOption *o) { s->PositionOption(o); }
+void THISCALL IS_UpdateFade(IconScroller *s, IconOption *o, float f) { s->UpdateFade(o, f); }
+void THISCALL IS_UpdateArrows(IconScroller *s, int32_t d) { s->UpdateArrows(d); }
+bool THISCALL IS_HandleMouse(IconScroller *s) { return s->HandleMouse(); }
+IconScrollerMenu *THISCALL ISM_Ctor(IconScrollerMenu *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL ISM_Dtor(IconScrollerMenu *s) { s->Destruct(); }
+IconScrollerMenu *THISCALL ISM_ScalarDtor(IconScrollerMenu *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL ISM_Notify(IconScrollerMenu *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL ISM_StartDim(IconScrollerMenu *s) { s->StartDim(); }
+void THISCALL ISM_StopDim(IconScrollerMenu *s) { s->StopDim(); }
+void THISCALL ISM_StartInput(IconScrollerMenu *s) { s->StartInput(); }
+void THISCALL ISM_StopInput(IconScrollerMenu *s) { s->StopInput(); }
+void THISCALL ISM_StorePrev(IconScrollerMenu *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->StorePrevNotification(m, o, a, p); }
+void THISCALL ISM_RefreshHeader(IconScrollerMenu *s) { s->RefreshHeader(); }
+void THISCALL ISM_AddOption(IconScrollerMenu *s, IconOption *o) { s->AddOption(o); }
+FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
+uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
+void THISCALL ISX_StaticArrow2(FEScrollBar *s) { FEScrollBar_StaticArrow2(s); }
 UIPauseOptions *THISCALL UPO_Ctor(UIPauseOptions *self, const ScreenConstructorData *d) { return self->Construct(d); }
 UIPauseOptions *THISCALL UPO_ScalarDtor(UIPauseOptions *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL UPO_Dtor(UIPauseOptions *self) { self->Destruct(); }
@@ -1297,6 +1349,60 @@ const Replacement kReplacements[] = {
     {0x4C43D0, (const void *)&OptToggle_Draw<13>, "PPOScore::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x4C4600, (const void *)&OptToggle_Act<14>, "PPOLeaderBoard::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
     {0x4C46C0, (const void *)&OptToggle_Draw<14>, "PPOLeaderBoard::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x521FF0, (const void *)&IO_Ctor, "IconOption::IconOption", {0x8B, 0x54, 0x24, 0x0C, 0x8B, 0xC1}},
+    {0x527770, (const void *)&IO_Dtor, "IconOption::~IconOption", {0xC7, 0x01, 0xDC, 0xAF, 0x79, 0x00}},
+    {0x4AEB70, (const void *)&IO_ScalarDtor, "IconOption scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xF8, 0x8B}},
+    {0x543840, (const void *)&IP_Ctor, "IconPanel::IconPanel", {0x6A, 0xFF, 0x68, 0xBB, 0x79, 0x77}},
+    {0x4CBC20, (const void *)&IP_Dtor, "IconPanel::~IconPanel", {0xC7, 0x01, 0xBC, 0x5C, 0x79, 0x00}},
+    {0x543BF0, (const void *)&IP_ScalarDtor, "IconPanel scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x28, 0x80}},
+    {0x538910, (const void *)&IP_Update, "IconPanel::Update", {0x83, 0xEC, 0x08, 0x8D, 0x44, 0x24}},
+    {0x5439B0, (const void *)&IP_AddOption, "IconPanel::AddOption", {0x83, 0xEC, 0x40, 0x53, 0x57, 0x8B}},
+    {0x52F390, (const void *)&IP_ClearList, "IconPanel::ClearList", {0x55, 0x8B, 0xE9, 0x8B, 0x45, 0x04}},
+    {0x50D980, (const void *)&IP_Act, "IconPanel::Act", {0x8B, 0x41, 0x0C, 0x85, 0xC0, 0x74}},
+    {0x495910, (const void *)&IP_GetIndex, "IconPanel::GetOptionIndex", {0x8B, 0x41, 0x0C, 0x85, 0xC0, 0x74}},
+    {0x51F820, (const void *)&IP_GetIndexOf, "IconPanel::GetOptionIndex(opt)", {0x57, 0x8B, 0x7C, 0x24, 0x08, 0x85}},
+    {0x52F460, (const void *)&IP_SetSelIdx, "IconPanel::SetSelection(int)", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x8B}},
+    {0x52F510, (const void *)&IP_SetSelOpt, "IconPanel::SetSelection(opt)", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x52F5A0, (const void *)&IP_HandleMouse, "IconPanel::HandleMouse", {0x83, 0xEC, 0x18, 0x53, 0x56, 0x8B}},
+    {0x51F870, (const void *)&IP_SetInitialPos, "IconPanel::SetInitialPos", {0x83, 0xEC, 0x1C, 0x53, 0x56, 0x57}},
+    {0x51F9F0, (const void *)&IP_Scroll, "IconPanel::Scroll", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x83}},
+    {0x51FAC0, (const void *)&IP_ScrollWrapped, "IconPanel::ScrollWrapped", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x83}},
+    {0x527730, (const void *)&IP_ScrollNext, "IconPanel::ScrollNext", {0x8A, 0x41, 0x2C, 0x84, 0xC0, 0x6A}},
+    {0x527750, (const void *)&IP_ScrollPrev, "IconPanel::ScrollPrev", {0x8A, 0x41, 0x2C, 0x84, 0xC0, 0x6A}},
+    {0x51FB70, (const void *)&IP_AnimateList, "IconPanel::AnimateList", {0x53, 0x8B, 0x5C, 0x24, 0x0C, 0x55}},
+    {0x5276D0, (const void *)&IP_IsHead, "IconPanel::IsHead", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x74}},
+    {0x527700, (const void *)&IP_IsTail, "IconPanel::IsTail", {0x8B, 0x41, 0x08, 0x85, 0xC0, 0x74}},
+    {0x543A90, (const void *)&IS_Ctor, "IconScroller::IconScroller", {0x6A, 0xFF, 0x68, 0xD8, 0x79, 0x77}},
+    {0x538940, (const void *)&IS_Update, "IconScroller::Update", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x543C10, (const void *)&IS_AddOption, "IconScroller::AddOption", {0x83, 0xEC, 0x28, 0x57, 0x8B, 0xF9}},
+    {0x538A30, (const void *)&IS_SetInitialPos, "IconScroller::SetInitialPos", {0x53, 0x55, 0x56, 0x8B, 0xF1, 0x8B}},
+    {0x52F7C0, (const void *)&IS_SetSelIdx, "IconScroller::SetSelection(int)", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x8B}},
+    {0x52F680, (const void *)&IS_SetSelOpt, "IconScroller::SetSelection(opt)", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x8B}},
+    {0x51FD10, (const void *)&IS_StartDim, "IconScroller::StartDim", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x56}},
+    {0x538B30, (const void *)&IS_StopDim, "IconScroller::StopDim", {0x53, 0x56, 0x57, 0x8B, 0xF9, 0x8B}},
+    {0x50D9C0, (const void *)&IS_ClipEdges, "IconScroller::ClipEdges", {0xD9, 0x81, 0xCC, 0x00, 0x00, 0x00}},
+    {0x52F8C0, (const void *)&IS_PositionOption, "IconScroller::PositionOption", {0x83, 0xEC, 0x08, 0x56, 0x8B, 0x74}},
+    {0x51FD60, (const void *)&IS_UpdateFade, "IconScroller::UpdateFade", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x85}},
+    {0x52FA70, (const void *)&IS_UpdateArrows, "IconScroller::UpdateArrows", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xF8}},
+    {0x538B80, (const void *)&IS_HandleMouse, "IconScroller::HandleMouse", {0x56, 0x8B, 0xF1, 0x8D, 0x4E, 0x38}},
+    {0x552330, (const void *)&ISM_Ctor, "IconScrollerMenu::IconScrollerMenu", {0x6A, 0xFF, 0x68, 0x73, 0x7C, 0x77}},
+    {0x4DEFB0, (const void *)&ISM_Dtor, "IconScrollerMenu::~IconScrollerMenu", {0x6A, 0xFF, 0x68, 0x18, 0x64, 0x77}},
+    {0x4DF010, (const void *)&ISM_ScalarDtor, "IconScrollerMenu scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x98, 0xFF}},
+    {0x543D40, (const void *)&ISM_Notify, "IconScrollerMenu::NotificationMessage", {0x83, 0xEC, 0x08, 0x56, 0x8B, 0xF1}},
+    {0x538C00, (const void *)&ISM_StartDim, "IconScrollerMenu::StartDim", {0x56, 0x57, 0x68, 0xA0, 0xBD, 0x79}},
+    {0x538CA0, (const void *)&ISM_StopDim, "IconScrollerMenu::StopDim", {0x56, 0x57, 0x68, 0xC0, 0xBD, 0x79}},
+    {0x52FBA0, (const void *)&ISM_StartInput, "IconScrollerMenu::StartInput", {0x56, 0x8B, 0xF1, 0x8A, 0x86, 0x4C}},
+    {0x52FBF0, (const void *)&ISM_StopInput, "IconScrollerMenu::StopInput", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x04}},
+    {0x50DA20, (const void *)&ISM_StorePrev, "IconScrollerMenu::StorePrevNotification", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x54}},
+    {0x50DA50, (const void *)&ISM_RefreshHeader, "IconScrollerMenu::RefreshHeader", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x58}},
+    {0x50DAB0, (const void *)&ISM_AddOption, "IconScrollerMenu::AddOption", {0x8B, 0x41, 0x4C, 0x56, 0x8B, 0x74}},
+    {0x50D8D0, (const void *)&thumbnail_scale, "thumbnail_scale", {0xD9, 0x44, 0x24, 0x0C, 0xD8, 0x0D}},
+    {0x51DF00, (const void *)&UpdateIconOverlay, "UpdateIconOverlay", {0x8B, 0x44, 0x24, 0x04, 0x8A, 0x48}},
+    {0x527660, (const void *)&ISX_StaticArrow2, "FEScrollBar::StaticArrow2", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x77}},
+    {0x51D7F0, (const void *)&FEngSetColor, "FEngSetColor", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0x74}},
+    {0x50CCC0, (const void *)&ISX_GetObjectColor, "FEngGetObjectColor", {0x8B, 0x44, 0x24, 0x08, 0x33, 0xC9}},
+    {0x5054D0, (const void *)&ISX_ColorPack, "FEColor pack", {0x8B, 0x41, 0x08, 0x85, 0xC0, 0x56}},
+    {0x495570, (const void *)&FEngGetObjectColorPacked, "FEngGetObjectColor packed", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xEC}},
     {0x4D93C0, (const void *)&UPO_Ctor, "UIPauseOptions::UIPauseOptions", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4D9470, (const void *)&UPO_Dtor, "UIPauseOptions::~UIPauseOptions", {0xC7, 0x01, 0x04, 0x65, 0x79, 0x00}},
     {0x4EB6B0, (const void *)&UPO_ScalarDtor, "UIPauseOptions scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0xDD}},

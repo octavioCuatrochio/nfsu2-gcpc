@@ -113,4 +113,5 @@ WidgetListNode *NextOf(FEWidget *w);
 void Append(UIWidgetMenu &m, FEWidget *w);     // at the list tail
 float RowWidth(const FEWidget *w, const FEObject *obj);   // |w.x - (obj right edge)|
 void SetArrowTextures(FEObject *left, FEObject *right, int32_t style);
+void OptionName(char (&out)[64], const char *prefix, uint32_t index);   // "<prefix><index>" (bStrCat + FEngSNPrintf)
 }  // namespace uiwm

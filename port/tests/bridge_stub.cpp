@@ -9,6 +9,7 @@
 #include "frontend/FEHash.h"
 #include "frontend/FELocalize.h"
 #include "bWare/bSlotPool.h"
+#include "frontend/IconScroller.h"
 #include "frontend/cFEng.h"
 #include "frontend/FENode.h"
 // Bridge stand-ins for native unit tests: plain heap, no character histogram, settable dirty flag.
@@ -84,6 +85,8 @@ int32_t optionsPage = 0;
 int32_t pausePlayer = 0, playerIds[2] = {0, 1};
 bool wheelPlugged = false;
 bool careerFreeRoam = false, dragRace = false, perfTuning = false;
+int iconOptionVTable = 0, thumbnailNodeVTable = 0, iconPanelVTable = 0, iconScrollerVTable = 0, iconScrollerMenuVTable = 0;
+int splineSeeks = 0, iconScrollTime = 0;
 int32_t quickRacePlayers = 1;
 bool autoSaveAllowed = false;
 bool browsingParts = false;
@@ -163,6 +166,8 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feTypeNodeVTable) static_cast<FETypeNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feFieldNodeVTable) static_cast<FEFieldNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageDataVTable) static_cast<FEPackageData *>(o)->ScalarDeletingDestructor(1);
+    else if (vt == &teststub::iconOptionVTable || vt == &teststub::thumbnailNodeVTable)
+        static_cast<IconOption *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageCommandVTable) {   // ~FENode frees the name
         FreeArray(static_cast<FENode *>(o)->mpcName);
         FreeArray(o);
@@ -966,6 +971,48 @@ int32_t PlayerId(int32_t n) { const uint8_t *p = reinterpret_cast<const uint8_t 
 #else
 int32_t RaceCoordinatorPausePlayer() { return teststub::pausePlayer; }
 int32_t PlayerId(int32_t n) { return teststub::playerIds[n]; }
+#endif
+// ---- Icon scrollers ----
+#ifdef NFSU2_REFEREE   // real vtables and slots (the originals and the rewrite share objects)
+void *ThumbnailNodeVTable() { return reinterpret_cast<void *>(0x79AFDC); }
+void *IconOptionVTable() { return reinterpret_cast<void *>(0x79B604); }
+void *IconPanelVTable() { return reinterpret_cast<void *>(0x795CBC); }
+void *IconScrollerVTable() { return reinterpret_cast<void *>(0x79C0F4); }
+void *IconScrollerMenuVTable() { return reinterpret_cast<void *>(0x7974D4); }
+template <typename F> static F IconSlot(void *o, int off) { return (*reinterpret_cast<F **>(o))[off / 4]; }
+void IconOption_React(void *o, const char *pkg, uint32_t m, void *obj, uint32_t a, uint32_t b) { IconSlot<void(__thiscall *)(void *, const char *, uint32_t, void *, uint32_t, uint32_t)>(o, 4)(o, pkg, m, obj, a, b); }
+void *IconPanel_AddOption(void *p, void *o) { return IconSlot<void *(__thiscall *)(void *, void *)>(p, 8)(p, o); }
+void IconPanel_Update(void *p) { IconSlot<void(__thiscall *)(void *)>(p, 4)(p); }
+void IconPanel_Act(void *p, uint32_t m, void *obj, uint32_t a, uint32_t b) { IconSlot<void(__thiscall *)(void *, uint32_t, void *, uint32_t, uint32_t)>(p, 0xC)(p, m, obj, a, b); }
+bool IconPanel_SetSelectionOption(void *p, void *o) { return (IconSlot<uint32_t(__thiscall *)(void *, void *)>(p, 0x14)(p, o) & 0xFF) != 0; }
+bool IconPanel_HandleMouse(void *p) { return (IconSlot<uint32_t(__thiscall *)(void *)>(p, 0x18)(p) & 0xFF) != 0; }
+void IconScrollerMenu_RefreshHeader(void *m) { IconSlot<void(__thiscall *)(void *)>(m, 0x10)(m); }
+void SplineSeek(void *c, float dt, float a, float b) { reinterpret_cast<void(__cdecl *)(void *, float, float, float)>(0x574E30)(c, dt, a, b); }
+void SetIconScrollTime(int32_t t) { *reinterpret_cast<int32_t *>(0x8641A0) = t; }
+#else
+void *ThumbnailNodeVTable() { return &teststub::thumbnailNodeVTable; }
+void *IconOptionVTable() { return &teststub::iconOptionVTable; }
+void *IconPanelVTable() { return &teststub::iconPanelVTable; }
+void *IconScrollerVTable() { return &teststub::iconScrollerVTable; }
+void *IconScrollerMenuVTable() { return &teststub::iconScrollerMenuVTable; }
+static bool IsScroller(void *p) { return *static_cast<void **>(p) == &teststub::iconScrollerVTable; }
+void IconOption_React(void *o, const char *, uint32_t m, void *, uint32_t, uint32_t) { teststub::delivered.push_back({"react", o, nullptr, m, 0}); }
+void *IconPanel_AddOption(void *p, void *o)
+{
+    auto *opt = static_cast<IconOption *>(o);
+    return IsScroller(p) ? static_cast<IconScroller *>(p)->AddOption(opt) : static_cast<IconPanel *>(p)->AddOption(opt);
+}
+void IconPanel_Update(void *p) { IsScroller(p) ? static_cast<IconScroller *>(p)->Update() : static_cast<IconPanel *>(p)->Update(); }
+void IconPanel_Act(void *p, uint32_t m, void *obj, uint32_t a, uint32_t b) { static_cast<IconPanel *>(p)->Act(m, static_cast<FEObject *>(obj), a, b); }
+bool IconPanel_SetSelectionOption(void *p, void *o)
+{
+    auto *opt = static_cast<IconOption *>(o);
+    return IsScroller(p) ? static_cast<IconScroller *>(p)->SetSelection(opt) : static_cast<IconPanel *>(p)->SetSelection(opt);
+}
+bool IconPanel_HandleMouse(void *p) { return IsScroller(p) ? static_cast<IconScroller *>(p)->HandleMouse() : static_cast<IconPanel *>(p)->HandleMouse(); }
+void IconScrollerMenu_RefreshHeader(void *m) { static_cast<IconScrollerMenu *>(m)->RefreshHeader(); }
+void SplineSeek(void *, float, float, float) { ++teststub::splineSeeks; }
+void SetIconScrollTime(int32_t t) { teststub::iconScrollTime = t; }
 #endif
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return &teststub::fakeFont; }

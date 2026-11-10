@@ -44,3 +44,6 @@ void FELerpQuaternion(const FEQuaternion *a, const FEQuaternion *b, float t, con
 int32_t FEFtol(long double x);
 // PC 505580 / GC FEColor::operator-: per-channel subtraction (32-bit wraparound).
 FEColor FEColorSub(const FEColor &a, const FEColor &b);
+// PC 5054D0 (__thiscall on the colour; GC FEColor::operator unsigned long): channels clamped to 0..255, packed
+// c[3] << 24 | c[2] << 16 | c[1] << 8 | c[0] (alpha, red, green, blue).
+uint32_t FEColorPack(const FEColor &c);

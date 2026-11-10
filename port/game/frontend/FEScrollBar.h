@@ -59,3 +59,5 @@ static_assert(__builtin_offsetof(FEScrollBar, mStep) == 0x34 && __builtin_offset
 FEObject *FEngFindImage(const char *pkg, const char *name);   // PC 4953E0: FEngFindImage(pkg, FEHashUpper(name))
 void FEngSetWidth(FEObject *obj, float w);                    // PC 495590: FEngSetSize(obj, w, current height)
 void FEngSetHeight(FEObject *obj, float h);                   // PC 525DB0: FEngSetSize(obj, current width, h)
+// PC 527660 (FEScrollBar member, GC inlined): "Static" on arrow 2 unless already running.
+void FEScrollBar_StaticArrow2(FEScrollBar *s);

@@ -432,6 +432,21 @@ int32_t RaceCoordinatorPausePlayer();             // PC *(*(0x8900D8) + 0x20) (n
 int32_t PlayerId(int32_t number);                // PC Player::pPlayersByNumber[n] (0x8900AC) ->+8, null -> -1
 void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t d);   // PC *(0x8650B8)->578EF0(a, b, c, d), no null check
 void Player_ChangeCamera(int32_t number, int32_t dir);   // PC Player::pPlayersByNumber[n] (0x8900AC) 5F2FA0(dir) (__thiscall)
+// ---- Icon scrollers (IconOption / IconPanel / IconScroller / IconScrollerMenu) ----
+void *ThumbnailNodeVTable();                     // PC 0x79AFDC (IconOption base, set by ~IconOption)
+void *IconOptionVTable();                        // PC 0x79B604
+void *IconPanelVTable();                         // PC 0x795CBC
+void *IconScrollerVTable();                      // PC 0x79C0F4
+void *IconScrollerMenuVTable();                  // PC 0x7974D4
+void IconOption_React(void *opt, const char *pkg, uint32_t msg, void *obj, uint32_t a3, uint32_t a4);   // slot 1 (ret 0x14)
+void *IconPanel_AddOption(void *panel, void *opt);   // slot 2 (+0x08): the option's image or null
+void IconPanel_Update(void *panel);                   // slot 1 (+0x04)
+void IconPanel_Act(void *panel, uint32_t msg, void *obj, uint32_t a3, uint32_t a4);   // slot 3 (+0x0C)
+bool IconPanel_SetSelectionOption(void *panel, void *opt);   // slot 5 (+0x14)
+bool IconPanel_HandleMouse(void *panel);              // slot 6 (+0x18, PC only)
+void IconScrollerMenu_RefreshHeader(void *menu);      // slot 4 (+0x10)
+void SplineSeek(void *cubic, float dt, float a, float b);   // PC 574E30 (__cdecl, cPoint::SplineSeek on a tCubic1D)
+void SetIconScrollTime(int32_t t);                    // PC *(int*)0x8641A0 = RealTimer when an icon scroller moves
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable();                    // PC 0x796504
 bool IsCareerFreeRoam();                         // PC 500B60 (__thiscall on 0x85AD40, AL) PlayerCareerState

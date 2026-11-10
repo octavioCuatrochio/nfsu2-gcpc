@@ -159,3 +159,9 @@ void FELerpQuaternion(const FEQuaternion *a, const FEQuaternion *b, float t, con
     }
     *out = FEQuatMultiply(res, *base);
 }
+
+uint32_t FEColorPack(const FEColor &c)
+{
+    auto ch = [](int32_t v) -> uint32_t { return v < 0 ? 0u : v > 0xFF ? 0xFFu : static_cast<uint32_t>(v); };
+    return ch(c.c[3]) << 24 | ch(c.c[2]) << 16 | ch(c.c[1]) << 8 | ch(c.c[0]);
+}

@@ -70,6 +70,8 @@ extern int32_t optionsPage;
 extern int32_t pausePlayer, playerIds[2];
 extern bool wheelPlugged;
 extern bool careerFreeRoam, dragRace, perfTuning;
+extern int iconOptionVTable, thumbnailNodeVTable, iconPanelVTable, iconScrollerVTable, iconScrollerMenuVTable;
+extern int splineSeeks, iconScrollTime;
 extern int32_t quickRacePlayers;
 extern bool autoSaveAllowed;
 extern bool browsingParts;

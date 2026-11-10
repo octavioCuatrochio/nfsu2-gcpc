@@ -268,3 +268,8 @@ void FEScrollBar::BlinkArrow2()
 {
     if (mpArrow2 && !FEngIsScriptRunning(mpArrow2, "Blink")) FEngSetScript(mpArrow2, "Blink", true);
 }
+
+void FEScrollBar_StaticArrow2(FEScrollBar *s)
+{
+    if (s->mpArrow2 && !FEngIsScriptRunning(s->mpArrow2, "Static")) FEngSetScript(s->mpArrow2, "Static", true);
+}

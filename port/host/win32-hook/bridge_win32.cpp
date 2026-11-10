@@ -527,6 +527,22 @@ int32_t RaceCoordinatorPausePlayer() { return *reinterpret_cast<const int32_t *>
 int32_t PlayerId(int32_t n) { const uint8_t *p = reinterpret_cast<const uint8_t *const *>(0x8900AC)[n]; return p ? *reinterpret_cast<const int32_t *>(p + 8) : -1; }
 void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t d) { reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t, int32_t, int32_t)>(0x578EF0)(JumpCamObject(), a, b, c, d); }
 void Player_ChangeCamera(int32_t n, int32_t dir) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x5F2FA0)(reinterpret_cast<void **>(0x8900AC)[n], dir); }
+// ---- Icon scrollers ----
+void *ThumbnailNodeVTable() { return reinterpret_cast<void *>(0x79AFDC); }
+void *IconOptionVTable() { return reinterpret_cast<void *>(0x79B604); }
+void *IconPanelVTable() { return reinterpret_cast<void *>(0x795CBC); }
+void *IconScrollerVTable() { return reinterpret_cast<void *>(0x79C0F4); }
+void *IconScrollerMenuVTable() { return reinterpret_cast<void *>(0x7974D4); }
+template <typename F> static F Slot(void *o, int off) { return (*reinterpret_cast<F **>(o))[off / 4]; }
+void IconOption_React(void *o, const char *pkg, uint32_t m, void *obj, uint32_t a, uint32_t b) { Slot<void(THISCALL *)(void *, const char *, uint32_t, void *, uint32_t, uint32_t)>(o, 4)(o, pkg, m, obj, a, b); }
+void *IconPanel_AddOption(void *p, void *o) { return Slot<void *(THISCALL *)(void *, void *)>(p, 8)(p, o); }
+void IconPanel_Update(void *p) { Slot<void(THISCALL *)(void *)>(p, 4)(p); }
+void IconPanel_Act(void *p, uint32_t m, void *obj, uint32_t a, uint32_t b) { Slot<void(THISCALL *)(void *, uint32_t, void *, uint32_t, uint32_t)>(p, 0xC)(p, m, obj, a, b); }
+bool IconPanel_SetSelectionOption(void *p, void *o) { return (Slot<uint32_t(THISCALL *)(void *, void *)>(p, 0x14)(p, o) & 0xFF) != 0; }
+bool IconPanel_HandleMouse(void *p) { return (Slot<uint32_t(THISCALL *)(void *)>(p, 0x18)(p) & 0xFF) != 0; }
+void IconScrollerMenu_RefreshHeader(void *m) { Slot<void(THISCALL *)(void *)>(m, 0x10)(m); }
+void SplineSeek(void *c, float dt, float a, float b) { reinterpret_cast<void(__cdecl *)(void *, float, float, float)>(0x574E30)(c, dt, a, b); }
+void SetIconScrollTime(int32_t t) { *reinterpret_cast<int32_t *>(0x8641A0) = t; }
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return reinterpret_cast<void *>(0x796504); }
 bool IsCareerFreeRoam() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x500B60)(reinterpret_cast<void *>(0x85AD40)) != 0; }
