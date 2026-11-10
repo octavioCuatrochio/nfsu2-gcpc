@@ -65,10 +65,10 @@ void *bWareMalloc(uint32_t size, const char *name, int32_t line, uint32_t flags)
 ::SlotPoolManager *TheSlotPoolManager();                                   // PC 0x828530 (game global)
 ::SlotPool **BPNodeSlotPool();          // PC 0x8284F0 (game global)
 int32_t *BPListWantToClose();          // PC 0x8284F4 (game global)
+void *RenderObjectDisconnectVTable();                                              // PC 0x79AB9C
 void bWareFree(void *p);
 int32_t FEngLoadCounter();                                                         // PC 0x8384D0 (game global)
 ::SlotPool *LevelSorterSlots();                                                    // PC *(0x8384B0) (game global)
-void cFEng_PopPackage(::cFEng *fe, const char *name);                              // PC 0x537580 (__thiscall)
 // MenuScreen::BaseNotify(msg, obj, arg, pkg): game-side screen notification            PC 0x55B5C0 (__thiscall)
 void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, ::FEPackage *pkg);
 void *bMalloc(uint32_t size, uint32_t flags);                                      // PC 0x440820 (__cdecl; GC bMalloc(int,int))

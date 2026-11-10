@@ -21,7 +21,7 @@ struct FEPackage;
 struct cFEng {
     uint8_t _unknown00[8];
     FEngine *mpEngine;               // +0x08 (GC +0x10)
-    uint8_t _unknown0C[4];
+    void *mpRender;                  // +0x0C cFEngRender (GC +0x14)
     cFEngLevelSorter *mpSortHead;    // +0x10 (GC +0x18) list sentinel: {head, tail}; empty -> points at itself
     cFEngLevelSorter *mpSortTail;    // +0x14
 
@@ -43,6 +43,11 @@ struct cFEng {
     // GC 8014F044 / PC 5377A0 (ret 0xC): switch packages and replace the entry for `from` with a new one for `to`
     // (no null checks, like the original).
     void Switcher(const char *from, const char *to, int32_t arg);
+    // GC 8014E8FC / PC 537580 (ret 4): loaded package: message 0xD9CA113D, disconnect every object from the
+    // renderer (RenderObjectDisconnect callback, game vtable), then FEngine::UnloadPackage (bridge).
+    void PopPackage(const char *name);
+    // GC 8014EFD0 / PC 537750 (ret 4): PopPackage and drop the sorter entry (no renumbering).
+    void ForceUnloadPackage(const char *name);
     static void SetButtonState(const char *pkgName, uint32_t buttonHash, bool enable);
     // GC 8014E798 / 8014E7F0, PC 51CB20 / 51CB60 (ret 0xC): parent looked up by name (null name -> no parent).
     void QueuePushPackage(const char *name, const char *parent, uint32_t mask);

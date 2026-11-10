@@ -83,7 +83,7 @@ void cFEng::Popper(const char *name)
 {
     cFEngLevelSorter *n = FindInLevelSortingList(name);
     if (!n) return;
-    if (n->mi32State == 1 || n->mi32State == 0) bridge::cFEng_PopPackage(this, name);
+    if (n->mi32State == 1 || n->mi32State == 0) PopPackage(name);
     else QueuePopPackage(name);
     n->prev->next = n->next;
     n->next->prev = n->prev;
@@ -114,4 +114,29 @@ void cFEng::Switcher(const char *from, const char *to, int32_t arg)
     old->next->prev = old->prev;
     bFree(bridge::LevelSorterSlots(), old);
     ResyncSortingLevels();
+}
+
+void cFEng::PopPackage(const char *name)
+{
+    FEPackageManager *m = bridge::TheFEPackageManager();
+    FEPackageData *d = m->FindFEPackageData(name);
+    if (!d || !d->mpPackage) return;
+    FEPackage *pkg = d->mpPackage;
+    m->SendMessageToPackage(name, 0xD9CA113Du);
+    struct { void *vtable; void *render; void *renderInfo; } cb;   // RenderObjectDisconnect (PC 12 bytes)
+    cb.vtable = bridge::RenderObjectDisconnectVTable();
+    cb.render = mpRender;
+    cb.renderInfo = pkg->mpRenderInfo ? static_cast<uint8_t *>(pkg->mpRenderInfo) + 0x24 : nullptr;
+    pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb));
+    bridge::FEngine_UnloadPackage(mpEngine, pkg);   // "Direct Pop---------------------%s------------------"
+}
+
+void cFEng::ForceUnloadPackage(const char *name)
+{
+    cFEngLevelSorter *n = FindInLevelSortingList(name);
+    if (!n) return;
+    PopPackage(name);   // "CAlling the pop in [%s]"
+    n->prev->next = n->next;
+    n->next->prev = n->prev;
+    bFree(bridge::LevelSorterSlots(), n);
 }

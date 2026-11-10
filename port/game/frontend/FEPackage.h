@@ -41,7 +41,7 @@ struct FEPackage {
     int32_t mi32ScriptDelta;         // +0x34 time added to the current script per UpdateObject
     uint8_t _unknown38[4];
     FEPackage *mpParent;             // +0x3C (GC +0x48) package that pushed this one (gets its masks back on pop)
-    uint8_t _unknown40[4];
+    void *mpRenderInfo;              // +0x40 renderer data (cFEng: render info at +0x24); GC HACK_FEPkgMgr_GetPackageRenderInfo
     FEMinList mObjects;              // +0x44 top-level objects
     FEMinList mResponses;            // +0x54 package-level FEMessageResponses ("global" handlers)
     uint8_t _unknown64[8];

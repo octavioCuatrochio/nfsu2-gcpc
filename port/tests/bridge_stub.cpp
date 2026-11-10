@@ -42,6 +42,7 @@ FEPackage *pushResult = nullptr;
 std::string lastPushName;
 int32_t fengLoadCounter = 0;
 ::SlotPool *levelSorterSlots = nullptr;
+int renderDisconnectVTable = 0, renderDisconnects = 0;
 }  // namespace teststub
 
 namespace bridge {
@@ -113,7 +114,7 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
 }
 int32_t FEngLoadCounter() { return teststub::fengLoadCounter; }
 SlotPool *LevelSorterSlots() { return teststub::levelSorterSlots; }
-void cFEng_PopPackage(cFEng *, const char *name) { teststub::lastPushName = std::string("pop:") + name; }
+void *RenderObjectDisconnectVTable() { return &teststub::renderDisconnectVTable; }
 void bWareFree(void *p) { if (p) --teststub::liveAllocations; std::free(p); }
 #ifdef NFSU2_REFEREE
 uint16_t BaselineFovNoise() { return *reinterpret_cast<const uint16_t *>(0x7EC1F0); }
@@ -202,6 +203,7 @@ bool FEObjectCallback_Call(void *cb, void *obj)
 #ifdef NFSU2_REFEREE
     return (*reinterpret_cast<bool(__attribute__((thiscall)) ***)(void *, void *)>(cb))[1](cb, obj);
 #endif
+    if (*static_cast<void **>(cb) == &teststub::renderDisconnectVTable) { ++teststub::renderDisconnects; return true; }
     auto *t = static_cast<teststub::TestCallback *>(cb);
     t->visited.push_back(obj);
     return obj != t->stopAt;

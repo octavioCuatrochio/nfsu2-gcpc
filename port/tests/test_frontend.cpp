@@ -1349,8 +1349,33 @@ static void TestLevelSorter()
     CHECK(P[2]->mi32Priority == 0 && P[1]->mi32Priority == 1);
     // Popper(Shop): state 0 -> direct pop (cFEng::PopPackage bridge), entry removed
     fe->mpSortHead->next->mi32State = 0;
-    fe->Popper("Shop.fng");
-    CHECK(teststub::lastPushName == "pop:Shop.fng" && fe->mpSortHead->next == fe->SortSentinel());
+    fe->Popper("Shop.fng");                                         // not registered with the manager: no pop
+    CHECK(fe->mpSortHead->next == fe->SortSentinel());
+    // PopPackage of a registered package: message, disconnect each object, unload
+    {
+        FEPackageManager *m = bridge::TheFEPackageManager();
+        alignas(4) uint8_t hdr[0x40] = {};
+        auto *h = reinterpret_cast<uint32_t *>(hdr);
+        h[0] = 0xE76E4546u; h[2] = 0x64486B50u; h[4] = 0x20000u;
+        std::strcpy(reinterpret_cast<char *>(hdr + 0x28), "Pop.fng");
+        uint32_t chunk[4] = {0x30203};
+        alignas(8) unsigned char om[2][sizeof(FEObject)] = {};
+        P[1]->mObjects = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+        P[1]->mObjects.AddTail(&FEObject::Construct(om[0])->node);
+        P[1]->mObjects.AddTail(&FEObject::Construct(om[1])->node);
+        int screen;
+        FEPackageData d{};
+        d.mpData = hdr; d.mpChunk = chunk; d.mpPackage = P[1]; d.mpScreen = &screen;
+        d.node.prev = m->mList.prev; d.node.next = &m->mList; m->mList.prev->next = &d.node; m->mList.prev = &d.node;
+        teststub::delivered.clear();
+        teststub::renderDisconnects = 0;
+        fe->PopPackage("pop.fng");
+        auto &dl = teststub::delivered;
+        CHECK(teststub::renderDisconnects == 2 && dl.size() == 2 && dl[0].msg == 0xD9CA113Du && std::string(dl[1].kind) == "unload" && dl[1].pkg == P[1]);
+        m->mList.next = m->mList.prev = &m->mList;
+        P[1]->mObjects = FEMinList{&teststub::feMinListVTable, 0, nullptr, nullptr};
+        dl.clear();
+    }
     CollectCommands();
     std::free(pool); --teststub::liveAllocations;
     teststub::levelSorterSlots = nullptr;

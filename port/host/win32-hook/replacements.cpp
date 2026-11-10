@@ -217,6 +217,8 @@ void THISCALL cFEng_QueuePopPackage(cFEng *self, const char *n) { self->QueuePop
 FENode *THISCALL FEList_FindNode(void *, const char *n, FENode *start) { return FEListFindNode(n, start); }
 void THISCALL cFEng_ResyncSortingLevels(cFEng *self) { self->ResyncSortingLevels(); }
 void THISCALL cFEng_Popper(cFEng *self, const char *n) { self->Popper(n); }
+void THISCALL cFEng_PopPackage(cFEng *self, const char *n) { self->PopPackage(n); }
+void THISCALL cFEng_ForceUnloadPackage(cFEng *self, const char *n) { self->ForceUnloadPackage(n); }
 void THISCALL cFEng_Switcher(cFEng *self, const char *f, const char *t, int32_t a) { self->Switcher(f, t, a); }
 void THISCALL cFEng_QueuePushPackage(cFEng *self, const char *n, const char *p, uint32_t m) { self->QueuePushPackage(n, p, m); }
 void THISCALL cFEng_QueuePushModalPackage(cFEng *self, const char *n, const char *p, uint32_t m) { self->QueuePushModalPackage(n, p, m); }
@@ -486,6 +488,8 @@ const Replacement kReplacements[] = {
     {0x519E50, (const void *)&FEList_FindNode, "FEList::FindNode", {0x53, 0x55, 0x56, 0x57, 0x8B, 0x7C}},
     {0x52CEF0, (const void *)&FEngFindPackage, "FEngFindPackage", {0xA1, 0xD0, 0x84, 0x83, 0x00, 0x85}},
     {0x5376B0, (const void *)&cFEng_ResyncSortingLevels, "cFEng::ResyncSortingLevels", {0x53, 0x56, 0x8B, 0x71, 0x10, 0x8D}},
+    {0x537580, (const void *)&cFEng_PopPackage, "cFEng::PopPackage", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x537750, (const void *)&cFEng_ForceUnloadPackage, "cFEng::ForceUnloadPackage", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
     {0x5376F0, (const void *)&cFEng_Popper, "cFEng::Popper", {0x53, 0x8B, 0x5C, 0x24, 0x08, 0x56}},
     {0x5377A0, (const void *)&cFEng_Switcher, "cFEng::Switcher", {0x53, 0x55, 0x8B, 0x6C, 0x24, 0x10}},
     {0x541FC0, (const void *)&FEngine_ProcessMessageQueue, "FEngine::ProcessMessageQueue", {0x83, 0xEC, 0x0C, 0x53, 0x8B, 0xD9}},
