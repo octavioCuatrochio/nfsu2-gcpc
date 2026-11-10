@@ -1,3 +1,4 @@
+#include "frontend/QuickRaceSettings.h"
 #include "frontend/FERender.h"
 #include "frontend/FEPackageManager.h"
 #include "bWare/bSlotPool.h"
@@ -695,4 +696,19 @@ int32_t HighScores_FindBestLapTime(int32_t t, int32_t d) { return reinterpret_ca
 void Timer_PrintToString(const int32_t *t, char *b, int32_t f) { reinterpret_cast<void(THISCALL *)(const int32_t *, char *, int32_t)>(0x577240)(t, b, f); }
 void GetLocalizedStringBuf(char *b, int32_t n, uint32_t h) { reinterpret_cast<void(__cdecl *)(char *, int32_t, uint32_t)>(0x4FFA50)(b, n, h); }
 void FEngPrintfFloatString(const char *p, uint32_t h, const char *f, double v, const char *s) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f, v, s); }
+// ---- QuickRaceSettings / UIQRModeOptions ----
+::QuickRaceSettings *QuickRaceSettingsInstance() { return reinterpret_cast<::QuickRaceSettings *>(0x83AAB4); }
+const ::TrackInfo *TrackInfo_GetTrackInfo(uint32_t t) { return reinterpret_cast<const ::TrackInfo *(__cdecl *)(uint32_t)>(0x5D3E40)(t); }
+void FEngSendMessageToPackage(uint32_t m, const char *p) { reinterpret_cast<void(__cdecl *)(uint32_t, const char *)>(0x55DDA0)(m, p); }
+void FEPrintfIntString(FEObject *o, const char *f, int32_t v, const char *s) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v, s); }
+void QRModeOptions_BoilerPlateOnline(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x4B41C0)(s); }
+void QRModeOptions_HandlePasswordEntryRestrictions(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x4982C0)(s); }
+void QRModeOptions_OnlineAccept(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x498440)(s); }
+void QRModeOptions_Online4A0140(const char *p) { reinterpret_cast<void(__cdecl *)(const char *)>(0x4A0140)(p); }
+void QRModeOptions_Online4E2DC0(void *s) { reinterpret_cast<void(THISCALL *)(void *)>(0x4E2DC0)(s); }
+void QRModeOptions_Online495220(const char *t) { reinterpret_cast<void(THISCALL *)(void *, const char *)>(0x495220)(reinterpret_cast<void *>(0x850080), t); }
+uint16_t OnlineNumLaps_MinLaps(void *w) { return reinterpret_cast<uint16_t(THISCALL *)(void *)>(0x498400)(w); }
+void *DialogShowOk(const char *p, const char *d, uint32_t h) { return reinterpret_cast<void *(__cdecl *)(const char *, const char *, uint32_t, ...)>(0x558430)(p, d, h); }
+void *DialogShowOk(const char *p, const char *d, uint32_t h, int32_t a, int32_t b) { return reinterpret_cast<void *(__cdecl *)(const char *, const char *, uint32_t, ...)>(0x558430)(p, d, h, a, b); }
+void DialogDismiss(void *d) { reinterpret_cast<void(__cdecl *)(void *)>(0x540A60)(d); }
 }  // namespace bridge

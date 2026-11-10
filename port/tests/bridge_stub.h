@@ -96,6 +96,7 @@ extern std::vector<void *> trackInfos;   // TrackInfo_GetNth
 extern int32_t lockedTrack, resourceLoads, resourceUnloads;   // IsTrackUnlocked false for lockedTrack
 extern void (*loadCallback)(void *);   // last LoadResourceFile callback (ServiceResourceLoading calls it)
 extern void *loadParam;
+extern const void *currentTrackInfo;   // TrackInfo_GetTrackInfo result
 extern uint32_t lastJoyTypes[2];
 extern uint8_t joyTypes[2];
 extern void *memoryCard;

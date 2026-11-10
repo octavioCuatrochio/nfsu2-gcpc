@@ -65,6 +65,7 @@
 #include "frontend/IconScroller.h"
 #include "frontend/ThumbnailScroller.h"
 #include "frontend/QRTrackSelect.h"
+#include "frontend/QuickRaceSettings.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/MainMenu.h"
 #define THISCALL __attribute__((thiscall))
@@ -4373,6 +4374,74 @@ static int TSIndex(const ThumbnailNode *p, const ThumbnailNode *base) { return p
 
 // UIQRTrackSelect / SelectableTrack / TrackMapScroller pure functions: icon hash, availability, sort compare,
 // SetTrackMap, InitZoom / ZoomIn (synthetic image without scripts). The mode globals are set and restored.
+// QuickRaceSettings accessors on two synthetic copies (modes 0..12, incl. the mode-12 fields).
+static void CheckQuickRaceSettings(int iters)
+{
+    using G = int32_t(THISCALL *)(QuickRaceSettings *);
+    using S = void(THISCALL *)(QuickRaceSettings *, uint32_t);
+    const uint32_t getters[] = {0x5026F0, 0x502710, 0x502730, 0x502750, 0x502770, 0x502780};
+    const uint32_t setters[] = {0x502930, 0x502960, 0x502990, 0x5029C0, 0x5029F0, 0x502A20, 0x502A30};
+    auto oVal1 = ORIG<int8_t(THISCALL *)(QuickRaceSettings *)>(0x502790);
+    auto oVal2 = ORIG<int8_t(THISCALL *)(QuickRaceSettings *)>(0x5027A0);
+    auto oWon = ORIG<bool(THISCALL *)(QuickRaceSettings *)>(0x5027B0);
+    auto oOver = ORIG<bool(THISCALL *)(QuickRaceSettings *)>(0x502840);
+    auto oReset = ORIG<void(THISCALL *)(QuickRaceSettings *)>(0x5028D0);
+    auto oCatch = ORIG<uint8_t(THISCALL *)(QuickRaceSettings *)>(0x5028F0);
+    auto oTrack = ORIG<QRTrackSettings *(THISCALL *)(QuickRaceSettings *)>(0x502910);
+    auto oCar = ORIG<void(THISCALL *)(QuickRaceSettings *, int32_t, int32_t)>(0x502A40);
+    static QuickRaceSettings A, B;
+    for (int it = 0; it < iters; ++it) {
+        uint8_t *a = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) a[i] = static_cast<uint8_t>(rng());
+        A.mRaceMode = static_cast<int32_t>(rng() % 13);
+        A.mPointsToWin = static_cast<int32_t>(rng() % 7);
+        A.mTimeLimit = static_cast<int32_t>(rng() % 5);
+        if (rng() & 1) for (uint8_t &v : A.mOutrunScores) v = static_cast<uint8_t>(rng() % 4 * 10);
+        std::memcpy(&B, &A, sizeof A);
+        const int op = static_cast<int>(rng() % 20);
+        const uint32_t v = rng();
+        int32_t ra = 0, rb = 0;
+        if (op < 6) {
+            ra = ORIG<G>(getters[op])(&A);
+            switch (op) {
+            case 0: rb = B.GetNumPlayers(); break;
+            case 1: rb = B.GetNumOpponents(); break;
+            case 2: rb = B.GetAISkill(); break;
+            case 3: rb = B.GetTrafficLevel(); break;
+            case 4: rb = B.GetNumPointsToWinOutrun(); break;
+            default: rb = B.GetOutrunTimeLimit(); break;
+            }
+        } else if (op < 13) {
+            ORIG<S>(setters[op - 6])(&A, v);
+            switch (op - 6) {
+            case 0: B.SetNumPlayers(static_cast<uint8_t>(v)); break;
+            case 1: B.SetNumOpponents(static_cast<uint8_t>(v)); break;
+            case 2: B.SetAISkill(static_cast<uint8_t>(v)); break;
+            case 3: B.SetTrafficLevel(static_cast<uint8_t>(v)); break;
+            case 4: B.SetCatchUp(static_cast<uint8_t>(v)); break;
+            case 5: B.SetNumPointsToWinOutrun(static_cast<int32_t>(v % 7)); A.mPointsToWin = static_cast<int32_t>(v % 7); break;
+            default: B.SetOutrunTimeLimit(static_cast<int32_t>(v % 5)); A.mTimeLimit = static_cast<int32_t>(v % 5); break;
+            }
+        } else {
+            switch (op) {
+            case 13: ra = static_cast<uint8_t>(oVal1(&A)); rb = static_cast<uint8_t>(B.GetNumPointsToWinOutrunValue()); break;
+            case 14: ra = static_cast<uint8_t>(oVal2(&A)); rb = static_cast<uint8_t>(B.GetOutrunTimeLimitValue()); break;
+            case 15: ra = oWon(&A); rb = B.HasAPlayerWonTheOutrunTourney(); break;
+            case 16: ra = oOver(&A); rb = B.IsOutrunOvertime(); break;
+            case 17: oReset(&A); B.ResetOutrunScores(); break;
+            case 18: ra = oCatch(&A); rb = B.IsCatchUpOn(); break;
+            default:
+                ra = static_cast<int32_t>(reinterpret_cast<uint8_t *>(oTrack(&A)) - reinterpret_cast<uint8_t *>(&A));
+                rb = static_cast<int32_t>(reinterpret_cast<uint8_t *>(B.GetCurrentTrackSettings()) - reinterpret_cast<uint8_t *>(&B));
+                oCar(&A, static_cast<int32_t>(v), static_cast<int32_t>(v % 3));
+                B.SetSelectedCar(static_cast<int32_t>(v), static_cast<int32_t>(v % 3));
+                break;
+            }
+        }
+        EXPECT(ra == rb && std::memcmp(&A, &B, sizeof A) == 0, "QuickRaceSettings op %d mode %d: %d vs %d", op, A.mRaceMode, ra, rb);
+    }
+}
+
 static void CheckQRTrackSelect(int iters)
 {
     auto oIcon = ORIG<uint32_t(THISCALL *)(const SelectableTrack *)>(0x4984B0);
@@ -4669,6 +4738,7 @@ static int RunAll()
     REFEREE_RUN(CheckIconScroller(iters));
     REFEREE_RUN(CheckThumbnailScroller(iters));
     REFEREE_RUN(CheckQRTrackSelect(iters));
+    REFEREE_RUN(CheckQuickRaceSettings(iters));
     REFEREE_RUN(CheckOptionsMain(iters));
     REFEREE_RUN(CheckMenuHelpers(iters));
     REFEREE_RUN(CheckScrollBar(iters));

@@ -22,6 +22,7 @@ struct LanguageStringRecord;
 struct bASinTableEntry;
 struct FESortGlobals;
 struct TrackInfo;
+struct QuickRaceSettings;
 struct FEngFont;
 struct FEngine;
 struct FERenderBucket;
@@ -541,4 +542,19 @@ int32_t HighScores_FindBestLapTime(int32_t track, int32_t dir);      // PC 502AA
 void Timer_PrintToString(const int32_t *timer, char *buf, int32_t fmt);   // PC 577240 (__thiscall, ret 8)
 void GetLocalizedStringBuf(char *buf, int32_t len, uint32_t hash);   // PC 4FFA50 (__cdecl): missing -> 0xC01A6F63, bStrNCpy
 void FEngPrintfFloatString(const char *pkg, uint32_t objHash, const char *fmt, double v, const char *s);   // PC 537B80
+// ---- QuickRaceSettings / UIQRModeOptions (online helpers: network code, stubbed natively) ----
+::QuickRaceSettings *QuickRaceSettingsInstance();   // PC 0x83AAB4
+const ::TrackInfo *TrackInfo_GetTrackInfo(uint32_t track);   // PC 5D3E40 (__cdecl)
+void FEngSendMessageToPackage(uint32_t msg, const char *pkg);   // PC 55DDA0 (__cdecl)
+void FEPrintfIntString(FEObject *str, const char *fmt, int32_t v, const char *s);   // PC 537BE0
+void QRModeOptions_BoilerPlateOnline(void *screen);              // PC 4B41C0 (__thiscall) network
+void QRModeOptions_HandlePasswordEntryRestrictions(void *screen);   // PC 4982C0 (__thiscall) network
+void QRModeOptions_OnlineAccept(void *screen);                   // PC 498440 (__thiscall) network
+void QRModeOptions_Online4A0140(const char *pkg);                // PC 4A0140 (__cdecl) network
+void QRModeOptions_Online4E2DC0(void *screen);                   // PC 4E2DC0 (__thiscall) network
+void QRModeOptions_Online495220(const char *text);               // PC 495220 (__thiscall on 0x850080, ret 4) network
+uint16_t OnlineNumLaps_MinLaps(void *widget);                    // PC 498400 (__thiscall) network
+void *DialogShowOk(const char *pkg, const char *dialog, uint32_t hash);   // PC DialogInterface::ShowOk 558430 (varargs)
+void *DialogShowOk(const char *pkg, const char *dialog, uint32_t hash, int32_t a, int32_t b);
+void DialogDismiss(void *dialog);                                // PC DialogInterface::DismissDialog 540A60 (__cdecl)
 }  // namespace bridge

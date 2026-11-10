@@ -1,4 +1,5 @@
 #include <cstdio>
+#include "frontend/QuickRaceSettings.h"
 #include "frontend/FETypeLib.h"
 #include "frontend/FERender.h"
 #include "frontend/FEPackageManager.h"
@@ -112,6 +113,7 @@ std::vector<void *> trackInfos;
 int32_t lockedTrack = -1, resourceLoads = 0, resourceUnloads = 0;
 void (*loadCallback)(void *) = nullptr;
 void *loadParam = nullptr;
+const void *currentTrackInfo = nullptr;
 uint32_t lastJoyTypes[2] = {};
 uint8_t joyTypes[2] = {};
 void *memoryCard = nullptr;
@@ -1081,7 +1083,7 @@ int32_t *GameInt(uint32_t a) { return reinterpret_cast<int32_t *>(static_cast<ui
 #else
 int32_t *GameInt(uint32_t a) { static int32_t ints[0x100]; return &ints[(a >> 2) & 0xFF]; }
 #endif
-uint8_t *QR_CurrentTrackSettings() { static uint8_t t[0x20]; return t; }
+uint8_t *QR_CurrentTrackSettings() { return reinterpret_cast<uint8_t *>(QuickRaceSettingsInstance()->GetCurrentTrackSettings()); }
 void QR_SetNumOpponents(int32_t n) { teststub::delivered.push_back({"opponents", nullptr, nullptr, static_cast<uint32_t>(n), 0}); }
 void QR_5028D0() {}
 void QRManager_ChangeToNextScreen() { teststub::delivered.push_back({"qrnext", nullptr, nullptr, 0, 0}); }
@@ -1154,4 +1156,19 @@ int32_t HighScores_FindBestLapTime(int32_t t, int32_t) { return t * 1000; }
 void Timer_PrintToString(const int32_t *t, char *b, int32_t) { std::snprintf(b, 0x20, "%d", *t); }
 void GetLocalizedStringBuf(char *b, int32_t n, uint32_t) { std::snprintf(b, static_cast<size_t>(n), "fmt"); }
 void FEngPrintfFloatString(const char *, uint32_t h, const char *, double v, const char *) { teststub::delivered.push_back({"fengprintf", nullptr, nullptr, h, static_cast<uint32_t>(v * 100.0 + 0.5)}); }
+// ---- QuickRaceSettings / UIQRModeOptions (network helpers are no-ops) ----
+::QuickRaceSettings *QuickRaceSettingsInstance() { static ::QuickRaceSettings q; return &q; }
+const ::TrackInfo *TrackInfo_GetTrackInfo(uint32_t) { return static_cast<const ::TrackInfo *>(teststub::currentTrackInfo); }
+void FEngSendMessageToPackage(uint32_t m, const char *) { teststub::delivered.push_back({"sendmsg", nullptr, nullptr, m, 0}); }
+void FEPrintfIntString(FEObject *, const char *, int32_t v, const char *) { teststub::delivered.push_back({"feprintf", nullptr, nullptr, 0, static_cast<uint32_t>(v)}); }
+void QRModeOptions_BoilerPlateOnline(void *) { teststub::delivered.push_back({"boilerplate", nullptr, nullptr, 0, 0}); }
+void QRModeOptions_HandlePasswordEntryRestrictions(void *) {}
+void QRModeOptions_OnlineAccept(void *) {}
+void QRModeOptions_Online4A0140(const char *) {}
+void QRModeOptions_Online4E2DC0(void *) {}
+void QRModeOptions_Online495220(const char *) {}
+uint16_t OnlineNumLaps_MinLaps(void *) { return 1; }
+void *DialogShowOk(const char *, const char *, uint32_t) { return nullptr; }
+void *DialogShowOk(const char *, const char *, uint32_t, int32_t, int32_t) { return nullptr; }
+void DialogDismiss(void *) {}
 }  // namespace bridge

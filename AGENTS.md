@@ -11,6 +11,9 @@ the current "next" targets live in `FINDINGS.md`.
   Matches below ~0.8 are often wrong for small functions: verify by reading.
 - **Record** durable knowledge in `FINDINGS.md` (terse) and `knowledge.db` (`facts`, `matches` with
   `source='manual'`, `rewrite`). Rebuilds never delete curated rows.
+- **Network code is not ported.** Online / LAN / EA Messenger functions (game mode flags 8 / 0x200, `MU_*`, `UI_OL_*`,
+  `OO*`, lobby, password, chat) are never rewritten: callers keep the online branch but reach it through a bridge stub
+  (hooked build: the original function; native: no-op / default). Don't spend effort decompiling them.
 - **Game install:** only copy `port/build-win32/dinput8.dll` into it. No disc-check bypasses.
 - Shell is **zsh**: `$var` doesn't word-split (`${=var}`); a line starting with `====` is an error;
   use `pgrep -x SPEED2.EXE` (not `-f`).

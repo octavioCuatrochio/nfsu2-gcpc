@@ -22,6 +22,8 @@
 #include "frontend/MainMenu.h"
 #include "frontend/QRModeSelect.h"
 #include "frontend/QRTrackSelect.h"
+#include "frontend/QRModeOptions.h"
+#include "frontend/QuickRaceSettings.h"
 #include "frontend/StartCareer.h"
 #include "frontend/ProfileManager.h"
 #include "frontend/CareerCrib.h"
@@ -4568,6 +4570,152 @@ static void TestQRTrackSelect()
     bridge::cFEngInstance()->mpEngine = savedEngine;
 }
 
+static void TestQuickRaceSettings()
+{
+    static QuickRaceSettings q;
+    std::memset(&q, 0, sizeof q);
+    q.mRaceMode = 3;
+    q.SetNumPlayers(2); q.SetNumOpponents(5); q.SetAISkill(1); q.SetTrafficLevel(3); q.SetCatchUp(1);
+    CHECK(q.mModes[3].mNumPlayers == 2 && q.mModes[3].mNumOpponents == 5 && q.mModes[3].mAISkill == 1 &&
+          q.mModes[3].mTrafficLevel == 3 && q.mModes[3].mbCatchUp == 1 && q.GetCurrentTrackSettings() == &q.mModes[3].mTrack);
+    CHECK(q.GetNumPlayers() == 2 && q.GetNumOpponents() == 5 && q.GetAISkill() == 1 && q.GetTrafficLevel() == 3 && q.IsCatchUpOn());
+    q.mRaceMode = 12;
+    q.SetNumOpponents(7); q.SetCatchUp(2); q.SetTrafficLevel(1);
+    CHECK(q.mNumOpponents12 == 7 && q.mbCatchUp12 == 2 && q.mTrafficLevel12 == 1 && q.GetCurrentTrackSettings() == &q.mTrack12);
+    q.SetSelectedCar(0x55, 2);
+    CHECK(q.mSelectedCar[2] == 0x55);
+    q.SetNumPointsToWinOutrun(1); q.SetOutrunTimeLimit(3);
+    CHECK(q.GetNumPointsToWinOutrunValue() == 20 && q.GetOutrunTimeLimitValue() == 8);
+    q.mOutrunScores[0] = 5; q.mOutrunScores[1] = 21; q.mOutrunScores[2] = 3;
+    CHECK(q.HasAPlayerWonTheOutrunTourney() && !q.IsOutrunOvertime());
+    q.mOutrunScores[3] = 21;
+    CHECK(!q.HasAPlayerWonTheOutrunTourney() && q.IsOutrunOvertime());
+    q.mOutrunScores[1] = q.mOutrunScores[3] = 19;
+    CHECK(!q.HasAPlayerWonTheOutrunTourney() && !q.IsOutrunOvertime());
+    q.SetNumPointsToWinOutrun(6);
+    q.mOutrunScores[0] = 200;
+    CHECK(!q.HasAPlayerWonTheOutrunTourney() && !q.IsOutrunOvertime());
+    q.ResetOutrunScores();
+    CHECK(q.mOutrunScores[0] == 0 && q.mOutrunScores[3] == 0 && q.mOutrunLeader == -1);
+}
+
+static void TestQRModeOptions()
+{
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    const int32_t savedMode = teststub::gameModeFlags;
+    teststub::gameModeFlags = 0;
+    QuickRaceSettings &q = *bridge::QuickRaceSettingsInstance();
+    std::memset(&q, 0, sizeof q);
+    q.mRaceMode = 0;
+    q.SetNumPlayers(1);
+    q.SetNumOpponents(3);
+    q.GetCurrentTrackSettings()->mLaps = 3;
+
+    // toggles: wrap-around steps, BlinkArrows + Draw after Act
+    alignas(8) static unsigned char wm[sizeof(QRToggleWidget)];
+    std::memset(wm, 0, sizeof wm);
+    auto *w = reinterpret_cast<QRToggleWidget *>(wm);
+    teststub::delivered.clear();
+    w->Act(QRToggle::AISkill, nullptr, 0x9120409Eu);
+    CHECK(q.GetAISkill() == 2 && teststub::delivered.size() == 2 && std::string(teststub::delivered[0].kind) == "blink");
+    w->Act(QRToggle::AISkill, nullptr, 0xB5971BF1u);
+    CHECK(q.GetAISkill() == 0);
+    w->Act(QRToggle::TrafficLevel, nullptr, 0x9120409Eu);
+    CHECK(q.GetTrafficLevel() == 3);
+    w->Act(QRToggle::NumLaps, nullptr, 0xB5971BF1u);
+    CHECK(q.GetCurrentTrackSettings()->mLaps == 4);
+    q.GetCurrentTrackSettings()->mLaps = 10;
+    w->Act(QRToggle::NumLaps, nullptr, 0xB5971BF1u);
+    CHECK(q.GetCurrentTrackSettings()->mLaps == 1);
+    w->Act(QRToggle::NumLaps, nullptr, 0x9120409Eu);
+    CHECK(q.GetCurrentTrackSettings()->mLaps == 10);
+    w->Act(QRToggle::CatchUp, nullptr, 0xB5971BF1u);
+    CHECK(q.IsCatchUpOn());
+    teststub::delivered.clear();
+    w->Act(QRToggle::CatchUp, nullptr, 0x406415E3u);   // other messages still blink + draw
+    CHECK(q.IsCatchUpOn() && teststub::delivered.size() == 2);
+    // opponents: 1 player circuit -> 1..3
+    w->Act(QRToggle::NumOpponents, nullptr, 0xB5971BF1u);
+    CHECK(q.GetNumOpponents() == 1);
+    w->Act(QRToggle::NumOpponents, nullptr, 0x9120409Eu);
+    CHECK(q.GetNumOpponents() == 3);
+    teststub::delivered.clear();
+    w->Act(QRToggle::NumOpponents, nullptr, 0x406415E3u);   // ignored entirely
+    CHECK(teststub::delivered.empty());
+    // lap KO forces 3 laps / 3 opponents and messages the package
+    w->Act(QRToggle::LapKO, nullptr, 0xB5971BF1u);
+    CHECK(q.GetCurrentTrackSettings()->mbLapKO == 1 && q.GetCurrentTrackSettings()->mLaps == 3 && q.GetNumOpponents() == 3);
+    bool sent = false;
+    for (const auto &e : teststub::delivered) sent |= std::string(e.kind) == "sendmsg" && e.msg == 0x92B703B5u;
+    CHECK(sent);
+    // NumLaps Draw: disabled while lap KO, enabled again after
+    w->base.base.base.mbEnabled = 1;
+    teststub::delivered.clear();
+    w->Draw(QRToggle::NumLaps);
+    CHECK(!teststub::delivered.empty() && std::string(teststub::delivered.back().kind) == "disable");
+    q.GetCurrentTrackSettings()->mbLapKO = 0;
+    w->base.base.base.mbEnabled = 0;
+    teststub::delivered.clear();
+    w->Draw(QRToggle::NumLaps);
+    CHECK(!teststub::delivered.empty() && std::string(teststub::delivered.back().kind) == "enable");
+    // direction flips the current settings and the global
+    w->Act(QRToggle::TrackDirection, nullptr, 0x9120409Eu);
+    CHECK(q.GetCurrentTrackSettings()->mDirection == 1 && *bridge::GameInt(0x89E7A4) == 1);
+    w->Act(QRToggle::TrackDirection, nullptr, 0xB5971BF1u);
+    CHECK(q.GetCurrentTrackSettings()->mDirection == 0);
+    w->Act(QRToggle::PointsToWin, nullptr, 0x9120409Eu);
+    CHECK(q.GetNumPointsToWinOutrun() == 6);
+    w->Act(QRToggle::TimeLimit, nullptr, 0xB5971BF1u);
+    CHECK(q.GetOutrunTimeLimit() == 1);
+
+    // screens: option counts per mode
+    static TrackInfo ti;
+    std::memset(&ti, 0, sizeof ti);
+    ti.mbReversible = 1;
+    ti.mTrackNumber = 0x1000;
+    teststub::currentTrackInfo = &ti;
+    teststub::lockedTrack = -1;
+    auto count = [&](int32_t mode, int32_t flags) {
+        teststub::gameModeFlags = flags;
+        q.mRaceMode = mode;
+        alignas(8) static unsigned char mem[sizeof(UIQRModeOptions)];
+        std::memset(mem, 0, sizeof mem);
+        auto *m = reinterpret_cast<UIQRModeOptions *>(mem);
+        ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+        const int live = teststub::liveAllocations;
+        teststub::delivered.clear();
+        m->Construct(&d);
+        int n = 0;
+        for (WidgetListNode *x = m->base.mWidgets.next; x != &m->base.mWidgets; x = x->next) ++n;
+        bool boiler = false;
+        for (const auto &e : teststub::delivered) boiler |= std::string(e.kind) == "boilerplate";
+        m->Destruct();
+        CHECK(teststub::liveAllocations == live);
+        return boiler ? -1 : n;
+    };
+    CHECK(count(0, 0) == 7);    // direction, lap KO, laps, traffic, opponents, skill, catch-up
+    CHECK(count(0, 4) == 4);    // split screen: direction, laps, traffic, catch-up
+    CHECK(count(1, 0) == 5);    // sprint: direction, traffic, opponents, skill, catch-up
+    ti.mTrackNumber = 0x1075;   // drag strip without traffic
+    CHECK(count(2, 0) == 4);
+    ti.mbReversible = 0;
+    CHECK(count(3, 0) == 3);    // drift kind 0: laps, opponents, skill
+    ti.mDriftKind = 1;
+    CHECK(count(3, 0) == 2 && *bridge::GameInt(0x89E7C4) == 0);   // skill, traffic
+    CHECK(count(8, 0) == 2 && count(9, 0) == 1 && count(10, 0) == 4 && count(7, 0) == 3 && count(6, 0) == 0);
+    *bridge::GameInt(0x850088) = 0;
+    CHECK(count(0, 8) == -1);   // online: boiler plate (network, stubbed)
+    *bridge::GameInt(0x850088) = 9;
+    CHECK(count(0, 8) == 0);    // online free run: nothing
+    *bridge::GameInt(0x850088) = 0;
+
+    teststub::currentTrackInfo = nullptr;
+    teststub::gameModeFlags = savedMode;
+    std::memset(&q, 0, sizeof q);
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
 int main()
 {
     TestLevelSorter();
@@ -4602,6 +4750,8 @@ int main()
     TestIconScroller();
     TestThumbnailScroller();
     TestQRTrackSelect();
+    TestQuickRaceSettings();
+    TestQRModeOptions();
     TestOptionsMain();
     TestPauseMenu();
     TestMenuIcons();

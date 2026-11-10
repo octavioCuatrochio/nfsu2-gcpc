@@ -30,6 +30,8 @@
 #include "frontend/IconScroller.h"
 #include "frontend/ThumbnailScroller.h"
 #include "frontend/QRTrackSelect.h"
+#include "frontend/QRModeOptions.h"
+#include "frontend/QuickRaceSettings.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
 #include "frontend/MainMenu.h"
@@ -751,6 +753,46 @@ bool THISCALL QTS_IsAvailable(UIQRTrackSelect *s, const TrackInfo *i, int32_t d)
 void THISCALL QTS_Scroll(UIQRTrackSelect *s, int32_t d) { s->Scroll(d); }
 void THISCALL QTS_RefreshHeader(UIQRTrackSelect *s) { s->RefreshHeader(); }
 void THISCALL QTS_DisplayRaceType(UIQRTrackSelect *s) { s->DisplayRaceType(); }
+
+// ---- QuickRaceSettings / QR toggles / UIQRModeOptions ----
+int32_t THISCALL QRS_GetNumPlayers(QuickRaceSettings *s) { return s->GetNumPlayers(); }
+int32_t THISCALL QRS_GetNumOpponents(QuickRaceSettings *s) { return s->GetNumOpponents(); }
+int32_t THISCALL QRS_GetAISkill(QuickRaceSettings *s) { return s->GetAISkill(); }
+int32_t THISCALL QRS_GetTrafficLevel(QuickRaceSettings *s) { return s->GetTrafficLevel(); }
+int32_t THISCALL QRS_GetNumPointsToWinOutrun(QuickRaceSettings *s) { return s->GetNumPointsToWinOutrun(); }
+int32_t THISCALL QRS_GetOutrunTimeLimit(QuickRaceSettings *s) { return s->GetOutrunTimeLimit(); }
+int32_t THISCALL QRS_GetNumPointsToWinOutrunValue(QuickRaceSettings *s) { return s->GetNumPointsToWinOutrunValue(); }
+int32_t THISCALL QRS_GetOutrunTimeLimitValue(QuickRaceSettings *s) { return s->GetOutrunTimeLimitValue(); }
+bool THISCALL QRS_HasAPlayerWonTheOutrunTourney(QuickRaceSettings *s) { return s->HasAPlayerWonTheOutrunTourney(); }
+bool THISCALL QRS_IsOutrunOvertime(QuickRaceSettings *s) { return s->IsOutrunOvertime(); }
+void THISCALL QRS_ResetOutrunScores(QuickRaceSettings *s) { s->ResetOutrunScores(); }
+uint8_t THISCALL QRS_IsCatchUpOn(QuickRaceSettings *s) { return s->IsCatchUpOn(); }
+QRTrackSettings *THISCALL QRS_GetCurrentTrackSettings(QuickRaceSettings *s) { return s->GetCurrentTrackSettings(); }
+void THISCALL QRS_SetNumPlayers(QuickRaceSettings *s, uint32_t n) { s->SetNumPlayers(static_cast<uint8_t>(n)); }
+void THISCALL QRS_SetNumOpponents(QuickRaceSettings *s, uint32_t n) { s->SetNumOpponents(static_cast<uint8_t>(n)); }
+void THISCALL QRS_SetAISkill(QuickRaceSettings *s, uint32_t n) { s->SetAISkill(static_cast<uint8_t>(n)); }
+void THISCALL QRS_SetTrafficLevel(QuickRaceSettings *s, uint32_t n) { s->SetTrafficLevel(static_cast<uint8_t>(n)); }
+void THISCALL QRS_SetCatchUp(QuickRaceSettings *s, uint32_t on) { s->SetCatchUp(static_cast<uint8_t>(on)); }
+void THISCALL QRS_SetNumPointsToWinOutrun(QuickRaceSettings *s, int32_t i) { s->SetNumPointsToWinOutrun(i); }
+void THISCALL QRS_SetOutrunTimeLimit(QuickRaceSettings *s, int32_t i) { s->SetOutrunTimeLimit(i); }
+void THISCALL QRS_SetSelectedCar(QuickRaceSettings *s, int32_t car, int32_t player) { s->SetSelectedCar(car, player); }
+template <QRToggle K> QRToggleWidget *THISCALL QRT_Ctor(QRToggleWidget *w, const float *p, const float *sz, const float *vs, const float *vp, bool en)
+{ return w->Construct(K, p, sz, vs, vp, en); }
+template <QRToggle K> void THISCALL QRT_Act(QRToggleWidget *w, const char *pkg, uint32_t m) { w->Act(K, pkg, m); }
+template <QRToggle K> void THISCALL QRT_Draw(QRToggleWidget *w) { w->Draw(K); }
+UIQRModeOptions *THISCALL QMO_Ctor(UIQRModeOptions *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL QMO_Dtor(UIQRModeOptions *s) { s->Destruct(); }
+UIQRModeOptions *THISCALL QMO_ScalarDtor(UIQRModeOptions *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL QMO_Notify(UIQRModeOptions *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL QMO_Setup(UIQRModeOptions *s) { s->Setup(); }
+void THISCALL QMO_SetupCircuit(UIQRModeOptions *s) { s->SetupCircuit(); }
+void THISCALL QMO_SetupSprint(UIQRModeOptions *s) { s->SetupSprint(); }
+void THISCALL QMO_SetupDrag(UIQRModeOptions *s) { s->SetupDrag(); }
+void THISCALL QMO_SetupDrift(UIQRModeOptions *s) { s->SetupDrift(); }
+void THISCALL QMO_SetupOutrun(UIQRModeOptions *s) { s->SetupOutrun(); }
+void THISCALL QMO_SetupGT(UIQRModeOptions *s) { s->SetupGT(); }
+void THISCALL QMO_SetupShortTrack(UIQRModeOptions *s) { s->SetupShortTrack(); }
+void THISCALL QMO_SetupFreeRun(UIQRModeOptions *s) { s->SetupFreeRun(); }
 
 FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
 uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
@@ -1610,6 +1652,67 @@ const Replacement kReplacements[] = {
     {0x4E3270, (const void *)&QTS_Scroll, "UIQRTrackSelect::Scroll", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
     {0x4CE170, (const void *)&QTS_RefreshHeader, "UIQRTrackSelect::RefreshHeader", {0x81, 0xEC, 0x24, 0x02, 0x00, 0x00}},
     {0x4988C0, (const void *)&QTS_DisplayRaceType, "UIQRTrackSelect::DisplayRaceType", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x5026F0, (const void *)&QRS_GetNumPlayers, "QuickRaceSettings::GetNumPlayers", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502710, (const void *)&QRS_GetNumOpponents, "QuickRaceSettings::GetNumOpponents", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502730, (const void *)&QRS_GetAISkill, "QuickRaceSettings::GetAISkill", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502750, (const void *)&QRS_GetTrafficLevel, "QuickRaceSettings::GetTrafficLevel", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502770, (const void *)&QRS_GetNumPointsToWinOutrun, "QuickRaceSettings::GetNumPointsToWinOutrun", {0x8B, 0x81, 0x08, 0x01, 0x00, 0x00}},
+    {0x502780, (const void *)&QRS_GetOutrunTimeLimit, "QuickRaceSettings::GetOutrunTimeLimit", {0x8B, 0x81, 0x0C, 0x01, 0x00, 0x00}},
+    {0x502790, (const void *)&QRS_GetNumPointsToWinOutrunValue, "QuickRaceSettings::GetNumPointsToWinOutrunValue", {0x8B, 0x81, 0x08, 0x01, 0x00, 0x00}},
+    {0x5027A0, (const void *)&QRS_GetOutrunTimeLimitValue, "QuickRaceSettings::GetOutrunTimeLimitValue", {0x8B, 0x81, 0x0C, 0x01, 0x00, 0x00}},
+    {0x5027B0, (const void *)&QRS_HasAPlayerWonTheOutrunTourney, "QuickRaceSettings::HasAPlayerWonTheOutrunTourney", {0x57, 0x8B, 0xB9, 0x08, 0x01, 0x00}},
+    {0x502840, (const void *)&QRS_IsOutrunOvertime, "QuickRaceSettings::IsOutrunOvertime", {0x57, 0x8B, 0xB9, 0x08, 0x01, 0x00}},
+    {0x5028D0, (const void *)&QRS_ResetOutrunScores, "QuickRaceSettings::ResetOutrunScores", {0xC7, 0x81, 0x14, 0x01, 0x00, 0x00}},
+    {0x5028F0, (const void *)&QRS_IsCatchUpOn, "QuickRaceSettings::IsCatchUpOn", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502910, (const void *)&QRS_GetCurrentTrackSettings, "QuickRaceSettings::GetCurrentTrackSettings", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502930, (const void *)&QRS_SetNumPlayers, "QuickRaceSettings::SetNumPlayers", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502960, (const void *)&QRS_SetNumOpponents, "QuickRaceSettings::SetNumOpponents", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502990, (const void *)&QRS_SetAISkill, "QuickRaceSettings::SetAISkill", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x5029C0, (const void *)&QRS_SetTrafficLevel, "QuickRaceSettings::SetTrafficLevel", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x5029F0, (const void *)&QRS_SetCatchUp, "QuickRaceSettings::SetCatchUp", {0x8B, 0x01, 0x83, 0xF8, 0x0C, 0x75}},
+    {0x502A20, (const void *)&QRS_SetNumPointsToWinOutrun, "QuickRaceSettings::SetNumPointsToWinOutrun", {0x8B, 0x44, 0x24, 0x04, 0x89, 0x81}},
+    {0x502A30, (const void *)&QRS_SetOutrunTimeLimit, "QuickRaceSettings::SetOutrunTimeLimit", {0x8B, 0x44, 0x24, 0x04, 0x89, 0x81}},
+    {0x502A40, (const void *)&QRS_SetSelectedCar, "QuickRaceSettings::SetSelectedCar", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x54}},
+    {0x4B3750, (const void *)&QRT_Ctor<QRToggle::NumOpponents>, "QR toggle NumOpponents ctor", {0x6A, 0xFF, 0x68, 0x18, 0x38, 0x77}},
+    {0x4B37F0, (const void *)&QRT_Act<QRToggle::NumOpponents>, "QR toggle NumOpponents Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0xF1}},
+    {0x4B38C0, (const void *)&QRT_Draw<QRToggle::NumOpponents>, "QR toggle NumOpponents Draw", {0x56, 0x57, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4B3930, (const void *)&QRT_Ctor<QRToggle::AISkill>, "QR toggle AISkill ctor", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
+    {0x4B3960, (const void *)&QRT_Act<QRToggle::AISkill>, "QR toggle AISkill Act", {0x56, 0x8B, 0xF1, 0x57, 0xB9, 0xB4}},
+    {0x4B39C0, (const void *)&QRT_Draw<QRToggle::AISkill>, "QR toggle AISkill Draw", {0x56, 0x57, 0x8B, 0xF9, 0xB9, 0xB4}},
+    {0x4B3A10, (const void *)&QRT_Act<QRToggle::CatchUp>, "QR toggle CatchUp Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x4B3A60, (const void *)&QRT_Draw<QRToggle::CatchUp>, "QR toggle CatchUp Draw", {0x56, 0x8B, 0xF1, 0xB9, 0xB4, 0xAA}},
+    {0x4B3AA0, (const void *)&QRT_Ctor<QRToggle::TrafficLevel>, "QR toggle TrafficLevel ctor", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
+    {0x4B3AD0, (const void *)&QRT_Act<QRToggle::TrafficLevel>, "QR toggle TrafficLevel Act", {0x56, 0x8B, 0xF1, 0x57, 0xB9, 0xB4}},
+    {0x4B3B30, (const void *)&QRT_Draw<QRToggle::TrafficLevel>, "QR toggle TrafficLevel Draw", {0x56, 0x57, 0x8B, 0xF9, 0xB9, 0xB4}},
+    {0x4B3BA0, (const void *)&QRT_Act<QRToggle::PointsToWin>, "QR toggle PointsToWin Act", {0x56, 0x8B, 0xF1, 0x57, 0xB9, 0xB4}},
+    {0x4B3C00, (const void *)&QRT_Draw<QRToggle::PointsToWin>, "QR toggle PointsToWin Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B3C60, (const void *)&QRT_Act<QRToggle::TimeLimit>, "QR toggle TimeLimit Act", {0x56, 0x8B, 0xF1, 0x57, 0xB9, 0xB4}},
+    {0x4B3CC0, (const void *)&QRT_Draw<QRToggle::TimeLimit>, "QR toggle TimeLimit Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B3D30, (const void *)&QRT_Ctor<QRToggle::NumLaps>, "QR toggle NumLaps ctor", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
+    {0x4B3D60, (const void *)&QRT_Act<QRToggle::NumLaps>, "QR toggle NumLaps Act", {0x53, 0x56, 0x8B, 0xF1, 0x57, 0xB9}},
+    {0x4B3DD0, (const void *)&QRT_Draw<QRToggle::NumLaps>, "QR toggle NumLaps Draw", {0x56, 0x8B, 0xF1, 0x57, 0x8B, 0x7E}},
+    {0x4B3E40, (const void *)&QRT_Ctor<QRToggle::OnlineNumLaps>, "QR toggle OnlineNumLaps ctor", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
+    {0x4B3F10, (const void *)&QRT_Act<QRToggle::OnlineNumLaps>, "QR toggle OnlineNumLaps Act", {0x0F, 0xB7, 0x05, 0xBA, 0x00, 0x85}},
+    {0x4B3F70, (const void *)&QRT_Draw<QRToggle::OnlineNumLaps>, "QR toggle OnlineNumLaps Draw", {0x0F, 0xB7, 0x05, 0xBA, 0x00, 0x85}},
+    {0x4B3FA0, (const void *)&QRT_Ctor<QRToggle::LapKO>, "QR toggle LapKO ctor", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
+    {0x4B4020, (const void *)&QRT_Act<QRToggle::LapKO>, "QR toggle LapKO Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x4B3FD0, (const void *)&QRT_Draw<QRToggle::LapKO>, "QR toggle LapKO Draw", {0x56, 0x8B, 0xF1, 0xB9, 0xB4, 0xAA}},
+    {0x4B40B0, (const void *)&QRT_Ctor<QRToggle::TrackDirection>, "QR toggle TrackDirection ctor", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x54}},
+    {0x4B40E0, (const void *)&QRT_Act<QRToggle::TrackDirection>, "QR toggle TrackDirection Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},
+    {0x4B4150, (const void *)&QRT_Draw<QRToggle::TrackDirection>, "QR toggle TrackDirection Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4EF3F0, (const void *)&QMO_Ctor, "UIQRModeOptions::UIQRModeOptions", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
+    {0x4EF610, (const void *)&QMO_Dtor, "UIQRModeOptions::~UIQRModeOptions", {0xC7, 0x01, 0x14, 0x80, 0x79, 0x00}},
+    {0x4EF5F0, (const void *)&QMO_ScalarDtor, "UIQRModeOptions::scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4EF620, (const void *)&QMO_Notify, "UIQRModeOptions::NotificationMessage", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54}},
+    {0x4E2C70, (const void *)&QMO_Setup, "UIQRModeOptions::Setup", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x4CCF60, (const void *)&QMO_SetupCircuit, "UIQRModeOptions::SetupCircuit", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
+    {0x4CD2D0, (const void *)&QMO_SetupSprint, "UIQRModeOptions::SetupSprint", {0x6A, 0xFF, 0x68, 0x54, 0x43, 0x77}},
+    {0x4CD530, (const void *)&QMO_SetupDrag, "UIQRModeOptions::SetupDrag", {0x6A, 0xFF, 0x68, 0x54, 0x43, 0x77}},
+    {0x4CD7A0, (const void *)&QMO_SetupDrift, "UIQRModeOptions::SetupDrift", {0x6A, 0xFF, 0x68, 0xC4, 0x43, 0x77}},
+    {0x4CDA20, (const void *)&QMO_SetupOutrun, "UIQRModeOptions::SetupOutrun", {0x6A, 0xFF, 0x68, 0x68, 0x44, 0x77}},
+    {0x4CDB40, (const void *)&QMO_SetupGT, "UIQRModeOptions::SetupGT", {0x6A, 0xFF, 0x68, 0xD0, 0x44, 0x77}},
+    {0x4B47B0, (const void *)&QMO_SetupShortTrack, "UIQRModeOptions::SetupShortTrack", {0x6A, 0xFF, 0x68, 0x34, 0x44, 0x77}},
+    {0x4B4A10, (const void *)&QMO_SetupFreeRun, "UIQRModeOptions::SetupFreeRun", {0x6A, 0xFF, 0x68, 0xB8, 0x30, 0x77}},
     {0x527660, (const void *)&ISX_StaticArrow2, "FEScrollBar::StaticArrow2", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x77}},
     {0x51D7F0, (const void *)&FEngSetColor, "FEngSetColor", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0x74}},
     {0x50CCC0, (const void *)&ISX_GetObjectColor, "FEngGetObjectColor", {0x8B, 0x44, 0x24, 0x08, 0x33, 0xC9}},

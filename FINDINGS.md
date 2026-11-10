@@ -2,6 +2,7 @@
 Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live in `knowledge.db` (`matches`, `facts`).
 
 ## Port status / next
+- Network (online / LAN / EA Messenger) functions are not ported: stubbed through the bridge (see AGENTS.md).
 - Progress: `SELECT status, count(*) FROM rewrite GROUP BY 1;` (frontend FEng core: strings, lists, pools, objects,
   scripts, key tracks, setters, step interpolation all rewritten; referee 191k checks, 0 mismatches).
 - TARGET: the whole frontend. zFe2.cpp (2505 GC funcs) + zFe.cpp (1321). Plan:
@@ -168,6 +169,14 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   +0x154 prev msg, +0x158/9 arrow flags (RefreshHeader tests +0x158 for the right arrow too), +0x15C best label.
   Online settings at 0x8500B8 (u16 track) / 0x8500BC (dir); "UI_OL_ViewTrack.fng" pushed: selection not stored.
   QRCarSelectScreen (MU_QuickRaceCarSelect.fng, factory 4EB1A0) looks unused on PC: ctor DrawCarName reads +0x54 unset.
+  QuickRaceSettings done (QuickRaceSettings.cpp, all 21 accessors, referee): 0x83AAB4, +0 mode, +4 cars[3], +0x10 mode
+  records 0x14 (players, opponents, skill, traffic +4, catch-up +5, track settings +8: u16 track, u16 laps, int dir, u8
+  lap KO), mode 12 own fields (+0x100.., catch-up +0x119, track +0x11C), +0x108 points index (0x7992CC), +0x10C time
+  index (0x7992D4), +0x114 outrun scores. IsCatchUpOn returns the raw byte.
+  UIQRModeOptions done (QRModeOptions.cpp, PC 0x164, vtable 798014; 10 MO*/TO* toggles at 791380 + 0x48*k): per-mode
+  Setup* option lists (offline jump table 4E2C70: 0 circuit, 1 sprint, 2 drag, 3 drift, 4/5/10 4B47B0, 7 GT, 8 outrun,
+  9 free run). Online paths stubbed (network). In-game A/B with xdotool is flaky (key presses get dropped): compare
+  with the drive.py approach only when presses are confirmed by call counts.
   Next: other ThumbnailScroller users (PartSelectionScreen 55E820, RimsBrowser 5678E0, ChooseDecalScreen 568450, CribWorld-
   MapScreen 4EE690), UIMagazineSelect, PostRaceMenu, CarTunePauseScreen, 797564 screen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-

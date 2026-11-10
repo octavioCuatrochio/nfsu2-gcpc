@@ -15,7 +15,10 @@ struct FEObject;
 struct TrackInfo {
     uint8_t _unknown00[0x7C];
     int32_t mIconType;           // +0x7C CalcIconHash: 0..4 fixed icons, 5 = by race mode
-    uint8_t _unknown80[8];
+    int32_t mDriftKind;          // +0x80 SetupDrift: 0 -> laps / opponents, 1 -> traffic (0x89E7C4 = 0)
+    uint8_t _unknown84[2];
+    uint8_t mbReversible;        // +0x86 1: the direction option is offered
+    uint8_t _unknown87;
     uint8_t mbNotSelectable;     // +0x88 IsAvailable: never listed
     uint8_t _unknown89;
     int16_t mTrackNumber;        // +0x8A
@@ -114,7 +117,8 @@ struct UIQRTrackSelect {
 int32_t QRTrack_SortCompare(SelectableTrack *a, SelectableTrack *b);
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
-static_assert(offsetof(TrackInfo, mTrackNumber) == 0x8A && offsetof(TrackInfo, mLength) == 0x98 &&
+static_assert(offsetof(TrackInfo, mDriftKind) == 0x80 && offsetof(TrackInfo, mbReversible) == 0x86 &&
+              offsetof(TrackInfo, mTrackNumber) == 0x8A && offsetof(TrackInfo, mLength) == 0x98 &&
               offsetof(TrackInfo, mMapX) == 0x118 && offsetof(TrackInfo, mbMapZoomed) == 0x124);
 static_assert(sizeof(SelectableTrack) == 0x30 && offsetof(SelectableTrack, mMapX) == 0x20 &&
               offsetof(SelectableTrack, mpInfo) == 0x2C);
