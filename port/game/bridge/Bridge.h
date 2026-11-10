@@ -186,6 +186,15 @@ void *FELabelWidgetVTable();                     // PC 0x79B338
 void *FEStatWidgetVTable();                      // PC 0x79B378
 void *FESliderWidgetVTable();                    // PC 0x79B400
 void *FEToggleWidgetVTable();                    // PC 0x79B3B8
+void *MenuScreenVTable();                        // PC 0x79AC00
+int32_t ProfileState();                           // PC *(int*)0x8500D0 (>= 0xC: profile loaded)
+int32_t GameModeFlags();                          // PC *(int*)0x850078 (0x200 / 0x20 / 0x100: no EAM icons)
+const char *ProfileName(bool alternate);          // PC 0x850128 (alternate, mode 0x200) / 0x8500EC
+void SetShowEAMIcons(bool on);                    // PC byte 0x838528
+bool CallingScreenFrozen();                       // PC byte 0x838520
+char *CallingScreenPackageName();                 // PC char[] 0x8384E0 (gCallingScreenPackageName)
+void FEngPrintfString(const char *pkg, uint32_t objHash, const char *fmt, const char *s);   // PC 537B80 (varargs)
+void HelpBar_SyncByMask(uint32_t mask, const char *pkg);   // PC 54E6E0 __thiscall on *(0x8384D8) (PCHelpBarFNGObject)
 void *TuningSliderVTable();                      // PC 0x79B7B0
 void *ThreeStageSliderVTable();                  // PC 0x79AE54
 void *cSliderVTable();                           // PC 0x78F544

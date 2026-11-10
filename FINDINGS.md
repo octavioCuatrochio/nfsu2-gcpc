@@ -58,7 +58,7 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   bridge::cSlider_*). Done: ctor 51E840, sound 50D6F0, Position/Show/Hide/SetFocus/UnsetFocus. Only on options screens
   (in-game unreached); referee uses a fake cSlider vtable. cSlider (vtable 78F544) done too (Init/Update/Draw*/Toggle/SetCurValue/Highlight;
   in-game Init+DrawHorizontal run in the race). FEngFindString 537A10 done. PreviewSlider (79AE30, 0x4C) / ThreeStageSlider
-  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next: TuningSlidersMenu (screen around TuningSlider, 5650C0 NotificationMessage) or UIWidgetMenu.
+  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next: MenuScreen::BaseNotify, then UIWidgetMenu, then TuningSlidersMenu.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
@@ -88,6 +88,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   5B2BD0/5B2BA0 stage limits, step 522560 on 0x839C40). Inlined GC FEngSendMessageToPackage = FEPackageManager::
   SendMessageToPackage. Strings: SearchForString 4FF9D0 (EDX arg; table *(0x8383D8), count *(0x8383D0)), GetLocalized-
   String inlined (fallback 0xC01A6F63). Referee calls EDX-arg originals with an inline-asm `call`.
+- MenuScreen (PC 0x4C, vtable 0x79AC00: 0 dtor 51DC60, 1 MaybeOverrideActiveButtons 40D080, 2 NotificationMessage,
+  3 NotifySoundMessage 570A70): ctor 551DE0 + dtor rewritten (MenuScreen.cpp). PC layout = GC +4 up to +0x24; GC +0x24
+  EAM flag is global 0x838528 on PC. ScreenConstructorData +0x0C = PC help bar mask. Next: BaseNotify 55B5C0, then
+  UIWidgetMenu (ctor 552780, vtable 0x795CDC, FEScrollBar +0x6C, list +0x4C, string table +0xC4..+0xF0).
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.

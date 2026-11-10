@@ -22,6 +22,7 @@
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
 #include "frontend/TuningUtil.h"
+#include "frontend/MenuScreen.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/cFEngRender.h"
 #include "frontend/FEngFont.h"
@@ -363,6 +364,10 @@ void THISCALL TuningSlider_Draw(TuningSlider *self) { self->Draw(); }
 void THISCALL TuningSlider_Act(TuningSlider *self, const char *pkg, uint32_t m) { self->Act(pkg, m); }
 void THISCALL TuningSlider_CheckMouse(TuningSlider *self, const char *pkg, float x, float y) { self->CheckMouse(pkg, x, y); }
 void __cdecl FEngSetLanguageHash_Hook(FEObject *o, uint32_t h) { FEngSetLanguageHash(o, h); }
+MenuScreen *THISCALL MenuScreen_Ctor(MenuScreen *self, const ScreenConstructorData *d) { return self->Construct(d); }
+MenuScreen *THISCALL MenuScreen_ScalarDtor(MenuScreen *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+uint32_t __cdecl IsOverlayPackage_Hook(const char *p) { return IsOverlayPackage(p); }
+uint32_t __cdecl IsGenericDialogPackage_Hook(const char *p) { return IsGenericDialogPackage(p); }
 uint32_t __cdecl GetNameHashForTuningType_Hook(int32_t t) { return GetNameHashForTuningType(t); }
 uint32_t __cdecl GetUnitsHashForTuningType_Hook(int32_t t, int32_t u) { return GetUnitsHashForTuningType(t, u); }
 cSlider *THISCALL cSlider_Ctor(cSlider *self) { return self->Construct(); }
@@ -891,6 +896,10 @@ const Replacement kReplacements[] = {
     {0x53CD30, (const void *)&TuningSlider_Draw, "TuningSlider::Draw", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
     {0x564F10, (const void *)&TuningSlider_Act, "TuningSlider::Act", {0x55, 0x8B, 0xEC, 0x51, 0x53, 0x57}},
     {0x565050, (const void *)&TuningSlider_CheckMouse, "TuningSlider::CheckMouse", {0x53, 0x8B, 0x5C, 0x24, 0x0C, 0x55}},
+    {0x551DE0, (const void *)&MenuScreen_Ctor, "MenuScreen::MenuScreen", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x33}},
+    {0x51DC60, (const void *)&MenuScreen_ScalarDtor, "MenuScreen::~MenuScreen", {0xF6, 0x44, 0x24, 0x04, 0x01, 0x56}},
+    {0x49FFA0, (const void *)&IsOverlayPackage_Hook, "IsOverlayPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x68}},
+    {0x512170, (const void *)&IsGenericDialogPackage_Hook, "IsGenericDialogPackage", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x50}},
     {0x50C900, (const void *)&FEngSetLanguageHash_Hook, "FEngSetLanguageHash", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
     {0x50FE90, (const void *)&GetNameHashForTuningType_Hook, "GetNameHashForTuningType", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xF8}, 1, 4, 0},   // TuningSlider::Draw reuses ECX
     {0x50FFB0, (const void *)&GetUnitsHashForTuningType_Hook, "GetUnitsHashForTuningType", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xC0}},

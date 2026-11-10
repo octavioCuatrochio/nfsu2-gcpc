@@ -26,6 +26,9 @@
 #include "bWare/bMath.h"
 
 namespace teststub {
+int32_t profileState = 0, gameModeFlags = 0;
+bool showEAMIcons = false, callingScreenFrozen = false;
+char callingScreen[64] = {};
 const LanguageStringRecord *languageTable = nullptr;
 uint32_t languageCount = 0;
 int32_t tuningUnitType = 1, tuningUnavailableType = -1;
@@ -386,6 +389,15 @@ void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
 void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
 void *FEToggleWidgetVTable() { return reinterpret_cast<void *>(0x79B3B8); }
 void *TuningSliderVTable() { return reinterpret_cast<void *>(0x79B7B0); }
+void *MenuScreenVTable() { return reinterpret_cast<void *>(0x79AC00); }
+int32_t ProfileState() { return *reinterpret_cast<const int32_t *>(0x8500D0); }
+int32_t GameModeFlags() { return *reinterpret_cast<const int32_t *>(0x850078); }
+const char *ProfileName(bool alt) { return reinterpret_cast<const char *>(alt ? 0x850128 : 0x8500EC); }
+void SetShowEAMIcons(bool on) { *reinterpret_cast<uint8_t *>(0x838528) = on; }
+bool CallingScreenFrozen() { return *reinterpret_cast<const uint8_t *>(0x838520) != 0; }
+char *CallingScreenPackageName() { return reinterpret_cast<char *>(0x8384E0); }
+void FEngPrintfString(const char *p, uint32_t h, const char *f, const char *s) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f, s); }
+void HelpBar_SyncByMask(uint32_t m, const char *p) { reinterpret_cast<void(__thiscall *)(void *, uint32_t, const char *)>(0x54E6E0)(*reinterpret_cast<void **>(0x8384D8), m, p); }
 void *ThreeStageSliderVTable() { return reinterpret_cast<void *>(0x79AE54); }
 void *cSliderVTable() { return reinterpret_cast<void *>(0x78F544); }
 const char *GameEmptyString() { return reinterpret_cast<const char *>(0x783FE5); }
@@ -404,6 +416,15 @@ void *FEStatWidgetVTable() { return &teststub::feWidgetVTable; }
 void *FESliderWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FEToggleWidgetVTable() { return &teststub::feWidgetVTable; }
 void *TuningSliderVTable() { return &teststub::feButtonWidgetVTable; }
+void *MenuScreenVTable() { return &teststub::feWidgetVTable; }
+int32_t ProfileState() { return teststub::profileState; }
+int32_t GameModeFlags() { return teststub::gameModeFlags; }
+const char *ProfileName(bool alt) { return alt ? "Alt" : "Player"; }
+void SetShowEAMIcons(bool on) { teststub::showEAMIcons = on; }
+bool CallingScreenFrozen() { return teststub::callingScreenFrozen; }
+char *CallingScreenPackageName() { return teststub::callingScreen; }
+void FEngPrintfString(const char *p, uint32_t h, const char *, const char *s) { teststub::delivered.push_back({"fengprintf", const_cast<char *>(s), nullptr, h, p ? static_cast<uint32_t>(p[0]) : 0u}); }
+void HelpBar_SyncByMask(uint32_t m, const char *) { teststub::delivered.push_back({"helpbar", nullptr, nullptr, m, 0}); }
 void *ThreeStageSliderVTable() { return &teststub::fakeFont; }
 void *cSliderVTable() { return &teststub::fakeFont; }
 const char *GameEmptyString() { return ""; }

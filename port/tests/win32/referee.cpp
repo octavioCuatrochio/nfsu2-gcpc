@@ -46,6 +46,7 @@
 #include "frontend/FEPackageManager.h"
 #include "frontend/FENode.h"
 #include "frontend/FELocalize.h"
+#include "frontend/MenuScreen.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/FEString.h"
 #include "bWare/bMath.h"
@@ -2529,6 +2530,35 @@ static void CheckLocalize(int iters)
     }
 }
 
+// MenuScreen: PC-only package classifiers, ctor (help bar mask 0: no FEng in DllMain) and dtor (no delete). The ctor's
+// profile branch depends on 0x8500D0 (both sides read the same global).
+static void CheckMenuScreen(int iters)
+{
+    static const char *names[] = {"ScreenPrintf.fng", "Chyron_FE.fng", "GarageMain.fng", "UI_PC_Help_Bar.fng", "chyron_fe.fng",
+        "GenericDialog_ThreeButton.fng", "GenericDialog_Animate_SMALL.fng", "GenericDialog_SMALL.fng", "GenericDialog_Animate_MED.fng",
+        "GenericDialog_MED.fng", "GenericDialog_Animate_LARGE.fng", "genericdialog_large.FNG", "GenericDialog.fng", "Options.fng", ""};
+    auto oOverlay = ORIG<uint32_t(__cdecl *)(const char *)>(0x49FFA0);
+    auto oDialog = ORIG<uint32_t(__cdecl *)(const char *)>(0x512170);
+    for (const char *n : names) {
+        EXPECT(oOverlay(n) == static_cast<uint32_t>(IsOverlayPackage(n)), "IsOverlayPackage %s", n);
+        EXPECT((oDialog(n) & 0xFF) == static_cast<uint32_t>(IsGenericDialogPackage(n)), "IsGenericDialogPackage %s", n);
+    }
+    auto oCtor = ORIG<MenuScreen *(THISCALL *)(MenuScreen *, const ScreenConstructorData *)>(0x551DE0);
+    auto oDtor = ORIG<MenuScreen *(THISCALL *)(MenuScreen *, uint32_t)>(0x51DC60);
+    for (int it = 0; it < iters; ++it) {
+        alignas(8) static unsigned char a[sizeof(MenuScreen)], b[sizeof(MenuScreen)];
+        for (auto &c : a) c = static_cast<unsigned char>(rng());
+        std::memcpy(b, a, sizeof a);
+        ScreenConstructorData d{names[rng() % 15], reinterpret_cast<FEPackage *>(static_cast<uintptr_t>(rng())), rng(), 0, rng()};
+        MenuScreen *ra = oCtor(reinterpret_cast<MenuScreen *>(a), &d), *rb = reinterpret_cast<MenuScreen *>(b)->Construct(&d);
+        EXPECT(ra == reinterpret_cast<MenuScreen *>(a) && rb == reinterpret_cast<MenuScreen *>(b) && std::memcmp(a, b, sizeof a) == 0, "MenuScreen ctor %s", d.mpPackageName);
+        reinterpret_cast<MenuScreen *>(a)->vtable = reinterpret_cast<MenuScreen *>(b)->vtable = nullptr;
+        oDtor(reinterpret_cast<MenuScreen *>(a), 0);
+        reinterpret_cast<MenuScreen *>(b)->ScalarDeletingDestructor(0);
+        EXPECT(std::memcmp(a, b, sizeof a) == 0, "MenuScreen dtor");
+    }
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -3410,6 +3440,7 @@ static int RunAll()
     REFEREE_RUN(CheckToggleWidget(iters));
     REFEREE_RUN(CheckTuningSlider(iters));
     REFEREE_RUN(CheckLocalize(iters));
+    REFEREE_RUN(CheckMenuScreen(iters));
     REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckCFEngInterface(iters));

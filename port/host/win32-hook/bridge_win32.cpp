@@ -145,6 +145,15 @@ void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
 void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
 void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
 void *FEToggleWidgetVTable() { return reinterpret_cast<void *>(0x79B3B8); }
+void *MenuScreenVTable() { return reinterpret_cast<void *>(0x79AC00); }
+int32_t ProfileState() { return *reinterpret_cast<const int32_t *>(0x8500D0); }
+int32_t GameModeFlags() { return *reinterpret_cast<const int32_t *>(0x850078); }
+const char *ProfileName(bool alt) { return reinterpret_cast<const char *>(alt ? 0x850128 : 0x8500EC); }
+void SetShowEAMIcons(bool on) { *reinterpret_cast<uint8_t *>(0x838528) = on; }
+bool CallingScreenFrozen() { return *reinterpret_cast<const uint8_t *>(0x838520) != 0; }
+char *CallingScreenPackageName() { return reinterpret_cast<char *>(0x8384E0); }
+void FEngPrintfString(const char *p, uint32_t h, const char *f, const char *s) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f, s); }
+void HelpBar_SyncByMask(uint32_t m, const char *p) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, const char *)>(0x54E6E0)(*reinterpret_cast<void **>(0x8384D8), m, p); }
 void *TuningSliderVTable() { return reinterpret_cast<void *>(0x79B7B0); }
 void *ThreeStageSliderVTable() { return reinterpret_cast<void *>(0x79AE54); }
 void *cSliderVTable() { return reinterpret_cast<void *>(0x78F544); }

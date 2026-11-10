@@ -11,6 +11,7 @@
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
 #include "frontend/FELocalize.h"
+#include "frontend/MenuScreen.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
@@ -3060,6 +3061,39 @@ static void TestTuningSliderValues()
     CHECK(p2 && pd);
 }
 
+static void TestMenuScreen()
+{
+    CHECK(IsOverlayPackage("Chyron_FE.fng") && IsOverlayPackage("UI_PC_Help_Bar.fng") && !IsOverlayPackage("chyron_fe.fng"));
+    CHECK(IsGenericDialogPackage("GenericDialog_MED.fng") && IsGenericDialogPackage("genericdialog_threebutton.FNG"));
+    CHECK(!IsGenericDialogPackage("GenericDialog.fng"));
+    alignas(8) unsigned char m[sizeof(MenuScreen)];
+    std::memset(m, 0x5A, sizeof m);
+    auto *s = reinterpret_cast<MenuScreen *>(m);
+    ScreenConstructorData d{"Options.fng", nullptr, 0x1234, 0, 7};
+    teststub::profileState = 0;
+    std::strcpy(teststub::callingScreen, "Old.fng");
+    CHECK(s->Construct(&d) == s);
+    CHECK(s->vtable == &teststub::feWidgetVTable && s->mpPackageName == d.mpPackageName && s->mHelpHash == 0x1234 && s->mData.mArg == 7);
+    CHECK(s->_unknown08 == 0 && s->_pad09[0] == 0x5A && s->_unknown2C == 1 && s->_unknown34 == nullptr && s->_unknown48 == 0);
+    CHECK(std::string(teststub::callingScreen) == "Old.fng");   // profile not loaded: nothing else
+    teststub::profileState = 0xC; teststub::gameModeFlags = 0; teststub::showEAMIcons = false;
+    teststub::delivered.clear();
+    s->Construct(&d);
+    CHECK(teststub::showEAMIcons && std::string(teststub::callingScreen) == "Options.fng");
+    CHECK(teststub::delivered.size() == 1 && teststub::delivered[0].msg == 0xEB406FECu && std::string(static_cast<char *>(teststub::delivered[0].a)) == "Player");
+    ScreenConstructorData dd{"GenericDialog_SMALL.fng", nullptr, 0, 0, 0};
+    teststub::gameModeFlags = 0x200;
+    teststub::delivered.clear();
+    s->Construct(&dd);
+    CHECK(!teststub::showEAMIcons && std::string(teststub::callingScreen) == "Options.fng" && std::string(static_cast<char *>(teststub::delivered[0].a)) == "Alt");
+    teststub::gameModeFlags = 0;
+    ScreenConstructorData dk{"Keyboard.fng", nullptr, 0, 0, 0};
+    teststub::callingScreenFrozen = true;
+    s->Construct(&dk);
+    CHECK(!teststub::showEAMIcons && std::string(teststub::callingScreen) == "Options.fng");
+    teststub::callingScreenFrozen = false; teststub::profileState = 0;
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -3421,6 +3455,7 @@ int main()
     TestTuningSlider();
     TestLocalizeAndTuning();
     TestTuningSliderValues();
+    TestMenuScreen();
     TestCSlider();
     TestStageSliders();
     TestFEngExtents();
