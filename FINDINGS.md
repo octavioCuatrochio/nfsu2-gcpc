@@ -97,7 +97,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   detail 0x87099C, dirty 0x8709D1. On/off hashes 0x63C / 0xCCFA. UIWidgetMenu::GetWidget is a PC function (51FE70).
   In-game nav: 3 boot Returns -> main menu (Quick race); 5 Rights = Options; pages Sound, Display, Gameplay,
   Player, Controls, EA Trax, Credits (port/build-native/shots/nav.sh helper, not committed).
-  Next (whole files): UIOptionsController (Controls page).
+  PC Controls page = UI_Options_PC_Controller.fng (create 4F92E0, 0x15C, ctor 4ECD10, vtable 797DE4, Notify 4F9340):
+  PC-only key binding screen on MenuScreen + scroll bar +0x80, deps 4DBA50 / 4DC9F0 / 4DDC10 (~4 KB input mapping
+  each) -> its own input-system unit later. GC UIOptionsController (console pad pictures) has no PC screen.
+  Next (whole files): UIPauseOptions (+ PPO* widgets).
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
