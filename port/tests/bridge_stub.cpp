@@ -930,4 +930,7 @@ bool AutoSaveSecondStateAllowed() { return reinterpret_cast<uint8_t(__thiscall *
 bool AutoSaveSecondStateAllowed() { return teststub::autoSaveAllowed; }
 #endif
 void ApplyDetailLevel() { teststub::delivered.push_back({"applydetail", nullptr, nullptr, 0, 0}); }
+void DialogInterface_ShowTwoButtons(const char *, const char *, uint32_t a, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t g) { teststub::delivered.push_back({"twobuttons", nullptr, nullptr, a, g}); }
+const char *TrailerNameSSX() { return "SSX"; }
+void SetTrailerName(const char *) { teststub::delivered.push_back({"trailer", nullptr, nullptr, 0, 0}); }
 }  // namespace bridge

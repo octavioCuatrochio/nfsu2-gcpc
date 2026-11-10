@@ -507,4 +507,10 @@ void JumpCam_Set(int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t,
 int32_t FtoL(float v) { return static_cast<int32_t>(v); }
 bool AutoSaveSecondStateAllowed() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x502FE0)(reinterpret_cast<void *>(0x83A9E0)) != 0; }
 void ApplyDetailLevel() { reinterpret_cast<void(__cdecl *)()>(0x5BE9F0)(); }
+void DialogInterface_ShowTwoButtons(const char *p, const char *dlg, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f, uint32_t g)
+{
+    reinterpret_cast<void(__cdecl *)(const char *, const char *, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x558790)(p, dlg, a, b, c, d, e, f, g);
+}
+const char *TrailerNameSSX() { return reinterpret_cast<const char *>(0x7944C0); }
+void SetTrailerName(const char *n) { *reinterpret_cast<const char **>(0x7F4480) = n; }
 }  // namespace bridge

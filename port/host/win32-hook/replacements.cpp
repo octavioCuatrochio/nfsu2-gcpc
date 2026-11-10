@@ -610,6 +610,18 @@ void THISCALL OC_Resolution_Draw(OptionCycle *self) { self->ResolutionDraw(); }
 void THISCALL Detail_Act(DetailSlider *self, const char *, uint32_t msg) { self->Act(msg); }
 void THISCALL Detail_Draw(DetailSlider *self) { self->Draw(); }
 void THISCALL Detail_Init(DetailSlider *self) { self->SetInitialValues(); }
+void THISCALL OB_WheelAct(OptionButton *self, const char *p, uint32_t m) { self->WheelOptionsAct(p, m); }
+void THISCALL OB_WheelDraw(OptionButton *self) { self->WheelOptionsDraw(); }
+void THISCALL OB_WheelEnable(OptionButton *self) { self->WheelOptionsEnable(); }
+void THISCALL OB_WheelDisable(OptionButton *self) { self->WheelOptionsDisable(); }
+void THISCALL OB_ForwardAct(void *, const char *p, uint32_t m) { OptionButton::ForwardAct(p, m); }
+void THISCALL OB_792060Draw(OptionButton *self) { self->Button792060Draw(); }
+void THISCALL OB_DefaultsAct(void *, const char *p, uint32_t m) { OptionButton::DefaultsAct(p, m); }
+void THISCALL OB_DefaultsDraw(OptionButton *self) { self->DefaultsDraw(); }
+void THISCALL OB_TrailerAct(void *, const char *p, uint32_t m) { OptionButton::TrailerAct(p, m); }
+void THISCALL OB_TrailerDrawSSX(OptionButton *self) { self->TrailerDraw(bridge::TrailerNameSSX()); }
+void THISCALL OB_TrailerDrawNFL(OptionButton *self) { self->TrailerDraw(reinterpret_cast<const char *>(0x794508)); }
+void THISCALL OB_TrailerDrawNascar(OptionButton *self) { self->TrailerDraw(reinterpret_cast<const char *>(0x794558)); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1233,6 +1245,18 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x49B2F0, (const void *)&OB_WheelAct, "COWheelOptions::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0xE3}},
+    {0x49B330, (const void *)&OB_WheelDraw, "COWheelOptions::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x31, 0xB9}},
+    {0x4B5FD0, (const void *)&OB_WheelEnable, "COWheelOptions::Enable", {0x8B, 0x41, 0x2C, 0x6A, 0x01, 0x68}},
+    {0x4B5FF0, (const void *)&OB_WheelDisable, "COWheelOptions::Disable", {0x8B, 0x41, 0x2C, 0x6A, 0x01, 0x68}},
+    {0x49B930, (const void *)&OB_ForwardAct, "PCButton792060::Act", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x49B960, (const void *)&OB_792060Draw, "PCButton792060::Draw", {0x8B, 0x41, 0x2C, 0x68, 0xE9, 0xE1}},
+    {0x49B980, (const void *)&OB_DefaultsAct, "PCDefaults7920A0::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x10}},
+    {0x49B9E0, (const void *)&OB_DefaultsDraw, "PCDefaults7920A0::Draw", {0x8B, 0x41, 0x2C, 0x68, 0xEB, 0xED}},
+    {0x4B8300, (const void *)&OB_TrailerAct, "TOSSX/TONFLStreet/NASCAR::Act", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B82C0, (const void *)&OB_TrailerDrawSSX, "TOSSX::Draw", {0x8B, 0x41, 0x2C, 0x68, 0xC0, 0x44}},
+    {0x4B82E0, (const void *)&OB_TrailerDrawNFL, "TONFLStreet::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x08, 0x45}},
+    {0x4B8330, (const void *)&OB_TrailerDrawNascar, "PCTONascar::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x58, 0x45}},
     {0x49B600, (const void *)&OC_Resolution_Act, "PCResolution791F30::Act", {0x8B, 0x54, 0x24, 0x08, 0x81, 0xFA}},
     {0x49B690, (const void *)&OC_Resolution_Draw, "PCResolution791F30::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x49B740, (const void *)&Detail_Act, "PCDetailSlider791F78::Act", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x10}},

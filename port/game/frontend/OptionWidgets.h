@@ -101,7 +101,28 @@ struct DetailSlider {
     void SetInitialValues();
 };
 
+// Option buttons (FEButtonWidget layout, 0x38). "Forward" = FEngSetScript(pkg, 0x47FF4E7C, "FORWARD", true).
+//   COWheelOptions   791E00: Act 49B2F0 (0x406415E3 or 0x0C407210 -> forward; then Draw), Draw 49B330 (0x4DEAB931),
+//                    Enable 4B5FD0 / Disable 4B5FF0 (flag + "UnHighlight" / "Disabled" on the object)
+//   PC button 792060: Act 49B930 (0x0C407210 -> forward), Draw 49B960 (0x381FE1E9)
+//   PC defaults btn  7920A0: Act 49B980 (0x0C407210 or 0x406415E3 -> MakeFrontendSound(1, 0), DialogInterface::
+//                    ShowTwoButtons(pkg, "GenericDialog_SMALL.fng", 0xF770, 0x61C, 0xD05FC3A3, 0x34DC1BCF, 0x34DC1BCF,
+//                    0, 0x2BBCCA6B)), Draw 49B9E0 (0x13F0EDEB)
+//   TOSSX / TONFLStreet / PC NASCAR trailers 794480 / 7944C8 / 794518: shared Act 4B8300 (0x0C407210 -> trailer
+//                    name *0x7F4480 = "SSX" for all three (folded PC code), forward); Draw 4B82C0 / 4B82E0 / 4B8330
+//                    prints "SSX" / "NFL Street" / "NASCAR Thunder" into the object.
+struct OptionButton {
+    FEButtonWidget base;
+    void WheelOptionsAct(const char *pkg, uint32_t msg);  void WheelOptionsDraw() const;
+    void WheelOptionsEnable();                            void WheelOptionsDisable();
+    static void ForwardAct(const char *pkg, uint32_t msg);   void Button792060Draw() const;
+    static void DefaultsAct(const char *pkg, uint32_t msg);  void DefaultsDraw() const;
+    static void TrailerAct(const char *pkg, uint32_t msg);
+    void TrailerDraw(const char *name) const;
+};
+
 #if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(OptionButton) == 0x38);
 static_assert(sizeof(OptionCycle) == 0x54 && sizeof(DetailSlider) == 0x9C);
 static_assert(sizeof(AOVolumeSlider) == 0x98 && offsetof(OptionToggle, mPlayer) == 0x54);
 #endif

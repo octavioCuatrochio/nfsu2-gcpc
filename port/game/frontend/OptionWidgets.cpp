@@ -286,3 +286,41 @@ void DetailSlider::SetInitialValues()
     s.mMax = 5.0f;
     s.SetCurValue(static_cast<float>(GameInt(0x87099C)));
 }
+
+namespace {
+void Forward(const char *pkg) { FEngSetScript(pkg, 0x47FF4E7Cu, "FORWARD", true); }
+}
+
+void OptionButton::WheelOptionsAct(const char *pkg, uint32_t msg)
+{
+    if (msg == 0x406415E3u || msg == 0x0C407210u) Forward(pkg);
+    bridge::FEWidget_Draw(this);
+}
+void OptionButton::WheelOptionsDraw() const { FEngSetLanguageHash(base.mpObject, 0x4DEAB931u); }
+void OptionButton::WheelOptionsEnable()
+{
+    base.base.mbEnabled = 1;
+    FEngSetScript(base.mpObject, "UnHighlight", true);
+}
+void OptionButton::WheelOptionsDisable()
+{
+    base.base.mbEnabled = 0;
+    FEngSetScript(base.mpObject, "Disabled", true);
+}
+void OptionButton::ForwardAct(const char *pkg, uint32_t msg) { if (msg == 0x0C407210u) Forward(pkg); }
+void OptionButton::Button792060Draw() const { FEngSetLanguageHash(base.mpObject, 0x381FE1E9u); }
+void OptionButton::DefaultsAct(const char *pkg, uint32_t msg)
+{
+    if (msg != 0x0C407210u && msg != 0x406415E3u) return;
+    bridge::MakeFrontendSound(1, 0);
+    bridge::DialogInterface_ShowTwoButtons(pkg, "GenericDialog_SMALL.fng", 0xF770u, 0x61Cu, 0xD05FC3A3u, 0x34DC1BCFu,
+                                           0x34DC1BCFu, 0, 0x2BBCCA6Bu);
+}
+void OptionButton::DefaultsDraw() const { FEngSetLanguageHash(base.mpObject, 0x13F0EDEBu); }
+void OptionButton::TrailerAct(const char *pkg, uint32_t msg)
+{
+    if (msg != 0x0C407210u) return;
+    bridge::SetTrailerName(bridge::TrailerNameSSX());
+    Forward(pkg);
+}
+void OptionButton::TrailerDraw(const char *name) const { bridge::FEPrintfFormat(base.mpObject, name); }

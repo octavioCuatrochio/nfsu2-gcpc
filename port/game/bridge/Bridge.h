@@ -414,4 +414,8 @@ void JumpCam_Set(int32_t value);                 // PC 578EF0(3, 0, value, 1) (_
 int32_t FtoL(float v);                           // PC _ftol 75BED4 (truncation)
 bool AutoSaveSecondStateAllowed();               // PC 502FE0 (__thiscall on 0x83A9E0)
 void ApplyDetailLevel();                         // PC 5BE9F0 (__cdecl, no args)
+void DialogInterface_ShowTwoButtons(const char *pkg, const char *dlg, uint32_t a, uint32_t b, uint32_t c, uint32_t d,
+                                    uint32_t e, uint32_t f, uint32_t g);   // PC 558790 (__cdecl)
+const char *TrailerNameSSX();                    // PC 0x7944C0 "SSX" (the game's own string, stored as a pointer)
+void SetTrailerName(const char *name);           // PC *(const char**)0x7F4480
 }  // namespace bridge
