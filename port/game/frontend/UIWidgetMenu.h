@@ -38,7 +38,7 @@ struct UIWidgetMenu {
     float _unknown124;               // +0x124 4.0 (GC +0x134)
     float mSpacing;                  // +0x128 extra row gap (GC +0x138)
     uint32_t mCurrentIndex;          // +0x12C 1-based (GC +0x13C)
-    uint32_t _unknown130;            // +0x130 1
+    uint32_t mScrollPos;             // +0x130 1-based, kept in [1, mCurrentIndex - 1] by Scroll (GC +0x140)
     uint32_t mVisibleCount;          // +0x134 7
     uint32_t mPrevMsg;               // +0x138 StorePrevNotification (GC +0x148)
     uint32_t mPrevArg;               // +0x13C
@@ -59,6 +59,10 @@ struct UIWidgetMenu {
     void Reposition();                     // GC 8015C888 / PC 52FDB0: visible window placed from mTitleY, others at y 6969
     void Reset();                          // GC 8015C998 / PC 52FE60: select + view the first widget
     void SyncViewToSelection();            // GC 8015CA2C / PC 52FEA0
+    // GC 8015B430 / PC 5390E0 (ret 4): dir 1 = next enabled widget (after the last: DONE_BUTTON if any), else
+    // previous; the view follows one row at a time (Reposition each step). PC differs from GC (no lookahead).
+    void Scroll(int32_t dir);
+    void ScrollWrapped(int32_t dir);       // GC 8015B6B0 / PC 539370 (ret 4): like Scroll but wraps around
     FEWidget *GetWidget(uint32_t index1);  // GC 8015B3F8 (PC: inlined): 0 -> null, else bList::GetNode(index - 1)
     void IncrementStartPos();              // GC 8015CA04 (PC: inlined)
 };

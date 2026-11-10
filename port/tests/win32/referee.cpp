@@ -2583,6 +2583,8 @@ static void CheckUIWidgetMenu(int iters)
                       ORIG<M0>(0x52FEA0), ORIG<M0>(0x4CBC30)};
     auto oIndex = ORIG<uint32_t(THISCALL *)(UIWidgetMenu *, const FEWidget *)>(0x520020);
     auto oGetNode = ORIG<WidgetListNode *(THISCALL *)(WidgetListNode *, uint32_t)>(0x43BE60);
+    auto oScroll = ORIG<void(THISCALL *)(UIWidgetMenu *, int32_t)>(0x5390E0);
+    auto oScrollW = ORIG<void(THISCALL *)(UIWidgetMenu *, int32_t)>(0x539370);
     struct Arena { UIWidgetMenu m; FEButtonWidget w[12]; unsigned char om[2][sizeof(FEObject)]; float d[2][20]; };
     static Arena A, B;
     uiw_fake::stride = sizeof(FEButtonWidget);
@@ -2617,19 +2619,30 @@ static void CheckUIWidgetMenu(int iters)
             const int pick = n ? static_cast<int>(rng() % (n + 1)) : 0;   // n: not in the list
             const uint32_t cnt = 1 + rng() % 9, idx = rng() % 14;
             const bool cur = rng() % 4 != 0, done = rng() % 2;
+            const uint32_t rpos = rng() % 14;
+            const uint8_t sb = rng() % 2, dirty = rng() % 6 == 0;
+            const int32_t dir = rng() % 2 ? 1 : static_cast<int32_t>(rng() % 3) - 1;
             for (Arena *R : {&A, &B}) {
                 R->m.mpCurrent = cur && pick < n ? &R->w[pick].base : (cur ? &R->w[0].base : nullptr);
-                R->m.mpViewTop = pick < n ? &R->w[pick].base : nullptr;
+                R->m.mpViewTop = n ? &R->w[pick % n].base : nullptr;   // the game never has a null view top in a non-empty list
                 R->m.mpDoneButton = done ? reinterpret_cast<FEObject *>(R->om[0]) : nullptr;
                 R->m.mVisibleCount = cnt; R->m.mCurrentIndex = idx;
                 R->m.base.mpPackageName = "Pkg";
+                R->m.mScrollPos = rpos; R->m._unknown146 = sb; R->m.mbViewDirty = dirty;
+                FEObject *so = reinterpret_cast<FEObject *>(R->om[1]);
+                for (FEObject **f : {&R->m.mScrollBar.mpBacking, &R->m.mScrollBar.mpHandle, &R->m.mScrollBar.mpArrow1, &R->m.mScrollBar.mpArrow2,
+                                     &R->m.mScrollBar.mpBackingEnd1, &R->m.mScrollBar.mpBackingEnd2}) *f = sb ? so : nullptr;
+                R->m.mScrollBar.mbNoMove = 1;   // keep the shared object still (Update positions are compared via the bar fields)
             }
-            const int op = static_cast<int>(rng() % 9);
+            const int op = static_cast<int>(rng() % 11);
+            if (op >= 9) A.m.mpDoneButton = B.m.mpDoneButton = nullptr;   // FEngSetCurrentButton needs cFEng (absent in DllMain)
             uiw_fake::log.clear(); uiw_fake::base = reinterpret_cast<uint8_t *>(A.w);
             uint32_t ia = 0, ib = 0;
             if (trace) { std::printf("uiw op %d n %d pick %d cnt %u idx %u\n", op, n, pick, cnt, idx); std::fflush(stdout); }
             const bool target = rng() % 3 != 0;
             if (op < 7) o0[op](&A.m);
+            else if (op == 9) oScroll(&A.m, dir);
+            else if (op == 10) oScrollW(&A.m, dir);
             else if (op == 7) ia = oIndex(&A.m, target ? &A.w[pick].base : nullptr);
             else ia = static_cast<uint32_t>(reinterpret_cast<uint8_t *>(oGetNode(&A.m.mWidgets, pick)) - reinterpret_cast<uint8_t *>(&A));
             auto la = uiw_fake::log;
@@ -2640,6 +2653,8 @@ static void CheckUIWidgetMenu(int iters)
             case 4: B.m.Reset(); break;               case 5: B.m.SyncViewToSelection(); break;
             case 6: B.m.DestructBody(); break;
             case 7: ib = B.m.GetWidgetIndex(target ? &B.w[pick].base : nullptr); break;
+            case 9: B.m.Scroll(dir); break;
+            case 10: B.m.ScrollWrapped(dir); break;
             default: ib = static_cast<uint32_t>(reinterpret_cast<uint8_t *>(ListGetNode(&B.m.mWidgets, pick)) - reinterpret_cast<uint8_t *>(&B)); break;
             }
             auto lb = uiw_fake::log;
@@ -2653,6 +2668,8 @@ static void CheckUIWidgetMenu(int iters)
             unmap(&B.m.mWidgets.next); unmap(&B.m.mWidgets.prev); unmap(&B.m.mpCurrent); unmap(&B.m.mpViewTop);
             unmap(&B.m.mpTitleMaster); unmap(&B.m.mpDataMaster); unmap(&B.m.mpDoneButton);
             for (int i = 0; i < n; ++i) { unmap(&B.w[i].base._unknown04); unmap(&B.w[i].base._unknown08); }
+            for (FEObject **f : {&B.m.mScrollBar.mpBacking, &B.m.mScrollBar.mpHandle, &B.m.mScrollBar.mpArrow1, &B.m.mScrollBar.mpArrow2,
+                                 &B.m.mScrollBar.mpBackingEnd1, &B.m.mScrollBar.mpBackingEnd2}) unmap(f);
             for (int k = 0; k < 2; ++k) reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
             if (trace && !(ia == ib && la == lb && std::memcmp(&A, &B, sizeof A) == 0)) {
                 size_t off = 0;

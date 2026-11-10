@@ -375,6 +375,8 @@ void THISCALL UIWidgetMenu_ClearWidgets(UIWidgetMenu *self) { self->ClearWidgets
 void THISCALL UIWidgetMenu_Reposition(UIWidgetMenu *self) { self->Reposition(); }
 void THISCALL UIWidgetMenu_Reset(UIWidgetMenu *self) { self->Reset(); }
 void THISCALL UIWidgetMenu_SyncViewToSelection(UIWidgetMenu *self) { self->SyncViewToSelection(); }
+void THISCALL UIWidgetMenu_Scroll(UIWidgetMenu *self, int32_t d) { self->Scroll(d); }
+void THISCALL UIWidgetMenu_ScrollWrapped(UIWidgetMenu *self, int32_t d) { self->ScrollWrapped(d); }
 void THISCALL DeleteAllNodeOwners_Hook(WidgetListNode *head) { DeleteAllNodeOwners(head); }
 WidgetListNode *THISCALL ListGetNode_Hook(WidgetListNode *head, uint32_t i) { return ListGetNode(head, i); }
 MenuScreen *THISCALL MenuScreen_Ctor(MenuScreen *self, const ScreenConstructorData *d) { return self->Construct(d); }
@@ -919,6 +921,8 @@ const Replacement kReplacements[] = {
     {0x52FDB0, (const void *)&UIWidgetMenu_Reposition, "UIWidgetMenu::Reposition", {0x83, 0xEC, 0x08, 0x53, 0x55, 0x56}},
     {0x52FE60, (const void *)&UIWidgetMenu_Reset, "UIWidgetMenu::Reset", {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x4C}},
     {0x52FEA0, (const void *)&UIWidgetMenu_SyncViewToSelection, "UIWidgetMenu::SyncViewToSelection", {0x57, 0x8B, 0xF9, 0x8B, 0x4F, 0x4C}},
+    {0x5390E0, (const void *)&UIWidgetMenu_Scroll, "UIWidgetMenu::Scroll", {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x4C}},
+    {0x539370, (const void *)&UIWidgetMenu_ScrollWrapped, "UIWidgetMenu::ScrollWrapped", {0x83, 0xEC, 0x08, 0x55, 0x56, 0x8B}},
     {0x4358E0, (const void *)&DeleteAllNodeOwners_Hook, "bTList::DeleteAllElements", {0x56, 0x8B, 0xF1, 0x8B, 0x06, 0x3B}},
     {0x43BE60, (const void *)&ListGetNode_Hook, "bList::GetNode", {0x8B, 0x01, 0x33, 0xD2, 0x3B, 0xC1}},
     {0x551DE0, (const void *)&MenuScreen_Ctor, "MenuScreen::MenuScreen", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x33}},
