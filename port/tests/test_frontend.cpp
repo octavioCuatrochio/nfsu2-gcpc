@@ -2764,6 +2764,25 @@ static void TestFEngPosition()
     CHECK(gd[7] == 7);
 }
 
+// FEngRenderForeground / Background: gated by DrawFEng, graphs drawn after the engine, flags reset.
+static void TestRenderEntryPoints()
+{
+    cFEng *fe = bridge::cFEngInstance();
+    FEngine *saved = fe->mpEngine;
+    fe->mpEngine = TestEngine();
+    teststub::delivered.clear();
+    teststub::drawFEng = false;
+    FEngRenderForeground();
+    FEngRenderBackground();
+    CHECK(teststub::delivered.empty());
+    teststub::drawFEng = true;
+    FEngRenderForeground();
+    CHECK(!teststub::delivered.empty() && std::string(teststub::delivered.back().kind) == "fegraphs" && fe->mbDrawingForeground == 0);
+    FEngRenderBackground();
+    CHECK(fe->mbDrawingBackground == 0);
+    fe->mpEngine = saved;
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -3874,6 +3893,7 @@ int main()
     TestWidgetSmall();
     TestInputWidget();
     TestTuningSlidersMenu();
+    TestRenderEntryPoints();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

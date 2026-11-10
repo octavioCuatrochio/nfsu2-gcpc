@@ -56,7 +56,7 @@ void GetBaseName(char *out, const char *path);
 
 struct cFEng {
     void *vtable;                    // +0x00 FEGameInterface (PC 0x79BCD8)
-    uint8_t _unknown04;              // +0x04 cleared by the ctor
+    uint8_t mbDrawingForeground;     // +0x04 set around FEngine::Render in DrawForeground (cleared by the ctor)
     uint8_t mbDrawingBackground;     // +0x05 set around DrawBackground
     uint8_t mbRendering;             // +0x06 set by BeginPackageRendering
     uint8_t _unknown07;
@@ -143,6 +143,7 @@ struct cFEng {
     bool PackageWillUnload(FEPackage *pkg);
     // GC 8014E6D8 / PC 537540: UI_MagazineBack.fng rendered (RenderPackageSpecial) when pushed.
     void DrawBackground();
+    void DrawForeground();   // GC 8014E488 (PC: inlined in FEngRenderForeground 5378C0): flag +0x04 around Render
     // GC 8014E5C4 / PC 51CA50 (ret 8): own sort buffer (0x20C nodes), objects (groups skipped) through
     // RenderObjectSpecial with the view matrix, sorted, rendered through the interface's own vtable.
     void RenderPackageSpecial(FEPackage *pkg, uint32_t flag);
@@ -170,3 +171,10 @@ void FEngPopPackage(const char *name);                                  // GC 80
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(offsetof(cFEng, mpEngine) == 8 && offsetof(cFEng, mpSortHead) == 0x10 && offsetof(cFEngLevelSorter, mpcPackageName) == 8);
 #endif
+
+// GC FEngRenderForeground 8014F23C / PC 5378C0 (__cdecl): with DrawFEng (PC 0x7F91C4) and cFEng: DrawForeground,
+// CardiogramSystem::Draw and RenderMinimap (both the folded empty 4022C0 on PC), DrawFEGraphs (PC 510090); PC adds the
+// mouse cursor (50B460 at the mouse position) when no movie plays and the cursor flag (byte 0x7FA29C) is set.
+void FEngRenderForeground();
+// GC FEngRenderBackground 8014F2A8 / PC 537930 (__cdecl): DrawBackground under the same conditions.
+void FEngRenderBackground();

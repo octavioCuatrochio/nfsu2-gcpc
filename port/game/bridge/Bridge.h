@@ -376,4 +376,9 @@ void TuneManager_RebuildPlayersRideInfo();       // PC 50FDD0 (__thiscall on 0x8
 void BuildPlayerCarPhysicsInfo();                // PC Car::BuildCarPhysicsInfo 5F6C20(true) on Player::pPlayersByNumber[*(0x83A64C)] (0x8900AC) +4
 void RaceCoordinator_RequestUnPause(int32_t v);  // PC 5F4240 (__thiscall on *(0x8900D8), ret 4)
 void DialogInterface_ShowOk(const char *pkg, const char *fmt, uint32_t textHash);   // PC 558430 (__cdecl varargs)
+// ---- frontend frame entry points ----
+bool DrawFEng();                                 // PC *(int*)0x7F91C4 (GC DrawFEng)
+void DrawFEGraphs();                             // PC 510090: *(0x838564) ? its vtable +0xC : nothing (GC DrawFEGraphs)
+bool MouseCursorEnabled();                       // PC byte 0x7FA29C (1 at start)
+void DrawMouseCursor(int32_t x, int32_t y);      // PC 50B460 (__cdecl, PC only)
 }  // namespace bridge

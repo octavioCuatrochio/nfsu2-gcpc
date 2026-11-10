@@ -74,7 +74,7 @@ bool textInputFocused = false;
 int fakeFont = 0;
 int32_t joyPluggedPort = -1;
 int32_t tuningCategory = 0, allPortsFlag = 0, activePort = 0, lastButton = 0;
-bool speedMetric = false, hasLastButton = false;
+bool speedMetric = false, hasLastButton = false, drawFEng = true, cursorEnabled = false;
 int32_t discError = 0;
 const char *singlePackage = nullptr;
 uint8_t mouseGlobals[0x24] = {};
@@ -846,4 +846,9 @@ void TuneManager_RebuildPlayersRideInfo() { teststub::delivered.push_back({"rebu
 void BuildPlayerCarPhysicsInfo() { teststub::delivered.push_back({"buildphysics", nullptr, nullptr, 0, 0}); }
 void RaceCoordinator_RequestUnPause(int32_t v) { teststub::delivered.push_back({"unpause", nullptr, nullptr, static_cast<uint32_t>(v), 0}); }
 void DialogInterface_ShowOk(const char *, const char *, uint32_t h) { teststub::delivered.push_back({"showok", nullptr, nullptr, h, 0}); }
+// ---- frontend frame entry points ----
+bool DrawFEng() { return teststub::drawFEng; }
+void DrawFEGraphs() { teststub::delivered.push_back({"fegraphs", nullptr, nullptr, 0, 0}); }
+bool MouseCursorEnabled() { return teststub::cursorEnabled; }
+void DrawMouseCursor(int32_t x, int32_t y) { teststub::delivered.push_back({"cursor", nullptr, nullptr, static_cast<uint32_t>(x), static_cast<uint32_t>(y)}); }
 }  // namespace bridge

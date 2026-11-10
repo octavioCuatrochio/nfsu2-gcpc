@@ -465,4 +465,9 @@ void BuildPlayerCarPhysicsInfo()
 }
 void RaceCoordinator_RequestUnPause(int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x5F4240)(*reinterpret_cast<void **>(0x8900D8), v); }
 void DialogInterface_ShowOk(const char *pkg, const char *f, uint32_t h) { reinterpret_cast<void(__cdecl *)(const char *, const char *, ...)>(0x558430)(pkg, f, h); }
+// ---- frontend frame entry points ----
+bool DrawFEng() { return *reinterpret_cast<const int32_t *>(0x7F91C4) != 0; }
+void DrawFEGraphs() { reinterpret_cast<void(__cdecl *)()>(0x510090)(); }
+bool MouseCursorEnabled() { return *reinterpret_cast<const uint8_t *>(0x7FA29C) != 0; }
+void DrawMouseCursor(int32_t x, int32_t y) { reinterpret_cast<void(__cdecl *)(int32_t, int32_t)>(0x50B460)(x, y); }
 }  // namespace bridge

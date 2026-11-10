@@ -479,7 +479,7 @@ cFEng *cFEng::Construct()
     e[0] = 1;
     for (FEPackage *p = mpEngine->mpPackages; p; p = reinterpret_cast<FEPackage *>(p->node.next)) p->mbFastInterp = e[0];
     e[2] = 1;
-    _unknown04 = 0;
+    mbDrawingForeground = 0;
     mbDrawingBackground = 0;
     mbRendering = 1;
     void *rm = bridge::Alloc(static_cast<uint32_t>(sizeof(cFEngRender)));
@@ -622,4 +622,29 @@ bool FEngIsPackagePushed(const char *name)
         return FEListFindNode(name, reinterpret_cast<FENode *>(fe->mpEngine->mpPackages)) != nullptr;
     FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(name);
     return d && d->mpPackage;
+}
+
+void cFEng::DrawForeground()
+{
+    mbDrawingForeground = 1;
+    mpEngine->Render();
+    mbDrawingForeground = 0;
+}
+
+void FEngRenderForeground()
+{
+    cFEng *fe = bridge::cFEngInstance();
+    if (!bridge::DrawFEng() || !fe) return;
+    fe->DrawForeground();
+    bridge::DrawFEGraphs();
+    if (!bridge::MovieActive() && bridge::MouseCursorEnabled()) {
+        const auto *m = reinterpret_cast<const int32_t *>(bridge::MouseGlobals());
+        bridge::DrawMouseCursor(m[0], m[1]);
+    }
+}
+
+void FEngRenderBackground()
+{
+    cFEng *fe = bridge::cFEngInstance();
+    if (bridge::DrawFEng() && fe) fe->DrawBackground();
 }
