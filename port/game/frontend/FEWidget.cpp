@@ -9,6 +9,7 @@
 #include "FEScrollBar.h"
 #include <cstring>
 #include <initializer_list>
+#include <cmath>
 
 void FEWidget::Init(const float *pos, const float *size, bool enabled)
 {
@@ -390,4 +391,98 @@ void cSlider::Highlight()
 void cSlider::UnHighlight()
 {
     for (FEObject *o : {mpBacking, mpHandle, mpValue, mpCurrent, mpEndCap, mpEnd}) FEngSetScript(o, "UnHighlight", true);
+}
+
+void PreviewSlider::Toggle(bool on)
+{
+    cSlider &b = base;
+    for (FEObject *o : {b.mpBacking, b.mpHandle, b.mpValue, b.mpCurrent, b.mpEndCap, b.mpEnd, b.mpHandle, mpPreviewBar}) {
+        if (on) FEngSetVisible(o);
+        else FEngSetInvisible(o);
+    }
+}
+
+void PreviewSlider::Draw()
+{
+    cSlider &b = base;
+    float x = 0, y = 0;
+    FEngGetTopLeft(b.mpBacking, &x, &y);
+    FEngSetTopLeft(b.mpEndCap, static_cast<float>((L(x) + b.mMargin) - 4.0L), static_cast<float>(L(y) + 4.0L));
+    L avail = L(b.mLength) - 8.0L;
+    const float width = 0.0L > avail ? 0.0f : static_cast<float>(avail);   // PC: test 0x41 (NaN kept)
+    const float diff = static_cast<float>(L(b.mValue) - mPreview);
+    if (diff == 0.0f) {
+        FEngSetInvisible(mpPreviewBar);
+    } else if (diff > 0.0f) {
+        FEngSetVisible(mpPreviewBar);
+        FEngSetScript(mpPreviewBar, "ToLesser", true);
+    } else if (diff < 0.0f) {
+        FEngSetVisible(mpPreviewBar);
+        FEngSetScript(mpPreviewBar, "ToGreater", true);
+    }
+    L v = L(b.mValue) - diff;   // the smaller of value and value - diff
+    if (b.mValue < v) v = b.mValue;
+    const float t0 = static_cast<float>(v / b.mMax);
+    L t;
+    if (0.0f > t0) t = 0.0L;
+    else if (t0 < 1.0f) t = t0;
+    else t = 1.0L;   // also NaN
+    FEngSetWidth(b.mpCurrent, static_cast<float>(t * width));
+    const float barY = static_cast<float>(L(y) + 9.0L);
+    FEngSetTopLeft(b.mpCurrent, static_cast<float>((L(x) + b.mMargin) + 8.0L), barY);
+    float brx = barY, bry = x;   // PC: stack slots kept when there is no fill bar
+    FEngGetBottomRight(b.mpCurrent, &brx, &bry);
+    const float w2 = static_cast<float>(fabsl(L(diff) / b.mMax) * width);
+    FEngSetWidth(mpPreviewBar, w2);
+    FEngSetTopLeft(mpPreviewBar, brx, barY);
+    const float hy = static_cast<float>(L(y) + 7.0L);
+    if (diff < 0.0f) FEngSetTopLeft(b.mpHandle, static_cast<float>(L(brx) - 9.0L), hy);
+    else FEngSetTopLeft(b.mpHandle, static_cast<float>((L(brx) + w2) - 9.0L), hy);
+}
+
+bool ThreeStageSlider::Update(uint32_t msg)
+{
+    cSlider &b = base.base;
+    bool moved = false;
+    if (msg == 0x9120409Eu || msg == 0xB5971BF1u) {
+        float nv, limit;
+        b.mPrev = b.mValue;
+        if (msg == 0x9120409Eu) {
+            limit = mStageLow;
+            const L v = L(b.mValue) - b.mStep;
+            nv = v > L(limit) ? static_cast<float>(v) : limit;   // PC: rounded value only when inside; NaN -> limit
+        } else {
+            limit = base.mPreview;
+            const L v = L(b.mStep) + b.mValue;
+            nv = v < L(limit) ? static_cast<float>(v) : limit;
+        }
+        b.mValue = nv;
+        moved = !(nv == limit && b.mPrev == limit);
+    }
+    bridge::cSlider_Draw(this);
+    return moved;
+}
+
+void ThreeStageSlider::Draw()
+{
+    cSlider &b = base.base;
+    L range = L(b.mMax) - b.mMin;
+    if (range == 0.0L) range = 1.0L;
+    const L inv = 1.0L / range;
+    const float len = b.mLength;
+    const float a = static_cast<float>((L(b.mValue) - mStageLow) * inv);
+    const float c = static_cast<float>((L(mStageLow) - b.mMin) * inv * len + b.mMargin);
+    const float bw = static_cast<float>((L(base.mPreview) - b.mValue) * inv);
+    float x = 0, y = 0;
+    FEngGetTopLeft(b.mpBacking, &x, &y);
+    const float left = static_cast<float>(L(x) + c);
+    const float curW = static_cast<float>(L(len) * a);
+    FEngSetWidth(b.mpCurrent, curW);
+    const float barY = static_cast<float>(L(y) + 5.0L);
+    FEngSetTopLeft(b.mpCurrent, left, barY);
+    if (base.mpPreviewBar) FEngSetScript(base.mpPreviewBar, "ToLesser", true);   // PC: inlined
+    const float right = static_cast<float>(L(left) + curW);
+    FEngSetWidth(base.mpPreviewBar, static_cast<float>(L(len) * bw));
+    FEngSetTopLeft(base.mpPreviewBar, right, barY);
+    FEngSetTopLeft(b.mpHandle, static_cast<float>(L(right) - 4.0L), static_cast<float>(L(y) + 4.0L));
 }

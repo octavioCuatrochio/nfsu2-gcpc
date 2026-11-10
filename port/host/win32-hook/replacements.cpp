@@ -342,6 +342,10 @@ void THISCALL cSlider_Toggle(cSlider *self, uint32_t on) { self->Toggle(on & 0xF
 void THISCALL cSlider_SetCurValue(cSlider *self, float v) { self->SetCurValue(v); }
 void THISCALL cSlider_Highlight(cSlider *self) { self->Highlight(); }
 void THISCALL cSlider_UnHighlight(cSlider *self) { self->UnHighlight(); }
+void THISCALL PreviewSlider_Toggle(PreviewSlider *self, uint32_t on) { self->Toggle(on & 0xFF); }
+void THISCALL PreviewSlider_Draw(PreviewSlider *self) { self->Draw(); }
+uint32_t THISCALL ThreeStageSlider_Update(ThreeStageSlider *self, uint32_t msg) { return self->Update(msg); }
+void THISCALL ThreeStageSlider_Draw(ThreeStageSlider *self) { self->Draw(); }
 FEButtonWidget *THISCALL FEButtonWidget_Ctor(FEButtonWidget *self, const float *pos, const float *size, bool en) { return self->Construct(pos, size, en); }
 void THISCALL FEButtonWidget_Show(FEButtonWidget *self) { self->Show(); }
 void THISCALL FEButtonWidget_Hide(FEButtonWidget *self) { self->Hide(); }
@@ -770,6 +774,10 @@ const Replacement kReplacements[] = {
     {0x526D90, (const void *)&cSlider_Highlight, "cSlider::Highlight", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
     {0x526F80, (const void *)&cSlider_UnHighlight, "cSlider::UnHighlight", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
     {0x537A10, (const void *)&FEngFindStringHook, "FEngFindString", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x5122B0, (const void *)&PreviewSlider_Toggle, "PreviewSlider::Toggle", {0x8A, 0x44, 0x24, 0x04, 0x8B, 0xD1}},
+    {0x527170, (const void *)&PreviewSlider_Draw, "PreviewSlider::Draw", {0x83, 0xEC, 0x14, 0x56, 0x8B, 0xF1}},
+    {0x4FF590, (const void *)&ThreeStageSlider_Update, "ThreeStageSlider::Update", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x32}},
+    {0x5273A0, (const void *)&ThreeStageSlider_Draw, "ThreeStageSlider::Draw", {0x83, 0xEC, 0x18, 0x53, 0x56, 0x8B}},
     {0x51DFC0, (const void *)&FEButtonWidget_Ctor, "FEButtonWidget::FEButtonWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50D530, (const void *)&FEButtonWidget_Show, "FEButtonWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x50D550, (const void *)&FEButtonWidget_Hide, "FEButtonWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},

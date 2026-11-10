@@ -1944,6 +1944,69 @@ static void CheckCSlider(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// PreviewSlider / ThreeStageSlider on synthetic objects (backing always set: the draws read uninitialized locals
+// without it). Uses the cSlider fake vtable (Draw logs).
+static void CheckStageSliders(int iters)
+{
+    auto oToggle = ORIG<void(THISCALL *)(PreviewSlider *, uint32_t)>(0x5122B0);
+    auto oPDraw = ORIG<void(THISCALL *)(PreviewSlider *)>(0x527170);
+    auto oUpdate = ORIG<uint32_t(THISCALL *)(ThreeStageSlider *, uint32_t)>(0x4FF590);
+    auto oTDraw = ORIG<void(THISCALL *)(ThreeStageSlider *)>(0x5273A0);
+    struct Arena { ThreeStageSlider s; unsigned char om[7][sizeof(FEObject)]; float d[7][20]; };
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            cSlider &cs = A.s.base.base;
+            FEObject **slots[] = {&cs.mpBacking, &cs.mpHandle, &cs.mpValue, &cs.mpCurrent, &cs.mpEndCap, &cs.mpEnd, &A.s.base.mpPreviewBar};
+            for (int k = 0; k < 7; ++k) {
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 3 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+                *slots[k] = k == 0 || rng() % 6 ? o : nullptr;
+            }
+            cs.vtable = cslider_fake::vtable;
+            cs.mbVertical = rng() % 2;
+            float *fl[] = {&cs.mMax, &cs.mMin, &cs.mPrev, &cs.mValue, &cs.mStep, &cs.mLength, &cs.mMargin, &A.s.base.mPreview, &A.s.mStageLow};
+            for (float *f : fl) *f = rng() % 4 ? static_cast<float>(static_cast<int>(rng() % 40) - 10) / static_cast<float>(1 + rng() % 4) : RefCoord();
+            std::memcpy(&B, &A, sizeof A);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            cSlider &bs = B.s.base.base;
+            FEObject **bslots[] = {&bs.mpBacking, &bs.mpHandle, &bs.mpValue, &bs.mpCurrent, &bs.mpEndCap, &bs.mpEnd, &B.s.base.mpPreviewBar};
+            for (int k = 0; k < 7; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) + delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            }
+            const int op = static_cast<int>(rng() % 4);
+            const uint32_t msgs[3] = {0x9120409Eu, 0xB5971BF1u, rng()};
+            const uint32_t msg = msgs[rng() % 3], flag = (rng() & ~0xFFu) | (rng() & 1);
+            uint32_t ra = 0, rb = 0;
+            cslider_fake::log.clear();
+            if (op == 0) oToggle(&A.s.base, flag); else if (op == 1) oPDraw(&A.s.base); else if (op == 2) ra = oUpdate(&A.s, msg) & 0xFF; else oTDraw(&A.s);
+            const std::vector<int> la = cslider_fake::log;
+            cslider_fake::log.clear();
+            if (op == 0) B.s.base.Toggle(flag & 0xFF); else if (op == 1) B.s.base.Draw(); else if (op == 2) rb = B.s.Update(msg); else B.s.Draw();
+            const std::vector<int> lb = cslider_fake::log;
+            for (int k = 0; k < 7; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) - delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
+            }
+            int off = -1;
+            for (size_t i = 0; i < offsetof(Arena, d) && off < 0; ++i) if (reinterpret_cast<uint8_t *>(&A)[i] != reinterpret_cast<uint8_t *>(&B)[i]) off = static_cast<int>(i);
+            int doff = -1;
+            for (size_t i = 0; i < sizeof A.d && doff < 0; ++i) if (reinterpret_cast<uint8_t *>(A.d)[i] != reinterpret_cast<uint8_t *>(B.d)[i]) doff = static_cast<int>(i);
+            EXPECT(ra == rb && la == lb && off < 0 && doff < 0, "stage slider op %d pc=%x byte %x data %x", op, pc, off, doff);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FESliderWidget: ctor, sound events, Position / Show / Hide / SetFocus / UnsetFocus on synthetic boxes with a fake
 // cSlider vtable that logs its calls (both sides must make the same calls in the same order).
 namespace slider_fake {
@@ -2903,6 +2966,7 @@ static int RunAll()
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckCSlider(iters));
+    REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckFEngFontMeasure(iters * 3));

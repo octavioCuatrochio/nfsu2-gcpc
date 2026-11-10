@@ -2471,6 +2471,31 @@ static void TestCSlider()
     s->UnHighlight();
 }
 
+static void TestStageSliders()
+{
+    alignas(8) unsigned char sm[sizeof(ThreeStageSlider)] = {};
+    auto *t = reinterpret_cast<ThreeStageSlider *>(sm);
+    t->base.base.Construct();
+    cSlider &b = t->base.base;
+    b.mValue = 5; b.mStep = 2; t->mStageLow = 2; t->base.mPreview = 8; b.mMax = 10; b.mMin = 0;
+    teststub::delivered.clear();
+    CHECK(t->Update(0xB5971BF1u) && b.mValue == 7 && b.mPrev == 5);
+    CHECK(t->Update(0xB5971BF1u) && b.mValue == 8);   // upper stage limit
+    CHECK(!t->Update(0xB5971BF1u) && b.mValue == 8);
+    b.mValue = 3;
+    CHECK(t->Update(0x9120409Eu) && b.mValue == 2);
+    CHECK(!t->Update(0x9120409Eu) && teststub::delivered.size() == 5);
+    alignas(8) unsigned char om[sizeof(FEObject)] = {};
+    float od[20] = {};
+    auto *o = reinterpret_cast<FEObject *>(om);
+    o->mu32Type = 1; o->mpData = od;
+    t->base.mpPreviewBar = o;
+    t->base.Toggle(false);
+    CHECK(o->mu32Flags & 1);
+    t->base.Toggle(true);
+    CHECK(!(o->mu32Flags & 1));
+}
+
 static void TestSliderWidget()
 {
     alignas(8) unsigned char wm[sizeof(FESliderWidget)];
@@ -2866,6 +2891,7 @@ int main()
     TestScrollBar();
     TestSliderWidget();
     TestCSlider();
+    TestStageSliders();
     TestFEngExtents();
     TestFEngFontMeasure();
     TestProcessPads();

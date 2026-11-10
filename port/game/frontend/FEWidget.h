@@ -116,6 +116,31 @@ struct cSlider {
     void UnHighlight();                            // GC 80120138 / PC 526F80
 };
 
+// GC PreviewSlider (PC 0x4C, vtable 0x79AE30; ctor inlined in its screen, e.g. 559CF8): cSlider + a bar showing
+// the difference to a previewed value ("ToGreater" / "ToLesser" scripts).
+struct PreviewSlider {
+    cSlider base;              // +0x00
+    FEObject *mpPreviewBar;    // +0x44
+    float mPreview;            // +0x48 (ThreeStageSlider: upper stage limit)
+
+    void Toggle(bool on);      // GC 801206AC / PC 5122B0 (ret 4): cSlider objects, handle again, preview bar
+    void Draw();               // GC 8012046C / PC 527170
+};
+
+// GC ThreeStageSlider (PC 0x50, vtable 0x79AE54; ctor inlined in TuningSlider 522AF0): the value moves inside
+// [mStageLow, base.mPreview]; Toggle / Init from PreviewSlider / cSlider.
+struct ThreeStageSlider {
+    PreviewSlider base;        // +0x00
+    float mStageLow;           // +0x4C
+
+    bool Update(uint32_t msg); // GC 801207C0 / PC 4FF590 (ret 4): like cSlider::Update with the stage limits
+    void Draw();               // GC 8012087C / PC 5273A0
+};
+
+#if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(PreviewSlider) == 0x4C && sizeof(ThreeStageSlider) == 0x50);
+#endif
+
 // GC FESliderWidget (PC 0x98, vtable 0x79B400; 7 option-screen subclasses override it). PC: FEStatWidget base
 // (GC: FEToggleWidget, whose ctor PC inlines: just the two arrows).
 struct FESliderWidget {
