@@ -48,9 +48,9 @@ struct UIWidgetMenu {
     uint32_t mPrevMsg;               // +0x138 StorePrevNotification (GC +0x148)
     uint32_t mPrevArg;               // +0x13C
     uint32_t mPrevPkg;               // +0x140
-    uint8_t _unknown144, _unknown145, _unknown146;   // +0x144 0, 0, 1 (GC int fields)
+    uint8_t mbWrapScroll, mbInitialOptionSet, mbScrollBarEnabled;   // +0x144 0, 0, 1 (GC int fields)
     uint8_t mbViewDirty;             // +0x147 cleared by Reset / Sync (GC +0x160)
-    uint8_t _unknown148, _unknown149;   // +0x148 1, 1
+    uint8_t mbInputEnabled, mbSoundsEnabled;   // +0x148 1, 1
     uint8_t _pad14A[2];
 
     UIWidgetMenu *Construct(const ScreenConstructorData *data);   // GC 8015AB90 / PC 552780 (ret 4)
@@ -71,8 +71,8 @@ struct UIWidgetMenu {
     // Option rows: objects are named <prefix><mCurrentIndex> ("OPTION_NAME_3"). Each Add appends the widget, advances the
     // start position, Disable (if not enabled) / Show / Position / Draw, and returns the new row's index (0-based).
     FEObject *GetCurrentFEObject(const char *prefix);   // GC 8015C468 / PC 5445F0 (ret 4)
-    FEObject *GetCurrentFEString(const char *prefix);   // GC 8015C390 (PC: inlined, 4953C0)
-    FEObject *GetCurrentFEImage(const char *prefix);    // GC 8015C3FC (PC: inlined, 4953E0)
+    FEObject *GetCurrentFEString(const char *prefix);   // GC 8015C390 / PC 544550 (ret 4; Add* inline 4953C0)
+    FEObject *GetCurrentFEImage(const char *prefix);    // GC 8015C3FC / PC 5445A0 (ret 4; Add* inline 4953E0)
     uint32_t AddButtonOption(FEButtonWidget *w);        // GC 8015B9B8 / PC 54EE40 (ret 4)
     uint32_t AddStatOption(FEStatWidget *w);            // GC 8015BAA8 / PC 54F820 (ret 4)
     // style: 1 -> arrows 0x9943D584, 2/3 -> 0x374F6465 / 0x760BDC9D, else 0x367B3E04 (texture hashes)
@@ -81,6 +81,16 @@ struct UIWidgetMenu {
     uint32_t AddToggleImageOption(FEToggleImageWidget *w, int32_t style);  // GC 8015BDDC / PC 54F190 (ret 8)
     uint32_t AddSliderOption(FESliderWidget *w, int32_t style);            // GC 8015BFB8 / PC 54F410 (ret 8)
     uint32_t AddSliderOption(FESliderWidget *w, bool plain);               // GC 8015C228 / PC 54F800
+    // GC 8015B3E4 / PC 50DAE0 (ret 0x10)
+    void StorePrevNotification(uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg);
+    void SetInitialOption(int32_t index1);   // GC 8015C608 / PC 539650 (ret 4): 0 = the done button
+    // GC 8015ADD0 / PC 556020 (ret 0x10; vtable slot 2). PC: mouse 0x9803F6E2 and scroll bar 0xC98356BA handlers,
+    // text input without the "DIM" script; sound via table 0x837FE0 when mbSoundsEnabled.
+    void NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg);
+    FEWidget *WidgetAtPoint(float x, float y);   // PC 51FEA0 (ret 8, PC only): first shown widget whose box holds (x, y)
+    void SelectWidget(FEWidget *w);              // PC 50DB10 (ret 4, PC only): unfocus the old one, focus w
+    void HandleMouse();                          // PC 52FC40 (PC only): message 0x9803F6E2
+    void HandleScrollBarMouse();                 // PC 544490 (PC only): message 0xC98356BA
     FEWidget *GetWidget(uint32_t index1);  // GC 8015B3F8 (PC: inlined): 0 -> null, else bList::GetNode(index - 1)
     void IncrementStartPos();              // GC 8015CA04 (PC: inlined)
 };

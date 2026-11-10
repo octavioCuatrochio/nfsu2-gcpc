@@ -2573,8 +2573,14 @@ void *__thiscall S0(void *w, uint32_t f) { log.push_back({0, Idx(w), f}); return
 template <int K> void __thiscall S(void *w) { log.push_back({K, Idx(w), 0}); }
 void __thiscall S9(void *w, const char *p) { log.push_back({9, Idx(w), p ? static_cast<uint32_t>(p[0]) : 0u}); }
 void __thiscall S13(void *w, float y) { uint32_t b; std::memcpy(&b, &y, 4); log.push_back({13, Idx(w), b}); }
-void *vtable[16] = {(void *)&S0, nullptr, nullptr, (void *)&S<3>, (void *)&S<4>, (void *)&S<5>, (void *)&S<6>, nullptr, nullptr,
-                    (void *)&S9, (void *)&S<10>, nullptr, nullptr, (void *)&S13, nullptr, nullptr};
+void __thiscall S1(void *w, const char *p, uint32_t m) { log.push_back({1, Idx(w), m ^ (p ? static_cast<uint32_t>(p[0]) : 0u)}); }
+void __thiscall S2(void *w, const char *, float x, float y) { uint32_t a, b; std::memcpy(&a, &x, 4); std::memcpy(&b, &y, 4); log.push_back({2, Idx(w), a ^ (b * 3)}); }
+uint32_t __thiscall S14(void *w, uint32_t m, uint32_t e) { log.push_back({14, Idx(w), m ^ e}); return e * 3 + 1; }
+uint32_t __thiscall S15(void *w) { log.push_back({15, Idx(w), 0}); return Idx(w) + 2; }
+void *vtable[16] = {(void *)&S0, (void *)&S1, (void *)&S2, (void *)&S<3>, (void *)&S<4>, (void *)&S<5>, (void *)&S<6>, nullptr,
+                    (void *)&S<8>, (void *)&S9, (void *)&S<10>, nullptr, nullptr, (void *)&S13, (void *)&S14, (void *)&S15};
+void __thiscall MenuSetup(void *) { log.push_back({100, 0, 0}); }
+void *menuVtable[5] = {nullptr, nullptr, nullptr, nullptr, (void *)&MenuSetup};
 }
 static void CheckUIWidgetMenu(int iters)
 {
@@ -2585,6 +2591,19 @@ static void CheckUIWidgetMenu(int iters)
     auto oGetNode = ORIG<WidgetListNode *(THISCALL *)(WidgetListNode *, uint32_t)>(0x43BE60);
     auto oScroll = ORIG<void(THISCALL *)(UIWidgetMenu *, int32_t)>(0x5390E0);
     auto oScrollW = ORIG<void(THISCALL *)(UIWidgetMenu *, int32_t)>(0x539370);
+    auto oStore = ORIG<void(THISCALL *)(UIWidgetMenu *, uint32_t, FEObject *, uint32_t, uint32_t)>(0x50DAE0);
+    auto oInit = ORIG<void(THISCALL *)(UIWidgetMenu *, int32_t)>(0x539650);
+    auto oNotify = ORIG<void(THISCALL *)(UIWidgetMenu *, uint32_t, FEObject *, uint32_t, uint32_t)>(0x556020);
+    auto oAt = ORIG<FEWidget *(THISCALL *)(UIWidgetMenu *, float, float)>(0x51FEA0);
+    auto oSelect = ORIG<void(THISCALL *)(UIWidgetMenu *, FEWidget *)>(0x50DB10);
+    auto oMouse = ORIG<void(THISCALL *)(UIWidgetMenu *)>(0x52FC40);
+    auto oSound = ORIG<uint32_t(THISCALL *)(FEWidget *, uint32_t)>(0x50D460);
+    auto oRect = ORIG<uint8_t(__cdecl *)(float, float, const float *, const float *)>(0x50CD00);
+    static const uint32_t kMsgs[] = {0x0C407210u, 0x911AB364u, 0x0153E234u, 0x35F8620Bu, 0x406415E3u, 0x72619778u, 0x911C0A4Bu,
+                                     0x84378BEFu, 0x9120409Eu, 0xB5971BF1u, 0x92B703B5u, 0xAF0BBD92u, 0x9803F6E2u, 0xB5AF2461u, 0x12345u};
+    uint8_t *mouse = reinterpret_cast<uint8_t *>(0x8763D4);
+    uint8_t savedMouse[0x24];
+    std::memcpy(savedMouse, mouse, sizeof savedMouse);
     struct Arena { UIWidgetMenu m; FEButtonWidget w[12]; unsigned char om[2][sizeof(FEObject)]; float d[2][20]; };
     static Arena A, B;
     uiw_fake::stride = sizeof(FEButtonWidget);
@@ -2623,24 +2642,46 @@ static void CheckUIWidgetMenu(int iters)
             const uint8_t sb = rng() % 2, dirty = rng() % 6 == 0;
             const int32_t dir = rng() % 2 ? 1 : static_cast<int32_t>(rng() % 3) - 1;
             for (Arena *R : {&A, &B}) {
-                R->m.mpCurrent = cur && pick < n ? &R->w[pick].base : (cur ? &R->w[0].base : nullptr);
+                R->m.mpCurrent = cur && n ? &R->w[pick % n].base : nullptr;   // only widgets with the fake vtable
                 R->m.mpViewTop = n ? &R->w[pick % n].base : nullptr;   // the game never has a null view top in a non-empty list
                 R->m.mpDoneButton = done ? reinterpret_cast<FEObject *>(R->om[0]) : nullptr;
                 R->m.mVisibleCount = cnt; R->m.mCurrentIndex = idx;
                 R->m.base.mpPackageName = "Pkg";
-                R->m.mScrollPos = rpos; R->m._unknown146 = sb; R->m.mbViewDirty = dirty;
+                R->m.mScrollPos = rpos; R->m.mbScrollBarEnabled = sb; R->m.mbViewDirty = dirty;
                 FEObject *so = reinterpret_cast<FEObject *>(R->om[1]);
                 for (FEObject **f : {&R->m.mScrollBar.mpBacking, &R->m.mScrollBar.mpHandle, &R->m.mScrollBar.mpArrow1, &R->m.mScrollBar.mpArrow2,
                                      &R->m.mScrollBar.mpBackingEnd1, &R->m.mScrollBar.mpBackingEnd2}) *f = sb ? so : nullptr;
                 R->m.mScrollBar.mbNoMove = 1;   // keep the shared object still (Update positions are compared via the bar fields)
             }
-            const int op = static_cast<int>(rng() % 11);
-            if (op >= 9) A.m.mpDoneButton = B.m.mpDoneButton = nullptr;   // FEngSetCurrentButton needs cFEng (absent in DllMain)
+            const int op = static_cast<int>(rng() % 19);
+            // FEngSetCurrentButton / package scripts need cFEng and the sound player (absent in DllMain)
+            if (op >= 9 && op != 12) A.m.mpDoneButton = B.m.mpDoneButton = nullptr;
+            const uint32_t msg = kMsgs[rng() % (sizeof kMsgs / sizeof kMsgs[0])];
+            const uint32_t s1 = rng(), s2 = rng(), s3 = rng();
+            const float px = RefCoord(), py = RefCoord();
+            const int32_t initIdx = static_cast<int32_t>(rng() % (n + 2));
+            for (Arena *R : {&A, &B}) {
+                R->m.mbSoundsEnabled = 0;
+                R->m.base.vtable = uiw_fake::menuVtable;
+                if (op == 13 && msg == 0x0153E234u && !R->m.mpCurrent) R->m.mpCurrent = n ? &R->w[0].base : nullptr;
+            }
+            if (op == 13 && msg == 0x0153E234u && !n) continue;   // the original dereferences the selection
+            for (size_t i = 0; i < sizeof savedMouse; ++i) mouse[i] = static_cast<uint8_t>(rng() % 4 == 0 ? rng() : 0);
+            int32_t mx = static_cast<int32_t>(rng() % 640), my = static_cast<int32_t>(rng() % 480);
+            std::memcpy(mouse, &mx, 4); std::memcpy(mouse + 4, &my, 4);
             uiw_fake::log.clear(); uiw_fake::base = reinterpret_cast<uint8_t *>(A.w);
             uint32_t ia = 0, ib = 0;
             if (trace) { std::printf("uiw op %d n %d pick %d cnt %u idx %u\n", op, n, pick, cnt, idx); std::fflush(stdout); }
             const bool target = rng() % 3 != 0;
             if (op < 7) o0[op](&A.m);
+            else if (op == 11) oStore(&A.m, s1, reinterpret_cast<FEObject *>(static_cast<uintptr_t>(s2)), s3, s1 ^ s3);
+            else if (op == 12) oInit(&A.m, initIdx);
+            else if (op == 13) oNotify(&A.m, msg, reinterpret_cast<FEObject *>(static_cast<uintptr_t>(s2)), s3, s1);
+            else if (op == 14) ia = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(oAt(&A.m, px, py)) ? reinterpret_cast<uint8_t *>(oAt(&A.m, px, py)) - reinterpret_cast<uint8_t *>(&A) : 0);
+            else if (op == 15) { if (n) oSelect(&A.m, &A.w[pick % n].base); }
+            else if (op == 16) oMouse(&A.m);
+            else if (op == 17) { const float pp[2] = {RefCoord(), RefCoord()}, ss[2] = {RefCoord(), RefCoord()}; ia = oRect(px, py, pp, ss); ib = FEngTestForIntersection(px, py, pp, ss); }
+            else if (op == 18) { if (n) ia = oSound(&A.w[pick % n].base, msg); }
             else if (op == 9) oScroll(&A.m, dir);
             else if (op == 10) oScrollW(&A.m, dir);
             else if (op == 7) ia = oIndex(&A.m, target ? &A.w[pick].base : nullptr);
@@ -2653,6 +2694,14 @@ static void CheckUIWidgetMenu(int iters)
             case 4: B.m.Reset(); break;               case 5: B.m.SyncViewToSelection(); break;
             case 6: B.m.DestructBody(); break;
             case 7: ib = B.m.GetWidgetIndex(target ? &B.w[pick].base : nullptr); break;
+            case 11: B.m.StorePrevNotification(s1, reinterpret_cast<FEObject *>(static_cast<uintptr_t>(s2)), s3, s1 ^ s3); break;
+            case 12: B.m.SetInitialOption(initIdx); break;
+            case 13: B.m.NotificationMessage(msg, reinterpret_cast<FEObject *>(static_cast<uintptr_t>(s2)), s3, s1); break;
+            case 14: { FEWidget *r = B.m.WidgetAtPoint(px, py); ib = r ? static_cast<uint32_t>(reinterpret_cast<uint8_t *>(r) - reinterpret_cast<uint8_t *>(&B)) : 0; break; }
+            case 15: if (n) B.m.SelectWidget(&B.w[pick % n].base); break;
+            case 16: B.m.HandleMouse(); break;
+            case 17: break;   // compared above
+            case 18: if (n) ib = B.w[pick % n].base.DetermineSound(msg); break;
             case 9: B.m.Scroll(dir); break;
             case 10: B.m.ScrollWrapped(dir); break;
             default: ib = static_cast<uint32_t>(reinterpret_cast<uint8_t *>(ListGetNode(&B.m.mWidgets, pick)) - reinterpret_cast<uint8_t *>(&B)); break;
@@ -2678,10 +2727,11 @@ static void CheckUIWidgetMenu(int iters)
                 for (size_t i = 0; i < la.size() && i < 4; ++i) std::printf("  a %u %u %08x\n", la[i][0], la[i][1], la[i][2]);
                 for (size_t i = 0; i < lb.size() && i < 4; ++i) std::printf("  b %u %u %08x\n", lb[i][0], lb[i][1], lb[i][2]);
             }
-            EXPECT(ia == ib && la == lb && std::memcmp(&A, &B, sizeof A) == 0, "UIWidgetMenu op %d n=%d pick=%d pc=%x", op, n, pick, pc);
+            EXPECT(ia == ib && la == lb && std::memcmp(&A, &B, sizeof A) == 0, "UIWidgetMenu op %d n=%d pick=%d msg=%08x pc=%x", op, n, pick, msg, pc);
         }
     }
     _controlfp(saved, _MCW_PC);
+    std::memcpy(mouse, savedMouse, sizeof savedMouse);
 }
 
 // FESliderWidget::SetSliderObjects (5275B0): random widget bytes, a synthetic backing box, both precisions.

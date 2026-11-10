@@ -184,6 +184,22 @@ long double Tuning_GetLower(int32_t t) { return TuningGet(0x5B2BA0, t); }
 void Tuning_SetValue(float v, int32_t t) { reinterpret_cast<void(THISCALL *)(void *, float, int32_t, int32_t, int32_t)>(0x5B4670)(TuningObject(), v, t, 0, 1); }
 long double CarTuneManager_GetStep(int32_t t) { return reinterpret_cast<long double(THISCALL *)(void *, int32_t)>(0x522560)(reinterpret_cast<void *>(0x839C40), t); }
 bool cSlider_Update(void *s, uint32_t m) { return ((*reinterpret_cast<uint32_t(THISCALL ***)(void *, uint32_t)>(s))[0x04 / 4](s, m) & 0xFF) != 0; }
+void FEWidget_CheckMouse(void *w, const char *p, float x, float y) { (*reinterpret_cast<void(THISCALL ***)(void *, const char *, float, float)>(w))[0x08 / 4](w, p, x, y); }
+void MenuScreen_Setup(void *s) { (*reinterpret_cast<void(THISCALL ***)(void *)>(s))[0x10 / 4](s); }
+void FEScrollBar_HandleMouse(void *b) { reinterpret_cast<void(THISCALL *)(void *)>(0x538130)(b); }
+void FEScrollBar_BlinkArrow1(void *b) { reinterpret_cast<void(THISCALL *)(void *)>(0x495810)(b); }
+void FEScrollBar_BlinkArrow2(void *b) { reinterpret_cast<void(THISCALL *)(void *)>(0x495850)(b); }
+void FEDateWidget_SetDate(void *w) { reinterpret_cast<void(THISCALL *)(void *)>(0x538060)(w); }
+void FEInputWidget_SetText(void *w, const char *t) { reinterpret_cast<void(THISCALL *)(void *, const char *)>(0x4957D0)(w, t); }
+void FEInputWidget_SetInputFocus(void *w) { reinterpret_cast<void(THISCALL *)(void *)>(0x51EB60)(w); }
+void MenuScreen_BeginTextInput(void *s, uint32_t h, uint32_t m, void *b, void *b2, uint32_t mode, uint32_t f)
+{
+    reinterpret_cast<void(THISCALL *)(void *, uint32_t, uint32_t, void *, void *, uint32_t, uint32_t)>(0x555F80)(s, h, m, b, b2, mode, f);
+}
+char *EditedStringBuffer() { return reinterpret_cast<char *>(0x83A8B0); }
+int32_t RealTimer() { return *reinterpret_cast<const int32_t *>(0x8651AC); }
+int32_t KeyboardCreationTimer() { return *reinterpret_cast<const int32_t *>(0x83A9C8); }
+float KeyboardDelaySeconds() { return *reinterpret_cast<const float *>(0x7F942C); }
 void *UIWidgetMenuVTable() { return reinterpret_cast<void *>(0x795CDC); }
 static void WidgetSlot(void *w, int off) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[off / 4](w); }
 void FEWidget_Position(void *w) { WidgetSlot(w, 0x10); }

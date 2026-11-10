@@ -482,3 +482,13 @@ void FEngSetLanguageHash(FEObject *obj, uint32_t hash)
     obj->mu32Flags &= ~2u;
     if (flag2) obj->mu32Flags |= 0x400000;
 }
+
+bool FEngTestForIntersection(float x, float y, const float *pos, const float *size)
+{
+    const float left = pos[0], top = pos[1];
+    const float right = static_cast<float>(static_cast<long double>(pos[0]) + size[0]);
+    const float bottom = static_cast<float>(static_cast<long double>(size[1]) + pos[1]);
+    if (!(x >= left) || !(x <= right)) return false;   // NaN: false
+    if (!(y >= top) || !(y <= bottom)) return false;
+    return true;
+}

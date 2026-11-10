@@ -231,6 +231,20 @@ void FEWidget_Slot17(void *widget);                             // widget vtable
 void FEWidget_SetFocus(void *widget, const char *pkg);          // widget vtable +0x24
 void FEWidget_UnsetFocus(void *widget);                         // widget vtable +0x28
 void FEWidget_SetPosY(void *widget, float y);                   // widget vtable +0x34
+void FEWidget_CheckMouse(void *widget, const char *pkg, float x, float y);   // widget vtable +0x08
+void MenuScreen_Setup(void *screen);                            // screen vtable +0x10 (UIWidgetMenu Setup)
+void FEScrollBar_HandleMouse(void *bar);                        // PC 538130 (__thiscall): sets +0x3C hit code
+void FEScrollBar_BlinkArrow1(void *bar);                        // PC 495810: "Blink" on +0x48 unless running
+void FEScrollBar_BlinkArrow2(void *bar);                        // PC 495850: "Blink" on +0x4C
+void FEDateWidget_SetDate(void *widget);                        // PC 538060 (__thiscall)
+void FEInputWidget_SetText(void *widget, const char *text);     // PC 4957D0 (__thiscall)
+void FEInputWidget_SetInputFocus(void *widget);                 // PC 51EB60 (__thiscall)
+// MenuScreen::FEngBeginTextInput PC 555F80 (__thiscall, 6 args)
+void MenuScreen_BeginTextInput(void *screen, uint32_t objHash, uint32_t maxLen, void *buffer, void *buffer2, uint32_t mode, uint32_t flags);
+char *EditedStringBuffer();                                     // PC 0x83A8B0 (FEngGetEditedString)
+int32_t RealTimer();                                            // PC *(int*)0x8651AC
+int32_t KeyboardCreationTimer();                                // PC *(int*)0x83A9C8 (KBCreationTimer)
+float KeyboardDelaySeconds();                                   // PC *(float*)0x7F942C (g_KBDelaySeconds, 0.75)
 void *UIWidgetMenuVTable();                                     // PC 0x795CDC
 void FEPrintfInt(FEObject *str, const char *fmt, int32_t v);   // PC 537BE0 (__cdecl varargs): format into a string object
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C

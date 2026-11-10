@@ -7,6 +7,7 @@
 #include "FEObject.h"
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include "bWare/bString.h"
 #include "FEScrollBar.h"
 
@@ -69,9 +70,9 @@ UIWidgetMenu *UIWidgetMenu::Construct(const ScreenConstructorData *data)
     mScrollPos = 1;
     mVisibleCount = 7;
     mPrevMsg = mPrevArg = mPrevPkg = 0;
-    _unknown144 = 0; _unknown145 = 0; _unknown146 = 1;
+    mbWrapScroll = 0; mbInitialOptionSet = 0; mbScrollBarEnabled = 1;
     mbViewDirty = 0;
-    _unknown148 = 1; _unknown149 = 1;
+    mbInputEnabled = 1; mbSoundsEnabled = 1;
     mpTitleMaster = FEngFindObject(base.mpPackageName, FEHashUpper("TITLE_MASTER"));
     mpDataMaster = FEngFindObject(base.mpPackageName, FEHashUpper("DATA_MASTER"));
     mpDoneButton = FEngFindObject(base.mpPackageName, FEHashUpper("DONE_BUTTON"));
@@ -203,10 +204,10 @@ void ApplySelection(UIWidgetMenu &m, FEWidget *w)
         if (m.mpCurrent) bridge::FEWidget_UnsetFocus(m.mpCurrent);
         if (w) bridge::FEWidget_SetFocus(w, m.base.mpPackageName);
         m.mpCurrent = w;
-        if (!m._unknown146) return;
+        if (!m.mbScrollBarEnabled) return;
         if (w) m.mScrollBar.Update(1, static_cast<int32_t>(m.mCurrentIndex - 1), static_cast<int32_t>(m.GetWidgetIndex(w)));
     }
-    if (m._unknown146 && m.mScrollBar.mpHandle) {
+    if (m.mbScrollBarEnabled && m.mScrollBar.mpHandle) {
         if (w) FEngSetVisible(m.mScrollBar.mpHandle);
         else FEngSetInvisible(m.mScrollBar.mpHandle);
     }
@@ -490,3 +491,255 @@ uint32_t UIWidgetMenu::AddSliderOption(FESliderWidget *w, int32_t style)
 }
 
 uint32_t UIWidgetMenu::AddSliderOption(FESliderWidget *w, bool plain) { return AddSliderOption(w, plain ? 0 : 2); }
+
+void UIWidgetMenu::StorePrevNotification(uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg)
+{
+    mPrevMsg = msg;
+    mpPrevObject = obj;
+    mPrevArg = arg;
+    mPrevPkg = pkg;
+}
+
+void UIWidgetMenu::SetInitialOption(int32_t index1)
+{
+    if (mbInitialOptionSet) return;
+    WidgetListNode *firstNode = mWidgets.next;
+    FEWidget *w = FromNode(firstNode);
+    bool fallback = false;
+    if (index1 != 0) {
+        uint32_t n = 1;
+        for (;;) {
+            if (w == FromNode(&mWidgets)) goto sync;   // index past the end: nothing selected
+            if (n == static_cast<uint32_t>(index1)) break;
+            w = FromNode(NextOf(w));
+            ++n;
+        }
+        if (w && w->mbEnabled) {
+            mpCurrent = w;
+            bridge::FEWidget_SetFocus(w, base.mpPackageName);
+            mbInitialOptionSet = 1;
+            mScrollPos = n;
+            goto sync;
+        }
+        fallback = true;
+    } else if (!mpDoneButton) {
+        fallback = true;
+    } else {
+        if (mpCurrent) {
+            bridge::FEWidget_UnsetFocus(mpCurrent);
+            mpCurrent = nullptr;
+        }
+        if (cFEng *fe = bridge::cFEngInstance())
+            if (mpDoneButton) fe->SetCurrentButton(base.mpPackageName, mpDoneButton->mu32NameHash);
+    }
+    if (fallback) {
+        // first enabled widget (counting mScrollPos from 1)
+        mScrollPos = 1;
+        w = FromNode(firstNode);
+        while (w && !w->mbEnabled && w != FromNode(&mWidgets)) {
+            w = FromNode(NextOf(w));
+            ++mScrollPos;
+        }
+        if (w != FromNode(&mWidgets)) {
+            mpCurrent = w;
+            bridge::FEWidget_SetFocus(w, base.mpPackageName);
+            mbInitialOptionSet = 1;
+        } else {
+            mpCurrent = FromNode(firstNode);
+        }
+    }
+sync:
+    SyncViewToSelection();
+    if (mbScrollBarEnabled)
+        mScrollBar.Update(1, static_cast<int32_t>(mCurrentIndex - 1), static_cast<int32_t>(GetWidgetIndex(mpCurrent)));
+}
+
+FEWidget *UIWidgetMenu::WidgetAtPoint(float x, float y)
+{
+    for (FEWidget *w = FromNode(mWidgets.next); w != FromNode(&mWidgets); w = FromNode(NextOf(w))) {
+        if (w->mbHidden) continue;
+        const float pos[2] = {w->mPosX, w->mPosY}, size[2] = {w->mSizeX, w->mSizeY};
+        if (FEngTestForIntersection(x, y, pos, size)) return w;
+    }
+    return nullptr;
+}
+
+void UIWidgetMenu::SelectWidget(FEWidget *w)
+{
+    if (mpCurrent == w) return;
+    if (mpCurrent) bridge::FEWidget_UnsetFocus(mpCurrent);
+    mpCurrent = w;
+    bridge::FEWidget_SetFocus(w, base.mpPackageName);
+}
+
+void UIWidgetMenu::HandleMouse()
+{
+    const uint8_t *ms = bridge::MouseGlobals();
+    int32_t mxi, myi, moved1, moved2, held;
+    std::memcpy(&mxi, ms + 0x00, 4);
+    std::memcpy(&myi, ms + 0x04, 4);
+    std::memcpy(&moved1, ms + 0x10, 4);
+    std::memcpy(&moved2, ms + 0x14, 4);
+    std::memcpy(&held, ms + 0x18, 4);
+    const float x = static_cast<float>(L(mxi) - 320.0f);   // screen -> FEng coordinates
+    const float y = static_cast<float>(L(myi) - 240.0f);
+    const uint8_t clicked = ms[0x1C] ? ms[0x21] : ms[0x1E];   // left-handed swaps the buttons
+    if (clicked) {
+        if (mpCurrent && mpCurrent->mbEnabled) bridge::FEWidget_CheckMouse(mpCurrent, base.mpPackageName, x, y);
+        return;
+    }
+    if (held) return;
+    if (!moved1 && !moved2) return;
+    if (FEWidget *w = WidgetAtPoint(x, y)) {
+        if (w != mpCurrent && w->mbEnabled) SelectWidget(w);
+        return;
+    }
+    if (FEngTestForIntersection(x, y, mpDoneButton)) {
+        if (mpCurrent) {
+            bridge::FEWidget_UnsetFocus(mpCurrent);
+            mpCurrent = nullptr;
+        }
+        FEngSetCurrentButton(base.mpPackageName, mpDoneButton);
+    }
+}
+
+void UIWidgetMenu::HandleScrollBarMouse()
+{
+    bridge::FEScrollBar_HandleMouse(&mScrollBar);   // 538130: sets _unknown3C (-1 up arrow, 1 down arrow, ...)
+    const int32_t hit = static_cast<int32_t>(mScrollBar._unknown3C);
+    if (hit == -1) {
+        if (mbWrapScroll) {
+            ScrollWrapped(-1);
+        } else {
+            Scroll(-1);
+            if (mpCurrent == FromNode(mWidgets.next)) return;   // already at the top: no blink
+        }
+        bridge::FEScrollBar_BlinkArrow1(&mScrollBar);
+    } else if (hit == 1) {
+        if (mbWrapScroll) {
+            ScrollWrapped(1);
+        } else {
+            Scroll(1);
+            if (mpCurrent == FromNode(mWidgets.prev)) return;
+        }
+        bridge::FEScrollBar_BlinkArrow2(&mScrollBar);
+    } else {
+        mScrollBar.Update(1, static_cast<int32_t>(mCurrentIndex - 1), static_cast<int32_t>(GetWidgetIndex(mpCurrent)));
+    }
+}
+
+void UIWidgetMenu::NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg)
+{
+    uint32_t event = 0;
+    uint32_t trigger = base._unknown30;
+    const char *name = base.mpPackageName;
+    auto enabledCurrent = [this] { return mpCurrent && mpCurrent->mbEnabled; };
+    switch (msg) {
+    case 0x0C407210u:
+    case 0x911AB364u:
+        if (enabledCurrent()) {
+            bridge::FEWidget_Act(mpCurrent, name, msg);
+            StorePrevNotification(msg, obj, arg, pkg);
+        }
+        if (mpCurrent && !mpCurrent->mbEnabled) break;
+        event = msg == 0x911AB364u ? 10 : 8;
+        break;
+    case 0x0153E234u:
+        bridge::FEWidget_SetFocus(mpCurrent, name);
+        break;
+    case 0x251BF83Eu:
+    case 0xC9D30688u:
+        FEngSetScript(name, 0x47FF4E7Cu, "UNDIM", true);
+        if (msg == 0xC9D30688u) mbInputEnabled = 1;
+        break;
+    case 0x96DDA9E6u:
+        FEngSetScript(name, 0x47FF4E7Cu, "DIM", true);
+        break;
+    case 0x35F8620Bu:
+        if (enabledCurrent()) {
+            bridge::FEWidget_SetFocus(mpCurrent, name);
+            event = 11;
+            trigger = bridge::FEWidget_DetermineSoundTrigger(mpCurrent);
+        }
+        break;
+    case 0x406415E3u:
+        if (enabledCurrent()) event = 8;
+        break;
+    case 0x72619778u:
+    case 0x911C0A4Bu:
+        if (mbInputEnabled) {
+            const int32_t dir = msg == 0x911C0A4Bu ? 1 : -1;
+            if (mbWrapScroll) ScrollWrapped(dir);
+            else Scroll(dir);
+            event = dir == 1 ? 7 : 6;
+            trigger = 7;
+        }
+        break;
+    case 0x84378BEFu:
+        if (enabledCurrent()) {
+            bridge::FEWidget_UnsetFocus(mpCurrent);
+            event = 12;
+            trigger = bridge::FEWidget_DetermineSoundTrigger(mpCurrent);
+        }
+        break;
+    case 0x81017864u:   // start text input once the keyboard delay has passed
+        // PC: fild (now - created) * 0.00025f compared unrounded with g_KBDelaySeconds
+        if (!(L(bridge::RealTimer() - bridge::KeyboardCreationTimer()) * 0.00025f < bridge::KeyboardDelaySeconds())) {
+            FEWidget *iw = mpCurrent;
+            bridge::FEInputWidget_SetText(iw, bridge::GameEmptyString());
+            const uint8_t *p = reinterpret_cast<const uint8_t *>(iw);
+            FEObject *field;
+            uint32_t a250, a24C;
+            std::memcpy(&field, p + 0x30, sizeof field);
+            std::memcpy(&a250, p + 0x250, 4);
+            std::memcpy(&a24C, p + 0x24C, 4);
+            bridge::MenuScreen_BeginTextInput(this, field->mu32NameHash, a250, const_cast<uint8_t *>(p) + 0x4C,
+                                              const_cast<uint8_t *>(p) + 0x14C, a24C, 0);
+            mbInputEnabled = 0;
+            bridge::FEInputWidget_SetInputFocus(iw);
+        }
+        break;
+    case 0x9120409Eu:
+    case 0xB5971BF1u:
+        if (enabledCurrent()) {
+            bridge::FEWidget_Act(mpCurrent, name, msg);
+            event = mpCurrent->DetermineSound(msg);
+            trigger = bridge::FEWidget_DetermineSoundTrigger(mpCurrent);
+        }
+        break;
+    case 0x92B703B5u:
+        RefreshWidgets();
+        break;
+    case 0x9803F6E2u:
+        HandleMouse();
+        break;
+    case 0xAF0BBD92u:   // rebuild: clear and run the screen's Setup (vtable slot 4)
+        mbInitialOptionSet = 0;
+        mCurrentIndex = 1;
+        ClearWidgets();
+        bridge::MenuScreen_Setup(this);
+        break;
+    case 0xC98356BAu:
+        HandleScrollBarMouse();
+        break;
+    case 0xDA52AF6Bu: {
+        FEWidget *w = mpCurrent;
+        bridge::FEDateWidget_SetDate(w);
+        bridge::FEWidget_Draw(w);
+        break;
+    }
+    case 0xDA5B8712u: {   // text input finished: copy the edited string into the input widget
+        FEngSetScript(name, 0x47FF4E7Cu, "UNDIM", true);
+        FEWidget *w = mpCurrent;
+        bStrNCpy(reinterpret_cast<char *>(w) + 0x4C, base._unknown0C ? bridge::EditedStringBuffer() : nullptr, 0xFF);
+        bridge::FEWidget_Draw(w);
+        event = w->DetermineSound(0xDA5B8712u);
+        trigger = bridge::FEWidget_DetermineSoundTrigger(w);
+        mbInputEnabled = 1;
+        break;
+    }
+    default:
+        break;
+    }
+    if (mbSoundsEnabled && event) bridge::MakeFrontendSound(event, trigger);
+}

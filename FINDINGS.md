@@ -58,7 +58,7 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   bridge::cSlider_*). Done: ctor 51E840, sound 50D6F0, Position/Show/Hide/SetFocus/UnsetFocus. Only on options screens
   (in-game unreached); referee uses a fake cSlider vtable. cSlider (vtable 78F544) done too (Init/Update/Draw*/Toggle/SetCurValue/Highlight;
   in-game Init+DrawHorizontal run in the race). FEngFindString 537A10 done. PreviewSlider (79AE30, 0x4C) / ThreeStageSlider
-  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next: rest of UIWidgetMenu (Scroll*, Add*Option, NotificationMessage), then MenuScreen::BaseNotify (decoded below).
+  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next (whole files): finish MenuScreen (BaseNotify + rest), FEScrollBar PC mouse members (538130, 495810/495850, 52E670, 52D100), FEWidget file leftovers, then TuningSlidersMenu.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
@@ -97,8 +97,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   Widget vtable slots: 0 dtor, 1 Act, 2 CheckMouse, 3 Draw, 4 Position, 5 Show, 6 Hide, 7 Enable, 8 Disable, 9 SetFocus,
   10 UnsetFocus, 11 SetPos, 12 SetPosX, 13 SetPosY, 14 DetermineSpecialSound, 15 DetermineSoundTrigger (GC index = +1).
   Scroll/ScrollWrapped and all Add*Option (+ GetCurrentFE*, FESliderWidget::SetSliderObjects 5275B0) done too. PC inlines
-  IncrementStartPos in two evaluation orders (AddToggleOption: (y + row) + gap; others (row + gap) + y). Left:
-  NotificationMessage 556020, SetInitialOption 539650, AddInputOption (no PC match yet), StorePrevNotification.
+  IncrementStartPos in two evaluation orders (AddToggleOption: (y + row) + gap; others (row + gap) + y). UNIT COMPLETE:
+  + NotificationMessage 556020, SetInitialOption, StorePrevNotification, PC-only WidgetAtPoint 51FEA0 / SelectWidget
+  50DB10 / HandleMouse 52FC40 / HandleScrollBarMouse 544490; AddInputOption = AddStatOption (folded). Flags +0x144 wrap,
+  +0x145 initial option set, +0x146 scroll bar, +0x147 view dirty, +0x148 input enabled, +0x149 sounds.
 - Referee: originals that look up packages/objects (FEngFindPackage 52CEF0) crash in DllMain (no cFEng). bridge_stub
   VirtualScalarDelete calls slot 0 for vtables outside the exe (check fakes). Remap only known pointer fields when
   comparing two arenas (blanket "looks like a B address" remaps give rare false mismatches; TuningSlider check still does).

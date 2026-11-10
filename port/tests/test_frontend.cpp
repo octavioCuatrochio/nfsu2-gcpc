@@ -3107,7 +3107,7 @@ static void TestUIWidgetMenu()
     CHECK(m->Construct(&d) == m);
     bridge::cFEngInstance()->mpEngine = savedEngine;
     CHECK(m->base.vtable == &teststub::feButtonWidgetVTable && m->mWidgets.next == &m->mWidgets && m->mVisibleCount == 7);
-    CHECK(m->mTitleW == 175.0f && m->_unknown124 == 4.0f && m->_unknown146 == 1 && m->_unknown149 == 1 && m->base._unknown2C == 1);
+    CHECK(m->mTitleW == 175.0f && m->_unknown124 == 4.0f && m->mbScrollBarEnabled == 1 && m->mbSoundsEnabled == 1 && m->base._unknown2C == 1);
     CHECK(std::string(m->mSliderEnd) == "SLIDER_END_" && m->mpTitleMaster == nullptr);
     // 10 widgets appended (node at FEWidget::_unknown04)
     FEWidget *w[10];
@@ -3179,6 +3179,58 @@ static void TestUIWidgetMenuAdd()
     CHECK(m->AddSliderOption(s, 1) == 3 && m->GetWidget(3) == &s->base.base);
     CHECK(std::string(teststub::delivered[0].kind) == "slot17" && teststub::delivered.size() == 4);
     m->mWidgets.next = m->mWidgets.prev = &m->mWidgets;   // stack widgets: don't delete them
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
+static void TestUIWidgetMenuMessages()
+{
+    // FEngTestForIntersection(pos, size): inclusive edges, NaN outside
+    const float pos[2] = {10, 20}, size[2] = {5, 4};
+    CHECK(FEngTestForIntersection(10, 20, pos, size) && FEngTestForIntersection(15, 24, pos, size));
+    CHECK(!FEngTestForIntersection(9.9f, 22, pos, size) && !FEngTestForIntersection(12, 24.1f, pos, size) && !FEngTestForIntersection(std::nanf(""), 22, pos, size));
+    alignas(8) static unsigned char mm[sizeof(UIWidgetMenu)];
+    std::memset(mm, 0, sizeof mm);
+    auto *m = reinterpret_cast<UIWidgetMenu *>(mm);
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+    m->Construct(&d);
+    m->mbSoundsEnabled = 1;
+    alignas(8) static unsigned char wm[4][sizeof(FEButtonWidget)];
+    std::memset(wm, 0, sizeof wm);
+    FEWidget *w[4];
+    for (int i = 0; i < 4; ++i) {
+        w[i] = reinterpret_cast<FEWidget *>(wm[i]);
+        w[i]->mbEnabled = i != 0;   // first disabled
+        w[i]->mPosX = 0; w[i]->mPosY = 30.0f * i; w[i]->mSizeX = 100; w[i]->mSizeY = 20;
+        auto *n = reinterpret_cast<WidgetListNode *>(&w[i]->_unknown04);
+        n->next = &m->mWidgets; n->prev = m->mWidgets.prev; m->mWidgets.prev->next = n; m->mWidgets.prev = n;
+    }
+    m->mCurrentIndex = 5;
+    // initial option: index 1 is disabled -> first enabled (index 2), scroll position 2
+    m->SetInitialOption(1);
+    CHECK(m->mpCurrent == w[1] && m->mScrollPos == 2 && m->mbInitialOptionSet == 1);
+    m->SetInitialOption(3);   // already set: nothing
+    CHECK(m->mpCurrent == w[1]);
+    CHECK(m->WidgetAtPoint(50, 65) == w[2] && m->WidgetAtPoint(50, 25) == nullptr);
+    w[2]->mbHidden = 1;
+    CHECK(m->WidgetAtPoint(50, 65) == nullptr);
+    m->StorePrevNotification(1, reinterpret_cast<FEObject *>(m), 3, 4);
+    CHECK(m->mPrevMsg == 1 && m->mpPrevObject == reinterpret_cast<FEObject *>(m) && m->mPrevArg == 3 && m->mPrevPkg == 4);
+    // scroll down message: sound event 7 / trigger 7
+    teststub::delivered.clear();
+    m->NotificationMessage(0x911C0A4Bu, nullptr, 0, 0);
+    CHECK(m->mpCurrent == w[2]);
+    CHECK(teststub::delivered.back().msg == 7 && teststub::delivered.back().arg == 7 && std::string(teststub::delivered.back().kind) == "makesound");
+    m->mbInputEnabled = 0;
+    m->NotificationMessage(0x911C0A4Bu, nullptr, 0, 0);   // input disabled: nothing
+    CHECK(m->mpCurrent == w[2]);
+    // left/right: Act, then DetermineSound(4) -> stub special sound event + 10
+    teststub::delivered.clear();
+    m->NotificationMessage(0x9120409Eu, nullptr, 0, 0);
+    CHECK(std::string(teststub::delivered[0].kind) == "act" && teststub::delivered.back().msg == 14);
+    CHECK(w[3]->DetermineSound(0x12345678u) == 0);
+    m->mWidgets.next = m->mWidgets.prev = &m->mWidgets;
     bridge::cFEngInstance()->mpEngine = savedEngine;
 }
 
@@ -3546,6 +3598,7 @@ int main()
     TestMenuScreen();
     TestUIWidgetMenu();
     TestUIWidgetMenuAdd();
+    TestUIWidgetMenuMessages();
     TestCSlider();
     TestStageSliders();
     TestFEngExtents();

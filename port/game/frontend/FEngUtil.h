@@ -87,3 +87,6 @@ void FEngGetObjBBox(const FEObject *obj, float *topLeft, float *extent);
 bool FEngGet2DExtents(const FEObject *obj, FERect *r);
 // GC 80151280 / PC 52D020: (x, y) inside the object's rectangle (edges included; NaN: false).
 bool FEngTestForIntersection(float x, float y, const FEObject *obj);
+// GC overload (position, size) / PC 50CD00 (__cdecl): left <= x <= left + w, top <= y <= top + h (edges rounded to
+// float; NaN fails)
+bool FEngTestForIntersection(float x, float y, const float *pos, const float *size);

@@ -864,3 +864,18 @@ void FESliderWidget::SetSliderObjects(FEObject *backing, FEObject *handle, FEObj
     FEngGetSize(mSlider.mpBacking, &w, &h);
     mSlider.mLength = static_cast<float>(L(w) - (L(mSlider.mMargin) + mSlider.mMargin));
 }
+
+uint32_t FEWidget::DetermineSound(uint32_t msg)
+{
+    uint32_t event;
+    switch (msg) {
+    case 0x911C0A4Bu: event = 7; break;
+    case 0x911AB364u: event = 10; break;
+    case 0x72619778u: event = 6; break;
+    case 0x9120409Eu: event = 4; break;
+    case 0xB5971BF1u: event = 5; break;
+    case 0xB5AF2461u: event = 9; break;
+    default: return 0;
+    }
+    return bridge::FEWidget_DetermineSpecialSound(this, msg, event);
+}

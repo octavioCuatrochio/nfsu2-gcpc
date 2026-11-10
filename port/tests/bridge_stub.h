@@ -33,7 +33,7 @@ extern std::vector<QueuedMessage> queued, forwarded;   // queued: SendMessageToG
 extern int feMessageNodeVTable, fePackageCommandVTable;
 struct Delivered { const char *kind; void *a, *pkg; uint32_t msg, arg; };
 extern std::vector<Delivered> delivered;
-extern int32_t profileState, gameModeFlags;
+extern int32_t profileState, gameModeFlags, realTimer;
 extern bool showEAMIcons, callingScreenFrozen;
 extern char callingScreen[64];
 extern const LanguageStringRecord *languageTable;   // LanguageStrings (native builds)

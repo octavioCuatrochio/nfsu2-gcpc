@@ -26,6 +26,9 @@ struct FEWidget {
     void Disable() { mbEnabled = 0; }
     void SetPosX(float x) { mPosX = x; }   // PC 4047F0 (folded)
     void SetPosY(float y) { mPosY = y; }   // PC 4AE9B0
+    // GC 8015375C / PC 50D460 (ret 4): message -> sound event (0x911C0A4B 7, 0x911AB364 10, 0x72619778 6,
+    // 0x9120409E 4, 0xB5971BF1 5, 0xB5AF2461 9), then DetermineSpecialSound (slot 14); other messages 0.
+    uint32_t DetermineSound(uint32_t msg);
 };
 
 // GC FEButtonWidget (PC 0x38 bytes, vtable 0x79B2F8).

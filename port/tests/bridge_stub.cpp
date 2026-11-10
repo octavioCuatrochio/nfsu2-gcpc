@@ -26,7 +26,7 @@
 #include "bWare/bMath.h"
 
 namespace teststub {
-int32_t profileState = 0, gameModeFlags = 0;
+int32_t profileState = 0, gameModeFlags = 0, realTimer = 0;
 bool showEAMIcons = false, callingScreenFrozen = false;
 char callingScreen[64] = {};
 const LanguageStringRecord *languageTable = nullptr;
@@ -440,8 +440,6 @@ void cSlider_DrawVertical(void *s) { teststub::delivered.push_back({"slider draw
 void cSlider_DrawHorizontal(void *s) { teststub::delivered.push_back({"slider drawh", s, nullptr, 0, 0}); }
 void FEPrintfInt(FEObject *o, const char *, int32_t v) { teststub::delivered.push_back({"printf", o, nullptr, static_cast<uint32_t>(v), 0}); }
 #endif
-uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
-void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
 void FEPrintfStrings(FEObject *o, const char *, const char *a, const char *b) { teststub::delivered.push_back({"printf2", o, nullptr, a ? static_cast<uint32_t>(a[0]) : 0u, b ? static_cast<uint32_t>(b[0]) : 0u}); }
 void FEPrintfDouble(FEObject *o, const char *f, double v) { teststub::delivered.push_back({"printfd", o, nullptr, static_cast<uint32_t>(f[4]), static_cast<uint32_t>(v * 100.0)}); }
 #ifdef NFSU2_REFEREE
@@ -464,6 +462,30 @@ long double Tuning_GetLower(int32_t) { return teststub::tuningLower; }
 void Tuning_SetValue(float v, int32_t t) { teststub::tuningValue = v; teststub::delivered.push_back({"tuning set", nullptr, nullptr, static_cast<uint32_t>(t), 0}); }
 long double CarTuneManager_GetStep(int32_t) { return 0.25L; }
 bool cSlider_Update(void *s, uint32_t m) { teststub::delivered.push_back({"slider update", s, nullptr, m, 0}); return true; }
+#ifdef NFSU2_REFEREE
+void FEWidget_CheckMouse(void *w, const char *p, float x, float y) { (*reinterpret_cast<void(__thiscall ***)(void *, const char *, float, float)>(w))[0x08 / 4](w, p, x, y); }
+void MenuScreen_Setup(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x10 / 4](s); }
+void FEScrollBar_HandleMouse(void *b) { reinterpret_cast<void(__thiscall *)(void *)>(0x538130)(b); }
+void FEScrollBar_BlinkArrow1(void *b) { reinterpret_cast<void(__thiscall *)(void *)>(0x495810)(b); }
+void FEScrollBar_BlinkArrow2(void *b) { reinterpret_cast<void(__thiscall *)(void *)>(0x495850)(b); }
+int32_t RealTimer() { return *reinterpret_cast<const int32_t *>(0x8651AC); }
+int32_t KeyboardCreationTimer() { return *reinterpret_cast<const int32_t *>(0x83A9C8); }
+float KeyboardDelaySeconds() { return *reinterpret_cast<const float *>(0x7F942C); }
+#else
+void FEWidget_CheckMouse(void *w, const char *, float x, float y) { teststub::delivered.push_back({"checkmouse", w, nullptr, static_cast<uint32_t>(x), static_cast<uint32_t>(y)}); }
+void MenuScreen_Setup(void *s) { teststub::delivered.push_back({"setup", s, nullptr, 0, 0}); }
+void FEScrollBar_HandleMouse(void *b) { teststub::delivered.push_back({"sb mouse", b, nullptr, 0, 0}); }
+void FEScrollBar_BlinkArrow1(void *b) { teststub::delivered.push_back({"sb blink1", b, nullptr, 0, 0}); }
+void FEScrollBar_BlinkArrow2(void *b) { teststub::delivered.push_back({"sb blink2", b, nullptr, 0, 0}); }
+int32_t RealTimer() { return teststub::realTimer; }
+int32_t KeyboardCreationTimer() { return 0; }
+float KeyboardDelaySeconds() { return 0.75f; }
+#endif
+void FEDateWidget_SetDate(void *w) { teststub::delivered.push_back({"setdate", w, nullptr, 0, 0}); }
+void FEInputWidget_SetText(void *w, const char *) { teststub::delivered.push_back({"settext", w, nullptr, 0, 0}); }
+void FEInputWidget_SetInputFocus(void *w) { teststub::delivered.push_back({"inputfocus", w, nullptr, 0, 0}); }
+void MenuScreen_BeginTextInput(void *s, uint32_t h, uint32_t, void *, void *, uint32_t, uint32_t) { teststub::delivered.push_back({"textinput", s, nullptr, h, 0}); }
+char *EditedStringBuffer() { static char buf[256] = "edited"; return buf; }
 #ifdef NFSU2_REFEREE
 void *UIWidgetMenuVTable() { return reinterpret_cast<void *>(0x795CDC); }
 #else
@@ -491,8 +513,17 @@ void FEWidget_SetFocus(void *w, const char *) { teststub::delivered.push_back({"
 void FEWidget_SetPosY(void *w, float y) { teststub::delivered.push_back({"setposy", w, nullptr, static_cast<uint32_t>(y), 0}); }
 void FEWidget_Draw(void *w) { teststub::delivered.push_back({"draw", w, nullptr, 0, 0}); }
 #endif
+#ifdef NFSU2_REFEREE   // through the (fake) widget vtables, like the game
+uint32_t FEWidget_DetermineSpecialSound(void *w, uint32_t m, uint32_t e) { return (*reinterpret_cast<uint32_t(__thiscall ***)(void *, uint32_t, uint32_t)>(w))[0x38 / 4](w, m, e); }
+void FEWidget_BlinkArrows(void *w, uint32_t m) { (*reinterpret_cast<void(__thiscall ***)(void *, uint32_t)>(w))[0x40 / 4](w, m); }
+uint32_t FEWidget_DetermineSoundTrigger(void *w) { return (*reinterpret_cast<uint32_t(__thiscall ***)(void *)>(w))[0x3C / 4](w); }
+void FEWidget_Act(void *w, const char *p, uint32_t m) { (*reinterpret_cast<void(__thiscall ***)(void *, const char *, uint32_t)>(w))[0x04 / 4](w, p, m); }
+#else
 uint32_t FEWidget_DetermineSpecialSound(void *w, uint32_t m, uint32_t e) { teststub::delivered.push_back({"specialsound", w, nullptr, m, e}); return e + 10; }
 void FEWidget_BlinkArrows(void *w, uint32_t m) { teststub::delivered.push_back({"blink", w, nullptr, m, 0}); }
+uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
+void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
+#endif
 void MakeFrontendSound(uint32_t e, uint32_t t) { teststub::delivered.push_back({"makesound", nullptr, nullptr, e, t}); }
 void PlayFrontendSound(uint32_t t) { teststub::delivered.push_back({"sound", nullptr, nullptr, t, 0}); }
 int32_t IsJoystickPluggedIn(int32_t p) { return p == teststub::joyPluggedPort; }
