@@ -37,12 +37,12 @@ FEPackage *FEPackageReader::Load(const void *data, void *gameInterface, FEngine 
     mpPackage = nullptr;
     mpCurrentObject = nullptr;
     mpParentGroup = nullptr;
-    mp10 = nullptr;
+    mpLastParent = nullptr;
     mu32NumTypes = 0;
     mpTypes = nullptr;
     mu32Header1C = 0;
     mu32Header18 = 0;
-    mu32_4C = 0;
+    mu32ButtonIndex = 0;
     mu32NumButtons = 0;
     mpData = static_cast<const uint32_t *>(data);
     mpEngine = engine;
@@ -228,7 +228,7 @@ bool FEPackageReader::ReadObjectChunk()
         for (const uint32_t *t = c + 2; t < objEnd; t = NextChunk(t)) {
             const uint8_t *data = reinterpret_cast<const uint8_t *>(t + 2);
             if (t[0] == 0x446A624Fu) {   // "ObjD"
-                if (!bridge::FEPackageReader_ReadObjectTags(this, data, t[1])) return false;
+                if (!ReadObjectTags(data, t[1])) return false;
             } else if (t[0] == 0x5267734Du) {   // "MsgR"
                 ReadMessageResponseTags(data, t[1], false);
             } else if (t[0] == 0x70726353u) {   // "Scrp"
@@ -250,6 +250,84 @@ bool FEPackageReader::ReadObjectChunk()
             for (uint8_t i = 0; i < cur->mu32NumTracks; ++i) bridge::FEKeyInterpScript(cur, i, 0, obj);
         if (mpParentGroup) mpParentGroup->mChildren.AddTail(&obj->node);
         else mpPackage->mObjects.AddTail(&obj->node);
+    }
+    return true;
+}
+
+bool FEPackageReader::ReadObjectTags(const uint8_t *tags, uint32_t size)
+{
+    const uint8_t *end = tags + size;
+    mbMergeResponses = 0;
+    for (const uint8_t *t = tags; t < end; t += *reinterpret_cast<const uint16_t *>(t + 2) + 4) {
+        const uint16_t id = *reinterpret_cast<const uint16_t *>(t);
+        const uint32_t *v = reinterpret_cast<const uint32_t *>(t + 4);
+        FEObject *obj = mpCurrentObject;
+        switch (id) {
+        case 0x504F: {   // "OP"
+            obj->mu32GUID = v[0];
+            obj->mu32NameHash = v[1];
+            obj->mu32Flags = v[2];
+            obj->_unknown22 = static_cast<uint16_t>(v[3]);
+            if (obj->mu32Flags & 0x100000) {   // instance of a library object
+                if (!FindReferencedObject(obj->mu32GUID, &mpRefObject, &mpRefPackage)) {
+                    if (mpCurrentObject) bridge::VirtualScalarDelete(mpCurrentObject);
+                    mpCurrentObject = nullptr;
+                    return false;
+                }
+                mbMergeResponses = 1;
+                mpCurrentObject->mu32Flags |= mpRefObject->mu32Flags;
+                if (mpCurrentObject->_unknown22 == 0xFFFF) {
+                    mpCurrentObject->_unknown24 = mpRefObject->_unknown24;
+                    mpCurrentObject->_unknown28 = mpRefObject->_unknown28;
+                }
+                FEObject *copy;
+                if (mpRefObject->mu32Type != 5) {
+                    copy = bridge::FEObject_VirtualClone(mpRefObject, true);
+                } else {
+                    void *mem = bridge::Alloc(0x6C);
+                    copy = mem ? bridge::FEGroup_CopyConstruct(mem, mpRefObject, false, true) : nullptr;
+                }
+                FEObject *old = mpCurrentObject;
+                copy->mu32GUID = old->mu32GUID;
+                copy->mu32NameHash = old->mu32NameHash;
+                copy->mu32Flags = old->mu32Flags;
+                copy->_unknown22 = old->_unknown22;
+                copy->_unknown24 = old->_unknown24;
+                copy->_unknown28 = old->_unknown28;
+                if (old) bridge::VirtualScalarDelete(old);
+                mpCurrentObject = copy;
+                for (auto *s = reinterpret_cast<FEScript *>(copy->mScripts.head); s; s = reinterpret_cast<FEScript *>(s->node.next))
+                    if (s->mpChainedScript)   // back to ids: ReadObjectChunk resolves them for the new object
+                        s->mpChainedScript = reinterpret_cast<FEScript *>(static_cast<uintptr_t>(s->mpChainedScript->mu32Id));
+            }
+            if (mpCurrentObject->mu32Flags & 0x10000000) mpPackage->mppButtons[mu32ButtonIndex++] = mpCurrentObject;
+            break;
+        }
+        case 0x4153: {   // "SA": raw object data
+            const uint32_t n = *reinterpret_cast<const uint16_t *>(t + 2) >> 2;
+            for (uint32_t i = 0; i < n; ++i) static_cast<uint32_t *>(obj->mpData)[i] = v[i];
+            break;
+        }
+        case 0x4150:   // "PA": parent group (cached)
+            if (!mpLastParent || mpLastParent->obj.mu32GUID != v[0])
+                mpLastParent = reinterpret_cast<FEGroup *>(mpPackage->FindObjectByGUID(v[0]));
+            mpParentGroup = mpLastParent;
+            break;
+        case 0x684F: obj->mu32NameHash = v[0]; break;   // "Oh"
+        case 0x6E4F: if (mbFlag09) obj->SetName(reinterpret_cast<const char *>(v)); break;   // "On"
+        case 0x744F: mpCurrentObject = bridge::FEPackageReader_CreateObject(this, v[0]); break;   // "Ot"
+        default:
+            if (!obj) break;
+            switch (obj->mu32Type) {   // PC jump table 55541C / 555430
+            case 1: case 9: case 10:
+                if (id == 0x6649) reinterpret_cast<FEImage *>(obj)->mu32ImageFlags = v[0];   // "If": image flags
+                break;
+            case 2: bridge::FEPackageReader_ProcessStringTag(this, t); break;
+            case 4: bridge::FEPackageReader_ProcessListBoxTag(this, t); break;
+            case 6: bridge::FEPackageReader_ProcessCodeListBoxTag(this, t); break;
+            default: break;
+            }
+        }
     }
     return true;
 }

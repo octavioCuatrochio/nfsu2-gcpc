@@ -16,6 +16,7 @@ struct cFEng;         // frontend/cFEng.h
 struct SlotPoolManager;   // bWare/bSlotPool.h
 struct SlotPool;
 struct FEPackageManager;   // frontend/FEPackageManager.h
+struct FEObject;
 
 struct bASinTableEntry;
 namespace bridge {
@@ -75,7 +76,12 @@ int32_t *FEngLoadCounterPtr();                                                  
 // FEGameInterface (engine +0x10C) vtable slot 0: package data by name; *freeBuffer -> caller frees *buffer
 const void *FEGameInterface_GetPackageData(void *gi, const char *name, void **buffer, uint8_t *freeBuffer);
 void FEGameInterface_LibraryLoaded(void *gi, ::FEPackage *pkg);   // vtable slot 3 (+0xC)
-bool FEPackageReader_ReadObjectTags(void *reader, const uint8_t *tags, uint32_t size);   // PC 555140 (GC 8013B584)
+::FEObject *FEPackageReader_CreateObject(void *reader, uint32_t type);   // PC 534DF0 (GC 8013B2E0)
+void FEPackageReader_ProcessStringTag(void *reader, const uint8_t *tag);    // PC 534FC0
+void FEPackageReader_ProcessListBoxTag(void *reader, const uint8_t *tag);   // PC 52B740
+void FEPackageReader_ProcessCodeListBoxTag(void *reader, const uint8_t *tag);   // PC 535060
+::FEObject *FEObject_VirtualClone(::FEObject *obj, bool reference);       // vtable slot 1
+::FEObject *FEGroup_CopyConstruct(void *mem, ::FEObject *src, bool a, bool b);   // PC 5548A0 (__thiscall, 0x6C bytes)
 bool FEPackageReader_ReadScriptTags(void *reader, const uint8_t *tags, uint32_t size);   // PC 5515E0 (GC 8013C44C)
 void FEListBox_RecalculateCummulative(void *listBox);              // PC 504360 (__thiscall)
 void FECodeListBox_FillAllCells(void *listBox);                    // PC 504C40 (__thiscall)

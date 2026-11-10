@@ -1363,7 +1363,7 @@ struct FngBuilder {
     void Tag(uint16_t id, const void *p, uint16_t n) { uint16_t h[2] = {id, static_cast<uint16_t>((n + 3) & ~3)}; uint32_t x; std::memcpy(&x, h, 4); w.push_back(x); Bytes(p, n); }
     void Tag32(uint16_t id, uint32_t v) { Tag(id, &v, 4); }
 };
-std::vector<uint32_t> BuildFng(bool withLib, uint32_t badLibSize = 0, const char *libRef = nullptr)
+std::vector<uint32_t> BuildFng(bool withLib, uint32_t badLibSize = 0, const char *libRef = nullptr, bool objectTags = false)
 {
     FngBuilder b;
     size_t root = b.Open(0xE76E4546u);
@@ -1396,7 +1396,17 @@ std::vector<uint32_t> BuildFng(bool withLib, uint32_t badLibSize = 0, const char
     size_t ob = b.Open(0xCC6A624Fu);
     { size_t bt = b.Open(0x6E747542); b.w.push_back(3); b.Close(bt); }
     { size_t fo = b.Open(0xEA624F46u);
-      size_t od = b.Open(0x446A624F); b.w.push_back(0x1111); b.Close(od);
+      size_t od = b.Open(0x446A624F);
+      if (objectTags) {
+          b.Tag32(0x744F, 4);   // Ot: list box
+          { uint32_t v[4] = {0x500, 0x501, 0x10000000, 7}; b.Tag(0x504F, v, 16); }
+          b.Tag(0x6E4F, "Name", 5);
+          b.Tag32(0x684F, 0x777);
+          b.Tag32(0x584C, 1);   // list box specific tag
+      } else {
+          b.w.push_back(0x1111);
+      }
+      b.Close(od);
       size_t sc = b.Open(0x70726353); b.w.push_back(0x2222); b.Close(sc);
       b.Close(fo); }
     b.Close(ob);
@@ -1435,8 +1445,8 @@ static void TestPackageReader()
     dl.clear();
     FEPackage *pkg = FEngine_LoadPackage(e, data.data(), 3);
     CHECK(pkg && std::string(pkg->mpcName) == "Pkg.fng" && std::string(pkg->mpcFilename) == "dir\\pkg.fng" && pkg->_unknown15[1] == 3);
-    CHECK(dl.size() == 3 && std::string(dl[0].kind) == "objtags" && dl[0].msg == 4 && std::string(dl[1].kind) == "scrtags");
-    CHECK(std::string(dl[2].kind) == "loadres" && dl[2].a == &ui && dl[2].msg == 2);   // no objects: nothing to connect
+    CHECK(dl.size() == 2 && std::string(dl[0].kind) == "scrtags");
+    CHECK(std::string(dl[1].kind) == "loadres" && dl[1].a == &ui && dl[1].msg == 2);   // no objects: nothing to connect
     CHECK(pkg->mu32NumButtons == 3 && pkg->mppButtons != nullptr);
     CHECK(pkg->mu32NumLibraryRefs == 2 && pkg->mpLibraryRefs[1].mu32Hash == 0xBBBB && pkg->mpLibraryRefs[1]._unknown04[1] == 4);
     auto *res = static_cast<uint32_t *>(pkg->mpResources);
@@ -1500,13 +1510,21 @@ static void TestPackageReader()
         o->mScripts.AddTail(&s0->node);
         o->mScripts.AddTail(&s1->node);
         teststub::readerObject = o;
+        auto od = BuildFng(true, 0, nullptr, true);
         dl.clear();
-        FEPackage *po = FEngine_LoadPackage(e, data.data(), 0);
+        FEPackage *po = FEngine_LoadPackage(e, od.data(), 0);
         teststub::readerObject = nullptr;
         CHECK(po && po->mObjects.count == 1 && po->mObjects.head == &o->node && o->mpCurrentScript == s0 && s0->mi32Time == 0 && s0->mpChainedScript == s1);
         int recalc = 0, interp = 0;
         for (auto &d : dl) { recalc += std::string(d.kind) == "recalc"; interp += std::string(d.kind) == "keyinterp" && d.a == s0; }
         CHECK(recalc == 1 && interp == 2);
+        CHECK(o->mu32GUID == 0x500 && o->mu32NameHash == 0x777 && o->mu32Flags == 0x10000000 && o->_unknown22 == 7);
+        CHECK(po->mppButtons[0] == o);
+        CHECK(o->mpcName && std::string(o->mpcName) == "Name");
+        bool lb = false;
+        for (auto &d : dl) lb |= std::string(d.kind) == "lbtag" && d.msg == 0x584C;
+        CHECK(lb);
+        bridge::FreeArray(o->mpcName);
         o->mScripts.head = o->mScripts.tail = nullptr;
         o->node.vtable = nullptr;
         bridge::VirtualScalarDelete(po);
@@ -1518,9 +1536,6 @@ static void TestPackageReader()
     pkg = FEngine_LoadPackage(e, nolib.data(), 0);
     CHECK(pkg && pkg->mu32NumLibraryRefs == 0);
     bridge::VirtualScalarDelete(pkg);
-    teststub::readerChunkResult = false;
-    CHECK(FEngine_LoadPackage(e, data.data(), 0) == nullptr);
-    teststub::readerChunkResult = true;
     teststub::loadResourcesResult = false;
     CHECK(FEngine_LoadPackage(e, data.data(), 0) == nullptr);
     teststub::loadResourcesResult = true;

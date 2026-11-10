@@ -111,7 +111,12 @@ const void *FEGameInterface_GetPackageData(void *gi, const char *n, void **b, ui
     return (*reinterpret_cast<const void *(THISCALL ***)(void *, const char *, void **, uint8_t *)>(gi))[0](gi, n, b, f);
 }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }
-bool FEPackageReader_ReadObjectTags(void *r, const uint8_t *t, uint32_t n) { return reinterpret_cast<bool(THISCALL *)(void *, const uint8_t *, uint32_t)>(0x555140)(r, t, n); }
+FEObject *FEPackageReader_CreateObject(void *r, uint32_t t) { return reinterpret_cast<FEObject *(THISCALL *)(void *, uint32_t)>(0x534DF0)(r, t); }
+void FEPackageReader_ProcessStringTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x534FC0)(r, t); }
+void FEPackageReader_ProcessListBoxTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x52B740)(r, t); }
+void FEPackageReader_ProcessCodeListBoxTag(void *r, const uint8_t *t) { reinterpret_cast<void(THISCALL *)(void *, const uint8_t *)>(0x535060)(r, t); }
+FEObject *FEObject_VirtualClone(FEObject *o, bool ref) { return (*reinterpret_cast<FEObject *(THISCALL ***)(FEObject *, uint32_t)>(o))[1](o, ref); }
+FEObject *FEGroup_CopyConstruct(void *m, FEObject *s, bool a, bool b) { return reinterpret_cast<FEObject *(THISCALL *)(void *, FEObject *, uint32_t, uint32_t)>(0x5548A0)(m, s, a, b); }
 bool FEPackageReader_ReadScriptTags(void *r, const uint8_t *t, uint32_t n) { return reinterpret_cast<bool(THISCALL *)(void *, const uint8_t *, uint32_t)>(0x5515E0)(r, t, n); }
 void FEListBox_RecalculateCummulative(void *lb) { reinterpret_cast<void(THISCALL *)(void *)>(0x504360)(lb); }
 void FECodeListBox_FillAllCells(void *lb) { reinterpret_cast<void(THISCALL *)(void *)>(0x504C40)(lb); }

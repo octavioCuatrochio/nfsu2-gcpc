@@ -16,10 +16,13 @@ struct FEPackageReader {
     uint8_t mbFlag0A;                // +0x0A Load arg 5 (FEngine +4)
     uint8_t _pad0B;
     FEObject *mpCurrentObject;       // +0x0C object whose response tags are being read (GC +0x14)
-    void *mp10;                      // +0x10
+    struct FEGroup *mpLastParent;    // +0x10 last group looked up by a "PA" tag
     struct FEGroup *mpParentGroup;   // +0x14 group the current object goes into (null: package top level)
     uint8_t mbMergeResponses;        // +0x18 (GC +0x20) object responses: reuse an existing message id
-    uint8_t _unknown19[0x30 - 0x19];
+    uint8_t _pad19[3];
+    FEObject *mpRefObject;           // +0x1C library object of a referenced (flag 0x100000) object
+    FEPackage *mpRefPackage;         // +0x20 its library package
+    uint8_t _unknown24[0x30 - 0x24];
     uint32_t mu32NumTypes;           // +0x30 (GC +0x38) "TypS" entries {type, size}
     const uint32_t *mpTypes;         // +0x34 (GC +0x3C)
     void *mpGameInterface;           // +0x38 FEngine +0x10C
@@ -27,7 +30,7 @@ struct FEPackageReader {
     uint32_t mu32Header18;           // +0x40 (GC +0x48) header dword 6
     uint32_t mu32Header1C;           // +0x44 (GC +0x4C) header dword 7
     uint32_t mu32NumButtons;         // +0x48 "Butn" count
-    uint32_t mu32_4C;                // +0x4C
+    uint32_t mu32ButtonIndex;        // +0x4C next FEPackage::mppButtons slot
 
     // GC 8013A50C (PC: inlined everywhere): child with `id`, scanning up to and including the chunk at the parent's
     // end (like the original); null if none.
@@ -53,6 +56,10 @@ struct FEPackageReader {
     // then list-box fixups, chained-script hashes -> pointers, script 0x1744B3 made current (no null check after),
     // initial key interpolation (unless mbPackage16) and linking into the parent group or the package.
     bool ReadObjectChunk();
+    // GC 8013B584 / PC 555140 (ret 8): Ot create, OP guid/hash/flags/+0x22 (library references are cloned from the
+    // library object; failure deletes the object and fails), PA parent, Oh hash, On name (only with mbFlag09),
+    // per-type tags (string/list box/code list box/image).
+    bool ReadObjectTags(const uint8_t *tags, uint32_t size);
     // GC 8013D134 / PC 5186C0 (ret 0xC): library reference -> library package (FEngine::FindLibraryPackage) -> object.
     bool FindReferencedObject(uint32_t refHash, FEObject **obj, FEPackage **pkg);
 };

@@ -60,6 +60,11 @@ struct FEObject {
 };
 
 // FEObject type 5: a group of child objects.
+struct FEImage {                    // factory types 1, 9, 10 (FEPackageReader "If" tag)
+    FEObject obj;                    // +0x00
+    uint32_t mu32ImageFlags;         // +0x5C
+};
+
 struct FEGroup {
     FEObject obj;                    // +0x00
     FEMinList mChildren;             // +0x5C
