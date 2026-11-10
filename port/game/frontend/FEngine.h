@@ -88,7 +88,7 @@ struct FEngine {
     uint32_t mu32ButtonsToRelease;   // +0x34 bit k: subtract mReleaseTime[k] from every pad's hold time k
     uint32_t mReleaseTime[19];       // +0x38
     FEObject *mPressedButton[19];    // +0x84 button that got the press message per pad button (for the release)
-    uint32_t mu32ButtonMapArg;       // +0xD0 passed to FEButtonMap::GetButtonFrom
+    uint32_t mu32ButtonMapArg;       // +0xD0 FEButtonWrapMode for FEButtonMap::GetButtonFrom (bit 1 X wrap, bit 2 Y wrap)
     uint32_t mu32NumJoyPads;         // +0xD4
     uint8_t _unknown0D8[4];
     // Active packages: FEMinList at +0xDC (vtable, count, head, tail); kept as fields because code uses the head.

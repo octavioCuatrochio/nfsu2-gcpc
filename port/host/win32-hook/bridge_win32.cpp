@@ -120,10 +120,7 @@ uint32_t FEGameInterface_GetJoyPadBits(void *gi, uint32_t pad) { return (*reinte
 void FEGameInterface_GetMouseInfo(void *gi, void *info) { (*reinterpret_cast<void(THISCALL ***)(void *, void *)>(gi))[0x44 / 4](gi, info); }
 void FEGameInterface_BeginUpdate(void *gi) { (*reinterpret_cast<void(THISCALL ***)(void *)>(gi))[0x5C / 4](gi); }
 void FEGameInterface_EndUpdate(void *gi) { (*reinterpret_cast<void(THISCALL ***)(void *)>(gi))[0x60 / 4](gi); }
-FEObject *FEButtonMap_GetButtonFrom(void *m, FEObject *f, uint32_t d, void *gi, uint32_t a)
-{
-    return reinterpret_cast<FEObject *(THISCALL *)(void *, FEObject *, uint32_t, void *, uint32_t)>(0x5189E0)(m, f, d, gi, a);
-}
+uint8_t FEGameInterface_GetContextTransform(void *gi, uint32_t c, float *m) { return (*reinterpret_cast<uint8_t(THISCALL ***)(void *, uint32_t, float *)>(gi))[0x2C / 4](gi, c, m); }
 uint8_t FEGameInterface_IsPointInObject(void *gi, float x, float y, FEObject *o) { return (*reinterpret_cast<uint8_t(THISCALL ***)(void *, float, float, FEObject *)>(gi))[0x48 / 4](gi, x, y, o); }
 bool TextInputFocused() { return *reinterpret_cast<const uint8_t *>(0x83A9C0) && *reinterpret_cast<const uint32_t *>(0x83A9C4); }
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }

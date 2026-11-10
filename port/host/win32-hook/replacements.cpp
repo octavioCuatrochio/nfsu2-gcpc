@@ -17,6 +17,7 @@
 #include "frontend/FEPackage.h"
 #include "frontend/FEPackageReader.h"
 #include "frontend/FEngine.h"
+#include "frontend/FEButtonMap.h"
 #include "frontend/FENode.h"
 #include "frontend/FEPackageManager.h"
 #include "frontend/cFEng.h"
@@ -292,6 +293,8 @@ FEObject *THISCALL FEngine_FindObject(FEngine *self, uint32_t h, const char *p) 
 void THISCALL FEngine_UpdateHook(FEngine *self, uint32_t delta, uint32_t whole) { self->Update(delta, whole); }
 void THISCALL FEngine_ProcessPadsForPackage(FEngine *self, FEPackage *p) { self->ProcessPadsForPackage(p); }
 void THISCALL FEngine_ProcessMouseForPackage(FEngine *self, FEPackage *p) { self->ProcessMouseForPackage(p); }
+void THISCALL FEButtonMap_ComputeButtonLocation(const FEButtonMap *self, FEObject *o, void *gi, FEVector2 *out) { self->ComputeButtonLocation(o, gi, out); }
+FEObject *THISCALL FEButtonMap_GetButtonFrom(const FEButtonMap *self, FEObject *f, uint32_t d, void *gi, uint32_t w) { return self->GetButtonFrom(f, d, gi, w); }
 uint32_t THISCALL FEJoyPad_HeldFor(const FEJoyPad *self, uint32_t m) { return self->HeldFor(m); }
 void THISCALL FEJoyPad_Update(FEJoyPad *self, uint32_t bits, uint32_t d) { self->Update(bits, d); }
 void THISCALL FEMouse_Update(FEMouse *self, const FEMouse::Info *i, uint32_t d) { self->Update(*i, d); }
@@ -601,6 +604,9 @@ const Replacement kReplacements[] = {
     {0x558C00, (const void *)&FEngine_UpdateHook, "FEngine::Update", {0x83, 0xEC, 0x0C, 0x55, 0x8B, 0xE9}},
     {0x54D4B0, (const void *)&FEngine_ProcessPadsForPackage, "FEngine::ProcessPadsForPackage", {0x8B, 0x44, 0x24, 0x04, 0x81, 0xEC}},
     {0x54E020, (const void *)&FEngine_ProcessMouseForPackage, "FEngine::ProcessMouseForPackage", {0x83, 0xEC, 0x18, 0x56, 0x57, 0x8B}},
+    {0x504B50, (const void *)&FEMultMatrix, "FEMultMatrix", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}, 1, 12, 0},
+    {0x504BB0, (const void *)&FEButtonMap_ComputeButtonLocation, "FEButtonMap::ComputeButtonLocation", {0x8B, 0x4C, 0x24, 0x08, 0x83, 0xEC}},
+    {0x5189E0, (const void *)&FEButtonMap_GetButtonFrom, "FEButtonMap::GetButtonFrom", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
     {0x504FF0, (const void *)&FEJoyPad_HeldFor, "FEJoyPad::HeldFor", {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
     {0x504FA0, (const void *)&FEJoyPad_Update, "FEJoyPad::Update", {0x8B, 0xD1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50B0C0, (const void *)&FEMouse_Update, "FEMouse::Update", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},

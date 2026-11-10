@@ -20,6 +20,7 @@
 #include "frontend/FEHash.h"
 #include "frontend/FEMinList.h"
 #include "frontend/FEObject.h"
+#include "frontend/FEButtonMap.h"
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEPool.h"
 #include "frontend/FEScript.h"
@@ -1333,6 +1334,72 @@ static void CheckCodeListBoxMove(int iters)
     }
 }
 
+// FEMultMatrix / FEButtonMap::ComputeButtonLocation / GetButtonFrom on random layouts; fake game interface whose
+// +0x2C transform succeeds for odd contexts (matrix derived from the context id). Both FPU precisions.
+static uint8_t THISCALL FakeGiTransform(void *, uint32_t ctx, float *m)
+{
+    if (!(ctx & 1)) return 0;
+    uint32_t x = ctx * 2654435761u;
+    for (int i = 0; i < 16; ++i) { x = x * 1103515245u + 12345u; m[i] = static_cast<float>(static_cast<int32_t>(x >> 8) % 4000) / 997.0f; }
+    return 1;
+}
+static float RefCoord()
+{
+    switch (rng() % 4) {
+    case 0: return static_cast<float>(static_cast<int32_t>(rng() % 1400) - 380);
+    case 1: return static_cast<float>(static_cast<int32_t>(rng() % 1400) - 380) * 0.37f;
+    case 2: return static_cast<float>(rng() % 5) * 160.0f;
+    default: return static_cast<float>(static_cast<int32_t>(rng() % 200001) - 100000) / 77.0f;
+    }
+}
+static void CheckButtonMap(int iters)
+{
+    static void *vtable[32] = {};
+    vtable[0x2C / 4] = reinterpret_cast<void *>(&FakeGiTransform);
+    static void *gi = vtable;
+    auto oMult = ORIG<void(__cdecl *)(FEVector3 *, const float *, const FEVector3 *)>(0x504B50);
+    auto oLoc = ORIG<void(THISCALL *)(const FEButtonMap *, FEObject *, void *, FEVector2 *)>(0x504BB0);
+    auto oGet = ORIG<FEObject *(THISCALL *)(const FEButtonMap *, FEObject *, uint32_t, void *, uint32_t)>(0x5189E0);
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            float m[16];
+            for (float &f : m) f = RefCoord() / 300.0f;
+            FEVector3 v{RefCoord(), RefCoord(), RefCoord()}, a{}, b{};
+            oMult(&a, m, &v);
+            FEMultMatrix(&b, m, &v);
+            EXPECT(std::memcmp(&a, &b, sizeof a) == 0, "FEMultMatrix pc=%x", pc);
+            alignas(8) static unsigned char om[12][sizeof(FEObject)];
+            static float data[12][10];
+            FEObject *buttons[12];
+            const uint32_t n = 1 + rng() % 12;
+            for (uint32_t i = 0; i < n; ++i) {
+                buttons[i] = reinterpret_cast<FEObject *>(om[i]);
+                std::memset(om[i], 0, sizeof om[i]);
+                buttons[i]->mpData = data[i];
+                buttons[i]->mu32Flags = rng() % 6 == 0 ? 0x4000000 : 0;
+                buttons[i]->_unknown20 = static_cast<uint16_t>(rng() % 3 ? 0 : rng() % 4);
+                const bool dup = i && rng() % 8 == 0;
+                data[i][7] = dup ? data[i - 1][7] : RefCoord();
+                data[i][8] = dup ? data[i - 1][8] : RefCoord();
+                data[i][9] = RefCoord();
+            }
+            FEButtonMap map{buttons, rng() % 10 == 0 ? 0 : n};
+            void *g = rng() % 4 ? &gi : nullptr;
+            FEObject *from = buttons[rng() % n];
+            FEVector2 la{}, lb{};
+            oLoc(&map, from, g, &la);
+            map.ComputeButtonLocation(from, g, &lb);
+            EXPECT(std::memcmp(&la, &lb, sizeof la) == 0, "ComputeButtonLocation ctx %u pc=%x: %a %a vs %a %a (pos %a %a %a)", from->_unknown20, pc, la.x, la.y, lb.x, lb.y, static_cast<float *>(from->mpData)[7], static_cast<float *>(from->mpData)[8], static_cast<float *>(from->mpData)[9]);
+            const uint32_t dir = rng() % 8, wrap = rng() % 4;
+            FEObject *ra = oGet(&map, from, dir, g, wrap), *rb = map.GetButtonFrom(from, dir, g, wrap);
+            EXPECT(ra == rb, "GetButtonFrom n %u dir %u wrap %u pc=%x: %p vs %p", n, dir, wrap, pc, (void *)ra, (void *)rb);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -1903,6 +1970,7 @@ static int RunAll()
     REFEREE_RUN(CheckCodeListBoxFillUpdate(iters * 5));
     REFEREE_RUN(CheckCodeListBoxMove(iters * 10));
     REFEREE_RUN(CheckPadMouse(iters * 5));
+    REFEREE_RUN(CheckButtonMap(iters * 5));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));

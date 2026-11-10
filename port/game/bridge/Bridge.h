@@ -83,7 +83,7 @@ uint32_t FEGameInterface_GetJoyPadBits(void *gi, uint32_t pad);   // +0x40 (one 
 void FEGameInterface_GetMouseInfo(void *gi, void *info);              // +0x44 (8 bytes: x, y, wheel, buttons)
 void FEGameInterface_BeginUpdate(void *gi);                           // +0x5C
 void FEGameInterface_EndUpdate(void *gi);                             // +0x60
-::FEObject *FEButtonMap_GetButtonFrom(void *map, ::FEObject *from, uint32_t dir, void *gi, uint32_t arg);   // PC 5189E0 (ret 0x10)
+uint8_t FEGameInterface_GetContextTransform(void *gi, uint32_t context, float *matrix16);   // +0x2C (GC +0x64), bool in AL
 uint8_t FEGameInterface_IsPointInObject(void *gi, float x, float y, ::FEObject *obj);   // +0x48 (PC; GC +0x9C), bool in AL
 bool TextInputFocused();   // PC globals 0x83A9C0 (byte, FocusedTextbox active) && 0x83A9C4 (dword) both nonzero
 void SetHoldDirtyFlags(uint32_t v);                                   // uHoldDirtyFlags, PC 0x7F7C8C

@@ -38,7 +38,7 @@ extern bool loadResourcesResult, readerChunkResult;
 extern const void *libraryData;
 extern bool willUnloadResult;
 extern uint32_t padBits;
-extern void *nextButton;
+extern const float *contextTransform;   // FEGameInterface_GetContextTransform result (nullptr: fails)
 struct HitTest { void *obj; float x, y; };
 extern std::vector<void *> hitObjects;   // FEGameInterface_IsPointInObject: these are hit
 extern std::vector<HitTest> hitTests;

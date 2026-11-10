@@ -6,6 +6,7 @@
 #include "frontend/FEMinList.h"
 #include "frontend/FEMultiPool.h"
 #include "frontend/FEMessageResponse.h"
+#include "frontend/FEButtonMap.h"
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
 #include "frontend/FEngine.h"
@@ -1907,11 +1908,18 @@ static void TestProcessPads()
     // pad 0 presses up (bit 0): entry 4 fires (diagonals need two bits), navigation to `next`
     pads[0].mu32Current = 1;
     pkg->mpCurrentButton = cur;
-    teststub::nextButton = next;
+    float data[2][10] = {};                        // position track at data +0x1C
+    data[0][7] = 100; data[0][8] = 100;            // cur (100, 100)
+    data[1][7] = 100; data[1][8] = 0;              // next straight up
+    cur->mpData = data[0];
+    next->mpData = data[1];
+    FEObject *buttons[2] = {cur, next};
+    pkg->mppButtons = buttons;
+    pkg->mu32NumButtons = 2;
     dl.clear();
     e->ProcessPadsForPackage(pkg);
     CHECK(pkg->mpCurrentButton == next && e->mReleaseTime[0] == 320 && e->mu32ButtonsToRelease == 1 && e->_unknown030 == 0);
-    CHECK(dl.size() == 1 && std::string(dl[0].kind) == "btnmap" && dl[0].a == &pkg->mppButtons && dl[0].pkg == (void *)cur && dl[0].msg == 0);
+    CHECK(dl.empty());   // no render context: no transform query
     auto q = Collect();
     const auto m5 = reinterpret_cast<void *>(intptr_t{-5});
     CHECK(q.size() == 6);
@@ -1951,7 +1959,6 @@ static void TestProcessPads()
     pads[0].mu32Current = 4;
     e->ProcessPadsForPackage(pkg);
     CHECK(e->mMessages.count == 0 && e->mReleaseTime[2] == 320);
-    teststub::nextButton = nullptr;
     e->mpJoyPads = nullptr; e->mu32NumJoyPads = 0; e->mbFlag01 = 0; e->mpUIData = nullptr;
     e->_unknown02C = e->_unknown030 = e->mu32ButtonsToRelease = 0; e->mu32ButtonMapArg = 0;
     std::memset(e->mReleaseTime, 0, sizeof e->mReleaseTime);
@@ -2012,6 +2019,57 @@ static void TestProcessMouse()
     teststub::textInputFocused = false;
     teststub::hitObjects.clear();
     hits.clear();
+}
+
+// FEButtonMap: location (position track, render context transform), direction scoring, wrap passes, exclusions.
+static void TestButtonMap()
+{
+    alignas(8) unsigned char om[4][sizeof(FEObject)] = {};
+    float data[4][10] = {};
+    FEObject *o[4];
+    for (int i = 0; i < 4; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mpData = data[i]; }
+    auto at = [&](int i, float x, float y) { data[i][7] = x; data[i][8] = y; data[i][9] = 2; };
+    at(0, 320, 240);
+    at(1, 320, 100);   // up, 140
+    at(2, 330, 40);    // up, farther but nearly straight
+    at(3, 500, 240);   // right
+    FEObject *buttons[4] = {o[0], o[1], o[2], o[3]};
+    FEButtonMap map{buttons, 4};
+    int gi = 0;
+    auto &dl = teststub::delivered;
+    dl.clear();
+    FEVector2 v{};
+    map.ComputeButtonLocation(o[1], &gi, &v);   // context 0: no query
+    CHECK(v.x == 320 && v.y == 100 && dl.empty());
+    o[1]->_unknown20 = 5;
+    map.ComputeButtonLocation(o[1], &gi, &v);   // query fails -> raw position
+    CHECK(v.x == 320 && v.y == 100 && dl.size() == 1 && dl[0].msg == 5);
+    const float m[16] = {2, 0, 0, 0, 0, 3, 0, 0, 1, 1, 1, 0, 10, 20, 30, 1};
+    teststub::contextTransform = m;
+    map.ComputeButtonLocation(o[1], &gi, &v);   // x = 2*320 + 1*2 + 10, y = 3*100 + 1*2 + 20
+    CHECK(v.x == 652 && v.y == 322);
+    map.ComputeButtonLocation(o[1], nullptr, &v);   // no game interface
+    CHECK(v.x == 320 && v.y == 100);
+    FEVector3 r{}, in{1, 2, 3};
+    FEMultMatrix(&r, m, &in);
+    CHECK(r.x == 2 + 3 + 10 && r.y == 6 + 3 + 20 && r.z == 3 + 30);
+    teststub::contextTransform = nullptr;
+    o[1]->_unknown20 = 0;
+    dl.clear();
+    CHECK(map.GetButtonFrom(o[0], 0, &gi, 0) == o[1]);   // up: nearest straight one
+    CHECK(map.GetButtonFrom(o[0], 2, &gi, 0) == o[3]);   // right
+    CHECK(map.GetButtonFrom(o[0], 6, &gi, 0) == nullptr);   // left: nothing within 60 degrees
+    CHECK(map.GetButtonFrom(o[0], 6, &gi, 1) == o[3]);   // X wrap: from (320+640) going left reaches (500)
+    CHECK(map.GetButtonFrom(o[0], 4, &gi, 2) == o[2]);   // Y wrap: from (320, -240) going down (+y): (330, 40) scores best
+    o[1]->mu32Flags = 0x4000000;                         // not selectable
+    CHECK(map.GetButtonFrom(o[0], 0, &gi, 0) == o[2]);
+    o[1]->mu32Flags = 0;
+    at(1, 320, 240);                                     // same spot as `from`: ignored (distance < 1e-4)
+    CHECK(map.GetButtonFrom(o[0], 0, &gi, 0) == o[2]);
+    CHECK(map.GetButtonFrom(o[1], 0, &gi, 0) == o[2]);   // from itself is skipped, o[0] at distance 0 too
+    FEButtonMap empty{buttons, 0};
+    CHECK(empty.GetButtonFrom(o[0], 0, &gi, 3) == nullptr);
+    dl.clear();
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
@@ -2182,6 +2240,7 @@ int main()
     TestCodeListBox();
     TestEnginePushUnload();
     TestEngineUpdate();
+    TestButtonMap();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();

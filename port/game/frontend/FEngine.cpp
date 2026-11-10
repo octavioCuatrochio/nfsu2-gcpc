@@ -4,6 +4,7 @@
 #include "FEngine.h"
 #include "FECodeListBox.h"
 #include "FEListBox.h"
+#include "FEButtonMap.h"
 #include "cFEng.h"
 #include "FEHash.h"
 #include <cstring>
@@ -779,11 +780,11 @@ void FEngine::ProcessPadsForPackage(FEPackage *pkg)
                 uint32_t i = 0;
                 while (i < r->mu32Count && r->mpResponses[i].mu32Type != 0x104) ++i;
                 if (i >= r->mu32Count)   // no explicit "move to" response: navigate
-                    next = bridge::FEButtonMap_GetButtonFrom(&pkg->mppButtons, cur, d.dir, mpUIData, mu32ButtonMapArg);
+                    next = reinterpret_cast<const FEButtonMap *>(&pkg->mppButtons)->GetButtonFrom(cur, d.dir, mpUIData, mu32ButtonMapArg);
             }
         } else {
             if (!(cur->mu32Flags & 0x80000))
-                next = bridge::FEButtonMap_GetButtonFrom(&pkg->mppButtons, cur, d.dir, mpUIData, mu32ButtonMapArg);
+                next = reinterpret_cast<const FEButtonMap *>(&pkg->mppButtons)->GetButtonFrom(cur, d.dir, mpUIData, mu32ButtonMapArg);
             QueueMessage(msg, nullptr, pkg, reinterpret_cast<FEObject *>(intptr_t{-3}), pads);
         }
         QueueMessage(msg, cur, pkg, reinterpret_cast<FEObject *>(intptr_t{-5}), pads);

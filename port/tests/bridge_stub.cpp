@@ -52,7 +52,7 @@ bool loadResourcesResult = true, readerChunkResult = true;
 const void *libraryData = nullptr;
 bool willUnloadResult = true;
 uint32_t padBits = 0;
-void *nextButton = nullptr;
+const float *contextTransform = nullptr;
 std::vector<void *> hitObjects;
 std::vector<HitTest> hitTests;
 bool textInputFocused = false;
@@ -151,7 +151,20 @@ uint32_t FEGameInterface_GetJoyPadBits(void *gi, uint32_t pad) { teststub::deliv
 void FEGameInterface_GetMouseInfo(void *gi, void *info) { teststub::delivered.push_back({"mouseinfo", gi, nullptr, 0, 0}); std::memcpy(info, teststub::mouseInfo, 8); }
 void FEGameInterface_BeginUpdate(void *gi) { teststub::delivered.push_back({"begin", gi, nullptr, 0, 0}); }
 void FEGameInterface_EndUpdate(void *gi) { teststub::delivered.push_back({"end", gi, nullptr, 0, 0}); }
-FEObject *FEButtonMap_GetButtonFrom(void *m, FEObject *f, uint32_t d, void *, uint32_t) { teststub::delivered.push_back({"btnmap", m, reinterpret_cast<FEPackage *>(f), d, 0}); return static_cast<FEObject *>(teststub::nextButton); }
+#ifdef NFSU2_REFEREE
+uint8_t FEGameInterface_GetContextTransform(void *gi, uint32_t c, float *m)
+{
+    return (*reinterpret_cast<uint8_t(__attribute__((thiscall)) ***)(void *, uint32_t, float *)>(gi))[0x2C / 4](gi, c, m);
+}
+#else
+uint8_t FEGameInterface_GetContextTransform(void *gi, uint32_t c, float *m)
+{
+    teststub::delivered.push_back({"ctxxform", gi, nullptr, c, 0});
+    if (!teststub::contextTransform) return 0;
+    for (int i = 0; i < 16; ++i) m[i] = teststub::contextTransform[i];
+    return 1;
+}
+#endif
 uint8_t FEGameInterface_IsPointInObject(void *gi, float x, float y, FEObject *o)
 {
     teststub::hitTests.push_back({o, x, y});

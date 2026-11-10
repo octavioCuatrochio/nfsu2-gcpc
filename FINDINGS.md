@@ -19,6 +19,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - Mouse (54E020): game interface vtable +0x48 = hit test (float x, float y, FEObject*) -> AL (clicks need ==1).
   PC-only: package +0xAC/+0xAD gate package-level click msgs; hover selection skipped while a text box has focus
   (globals 0x83A9C0 byte && 0x83A9C4) unless package +0xAF; buttons with flag 0x4000000 are not hover-selectable.
+- FEButtonMap (FEPackage +0x90 = {buttons, count}): GetButtonFrom 5189E0 / ComputeButtonLocation 504BB0 /
+  FEMultMatrix 504B50 rewritten bit-exact (referee _PC_53 + _PC_24). FEngine +0xD0 = wrap mode (bit0 X +-640,
+  bit1 Y +-480). FEObject +0x20 = render context id (u16) for gi vtable +0x2C transform (fails -> raw position).
+- Referee: bridge_stub.cpp under NFSU2_REFEREE must call game-interface slots through the vtable (fake gi).
 - Single instance: an earlier SPEED2.EXE still running makes a new launch exit quietly -> check pgrep before A/B.
 - Referee tip: REFEREE_TRACE=1 makes CheckUpdateObject print each case before calling the original (hang hunting).
 - bStrToFloat (43DEF0) returns unrounded x87 ST0 (port: long double); a nonzero fraction is rounded to float and
