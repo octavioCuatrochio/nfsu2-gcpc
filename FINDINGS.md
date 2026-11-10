@@ -157,15 +157,19 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   React 4AF630..4AF7D0) done; native tests only (the crib needs a saved profile: don't create one in the user's saves).
   Flag 0x836324 = came from main menu (back dialog text), 0x863480 = crib car handle (BeginCarCustomize 552CC0,
   BeginCarTuning 5309E0). 4DF570 (vtable 797564, Setup 4AFB70) is a sibling crib-style screen (same car code).
-  Next: ThumbnailScroller (IN PROGRESS) then QRCarSelectScreen (PC 0xE4?, vtable 7964F4, ctor 4D8F20, dtor 4D9050, Notify
-  4EB220, ScrollCars 4D90D0, DrawCarName 4A7A50, MaybeOverrideActiveButtons 4C2160, NotifySound 4A4750; MenuScreen + car
-  list +0x4C + ThumbnailScroller +0x64 ("car_thumb3", "car_thumb", 1, "", "")), UIMagazineSelect, PostRaceMenu,
-  CarTunePauseScreen, 797564 screen.
-  ThumbnailScroller (GC 80157208.., PC ThumbnailScroller.c 16 funcs: ctor 5435D0 ret 0x18 (pkg, master, prefix, arg4,
-  image, obj6), vtable 79B948; +4 node list, +0xC current, +0x10 new tCubic1D (0x30, duration 0.3), +0x14 pkg, +0x18
-  prefix, +0x1C master obj (size -> +0x48/+0x4C, centre -> +0x58/+0x5C and +0x40/+0x44, then hidden; becomes current
-  button), +0x20 FEngFindImage(pkg, image), +0x24 obj6, +0x28 GetNextNode(0), +0x2C..+0x2F 0, +0x30/+0x31 1, +0x34 arg4,
-  +0x50 480, +0x54 100, +0x60 0). MoveObjectsTo 52EEA0 is 1.2 KB of x87.
+  ThumbnailScroller done (ThumbnailScroller.cpp, 20 funcs; referee on the list / layout ones). PC size **0x64** (embedded
+  0x64 apart at 55E86F; ctor 5435D0 writes up to +0x60): bytes after it belong to the owner (QRCarSelect +0xCC/+0xD0).
+  UIQRTrackSelect done (QRTrackSelect.cpp, PC 0x160, vtable 7974F0, factory 4EF9A0 / 4F26F0; in-game ctor/Notify/dtor):
+  +0x4C SelectableTrack list (0x30: +8 locked, +0x10 dir, +0x2C TrackInfo: +0x7C icon type, +0x88 never, +0x8A id, +0x94
+  mode bits, +0x98 metres, +0x118 map x/y, +0x120 zoom, +0x124 zoomed), +0x54 selected, +0x5C ThumbnailScroller
+  ("ICON_MASTER"/"TRACK_ICON", spacing 40), +0xC0 FEScrollBar, +0x118 TrackMapScroller (0x30, vtable 78F8C8 at +0, ctor
+  inlined, global 0x836344; loads TRACKS\TRACKMAP%d.bin, texture "TRACKMAP%d"; zoom timer 4000/s, ZoomIn UV tracks 5/6
+  = (pos*sin, pos*sin + 512-(512-zoom)*sin)/512), +0x14C scroll RealTimer (map follows 0.3 s later), +0x150 count,
+  +0x154 prev msg, +0x158/9 arrow flags (RefreshHeader tests +0x158 for the right arrow too), +0x15C best label.
+  Online settings at 0x8500B8 (u16 track) / 0x8500BC (dir); "UI_OL_ViewTrack.fng" pushed: selection not stored.
+  QRCarSelectScreen (MU_QuickRaceCarSelect.fng, factory 4EB1A0) looks unused on PC: ctor DrawCarName reads +0x54 unset.
+  Next: other ThumbnailScroller users (PartSelectionScreen 55E820, RimsBrowser 5678E0, ChooseDecalScreen 568450, CribWorld-
+  MapScreen 4EE690), UIMagazineSelect, PostRaceMenu, CarTunePauseScreen, 797564 screen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

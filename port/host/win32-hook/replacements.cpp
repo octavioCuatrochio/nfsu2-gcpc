@@ -28,6 +28,8 @@
 #include "frontend/UIOptionsScreen.h"
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
+#include "frontend/ThumbnailScroller.h"
+#include "frontend/QRTrackSelect.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
 #include "frontend/MainMenu.h"
@@ -702,6 +704,54 @@ void THISCALL ISM_StopInput(IconScrollerMenu *s) { s->StopInput(); }
 void THISCALL ISM_StorePrev(IconScrollerMenu *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->StorePrevNotification(m, o, a, p); }
 void THISCALL ISM_RefreshHeader(IconScrollerMenu *s) { s->RefreshHeader(); }
 void THISCALL ISM_AddOption(IconScrollerMenu *s, IconOption *o) { s->AddOption(o); }
+
+// ---- ThumbnailScroller ----
+ThumbnailScroller *THISCALL TS_Ctor(ThumbnailScroller *s, const char *pkg, const char *master, const char *slot, int32_t align,
+                                    const char *lock, const char *button) { return s->Construct(pkg, master, slot, align, lock, button); }
+void THISCALL TS_Dtor(ThumbnailScroller *s) { s->Destruct(); }
+ThumbnailScroller *THISCALL TS_ScalarDtor(ThumbnailScroller *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL TS_ClearAll(ThumbnailScroller *s) { s->ClearAll(); }
+void THISCALL TS_ResetNodes(ThumbnailScroller *s) { s->ResetNodes(); }
+void THISCALL TS_MoveMeOffscreen(ThumbnailScroller *s) { s->MoveMeOffscreen(); }
+void THISCALL TS_SetVisibility(ThumbnailScroller *s, bool v) { s->SetVisibility(v); }
+void THISCALL TS_Scroll(ThumbnailScroller *s, int32_t d) { s->Scroll(d); }
+FEObject *THISCALL TS_GetNextNode(ThumbnailScroller *s, FEObject *o) { return s->GetNextNode(o); }
+FEObject *THISCALL TS_AddNodeId(ThumbnailScroller *s, uint32_t id, bool dim, bool anim, bool useColor, uint32_t color)
+{ return s->AddNode(id, dim, anim, useColor, color); }
+FEObject *THISCALL TS_AddNodeObj(ThumbnailScroller *s, ThumbnailNode *n, bool useColor, uint32_t color)
+{ return s->AddNode(n, useColor, color); }
+void THISCALL TS_SetDesiredItem(ThumbnailScroller *s, uint32_t id) { s->SetDesiredItem(id); }
+void THISCALL TS_MoveObjectsTo(ThumbnailScroller *s, float f) { s->MoveObjectsTo(f); }
+void THISCALL TS_SnapToNode(ThumbnailScroller *s, ThumbnailNode *n) { s->SnapToNode(n); }
+void THISCALL TS_SnapToItem(ThumbnailScroller *s, uint32_t id) { s->SnapToItem(id); }
+void THISCALL TS_SnapToHead(ThumbnailScroller *s) { s->SnapToHead(); }
+void THISCALL TS_Update(ThumbnailScroller *s) { s->Update(); }
+void THISCALL TS_StartDim(ThumbnailScroller *s) { s->StartDim(); }
+void THISCALL TS_StopDim(ThumbnailScroller *s) { s->StopDim(); }
+ThumbnailNode *THISCALL TS_FindNode(ThumbnailScroller *s, uint32_t id) { return s->FindNode(id); }
+int32_t THISCALL TS_GetCurrenNodeIndex(ThumbnailScroller *s) { return s->GetCurrenNodeIndex(); }
+
+// ---- UIQRTrackSelect / TrackMapScroller / SelectableTrack ----
+uint32_t THISCALL QTS_CalcIconHash(SelectableTrack *t) { return t->CalcIconHash(); }
+void THISCALL TMS_Dtor(TrackMapScroller *m) { m->Destruct(); }
+TrackMapScroller *THISCALL TMS_ScalarDtor(TrackMapScroller *m, uint32_t f) { return m->ScalarDeletingDestructor(f); }
+void THISCALL TMS_SetTrackMap(TrackMapScroller *m, SelectableTrack *t) { m->SetTrackMap(t); }
+void THISCALL TMS_Update(TrackMapScroller *m) { m->Update(); }
+void THISCALL TMS_InitZoom(TrackMapScroller *m, float f) { m->InitZoom(f); }
+void THISCALL TMS_ZoomIn(TrackMapScroller *m, float f) { m->ZoomIn(f); }
+UIQRTrackSelect *THISCALL QTS_Ctor(UIQRTrackSelect *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL QTS_Dtor(UIQRTrackSelect *s) { s->Destruct(); }
+UIQRTrackSelect *THISCALL QTS_ScalarDtor(UIQRTrackSelect *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL QTS_Notify(UIQRTrackSelect *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+uint32_t THISCALL QTS_NotifySound(UIQRTrackSelect *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p, uint32_t e) { return s->NotifySoundMessage(m, o, a, p, e); }
+void THISCALL QTS_SetSelectedTrack(UIQRTrackSelect *s, int32_t t, int32_t d) { s->SetSelectedTrack(t, d); }
+void THISCALL QTS_Build(UIQRTrackSelect *s) { s->BuildPresetTrackList(); }
+void THISCALL QTS_AddTrack(UIQRTrackSelect *s, TrackInfo *i) { s->AddTrack(i); }
+bool THISCALL QTS_IsAvailable(UIQRTrackSelect *s, const TrackInfo *i, int32_t d) { return s->IsAvailable(i, d); }
+void THISCALL QTS_Scroll(UIQRTrackSelect *s, int32_t d) { s->Scroll(d); }
+void THISCALL QTS_RefreshHeader(UIQRTrackSelect *s) { s->RefreshHeader(); }
+void THISCALL QTS_DisplayRaceType(UIQRTrackSelect *s) { s->DisplayRaceType(); }
+
 FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
 uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
 void THISCALL ISX_StaticArrow2(FEScrollBar *s) { FEScrollBar_StaticArrow2(s); }
@@ -1518,6 +1568,48 @@ const Replacement kReplacements[] = {
     {0x50DAB0, (const void *)&ISM_AddOption, "IconScrollerMenu::AddOption", {0x8B, 0x41, 0x4C, 0x56, 0x8B, 0x74}},
     {0x50D8D0, (const void *)&thumbnail_scale, "thumbnail_scale", {0xD9, 0x44, 0x24, 0x0C, 0xD8, 0x0D}},
     {0x51DF00, (const void *)&UpdateIconOverlay, "UpdateIconOverlay", {0x8B, 0x44, 0x24, 0x04, 0x8A, 0x48}},
+    {0x5435D0, (const void *)&TS_Ctor, "ThumbnailScroller::ThumbnailScroller", {0x6A, 0xFF, 0x68, 0xBB, 0x79, 0x77}},
+    {0x52EA90, (const void *)&TS_Dtor, "ThumbnailScroller::~ThumbnailScroller", {0x6A, 0xFF, 0x68, 0xBB, 0x79, 0x77}},
+    {0x5385A0, (const void *)&TS_ScalarDtor, "ThumbnailScroller scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0xE8, 0x64}},
+    {0x5385C0, (const void *)&TS_ClearAll, "ThumbnailScroller::ClearAll", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x47}},
+    {0x51F6C0, (const void *)&TS_ResetNodes, "ThumbnailScroller::ResetNodes", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x56}},
+    {0x51F750, (const void *)&TS_MoveMeOffscreen, "ThumbnailScroller::MoveMeOffscreen", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x56}},
+    {0x51F7A0, (const void *)&TS_FindNode, "ThumbnailScroller::FindNode", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x8D}},
+    {0x51F7E0, (const void *)&TS_GetCurrenNodeIndex, "ThumbnailScroller::GetCurrenNodeIndex", {0x8B, 0x51, 0x04, 0x56, 0x57, 0x8D}},
+    {0x52EB90, (const void *)&TS_SetVisibility, "ThumbnailScroller::SetVisibility", {0x53, 0x8A, 0x5C, 0x24, 0x08, 0x55}},
+    {0x52EC20, (const void *)&TS_GetNextNode, "ThumbnailScroller::GetNextNode", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x52EC90, (const void *)&TS_AddNodeId, "ThumbnailScroller::AddNode(id)", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x28}},
+    {0x52ED80, (const void *)&TS_AddNodeObj, "ThumbnailScroller::AddNode(node)", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x28}},
+    {0x52EE40, (const void *)&TS_SetDesiredItem, "ThumbnailScroller::SetDesiredItem", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x50}},
+    {0x52EEA0, (const void *)&TS_MoveObjectsTo, "ThumbnailScroller::MoveObjectsTo", {0x83, 0xEC, 0x3C, 0x53, 0x55, 0x56}},
+    {0x5386A0, (const void *)&TS_SnapToNode, "ThumbnailScroller::SnapToNode", {0x8B, 0x44, 0x24, 0x04, 0x3B, 0x41}},
+    {0x538700, (const void *)&TS_SnapToItem, "ThumbnailScroller::SnapToItem", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x50}},
+    {0x538740, (const void *)&TS_SnapToHead, "ThumbnailScroller::SnapToHead", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x74}},
+    {0x538760, (const void *)&TS_Update, "ThumbnailScroller::Update", {0x83, 0xEC, 0x0C, 0x56, 0x8B, 0xF1}},
+    {0x5388F0, (const void *)&TS_StartDim, "ThumbnailScroller::StartDim", {0x6A, 0x00, 0xC6, 0x41, 0x2F, 0x00}},
+    {0x538900, (const void *)&TS_StopDim, "ThumbnailScroller::StopDim", {0x6A, 0x01, 0xC6, 0x41, 0x2F, 0x01}},
+    {0x5437C0, (const void *)&TS_Scroll, "ThumbnailScroller::Scroll", {0x8B, 0x41, 0x04, 0x56, 0x8D, 0x71}},
+    {0x4984B0, (const void *)&QTS_CalcIconHash, "SelectableTrack::CalcIconHash", {0x8A, 0x41, 0x08, 0x84, 0xC0, 0x74}},
+    {0x4985A0, (const void *)&TMS_Dtor, "TrackMapScroller::~TrackMapScroller", {0x56, 0x8B, 0xF1, 0xC7, 0x06, 0xC8}},
+    {0x4B4B60, (const void *)&TMS_ScalarDtor, "TrackMapScroller scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x38, 0x3A}},
+    {0x498600, (const void *)&TMS_SetTrackMap, "TrackMapScroller::SetTrackMap", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x4CDD40, (const void *)&TMS_Update, "TrackMapScroller::Update", {0x83, 0xEC, 0x20, 0x53, 0x56, 0x8B}},
+    {0x4B4B80, (const void *)&TMS_InitZoom, "TrackMapScroller::InitZoom", {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x08}},
+    {0x498630, (const void *)&TMS_ZoomIn, "TrackMapScroller::ZoomIn", {0x83, 0xEC, 0x10, 0x56, 0x57, 0x8B}},
+    {0x4AEBF0, (const void *)&TrackMapScroller_TexturesLoadedCallback, "TrackMapScroller::TexturesLoadedCallback", {0x8B, 0x44, 0x24, 0x04, 0xC6, 0x40}},
+    {0x4987A0, (const void *)&QRTrack_SortCompare, "UIQRTrackSelect track sort compare", {0x8B, 0x44, 0x24, 0x04, 0x8A, 0x48}},
+    {0x4E2F30, (const void *)&QTS_Ctor, "UIQRTrackSelect::UIQRTrackSelect", {0x6A, 0xFF, 0x68, 0x0C, 0x5C, 0x77}},
+    {0x4DF030, (const void *)&QTS_Dtor, "UIQRTrackSelect::~UIQRTrackSelect", {0x6A, 0xFF, 0x68, 0x9E, 0x58, 0x77}},
+    {0x4DF120, (const void *)&QTS_ScalarDtor, "UIQRTrackSelect scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x08, 0xFF}},
+    {0x4EFA10, (const void *)&QTS_Notify, "UIQRTrackSelect::NotificationMessage", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}},
+    {0x4DF0C0, (const void *)&QTS_NotifySound, "UIQRTrackSelect::NotifySoundMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x10}},
+    {0x498740, (const void *)&QTS_SetSelectedTrack, "UIQRTrackSelect::SetSelectedTrack", {0x68, 0xD0, 0xF8, 0x78, 0x00, 0xE8}},
+    {0x4CDED0, (const void *)&QTS_Build, "UIQRTrackSelect::BuildPresetTrackList", {0x51, 0xA1, 0xA4, 0x3D, 0x88, 0x00}},
+    {0x4B4C10, (const void *)&QTS_AddTrack, "UIQRTrackSelect::AddTrack", {0x56, 0x57, 0x6A, 0x30, 0x8B, 0xF9}},
+    {0x4987C0, (const void *)&QTS_IsAvailable, "UIQRTrackSelect::IsAvailable", {0x8B, 0x4C, 0x24, 0x04, 0x85, 0xC9}},
+    {0x4E3270, (const void *)&QTS_Scroll, "UIQRTrackSelect::Scroll", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
+    {0x4CE170, (const void *)&QTS_RefreshHeader, "UIQRTrackSelect::RefreshHeader", {0x81, 0xEC, 0x24, 0x02, 0x00, 0x00}},
+    {0x4988C0, (const void *)&QTS_DisplayRaceType, "UIQRTrackSelect::DisplayRaceType", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
     {0x527660, (const void *)&ISX_StaticArrow2, "FEScrollBar::StaticArrow2", {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x77}},
     {0x51D7F0, (const void *)&FEngSetColor, "FEngSetColor", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0x74}},
     {0x50CCC0, (const void *)&ISX_GetObjectColor, "FEngGetObjectColor", {0x8B, 0x44, 0x24, 0x08, 0x33, 0xC9}},

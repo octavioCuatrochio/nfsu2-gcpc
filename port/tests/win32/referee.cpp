@@ -63,6 +63,8 @@
 #include "bridge_stub.h"
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
+#include "frontend/ThumbnailScroller.h"
+#include "frontend/QRTrackSelect.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/MainMenu.h"
 #define THISCALL __attribute__((thiscall))
@@ -4341,6 +4343,246 @@ static void CheckPopQueuedPush(int iters)
     }
 }
 
+// ThumbnailScroller list / layout functions on a synthetic 4-node strip (ctr/dtor/AddNode/ClearAll use the CRT
+// heap or the package manager and are covered by the native tests). All pointers in both arenas line up, so the
+// whole arena can be compared after moving the rewrite's pointers back.
+namespace {
+struct TSArena {
+    ThumbnailScroller s;
+    IconCubic c;
+    ThumbnailNode n[4];
+    FEObject o[4];
+    float d[4][20];
+};
+static void ShiftTS(TSArena &a, intptr_t d)
+{
+    auto sh = [d](auto *&p) { if (p) p = reinterpret_cast<std::remove_reference_t<decltype(p)>>(reinterpret_cast<uint8_t *>(p) + d); };
+    sh(a.s.mNodes.next);
+    sh(a.s.mNodes.prev);
+    sh(a.s.mpCurrent);
+    sh(a.s.mpCubic);
+    sh(a.s.mpMaster);
+    sh(a.s.mpLock);
+    sh(a.s.mpButton);
+    sh(a.s.mpNext);
+    for (auto &n : a.n) { sh(n.node.next); sh(n.node.prev); sh(n.mpObject); }
+    for (auto &o : a.o) sh(o.mpData);
+}
+static int TSIndex(const ThumbnailNode *p, const ThumbnailNode *base) { return p ? static_cast<int>(p - base) : -1; }
+}  // namespace
+
+// UIQRTrackSelect / SelectableTrack / TrackMapScroller pure functions: icon hash, availability, sort compare,
+// SetTrackMap, InitZoom / ZoomIn (synthetic image without scripts). The mode globals are set and restored.
+static void CheckQRTrackSelect(int iters)
+{
+    auto oIcon = ORIG<uint32_t(THISCALL *)(const SelectableTrack *)>(0x4984B0);
+    auto oAvail = ORIG<bool(THISCALL *)(const UIQRTrackSelect *, const TrackInfo *, int32_t)>(0x4987C0);
+    auto oCmp = ORIG<int32_t(__cdecl *)(SelectableTrack *, SelectableTrack *)>(0x4987A0);
+    auto oSetMap = ORIG<void(THISCALL *)(TrackMapScroller *, SelectableTrack *)>(0x498600);
+    auto oInitZoom = ORIG<void(THISCALL *)(TrackMapScroller *, float)>(0x4B4B80);
+    auto oZoomIn = ORIG<void(THISCALL *)(TrackMapScroller *, float)>(0x498630);
+    int32_t *flags = reinterpret_cast<int32_t *>(0x850078), *qrMode = reinterpret_cast<int32_t *>(0x83AAB4),
+            *olMode = reinterpret_cast<int32_t *>(0x850088);
+    const int32_t sFlags = *flags, sQr = *qrMode, sOl = *olMode;
+    static TrackInfo infoA, infoB;
+    static UIQRTrackSelect screen;
+    static SelectableTrack trA, trB, other;
+    static TrackMapScroller mA, mB;
+    static FEObject imgA, imgB;
+    static float dataA[64], dataB[64];
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            const int32_t fl[] = {0, 1, 4, 8, 0x200, 0x20};
+            *flags = fl[rng() % 6];
+            *qrMode = static_cast<int32_t>(rng() % 15) - 1;
+            *olMode = static_cast<int32_t>(rng() % 15) - 1;
+            std::memset(&infoA, 0, sizeof infoA);
+            infoA.mIconType = static_cast<int32_t>(rng() % 8) - 1;
+            infoA.mbNotSelectable = rng() % 4 == 0;
+            const int16_t ids[] = {4000, 0x12C1, 10, 2001};
+            infoA.mTrackNumber = ids[rng() % 4];
+            infoA.mModeFlags = rng() & 0x3FFF;
+            infoA.mMapX = RefCoord() / 3.0f;
+            infoA.mMapY = RefCoord() / 3.0f;
+            infoA.mMapZoom = rng() % 4 == 0 ? 0.0f : static_cast<float>(rng() % 512);
+            infoA.mbMapZoomed = rng() & 1;
+            std::memset(&trA, 0, sizeof trA);
+            trA.mbLocked = rng() % 3 == 0;
+            trA.mpInfo = rng() % 4 ? &infoA : nullptr;
+            trA.mTrackNumber = static_cast<int32_t>(rng() % 100);
+            trA.mMapZoom = rng() % 4 == 0 ? 0.0f : static_cast<float>(rng() % 512);
+            trA.mbMapZoomed = rng() & 1;
+            trA.mMapX = RefCoord() / 3.0f;
+            trA.mMapY = RefCoord() / 3.0f;
+            std::memset(&other, 0, sizeof other);
+            other.mbLocked = rng() & 1;
+            const int32_t dir = static_cast<int32_t>(rng() % 3);
+            if (trA.mpInfo) EXPECT(oIcon(&trA) == trA.CalcIconHash(), "CalcIconHash type %d mode %d/%d/%d", infoA.mIconType, *flags, *qrMode, *olMode);
+            const TrackInfo *ip = rng() % 8 ? &infoA : nullptr;
+            EXPECT(oAvail(&screen, ip, dir) == screen.IsAvailable(ip, dir),
+                   "IsAvailable flags %x mode %d/%d/%d dir %d", infoA.mModeFlags, *flags, *qrMode, *olMode, dir);
+            EXPECT(oCmp(&trA, &other) == QRTrack_SortCompare(&trA, &other), "SortCompare %d %d", trA.mbLocked, other.mbLocked);
+
+            // TrackMapScroller zoom on two copies (track B mirrors A)
+            std::memcpy(&infoB, &infoA, sizeof infoA);
+            std::memcpy(&trB, &trA, sizeof trA);
+            if (trA.mpInfo) trB.mpInfo = &infoB;
+            for (float &f : dataA) f = RefCoord() / 7.0f;
+            std::memcpy(dataB, dataA, sizeof dataA);
+            std::memset(&imgA, 0, sizeof imgA);
+            imgA.mu32Type = 1;
+            imgA.mu32Flags = rng() & 0x400001;
+            std::memcpy(&imgB, &imgA, sizeof imgA);
+            imgA.mpData = dataA;
+            imgB.mpData = dataB;
+            std::memset(&mA, 0, sizeof mA);
+            mA.mpImage = &imgA;
+            mA.mZoomTimer = static_cast<int32_t>(rng());
+            mA.mbZoomNow = rng() & 1;
+            mA.mWantedId = static_cast<int32_t>(rng() % 50);
+            std::memcpy(&mB, &mA, sizeof mA);
+            mB.mpImage = &imgB;
+            const int op = static_cast<int>(rng() % 3);
+            const float t = static_cast<float>(rng() % 1000) / 999.0f;
+            if (op == 0) {
+                oSetMap(&mA, rng() % 5 ? &trA : nullptr);
+                mB.SetTrackMap(mA.mpTrack == &trA ? &trB : nullptr);
+                EXPECT(mA.mWantedId == mB.mWantedId && (mA.mpTrack == &trA) == (mB.mpTrack == &trB), "SetTrackMap");
+                continue;
+            }
+            mA.mpTrack = &trA;
+            mB.mpTrack = &trB;
+            if (op == 1) { oInitZoom(&mA, t); mB.InitZoom(t); }
+            else { oZoomIn(&mA, t); mB.ZoomIn(t); }
+            EXPECT(mA.mZoomTimer == mB.mZoomTimer && mA.mbZoomNow == mB.mbZoomNow, "InitZoom timer %d vs %d pc=%x", mA.mZoomTimer, mB.mZoomTimer, pc);
+            EXPECT(std::memcmp(dataA, dataB, sizeof dataA) == 0 && imgA.mu32Flags == imgB.mu32Flags,
+                   "TrackMapScroller op %d data t=%g zoom %g pc=%x", op, t, trA.mpInfo ? infoA.mMapZoom : trA.mMapZoom, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+    *flags = sFlags; *qrMode = sQr; *olMode = sOl;
+}
+
+static void CheckThumbnailScroller(int iters)
+{
+    auto oMoveOff = ORIG<void(THISCALL *)(ThumbnailScroller *)>(0x51F750);
+    auto oFind = ORIG<ThumbnailNode *(THISCALL *)(ThumbnailScroller *, uint32_t)>(0x51F7A0);
+    auto oCurIndex = ORIG<int32_t(THISCALL *)(ThumbnailScroller *)>(0x51F7E0);
+    auto oSetDesired = ORIG<void(THISCALL *)(ThumbnailScroller *, uint32_t)>(0x52EE40);
+    auto oMoveTo = ORIG<void(THISCALL *)(ThumbnailScroller *, float)>(0x52EEA0);
+    auto oSnapNode = ORIG<void(THISCALL *)(ThumbnailScroller *, ThumbnailNode *)>(0x5386A0);
+    auto oSnapItem = ORIG<void(THISCALL *)(ThumbnailScroller *, uint32_t)>(0x538700);
+    auto oSnapHead = ORIG<void(THISCALL *)(ThumbnailScroller *)>(0x538740);
+    auto oScroll = ORIG<void(THISCALL *)(ThumbnailScroller *, int32_t)>(0x5437C0);
+    static TSArena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            std::memset(&A, 0, sizeof A);
+            A.s.vtable = bridge::ThumbnailScrollerVTable();
+            A.s.mpPackage = "pkg";
+            A.s.mpMasterName = "slot";
+            A.s.mpCubic = &A.c;
+            A.s.mbSmooth = static_cast<uint8_t>(rng() & 1);
+            A.s.mbVertical = static_cast<uint8_t>(rng() & 1);
+            A.s.mbScale = static_cast<uint8_t>(rng() & 1);
+            A.s.mbFadeAlpha = static_cast<uint8_t>(rng() & 1);
+            A.s.mbHorizontal = static_cast<uint8_t>(rng() & 1);
+            A.s.mbVisible = static_cast<uint8_t>(rng() & 1);
+            A.s.mAlignment = static_cast<int32_t>(rng() % 4);
+            A.s.mScroll = RefCoord() / 7.0f;
+            A.s.mPulse = static_cast<float>(rng() % 300) / 100.0f;
+            A.s.mOriginX = RefCoord() / 9.0f;
+            A.s.mOriginY = RefCoord() / 9.0f;
+            A.s.mMasterW = RefCoord() / 10.0f;
+            A.s.mMasterH = RefCoord() / 10.0f;
+            A.s.mStripW = static_cast<float>(1 + rng() % 400);
+            A.s.mStripH = static_cast<float>(1 + rng() % 400);
+            A.s.mCenterX = RefCoord() / 11.0f;
+            A.s.mCenterY = RefCoord() / 11.0f;
+            A.s.mSpacing = static_cast<float>(rng() % 40);
+            A.c.mVal = RefCoord() / 13.0f;
+            A.c.mdVal = RefCoord() / 13.0f;
+            A.c.mValDesired = RefCoord() / 13.0f;
+            A.c.mdValDesired = RefCoord() / 13.0f;
+            for (float &f : A.c._unknown10) f = RefCoord() / 17.0f;
+            A.c.mDuration = static_cast<float>(1 + rng() % 9) / 10.0f;
+            A.c._unknown28 = 1.0f;
+            A.c.mFlags = static_cast<uint16_t>(rng() % 4);
+            A.c.mState = static_cast<uint16_t>(rng() % 4);
+            A.s.mNodes.next = &A.n[0].node;
+            A.s.mNodes.prev = &A.n[3].node;
+            for (int i = 0; i < 4; ++i) {
+                ThumbnailNode &n = A.n[i];
+                FEObject &o = A.o[i];
+                for (float &f : A.d[i]) f = RefCoord() / 21.0f;
+                reinterpret_cast<int32_t *>(A.d[i])[0] = static_cast<int32_t>(rng());
+                reinterpret_cast<int32_t *>(A.d[i])[1] = static_cast<int32_t>(rng());
+                reinterpret_cast<int32_t *>(A.d[i])[2] = static_cast<int32_t>(rng());
+                reinterpret_cast<int32_t *>(A.d[i])[3] = static_cast<int32_t>(rng());
+                A.d[i][14] = static_cast<float>(1 + rng() % 200);
+                A.d[i][15] = static_cast<float>(1 + rng() % 200);
+                o.mu32Type = 1;
+                o.mu32Flags = rng() & 0x400001;
+                o.mpData = A.d[i];
+                n.vtable = nullptr;
+                n.node.prev = i ? &A.n[i - 1].node : &A.s.mNodes;
+                n.node.next = i < 3 ? &A.n[i + 1].node : &A.s.mNodes;
+                n.mu32Id = rng();
+                n.mpObject = &o;
+                n.mOffsetX = RefCoord() / 5.0f;
+                n.mOffsetY = RefCoord() / 5.0f;
+                n.mu32Color = rng();
+                n.mbDimmed = static_cast<uint8_t>(rng() & 1);
+                n.mbAnimate = static_cast<uint8_t>(rng() & 1);
+                n.mbShowLock = static_cast<uint8_t>(rng() & 1);
+                n.mbFadeInButton = static_cast<uint8_t>(rng() & 1);
+                n.mWidth = static_cast<float>(1 + rng() % 200);
+                n.mHeight = static_cast<float>(1 + rng() % 200);
+            }
+            const int cur = static_cast<int>(rng() % 5) - 1;   // -1: none
+            A.s.mpCurrent = cur >= 0 ? &A.n[cur] : nullptr;
+            std::memcpy(&B, &A, sizeof A);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            ShiftTS(B, delta);
+
+            const int op = static_cast<int>(rng() % 9);
+            const uint32_t id = rng() % 3 ? A.n[rng() % 4].mu32Id : rng();
+            const float coord = RefCoord() / 3.0f;
+            const int dir = static_cast<int>(rng() % 3) - 1;
+            if (op == 6 && !A.s.mpCurrent) A.s.mpCurrent = &A.n[0], B.s.mpCurrent = &B.n[0];
+            int ra = 0, rb = 0;
+            switch (op) {
+            case 0: oMoveOff(&A.s); B.s.MoveMeOffscreen(); break;
+            case 1: ra = TSIndex(oFind(&A.s, id), A.n); rb = TSIndex(B.s.FindNode(id), B.n); break;
+            case 2: ra = oCurIndex(&A.s); rb = B.s.GetCurrenNodeIndex(); break;
+            case 3: { const int k = static_cast<int>(rng() % 4); oSnapNode(&A.s, &A.n[k]); B.s.SnapToNode(&B.n[k]); break; }
+            case 4: oSnapItem(&A.s, id); B.s.SnapToItem(id); break;
+            case 5: oSnapHead(&A.s); B.s.SnapToHead(); break;
+            case 6: oScroll(&A.s, dir); B.s.Scroll(dir); break;
+            case 7: oSetDesired(&A.s, id); B.s.SetDesiredItem(id); break;
+            default: oMoveTo(&A.s, coord); B.s.MoveObjectsTo(coord); break;
+            }
+            ShiftTS(B, -delta);
+            EXPECT(ra == rb, "ThumbnailScroller op %d return %d vs %d pc=%x", op, ra, rb, pc);
+            if (std::memcmp(&A, &B, sizeof A) != 0) {
+                int at = 0;
+                const auto *pa = reinterpret_cast<const uint8_t *>(&A), *pb = reinterpret_cast<const uint8_t *>(&B);
+                while (at < static_cast<int>(sizeof A) && pa[at] == pb[at]) ++at;
+                uint32_t wa = 0, wb = 0;
+                std::memcpy(&wa, pa + at, 4);
+                std::memcpy(&wb, pb + at, 4);
+                EXPECT(false, "ThumbnailScroller op %d pc=%x first diff at %d word %08x/%08x cur=%d h=%d al=%d sc=%d fade=%d vis=%d", op, pc, at, wa, wb,
+                       cur, A.s.mbHorizontal, A.s.mAlignment, A.s.mbScale, A.s.mbFadeAlpha, A.s.mbVisible);
+            }
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // REFEREE_ONLY=a,b: run only the checks whose call text contains one of the comma-separated words.
 static bool RefereeSelected(const char *call)
 {
@@ -4425,6 +4667,8 @@ static int RunAll()
     REFEREE_RUN(CheckDisplayOptions(iters));
     REFEREE_RUN(CheckPauseOptions(iters));
     REFEREE_RUN(CheckIconScroller(iters));
+    REFEREE_RUN(CheckThumbnailScroller(iters));
+    REFEREE_RUN(CheckQRTrackSelect(iters));
     REFEREE_RUN(CheckOptionsMain(iters));
     REFEREE_RUN(CheckMenuHelpers(iters));
     REFEREE_RUN(CheckScrollBar(iters));

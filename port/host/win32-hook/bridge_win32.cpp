@@ -534,6 +534,7 @@ void *CPPaintOptionVTable() { return reinterpret_cast<void *>(0x79B604); }
 void *IconPanelVTable() { return reinterpret_cast<void *>(0x795CBC); }
 void *IconScrollerVTable() { return reinterpret_cast<void *>(0x79C0F4); }
 void *IconScrollerMenuVTable() { return reinterpret_cast<void *>(0x7974D4); }
+void *ThumbnailScrollerVTable() { return reinterpret_cast<void *>(0x79B948); }
 template <typename F> static F Slot(void *o, int off) { return (*reinterpret_cast<F **>(o))[off / 4]; }
 void IconOption_React(void *o, const char *pkg, uint32_t m, void *obj, uint32_t a, uint32_t b) { Slot<void(THISCALL *)(void *, const char *, uint32_t, void *, uint32_t, uint32_t)>(o, 4)(o, pkg, m, obj, a, b); }
 void *IconPanel_AddOption(void *p, void *o) { return Slot<void *(THISCALL *)(void *, void *)>(p, 8)(p, o); }
@@ -678,4 +679,20 @@ bool IsCareerFreeRoam() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0
 int32_t QuickRaceNumPlayers() { return reinterpret_cast<int32_t(THISCALL *)(void *)>(0x5026F0)(reinterpret_cast<void *>(0x83AAB4)); }
 bool IsDragRace() { return *reinterpret_cast<const uint8_t *>(0x89E7D8) != 0 || *reinterpret_cast<const int32_t *>(0x890108) != 0; }
 bool IsInPerformanceTuning() { return *reinterpret_cast<const uint8_t *>(0x89E7E6) != 0; }
+// ---- UIQRTrackSelect / TrackMapScroller ----
+void **TrackMapScrollerInstance() { return reinterpret_cast<void **>(0x836344); }
+::TrackInfo *TrackInfo_GetNth(int32_t i) { return reinterpret_cast<::TrackInfo *(__cdecl *)(int32_t)>(0x5D3E80)(i); }
+void bList_Sort(void *l, int32_t (*cmp)(void *, void *)) { reinterpret_cast<void(THISCALL *)(void *, int32_t (*)(void *, void *))>(0x43E650)(l, cmp); }
+bool UnlockSystem_IsTrackUnlocked(int32_t f, int32_t t, int32_t a, int32_t b) { return reinterpret_cast<bool(__cdecl *)(int32_t, int32_t, int32_t, int32_t)>(0x5156F0)(f, t, a, b); }
+uint32_t FEngHashStringInt(const char *f, int32_t v) { return reinterpret_cast<uint32_t(__cdecl *)(const char *, ...)>(0x50B990)(f, v); }
+void *LoadResourceFile(const char *n, int32_t t, int32_t f, void (*cb)(void *), void *p, int32_t a, int32_t b)
+{ return reinterpret_cast<void *(__cdecl *)(const char *, int32_t, int32_t, void (*)(void *), void *, int32_t, int32_t)>(0x57CF70)(n, t, f, cb, p, a, b); }
+void UnloadResourceFile(void *rf) { reinterpret_cast<void(__cdecl *)(void *)>(0x580E90)(rf); }
+void ServiceResourceLoading() { reinterpret_cast<void(__cdecl *)()>(0x57EF60)(); }
+uint32_t CalcTrackNameHash(int32_t t, int32_t d) { return reinterpret_cast<uint32_t(__cdecl *)(int32_t, int32_t)>(0x516280)(t, d); }
+int32_t HighScores_FindBestDriftScore(int32_t t, int32_t d) { return reinterpret_cast<int32_t(THISCALL *)(void *, int32_t, int32_t)>(0x502C50)(reinterpret_cast<void *>(0x844ADC), t, d); }
+int32_t HighScores_FindBestLapTime(int32_t t, int32_t d) { return reinterpret_cast<int32_t(THISCALL *)(void *, int32_t, int32_t)>(0x502AA0)(reinterpret_cast<void *>(0x844ADC), t, d); }
+void Timer_PrintToString(const int32_t *t, char *b, int32_t f) { reinterpret_cast<void(THISCALL *)(const int32_t *, char *, int32_t)>(0x577240)(t, b, f); }
+void GetLocalizedStringBuf(char *b, int32_t n, uint32_t h) { reinterpret_cast<void(__cdecl *)(char *, int32_t, uint32_t)>(0x4FFA50)(b, n, h); }
+void FEngPrintfFloatString(const char *p, uint32_t h, const char *f, double v, const char *s) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f, v, s); }
 }  // namespace bridge

@@ -21,6 +21,7 @@ struct LanguageStringRecord;
 
 struct bASinTableEntry;
 struct FESortGlobals;
+struct TrackInfo;
 struct FEngFont;
 struct FEngine;
 struct FERenderBucket;
@@ -439,6 +440,7 @@ void *CPPaintOptionVTable();                     // PC 0x79B604
 void *IconPanelVTable();                         // PC 0x795CBC
 void *IconScrollerVTable();                      // PC 0x79C0F4
 void *IconScrollerMenuVTable();                  // PC 0x7974D4
+void *ThumbnailScrollerVTable();                 // PC 0x79B948 (ThumbnailScroller scalar dtor only)
 void IconOption_React(void *opt, const char *pkg, uint32_t msg, void *obj, uint32_t a3, uint32_t a4);   // slot 1 (ret 0x14)
 void *IconPanel_AddOption(void *panel, void *opt);   // slot 2 (+0x08): the option's image or null
 void IconPanel_Update(void *panel);                   // slot 1 (+0x04)
@@ -523,4 +525,20 @@ bool IsCareerFreeRoam();                         // PC 500B60 (__thiscall on 0x8
 int32_t QuickRaceNumPlayers();                   // PC 5026F0 (__thiscall on 0x83AAB4) QuickRaceSettings::GetNumPlayers
 bool IsDragRace();                               // PC byte 0x89E7D8 != 0 || int 0x890108 != 0 (GC DAT_803fca80 || g_tweakIsDragRace)
 bool IsInPerformanceTuning();                    // PC byte 0x89E7E6
+// ---- UIQRTrackSelect / TrackMapScroller ----
+void **TrackMapScrollerInstance();               // PC 0x836344 (the screen's embedded TrackMapScroller)
+::TrackInfo *TrackInfo_GetNth(int32_t i);        // PC 5D3E80 (__cdecl); count *(int*)0x883DA4
+void bList_Sort(void *list, int32_t (*cmp)(void *, void *));   // PC 43E650 (__thiscall, ret 4) bList::Sort
+bool UnlockSystem_IsTrackUnlocked(int32_t filter, int32_t track, int32_t a, int32_t b);   // PC 5156F0 (__cdecl, AL)
+uint32_t FEngHashStringInt(const char *fmt, int32_t v);   // PC 50B990 FEngHashString (__cdecl varargs)
+// PC 57CF70 (__cdecl) LoadResourceFile(name, type, flags, callback(param), param, 0, 0) -> ResourceFile*
+void *LoadResourceFile(const char *name, int32_t type, int32_t flags, void (*cb)(void *), void *param, int32_t a, int32_t b);
+void UnloadResourceFile(void *rf);               // PC 580E90 (__cdecl)
+void ServiceResourceLoading();                   // PC 57EF60 (__cdecl)
+uint32_t CalcTrackNameHash(int32_t track, int32_t dir);   // PC 516280 (__cdecl)
+int32_t HighScores_FindBestDriftScore(int32_t track, int32_t dir);   // PC 502C50 (__thiscall on 0x844ADC, ret 8)
+int32_t HighScores_FindBestLapTime(int32_t track, int32_t dir);      // PC 502AA0 (__thiscall on 0x844ADC, ret 8)
+void Timer_PrintToString(const int32_t *timer, char *buf, int32_t fmt);   // PC 577240 (__thiscall, ret 8)
+void GetLocalizedStringBuf(char *buf, int32_t len, uint32_t hash);   // PC 4FFA50 (__cdecl): missing -> 0xC01A6F63, bStrNCpy
+void FEngPrintfFloatString(const char *pkg, uint32_t objHash, const char *fmt, double v, const char *s);   // PC 537B80
 }  // namespace bridge

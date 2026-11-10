@@ -1,3 +1,4 @@
+#include <cstdio>
 #include "frontend/FETypeLib.h"
 #include "frontend/FERender.h"
 #include "frontend/FEPackageManager.h"
@@ -85,7 +86,7 @@ int32_t optionsPage = 0;
 int32_t pausePlayer = 0, playerIds[2] = {0, 1};
 bool wheelPlugged = false;
 bool careerFreeRoam = false, dragRace = false, perfTuning = false;
-int iconOptionVTable = 0, thumbnailNodeVTable = 0, iconPanelVTable = 0, iconScrollerVTable = 0, iconScrollerMenuVTable = 0;
+int iconOptionVTable = 0, thumbnailNodeVTable = 0, iconPanelVTable = 0, iconScrollerVTable = 0, iconScrollerMenuVTable = 0, thumbnailScrollerVTable = 0;
 int splineSeeks = 0, iconScrollTime = 0;
 bool optionsDirty = false;
 int32_t raceType = 0;
@@ -107,6 +108,10 @@ const void *realFontData = nullptr;
 int giVTable, initializerVTable, movieStarterVTable, movieStopperVTable, dirtyMakerVTable;
 int32_t insideScreenCtor = 0, gameFlowState = 0;
 float worldTime = 0, realTime = 0;
+std::vector<void *> trackInfos;
+int32_t lockedTrack = -1, resourceLoads = 0, resourceUnloads = 0;
+void (*loadCallback)(void *) = nullptr;
+void *loadParam = nullptr;
 uint32_t lastJoyTypes[2] = {};
 uint8_t joyTypes[2] = {};
 void *memoryCard = nullptr;
@@ -990,6 +995,7 @@ void *CPPaintOptionVTable() { return reinterpret_cast<void *>(0x79B604); }
 void *IconPanelVTable() { return reinterpret_cast<void *>(0x795CBC); }
 void *IconScrollerVTable() { return reinterpret_cast<void *>(0x79C0F4); }
 void *IconScrollerMenuVTable() { return reinterpret_cast<void *>(0x7974D4); }
+void *ThumbnailScrollerVTable() { return reinterpret_cast<void *>(0x79B948); }
 template <typename F> static F IconSlot(void *o, int off) { return (*reinterpret_cast<F **>(o))[off / 4]; }
 void IconOption_React(void *o, const char *pkg, uint32_t m, void *obj, uint32_t a, uint32_t b) { IconSlot<void(__thiscall *)(void *, const char *, uint32_t, void *, uint32_t, uint32_t)>(o, 4)(o, pkg, m, obj, a, b); }
 void *IconPanel_AddOption(void *p, void *o) { return IconSlot<void *(__thiscall *)(void *, void *)>(p, 8)(p, o); }
@@ -1007,6 +1013,7 @@ void *CPPaintOptionVTable() { return &teststub::iconOptionVTable; }
 void *IconPanelVTable() { return &teststub::iconPanelVTable; }
 void *IconScrollerVTable() { return &teststub::iconScrollerVTable; }
 void *IconScrollerMenuVTable() { return &teststub::iconScrollerMenuVTable; }
+void *ThumbnailScrollerVTable() { return &teststub::thumbnailScrollerVTable; }
 static bool IsScroller(void *p) { return *static_cast<void **>(p) == &teststub::iconScrollerVTable; }
 void IconOption_React(void *o, const char *, uint32_t m, void *, uint32_t, uint32_t) { teststub::delivered.push_back({"react", o, nullptr, m, 0}); }
 void *IconPanel_AddOption(void *p, void *o)
@@ -1109,4 +1116,42 @@ bool IsDragRace() { return teststub::dragRace; }
 bool IsInPerformanceTuning() { return teststub::perfTuning; }
 void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t) { teststub::delivered.push_back({"camcall", nullptr, nullptr, static_cast<uint32_t>(a * 100 + b), static_cast<uint32_t>(c)}); }
 void Player_ChangeCamera(int32_t n, int32_t dir) { teststub::delivered.push_back({"changecam", nullptr, nullptr, static_cast<uint32_t>(n), static_cast<uint32_t>(dir)}); }
+// ---- UIQRTrackSelect / TrackMapScroller ----
+void **TrackMapScrollerInstance() { static void *p; return &p; }
+#ifdef NFSU2_REFEREE
+::TrackInfo *TrackInfo_GetNth(int32_t i) { return reinterpret_cast<::TrackInfo *(__cdecl *)(int32_t)>(0x5D3E80)(i); }
+#else
+::TrackInfo *TrackInfo_GetNth(int32_t i) { return static_cast<::TrackInfo *>(teststub::trackInfos.at(static_cast<size_t>(i))); }
+#endif
+// stand-in for bList::Sort: stable insertion sort, a node moves before its predecessor while cmp(pred, node) == 0
+void bList_Sort(void *l, int32_t (*cmp)(void *, void *))
+{
+    struct N { N *next, *prev; };
+    N *head = static_cast<N *>(l);
+    for (N *n = head->next->next; n != head;) {
+        N *following = n->next;
+        N *at = n->prev;
+        while (at != head && cmp(at, n) == 0) at = at->prev;
+        if (at != n->prev) {
+            n->prev->next = n->next; n->next->prev = n->prev;   // unlink
+            n->next = at->next; n->prev = at; at->next->prev = n; at->next = n;   // insert after `at`
+        }
+        n = following;
+    }
+}
+bool UnlockSystem_IsTrackUnlocked(int32_t, int32_t t, int32_t, int32_t) { return teststub::lockedTrack != t; }
+uint32_t FEngHashStringInt(const char *, int32_t v) { return 0x1000u + static_cast<uint32_t>(v); }
+void *LoadResourceFile(const char *, int32_t, int32_t, void (*cb)(void *), void *p, int32_t, int32_t)
+{
+    teststub::loadCallback = cb; teststub::loadParam = p; ++teststub::resourceLoads;
+    return &teststub::resourceLoads;
+}
+void UnloadResourceFile(void *) { ++teststub::resourceUnloads; }
+void ServiceResourceLoading() { if (teststub::loadCallback) teststub::loadCallback(teststub::loadParam); }
+uint32_t CalcTrackNameHash(int32_t t, int32_t d) { return 0x2000u + static_cast<uint32_t>(t * 10 + d); }
+int32_t HighScores_FindBestDriftScore(int32_t t, int32_t) { return t * 100; }
+int32_t HighScores_FindBestLapTime(int32_t t, int32_t) { return t * 1000; }
+void Timer_PrintToString(const int32_t *t, char *b, int32_t) { std::snprintf(b, 0x20, "%d", *t); }
+void GetLocalizedStringBuf(char *b, int32_t n, uint32_t) { std::snprintf(b, static_cast<size_t>(n), "fmt"); }
+void FEngPrintfFloatString(const char *, uint32_t h, const char *, double v, const char *) { teststub::delivered.push_back({"fengprintf", nullptr, nullptr, h, static_cast<uint32_t>(v * 100.0 + 0.5)}); }
 }  // namespace bridge

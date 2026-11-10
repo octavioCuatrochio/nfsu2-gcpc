@@ -16,10 +16,12 @@
 #include "frontend/UIOptionsScreen.h"
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
+#include "frontend/ThumbnailScroller.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
 #include "frontend/MainMenu.h"
 #include "frontend/QRModeSelect.h"
+#include "frontend/QRTrackSelect.h"
 #include "frontend/StartCareer.h"
 #include "frontend/ProfileManager.h"
 #include "frontend/CareerCrib.h"
@@ -3074,6 +3076,133 @@ static void TestIconScroller()
     teststub::realTimer = 0;
 }
 
+// ThumbnailScroller: ctor defaults, AddNode geometry, Find/Index, Snap/Scroll, MoveObjectsTo layout, Update pulse,
+// ClearAll teardown. The package is null so the object-slot lookups short-circuit; the strip is built by hand.
+static void TestThumbnailScroller()
+{
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    alignas(8) static ThumbnailScroller s;
+    std::memset(&s, 0, sizeof s);
+    s.Construct(nullptr, "master", "slot", 1, "", "");
+    CHECK(s.vtable == bridge::ThumbnailScrollerVTable());
+    CHECK(s.mNodes.next == &s.mNodes && s.mNodes.prev == &s.mNodes && s.mpCurrent == nullptr && s.mpNext == nullptr);
+    CHECK(s.mpCubic != nullptr && s.mpCubic->mDuration == 0.3f && s.mpCubic->mState == 0 &&
+          s.mpCubic->_unknown28 == 1.0f && s.mpCubic->mVal == 0.0f && s.mpCubic->mFlags == 0);
+    CHECK(s.mbHorizontal == 1 && s.mbVisible == 1 && s.mbScale == 0 && s.mbFadeAlpha == 0 && s.mAlignment == 1);
+    CHECK(s.mStripW == 480.0f && s.mStripH == 100.0f && s.mScroll == 0.0f && s.mPulse == 0.0f && s.mSpacing == 0.0f);
+
+    // synthetic box objects with an object-data block (0x5C-byte FEObject + 0x50 bytes of data)
+    static FEObject o0, o1;
+    static float d0[20], d1[20];
+    std::memset(d0, 0, sizeof d0);
+    std::memset(d1, 0, sizeof d1);
+    for (FEObject *o : {&o0, &o1}) {
+        std::memset(o, 0, sizeof *o);
+        o->mu32Type = 1;
+        o->mpData = o == &o0 ? d0 : d1;
+        o->mu32Flags = 0;
+        reinterpret_cast<float *>(o->mpData)[14] = 10.0f;   // size
+        reinterpret_cast<float *>(o->mpData)[15] = 20.0f;
+    }
+
+    // AddNode consumes mpNext, records the size and advances the strip offset by width + spacing
+    s.mpNext = &o0;
+    CHECK(s.AddNode(0x11, false, false, true, 0xFFFFFFFFu) == &o0 && s.mpNext == nullptr);
+    s.mSpacing = 5.0f;
+    s.mpNext = &o1;
+    CHECK(s.AddNode(0x22, true, true, true, 0x80AABBCCu) == &o1);
+    ThumbnailNode *n0 = s.FindNode(0x11), *n1 = s.FindNode(0x22);
+    CHECK(n0 && n1 && n0 != n1 && n0->mpObject == &o0 && n1->mpObject == &o1);
+    CHECK(n0->mOffsetX == 0.0f && n0->mWidth == 10.0f && n0->mHeight == 20.0f && n0->mu32Color == 0xFFFFFFFFu);
+    CHECK(n1->mOffsetX == 10.0f && n1->mbDimmed == 1 && n1->mbAnimate == 1 && n1->mu32Color == 0x80AABBCCu);
+    CHECK(s.mScroll == 10.0f + 10.0f + 5.0f && s.FindNode(0x33) == nullptr);
+    CHECK(s.GetCurrenNodeIndex() == 0);
+    s.mpCurrent = n1;
+    CHECK(s.GetCurrenNodeIndex() == 2);
+    s.mpCurrent = n0;
+    CHECK(s.GetCurrenNodeIndex() == 1);
+
+    // MoveObjectsTo: 100-wide horizontal strip at x = 0; node 1 selected (full size), node 2 shrunk to 0.8
+    s.mAlignment = 0;
+    s.mOriginX = s.mOriginY = 0.0f;
+    s.mCenterX = s.mCenterY = 0.0f;
+    s.mStripW = 100.0f;
+    s.mStripH = 100.0f;
+    s.MoveObjectsTo(0.0f);
+    CHECK(d0[7] == 0.0f && d0[8] == 0.0f && d0[14] == 10.0f && d0[15] == 20.0f);
+    CHECK(d1[7] == 10.0f && d1[8] == -2.0f && d1[14] == 8.0f && d1[15] == 16.0f);   // alignment y from the full size
+
+    // SnapToItem / Scroll (unsmoothed): current moves to node 2 and the strip scrolls by -15
+    s.Scroll(1);
+    CHECK(s.mpCurrent == n1 && s.mpCubic->mVal == -10.0f && d1[7] == 0.0f && d0[7] == -10.0f);
+    s.Scroll(1);                       // last node: no move
+    CHECK(s.mpCurrent == n1);
+    s.Scroll(-1);
+    CHECK(s.mpCurrent == n0 && s.mpCubic->mVal == 0.0f);
+
+    // smoothed scroll: target + new-target flag, fade timer = RealTimer
+    s.mbSmooth = 1;
+    teststub::realTimer = 12345;
+    teststub::iconScrollTime = 0;
+    s.Scroll(1);
+    CHECK(s.mpCurrent == n1 && s.mpCubic->mValDesired == -10.0f && s.mpCubic->mFlags == 2 && teststub::iconScrollTime == 12345);
+    s.SnapToHead();
+    CHECK(s.mpCurrent == n0 && s.mpCubic->mVal == 0.0f);
+
+    // scale mode: 20-wide strip, scroll -4 puts node 2 at +6 (half-way down the right ramp)
+    s.mbSmooth = 0;
+    s.mbScale = 1;
+    s.mStripW = 20.0f;
+    s.mCenterX = 0.0f;
+    s.mpCurrent = n1;
+    s.MoveObjectsTo(-4.0f);
+    CHECK(d1[7] == 6.0f && d1[14] == 5.0f && d1[15] == 10.0f);   // 0.5 of 10 x 20
+    CHECK(d0[7] == -4.0f && d0[14] == 7.5f && d0[15] == 15.0f); // 0.75 of 10 x 20
+
+    // alpha fade: colour alpha scaled by scale^3 (dimmed nodes use 70)
+    s.mbScale = 0;
+    s.mbFadeAlpha = 1;
+    s.mStripW = 100.0f;
+    s.MoveObjectsTo(0.0f);
+    const int32_t *c0 = reinterpret_cast<const int32_t *>(d0);
+    const int32_t *c1 = reinterpret_cast<const int32_t *>(d1);
+    CHECK(c0[0] == 0xFF && c0[1] == 0xFF && c0[2] == 0xFF && c0[3] == 0xFF);   // opaque -> unchanged
+    CHECK(c1[0] == 0xCC && c1[1] == 0xBB && c1[2] == 0xAA && c1[3] == 70);      // 0x80AABBCC, dimmed -> alpha 70
+    s.mbFadeAlpha = 0;
+
+    // Update: pulse advances by 0.03, animates the selected image, runs one SplineSeek
+    s.mbScale = 0;
+    s.mbFadeAlpha = 0;
+    s.mpCurrent = n0;
+    s.mPulse = 0.5f;
+    n0->mu32Color = 0xFF204060u;
+    n0->mbAnimate = 1;
+    const int seeks = teststub::splineSeeks;
+    s.Update();
+    CHECK(teststub::splineSeeks == seeks + 1);
+    CHECK(std::fabs(s.mPulse - 0.53f) < 1e-6f);
+    CHECK(std::fabs(d0[14] - 10.0f) < 0.01f && std::fabs(d0[15] - 20.0f) < 0.02f);
+    n0->mbAnimate = 0;
+    // outside the centre band nothing pulses
+    const float savedOffset = n0->mOffsetX;
+    n0->mOffsetX = -500.0f;
+    s.mPulse = 0.5f;
+    s.Update();
+    CHECK(s.mPulse == 0.5f);
+    n0->mOffsetX = savedOffset;
+
+    // ClearAll destroys the nodes (through the vtable), resets scroll / current and re-looks-up mpNext
+    const int deletes = teststub::virtualDeletes;
+    s.ClearAll();
+    CHECK(teststub::virtualDeletes == deletes + 2 && s.mNodes.next == &s.mNodes && s.mpCurrent == nullptr &&
+          s.mScroll == 0.0f && s.mpNext == nullptr && d0[7] == 6969.0f && d0[8] == 0.0f);
+    s.Destruct();
+    CHECK(s.mpCubic == nullptr && s.mNodes.next == &s.mNodes);
+    teststub::realTimer = 0;
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
 // Options icon menus: OM* pages, sound filter, exit with / without the memory card.
 static void TestOptionsMain()
 {
@@ -4272,6 +4401,173 @@ static void TestLevelSorter()
     e->mIdlePackages.head = nullptr;
 }
 
+static void TestQRTrackSelect()
+{
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    const int32_t savedMode = teststub::gameModeFlags;
+    teststub::gameModeFlags = 0;
+    *bridge::GameInt(0x83AAB4) = 0;   // circuit
+    static TrackInfo ti[4];
+    std::memset(ti, 0, sizeof ti);
+    const int16_t ids[4] = {10, 20, 30, 40};
+    for (int i = 0; i < 4; ++i) { ti[i].mTrackNumber = ids[i]; ti[i].mModeFlags = 1; ti[i].mLength = 2000 + i; }
+    ti[3].mModeFlags = 2;   // sprint/drag only: not listed for circuit
+
+    // IsAvailable / CalcIconHash
+    alignas(8) static unsigned char mem[sizeof(UIQRTrackSelect)];
+    std::memset(mem, 0, sizeof mem);
+    auto *q = reinterpret_cast<UIQRTrackSelect *>(mem);
+    CHECK(q->IsAvailable(&ti[0], 0) && !q->IsAvailable(&ti[3], 0) && !q->IsAvailable(nullptr, 0));
+    *bridge::GameInt(0x83AAB4) = 2;
+    CHECK(q->IsAvailable(&ti[3], 0) && !q->IsAvailable(&ti[3], 1));
+    *bridge::GameInt(0x83AAB4) = 12;
+    ti[2].mModeFlags = 4;
+    CHECK(q->IsAvailable(&ti[2], 0));
+    *bridge::GameInt(0x83AAB4) = 7;
+    CHECK(!q->IsAvailable(&ti[0], 0));
+    ti[2].mModeFlags = 1;
+    *bridge::GameInt(0x83AAB4) = 0;
+    ti[0].mbNotSelectable = 1;
+    CHECK(!q->IsAvailable(&ti[0], 0));
+    ti[0].mbNotSelectable = 0;
+    teststub::gameModeFlags = 8;
+    *bridge::GameInt(0x850088) = 0;
+    ti[1].mTrackNumber = 4000;
+    CHECK(!q->IsAvailable(&ti[1], 0) && q->IsAvailable(&ti[0], 0));
+    ti[1].mTrackNumber = 20;
+    teststub::gameModeFlags = 0;
+    SelectableTrack st{};
+    st.mpInfo = &ti[0];
+    st.mbLocked = 1;
+    CHECK(st.CalcIconHash() == 0xF05704ACu && st.TrackNumber() == 10);
+    st.mbLocked = 0;
+    ti[0].mIconType = 3;
+    CHECK(st.CalcIconHash() == 0x4FDE6FEBu);
+    ti[0].mIconType = 5;
+    *bridge::GameInt(0x83AAB4) = 10;
+    CHECK(st.CalcIconHash() == FEHashUpper("Track_Icon_Short_Track"));
+    *bridge::GameInt(0x83AAB4) = 0;
+    CHECK(st.CalcIconHash() == 0x74CE8C0Bu);
+    ti[0].mIconType = 9;
+    CHECK(st.CalcIconHash() == 0x74CE8C0Bu);
+    ti[0].mIconType = 0;
+
+    // ctor: 3 circuit tracks, 20 locked -> sorted last; the saved track 20 is locked -> first track selected
+    teststub::trackInfos = {&ti[0], &ti[1], &ti[2], &ti[3]};
+    *bridge::GameInt(0x883DA4) = 4;
+    teststub::lockedTrack = 20;
+    uint8_t *set = bridge::QR_CurrentTrackSettings();
+    *reinterpret_cast<uint16_t *>(set) = 20;
+    *reinterpret_cast<int32_t *>(set + 4) = 0;
+    set[8] = 5;
+    const int live = teststub::liveAllocations;
+    ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+    q->Construct(&d);
+    CHECK(q->mNumTracks == 3 && set[8] == 0 && q->mScroller.mSpacing == 40.0f && q->mPrevMsg == 0);
+    CHECK(q->mHead->TrackNumber() == 10 && q->mHead->next->TrackNumber() == 30 && q->mTail->TrackNumber() == 20 &&
+          q->mTail->mbLocked == 1 && q->mHead->mbLocked == 0 && q->mTail->next == q->Sentinel());
+    CHECK(q->mpSelected == q->mHead && *reinterpret_cast<uint16_t *>(set) == 10);
+    CHECK(q->mMap.mpTrack == q->mHead && q->mMap.mWantedId == 10 && q->mbLeftArrow == 0 && q->mScrollTime == 0);
+    CHECK(*bridge::TrackMapScrollerInstance() == &q->mMap);
+
+    // sounds at the ends, scrolling right
+    CHECK(q->NotifySoundMessage(0x9120409Eu, nullptr, 0, 0, 4) == 0);
+    teststub::realTimer = 5000;
+    q->NotificationMessage(0xB5971BF1u, nullptr, 0, 0);
+    CHECK(q->mpSelected->TrackNumber() == 30 && *reinterpret_cast<uint16_t *>(set) == 30 && q->mScrollTime == 5000);
+    q->NotificationMessage(0xB5971BF1u, nullptr, 0, 0);
+    CHECK(q->mpSelected == q->mTail && q->NotifySoundMessage(0xB5971BF1u, nullptr, 0, 0, 5) == 0);
+    CHECK(q->NotifySoundMessage(0x0C407210u, nullptr, 0, 0, 1) == 0x13);
+    q->NotificationMessage(0xB5971BF1u, nullptr, 0, 0);   // already last
+    CHECK(q->mpSelected == q->mTail);
+
+    // tick: the map follows the selection 0.3 s after the last scroll
+    teststub::realTimer = 5000 + 1000;   // 0.25 s
+    q->NotificationMessage(0xC98356BAu, nullptr, 0, 0);
+    CHECK(q->mMap.mWantedId == 10 && q->mScrollTime == 5000);
+    teststub::realTimer = 5000 + 1200;   // 0.3 s
+    q->NotificationMessage(0xC98356BAu, nullptr, 0, 0);
+    CHECK(q->mMap.mWantedId == 20 && q->mMap.mpTrack == q->mTail && q->mScrollTime == 0);
+
+    // accept on a locked track does nothing; on an unlocked one it starts FORWARD and remembers the message
+    q->NotificationMessage(0x406415E3u, nullptr, 0, 0);
+    CHECK(q->mPrevMsg == 0);
+    q->NotificationMessage(0x9120409Eu, nullptr, 0, 0);
+    CHECK(q->mpSelected->TrackNumber() == 30);
+    teststub::delivered.clear();
+    q->NotificationMessage(0x0C407210u, nullptr, 0, 0);
+    bool sound4 = false;
+    for (const auto &e : teststub::delivered) sound4 |= std::string(e.kind) == "uisound" && e.msg == 4;
+    CHECK(q->mPrevMsg == 0x0C407210u && sound4);
+    q->NotificationMessage(0x911AB364u, nullptr, 0, 0);
+    CHECK(q->mPrevMsg == 0x911AB364u);
+    q->NotificationMessage(0x35F8620Bu, nullptr, 0, 0);
+    CHECK(q->mScroller.mbFadeAlpha == 1);
+
+    q->Destruct();
+    CHECK(teststub::liveAllocations == live && *bridge::TrackMapScrollerInstance() == nullptr);
+
+    // TrackMapScroller: load, show, zoom
+    static FEObject img;
+    static float data[64];
+    std::memset(&img, 0, sizeof img);
+    std::memset(data, 0, sizeof data);
+    img.mu32Type = 1;
+    img.mpData = data;
+    TrackMapScroller m{};
+    m.mpImage = &img;
+    SelectableTrack tr{};
+    tr.mpInfo = &ti[0];
+    ti[0].mMapX = 100.0f; ti[0].mMapY = 50.0f; ti[0].mMapZoom = 256.0f; ti[0].mbMapZoomed = 0;
+    m.SetTrackMap(&tr);
+    CHECK(m.mWantedId == 10 && m.mpTrack == &tr);
+    m.SetTrackMap(nullptr);
+    CHECK(m.mpTrack == &tr);
+    const int loads = teststub::resourceLoads, unloads = teststub::resourceUnloads;
+    m.Update();
+    CHECK(teststub::resourceLoads == loads + 1 && m.mLoadingId == 10 && m.mpLoading && teststub::loadParam == &m);
+    m.Update();   // still loading
+    CHECK(teststub::resourceLoads == loads + 1);
+    teststub::loadCallback(teststub::loadParam);
+    CHECK(m.mbLoaded == 1);
+    m.Update();   // shown: texture, InitZoom(1) -> timer 4000, ZoomIn(0)
+    CHECK(m.mShownId == 10 && m.mpLoading == nullptr && m.mLoadingId == 0 && img._unknown24 == 0x1000u + 10 &&
+          (img.mu32Flags & 0x400000u) && m.mbZoomNow == 0);
+    // ZoomIn(0): sin 0 = 0 -> uv (0,0)-(1,1); timer counts down 1000 per stub tick
+    const float *uv0 = reinterpret_cast<const float *>(reinterpret_cast<uint8_t *>(data) + FEObject::GetDataOffset(5));
+    const float *uv1 = reinterpret_cast<const float *>(reinterpret_cast<uint8_t *>(data) + FEObject::GetDataOffset(6));
+    CHECK(uv0[0] == 0.0f && uv0[1] == 0.0f && uv1[0] == 1.0f && uv1[1] == 1.0f);
+    CHECK(m.mZoomTimer == 4000 - 1000);   // that Update already counted once (t = 0.75: no zoom)
+    m.Update();                           // 2000 -> t = 0.5 -> ZoomIn(0)
+    m.Update();                           // 1000 -> t = 0.25 -> ZoomIn(0.5)
+    CHECK(m.mZoomTimer == 1000 && uv0[0] > 0.0f && uv1[0] < 1.0f);
+    m.ZoomIn(1.0f);                       // full zoom: (100, 50)-(356, 306) / 512
+    CHECK(std::fabs(uv0[0] - 100.0f / 512) < 1e-5f && std::fabs(uv0[1] - 50.0f / 512) < 1e-5f &&
+          std::fabs(uv1[0] - 356.0f / 512) < 1e-5f && std::fabs(uv1[1] - 306.0f / 512) < 1e-5f);
+    // a new track: the shown map stays until the new one loads, then the old one is unloaded next Update
+    TrackInfo t2 = ti[0];
+    t2.mTrackNumber = 11;
+    SelectableTrack tr2{};
+    tr2.mpInfo = &t2;
+    m.SetTrackMap(&tr2);
+    m.Update();
+    CHECK(m.mLoadingId == 11 && m.mShownId == 10);
+    teststub::loadCallback(teststub::loadParam);
+    m.Update();
+    CHECK(m.mShownId == 11 && m.mpUnload != nullptr);
+    m.Update();
+    CHECK(m.mpUnload == nullptr && teststub::resourceUnloads == unloads + 1);
+    m.Destruct();
+    CHECK(teststub::resourceUnloads == unloads + 2);
+    CHECK(QRTrack_SortCompare(q->Sentinel(), q->Sentinel()) == 1);
+
+    teststub::lockedTrack = -1;
+    teststub::trackInfos.clear();
+    teststub::gameModeFlags = savedMode;
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
 int main()
 {
     TestLevelSorter();
@@ -4304,6 +4600,8 @@ int main()
     TestOptionsScreen();
     TestPauseOptions();
     TestIconScroller();
+    TestThumbnailScroller();
+    TestQRTrackSelect();
     TestOptionsMain();
     TestPauseMenu();
     TestMenuIcons();
