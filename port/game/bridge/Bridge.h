@@ -69,6 +69,14 @@ void cFEng_RegisterJoy(::cFEng *fe);                                            
 void *RenderObjectDisconnectVTable();                                              // PC 0x79AB9C
 void bWareFree(void *p);
 int32_t FEngLoadCounter();                                                         // PC 0x8384D0 (game global)
+int32_t *FEngLoadCounterPtr();                                                     // same global (GC gInsideScreenConstructor)
+// FEPackageManager callees (game-side screens; PC __cdecl)
+void *FEPackageDataVTable();                                       // PC 0x79B15C (slot 0 = 52CC20)
+void *ScreenFactory(uint32_t nameHash, ::FEPackage *pkg, int32_t arg);   // PC 0x50B790 (GC 8014A2CC)
+uint32_t FindScreenCreateData(uint32_t nameHash);                  // PC 0x50B840 (GC 8014A3A8)
+void HackClearCache(::FEPackage *pkg);                             // PC 0x50C550 (GC 8014DFBC)
+void FEngine_Update(void *engine, uint32_t a, uint32_t b);         // PC 0x558C00 (__thiscall, GC 80146028)
+bool IsCurrentlyHotChunking();                                     // PC 0x571090 (GC 80195514)
 ::SlotPool *LevelSorterSlots();                                                    // PC *(0x8384B0) (game global)
 // MenuScreen::BaseNotify(msg, obj, arg, pkg): game-side screen notification            PC 0x55B5C0 (__thiscall)
 void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, ::FEPackage *pkg);

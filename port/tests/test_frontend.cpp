@@ -1251,6 +1251,66 @@ static void TestPackageManager()
     dl.clear();
 }
 
+// FEPackageData lifecycle + FEPackageManager Loader/UnLoader/CloseAllPackages.
+static void TestPackageDataLifecycle()
+{
+    FEPackageManager m{0, {nullptr, nullptr}};
+    m.mList.next = m.mList.prev = &m.mList;
+    alignas(4) uint8_t raw[2][8 + 0x40] = {};
+    for (int i = 0; i < 2; ++i) {
+        auto *h = reinterpret_cast<uint32_t *>(raw[i]);
+        h[0] = 0x30203;
+        h[2] = 0xE76E4546u; h[4] = 0x64486B50u; h[6] = 0x20000u;
+    }
+    std::strcpy(reinterpret_cast<char *>(raw[0] + 8 + 0x28), "A.fng");
+    std::strcpy(reinterpret_cast<char *>(raw[1] + 8 + 0x28), "B.fng");
+    uint32_t bad[8] = {0x30203, 0, 0x1234};                         // bad magic: no FindScreenCreateData
+    uint32_t other[2] = {0x99};
+    auto &dl = teststub::delivered;
+    const int live0 = teststub::liveAllocations;
+    CHECK(LoaderFEngPackage(other) == 0);
+    for (auto *c : {reinterpret_cast<uint32_t *>(raw[0]), reinterpret_cast<uint32_t *>(raw[1]), bad}) m.Loader(c, false);
+    FEPackageData *a = FEPackageData::FromNode(m.mList.next), *b = FEPackageData::FromNode(a->node.next), *x = FEPackageData::FromNode(m.mList.prev);
+    CHECK(a->mpChunk == reinterpret_cast<uint32_t *>(raw[0]) && b->mpChunk == reinterpret_cast<uint32_t *>(raw[1]) && x->mpChunk == bad);   // tail order
+    CHECK(a->vtable == &teststub::fePackageDataVTable && a->mpData == raw[0] + 8 && a->mVisible == 1 && a->mPermanent == 0);
+    CHECK(a->mScreenCreateData == (FEHashUpper("A.fng") ^ 0x5A5A5A5Au) && x->mScreenCreateData == 0);
+    CHECK(m.GetVisibility("A.fng") && !m.GetVisibility("nope"));
+    m.SetVisibility("a.fng", false);
+    CHECK(!m.GetVisibility("A.fng"));
+    // Activate: screen made with the load counter raised, back-pointer, control mask
+    alignas(8) unsigned char pm[2][sizeof(FEPackage)] = {};
+    auto *pa = reinterpret_cast<FEPackage *>(pm[0]), *pb = reinterpret_cast<FEPackage *>(pm[1]);
+    pa->mpcName = "A.fng"; pa->mu32ControlMask = 0x77; pb->mpcName = "B.fng";
+    teststub::screenResult = bridge::Alloc(8);
+    *static_cast<void **>(teststub::screenResult) = nullptr;
+    dl.clear();
+    const int32_t lc = teststub::fengLoadCounter;
+    m.PackageWasLoaded(pa, 5);
+    CHECK(dl.size() == 1 && dl[0].msg == FEHashUpper("A.fng") && dl[0].arg == uint32_t(lc + 1) && teststub::fengLoadCounter == lc);
+    CHECK(a->mpPackage == pa && pa->mpPackageData == a && a->mpScreen == teststub::screenResult && a->mPackageArg == 0x77);
+    teststub::screenResult = nullptr;
+    m.PackageWasLoaded(pb, 0);
+    m.SetPermanent("B.fng", 1);
+    // CloseAllPackages(0): permanent B only gets HackClearCache; A is closed (screen deleted, unlinked)
+    dl.clear();
+    m.CloseAllPackages(0);
+    CHECK(dl.size() == 2 && std::string(dl[0].kind) == "clearcache" && dl[0].pkg == pb && std::string(dl[1].kind) == "clearcache" && dl[1].pkg == pa);
+    CHECK(a->mpPackage == nullptr && a->mpScreen == nullptr && pa->mpPackageData == nullptr && b->mpPackage == pb);
+    m.CloseAllPackages(1);
+    CHECK(b->mpPackage == nullptr && pb->mpPackageData == nullptr);
+    // PackageWillBeUnloaded -> UnActivate
+    m.PackageWasLoaded(pb, 0);
+    m.PackageWillBeUnloaded(pb);
+    CHECK(b->mpPackage == nullptr);
+    // UnLoader: update FEng, unlink + delete; unknown chunk does nothing else
+    dl.clear();
+    m.UnLoader(other, false);
+    CHECK(dl.size() == 1 && std::string(dl[0].kind) == "update" && dl[0].msg == 0 && dl[0].arg == 0);
+    for (auto *c : {reinterpret_cast<uint32_t *>(raw[0]), reinterpret_cast<uint32_t *>(raw[1]), bad}) m.UnLoader(c, false);
+    CHECK(m.mList.next == &m.mList && m.mList.prev == &m.mList && teststub::liveAllocations == live0);
+    dl.clear();
+}
+
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
 static void TestCFEngQueue()
 {
@@ -1410,6 +1470,7 @@ int main()
     TestLevelSorter();
     TestCFEngQueue();
     TestPackageManager();
+    TestPackageDataLifecycle();
     TestSlotPool();
     TestATan();
     TestPackageCommands();

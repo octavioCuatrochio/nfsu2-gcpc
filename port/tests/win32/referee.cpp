@@ -1019,6 +1019,38 @@ static void CheckNoise(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// FEPackageData ctor / non-deleting dtor on raw (0x30203) and LZ (0x30210, dtor only with null data) chunks.
+static void CheckPackageDataCtor(int iters)
+{
+    auto oCtor = ORIG<FEPackageData *(THISCALL *)(FEPackageData *, uint32_t *)>(0x51B8E0);
+    auto oDtor = ORIG<void(THISCALL *)(FEPackageData *)>(0x51B990);
+    static const char *names[] = {"MAIN_MENU.fng", "Options.fng", "garage.FNG", "x", ""};
+    for (int it = 0; it < iters; ++it) {
+        alignas(4) uint8_t chunk[8 + 0x40];
+        for (auto &b : chunk) b = static_cast<uint8_t>(rng());
+        auto *c = reinterpret_cast<uint32_t *>(chunk);
+        const int kind = rng() % 4;
+        c[0] = kind == 3 ? rng() : kind == 2 ? 0x30210u : 0x30203u;
+        if (kind == 0) {
+            c[2] = 0xE76E4546u; c[4] = 0x64486B50u; c[6] = 0x20000u + rng() % 3 - (rng() % 4 == 0);
+            std::strcpy(reinterpret_cast<char *>(chunk + 8 + 0x28), names[rng() % 5]);
+        }
+        uint8_t a[sizeof(FEPackageData)], b[sizeof(FEPackageData)];
+        for (size_t i = 0; i < sizeof a; ++i) a[i] = b[i] = static_cast<uint8_t>(rng());
+        auto *da = reinterpret_cast<FEPackageData *>(a), *db = reinterpret_cast<FEPackageData *>(b);
+        FEPackageData *ra = oCtor(da, c);
+        db->Construct(c);
+        EXPECT(da->vtable == reinterpret_cast<void *>(0x79B15C) && db->vtable == bridge::FEPackageDataVTable(), "FEPackageData vtable");
+        db->vtable = da->vtable;   // stub bridge vtable differs
+        EXPECT(ra == da && std::memcmp(a, b, sizeof a) == 0, "FEPackageData ctor kind %d", kind);
+        if (c[0] == 0x30210) { da->mpData = db->mpData = nullptr; }
+        oDtor(da);
+        db->Destruct();
+        db->vtable = da->vtable;
+        EXPECT(std::memcmp(a, b, sizeof a) == 0, "FEPackageData dtor kind %d", kind);
+    }
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1516,6 +1548,7 @@ static int RunAll()
     CheckBoxes(iters);
     CheckSlotPoolB(iters);
     CheckNoise(iters);
+    CheckPackageDataCtor(2000);
     CheckPackageManager(iters);
     CheckFENodeFind(iters);
     CheckUpdateObjectTracks(iters);

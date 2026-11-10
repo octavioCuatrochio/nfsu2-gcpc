@@ -211,6 +211,15 @@ uint32_t THISCALL FEPackageData_GetNameHash(const FEPackageData *self) { return 
 void THISCALL FEPkgMgr_SendMessageToPackage(FEPackageManager *self, const char *n, uint32_t m) { self->SendMessageToPackage(n, m); }
 void THISCALL FEPkgMgr_BroadcastMessage(FEPackageManager *self, uint32_t m, uint32_t a) { self->BroadcastMessage(m, a); }
 void THISCALL FEPkgMgr_NotificationMessage(FEPackageManager *self, uint32_t m, void *o, uint32_t a, FEPackage *p) { self->NotificationMessage(m, o, a, p); }
+FEPackageData *THISCALL FEPackageData_Ctor(FEPackageData *self, uint32_t *c) { self->Construct(c); return self; }
+void THISCALL FEPackageData_Dtor(FEPackageData *self) { self->Destruct(); }
+FEPackageData *THISCALL FEPackageData_ScalarDtor(FEPackageData *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL FEPackageData_Activate(FEPackageData *self, FEPackage *p, int32_t a) { self->Activate(p, a); }
+void THISCALL FEPackageData_UnActivate(FEPackageData *self) { self->UnActivate(); }
+void THISCALL FEPackageData_Close(FEPackageData *self) { self->Close(); }
+void THISCALL FEPkgMgr_CloseAllPackages(FEPackageManager *self, int32_t all) { self->CloseAllPackages(all); }
+void THISCALL FEPkgMgr_Loader(FEPackageManager *self, uint32_t *c, bool h) { self->Loader(c, h); }
+void THISCALL FEPkgMgr_UnLoader(FEPackageManager *self, uint32_t *c, bool h) { self->UnLoader(c, h); }
 void THISCALL cFEng_NotificationMessage(cFEng *self, uint32_t m, FEObject *o, uint32_t a, FEPackage *p) { self->NotificationMessage(m, o, a, p); }
 void THISCALL cFEng_SwitchFEngPackages(cFEng *self, const char *f, const char *t) { self->SwitchFEngPackages(f, t); }
 void THISCALL cFEng_QueuePopPackage(cFEng *self, const char *n) { self->QueuePopPackage(n); }
@@ -479,6 +488,18 @@ const Replacement kReplacements[] = {
     {0x55DC20, (const void *)&FEPkgMgr_SendMessageToPackage, "FEPackageManager::SendMessageToPackage", {0x8B, 0x44, 0x24, 0x04, 0x50, 0xE8}},
     {0x55DC50, (const void *)&FEPkgMgr_BroadcastMessage, "FEPackageManager::BroadcastMessage", {0x8B, 0x41, 0x04, 0x81, 0xEC, 0x80}},
     {0x55DCE0, (const void *)&FEPkgMgr_NotificationMessage, "FEPackageManager::NotificationMessage", {0x8B, 0x41, 0x04, 0x85, 0xC0, 0x53}},
+    {0x51B8E0, (const void *)&FEPackageData_Ctor, "FEPackageData::FEPackageData", {0x33, 0xC0, 0x56, 0x8B, 0xF1, 0x8B}},
+    {0x51B990, (const void *)&FEPackageData_Dtor, "FEPackageData::~FEPackageData", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x10}},
+    {0x52CC20, (const void *)&FEPackageData_ScalarDtor, "FEPackageData scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x68, 0xED}},
+    {0x51B9D0, (const void *)&FEPackageData_Activate, "FEPackageData::Activate", {0x56, 0x8B, 0xF1, 0x57, 0x8B, 0x7C}},
+    {0x51BA60, (const void *)&FEPackageData_UnActivate, "FEPackageData::UnActivate", {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x14}},
+    {0x542340, (const void *)&FEPackageData_Close, "FEPackageData::Close", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x18}},
+    {0x542390, (const void *)&FEPkgMgr_CloseAllPackages, "FEPackageManager::CloseAllPackages", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}},
+    {0x51BCA0, (const void *)&FEPkgMgr_Loader, "FEPackageManager::Loader", {0x6A, 0xFF, 0x68, 0x34, 0x71, 0x77}},
+    {0x542530, (const void *)&FEPkgMgr_UnLoader, "FEPackageManager::UnLoader", {0x56, 0x68, 0x04, 0xC0, 0x79, 0x00}},
+    {0x51BD30, (const void *)&LoaderFEngPackage, "LoaderFEngPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x8B}},
+    {0x5425A0, (const void *)&UnloaderFEngPackage, "UnloaderFEngPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x8B}},
+    {0x558EE0, (const void *)&JustUpdateFeng, "JustUpdateFeng", {0xA1, 0xC4, 0x84, 0x83, 0x00, 0x85}},
     {0x55DD50, (const void *)&cFEng_NotificationMessage, "cFEng::NotificationMessage", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x15}},
     {0x51CB20, (const void *)&cFEng_QueuePushPackage, "cFEng::QueuePushPackage", {0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0}},
     {0x51CB60, (const void *)&cFEng_QueuePushModalPackage, "cFEng::QueuePushModalPackage", {0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0}},

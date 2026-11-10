@@ -30,6 +30,76 @@ uint8_t *FEPackageData::GetDataChunk()
     return mpData;
 }
 
+void FEPackageData::Construct(uint32_t *chunk)
+{
+    vtable = bridge::FEPackageDataVTable();
+    mVisible = 1;
+    mpChunk = chunk;
+    mpScreen = nullptr;
+    mpPackage = nullptr;
+    mPackageArg = 0;
+    _unknown50 = 0;
+    mPermanent = 0;
+    mScreenCreateData = 0;
+    mRenderInfo = 0;
+    mRenderInfoFlag = 0;
+    if (chunk[0] == 0x30203) mpData = reinterpret_cast<uint8_t *>(chunk + 2);
+    else if (chunk[0] == 0x30210) mpData = nullptr;
+    // PC inlines GetNameHash and only calls FindScreenCreateData when a hash was read (GC always calls it, with 0).
+    if (chunk[0] == 0x30203) {
+        const uint32_t *h = reinterpret_cast<const uint32_t *>(mpData);
+        if (h[0] != 0xE76E4546u || h[2] != 0x64486B50u || h[4] < 0x20000u) return;
+    } else if (chunk[0] != 0x30210) return;
+    mScreenCreateData = bridge::FindScreenCreateData(GetNameHash());
+}
+
+void FEPackageData::Destruct()
+{
+    vtable = bridge::FEPackageDataVTable();
+    if (mpChunk[0] != 0x30203 && mpChunk[0] == 0x30210) bridge::bWareFree(mpData);
+    mpData = nullptr;
+}
+
+FEPackageData *FEPackageData::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) bridge::FreeArray(this);
+    return this;
+}
+
+void FEPackageData::Activate(FEPackage *pkg, int32_t arg)
+{
+    mpPackage = pkg;
+    pkg->mpPackageData = this;
+    int32_t *counter = bridge::FEngLoadCounterPtr();   // GC gInsideScreenConstructor
+    ++*counter;
+    mpScreen = bridge::ScreenFactory(GetNameHash(), pkg, arg);
+    mPackageArg = pkg->mu32ControlMask;
+    --*counter;
+}
+
+void FEPackageData::UnActivate()
+{
+    if (mpScreen) bridge::VirtualScalarDelete(mpScreen);
+    mpScreen = nullptr;
+    // "Un-Activate!!! %x %x\n" / "Deleting package [%s]\n" (debug print stub)
+    if (mpPackage) mpPackage->mpPackageData = nullptr;
+    mpPackage = nullptr;
+    if (mpChunk[0] == 0x30210) {
+        bridge::bWareFree(mpData);
+        mpData = nullptr;
+    }
+}
+
+void FEPackageData::Close()
+{
+    // "Calling close ...%x %x\n"
+    if (!mpPackage) return;
+    bridge::HackClearCache(mpPackage);
+    if (cFEng *fe = bridge::cFEngInstance()) fe->ForceUnloadPackage(mpPackage->mpcName);
+    UnActivate();
+}
+
 const char *FEPackageManager::GetBasePkgName(const char *name)
 {
     const char *p = name + bStrLen(name);
@@ -99,6 +169,76 @@ void FEPackageManager::NotificationMessage(uint32_t msg, void *obj, uint32_t arg
 {
     for (FEPackageData *d = FEPackageData::FromNode(mList.next); d != Sentinel(); d = FEPackageData::FromNode(d->node.next))
         if (d->mpPackage && d->mpPackage == pkg && d->mpScreen) bridge::MenuScreen_BaseNotify(d->mpScreen, msg, obj, arg, pkg);
+}
+
+void FEPackageManager::CloseAllPackages(int32_t all)
+{
+    FEPackageData *list[256] = {};
+    int n = 0;
+    for (FEPackageData *d = FEPackageData::FromNode(mList.next); d != Sentinel(); d = FEPackageData::FromNode(d->node.next)) {
+        if (d->mPermanent == 0 || all != 0) {
+            if (n < 256) list[n++] = d;   // the original has no bounds check
+        } else if (d->mpPackage) {
+            bridge::HackClearCache(d->mpPackage);
+        }
+    }
+    for (int i = 0; i < n; ++i) list[i]->Close();   // PC inlines Close (and cFEng::ForceUnloadPackage)
+}
+
+void FEPackageManager::Loader(uint32_t *chunk, bool)
+{
+    auto *d = static_cast<FEPackageData *>(bridge::Alloc(sizeof(FEPackageData)));
+    d->Construct(chunk);   // PC: a null allocation would crash on the link below
+    FEPkgNode *n = &d->node, *tail = mList.prev;
+    tail->next = n;
+    mList.prev = n;
+    n->prev = tail;
+    n->next = &mList;
+}
+
+void FEPackageManager::UnLoader(uint32_t *chunk, bool)
+{
+    // "UNLOADER!!!\n"
+    JustUpdateFeng();
+    FEPackageData *d = FindFEPackageData(static_cast<const void *>(chunk));
+    if (!d) return;
+    // "UNLOAD PACKAGE(%x)\n" (PC still calls GetNameHash for it)
+    d->_unknown50 = 0;
+    d->Close();
+    d->node.prev->next = d->node.next;
+    d->node.next->prev = d->node.prev;
+    bridge::VirtualScalarDelete(d);
+    // "Done the unload\n"
+}
+
+void FEPackageManager::PackageWasLoaded(FEPackage *pkg, int32_t arg)
+{
+    if (FEPackageData *d = FindFEPackageData(pkg->mpcName)) d->Activate(pkg, arg);
+}
+
+void FEPackageManager::PackageWillBeUnloaded(FEPackage *pkg)
+{
+    // "Will be unloaded [%s]\n"
+    if (FEPackageData *d = FindFEPackageData(pkg->mpcName)) d->UnActivate();
+}
+
+int32_t LoaderFEngPackage(uint32_t *chunk)
+{
+    if (chunk[0] != 0x30203 && chunk[0] != 0x30210) return 0;
+    bridge::TheFEPackageManager()->Loader(chunk, bridge::IsCurrentlyHotChunking());
+    return 1;
+}
+
+int32_t UnloaderFEngPackage(uint32_t *chunk)
+{
+    if (chunk[0] != 0x30203 && chunk[0] != 0x30210) return 0;
+    bridge::TheFEPackageManager()->UnLoader(chunk, bridge::IsCurrentlyHotChunking());
+    return 1;
+}
+
+void JustUpdateFeng()
+{
+    if (cFEng *fe = bridge::cFEngInstance()) bridge::FEngine_Update(fe->mpEngine, 0, 0);
 }
 
 FEPackage *FEngFindPackage(const char *name)

@@ -127,7 +127,7 @@ void cFEng::PopPackage(const char *name)
     struct { void *vtable; void *render; void *renderInfo; } cb;   // RenderObjectDisconnect (PC 12 bytes)
     cb.vtable = bridge::RenderObjectDisconnectVTable();
     cb.render = mpRender;
-    cb.renderInfo = pkg->mpRenderInfo ? static_cast<uint8_t *>(pkg->mpRenderInfo) + 0x24 : nullptr;
+    cb.renderInfo = pkg->mpPackageData ? reinterpret_cast<uint8_t *>(pkg->mpPackageData) + 0x24 : nullptr;
     pkg->ForAllObjects(reinterpret_cast<FEObjectCallback *>(&cb));
     bridge::FEngine_UnloadPackage(mpEngine, pkg);   // "Direct Pop---------------------%s------------------"
 }

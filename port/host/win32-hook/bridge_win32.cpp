@@ -105,6 +105,13 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
     reinterpret_cast<void(THISCALL *)(void *, uint32_t, void *, uint32_t, FEPackage *)>(0x55B5C0)(screen, msg, obj, arg, pkg);
 }
 int32_t FEngLoadCounter() { return *reinterpret_cast<const int32_t *>(0x8384D0); }
+int32_t *FEngLoadCounterPtr() { return reinterpret_cast<int32_t *>(0x8384D0); }
+void *FEPackageDataVTable() { return reinterpret_cast<void *>(0x79B15C); }
+void *ScreenFactory(uint32_t h, FEPackage *p, int32_t a) { return reinterpret_cast<void *(__cdecl *)(uint32_t, FEPackage *, int32_t)>(0x50B790)(h, p, a); }
+uint32_t FindScreenCreateData(uint32_t h) { return reinterpret_cast<uint32_t(__cdecl *)(uint32_t)>(0x50B840)(h); }
+void HackClearCache(FEPackage *p) { reinterpret_cast<void(__cdecl *)(FEPackage *)>(0x50C550)(p); }
+void FEngine_Update(void *e, uint32_t a, uint32_t b) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, uint32_t)>(0x558C00)(e, a, b); }
+bool IsCurrentlyHotChunking() { return reinterpret_cast<int(__cdecl *)()>(0x571090)() != 0; }
 SlotPool *LevelSorterSlots() { return *reinterpret_cast<SlotPool **>(0x8384B0); }
 void cFEng_RegisterJoy(cFEng *fe) { reinterpret_cast<void(THISCALL *)(cFEng *)>(0x52CDD0)(fe); }
 void *RenderObjectDisconnectVTable() { return reinterpret_cast<void *>(0x79AB9C); }

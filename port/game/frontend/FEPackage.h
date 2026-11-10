@@ -6,6 +6,7 @@
 struct FEObject;
 struct FEScript;
 struct FEMessageResponse;
+struct FEPackageData;   // FEPackageManager.h
 
 // Game-side visitor (FEObjectCallback): vtable slot 1 = bool Function(FEObject *), false stops the walk.
 struct FEObjectCallback {
@@ -41,7 +42,7 @@ struct FEPackage {
     int32_t mi32ScriptDelta;         // +0x34 time added to the current script per UpdateObject
     uint8_t _unknown38[4];
     FEPackage *mpParent;             // +0x3C (GC +0x48) package that pushed this one (gets its masks back on pop)
-    void *mpRenderInfo;              // +0x40 renderer data (cFEng: render info at +0x24); GC HACK_FEPkgMgr_GetPackageRenderInfo
+    FEPackageData *mpPackageData;    // +0x40 (GC +0x4C) game FEPackageData (set by Activate); its +0x24 is the render info
     FEMinList mObjects;              // +0x44 top-level objects
     FEMinList mResponses;            // +0x54 package-level FEMessageResponses ("global" handlers)
     uint8_t _unknown64[8];

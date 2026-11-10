@@ -37,12 +37,13 @@ static bool disabled(uint32_t addr)
 }
 
 // Each hook jumps to a tiny counting stub:  lock inc dword [counter] ; jmp implementation
-static volatile LONG g_calls[256];
+constexpr size_t kMaxHooks = 2048;   // counters + 16-byte stubs (kReplacementCount is checked in install_all)
+static volatile LONG g_calls[kMaxHooks];
 static uint8_t *g_stubs;
 
 static const void *make_counting_stub(size_t index, const void *target)
 {
-    if (!g_stubs) g_stubs = static_cast<uint8_t *>(VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+    if (!g_stubs) g_stubs = static_cast<uint8_t *>(VirtualAlloc(nullptr, kMaxHooks * 16, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
     uint8_t *p = g_stubs + index * 16;
     uint32_t counter = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&g_calls[index]));
     p[0] = 0xF0; p[1] = 0xFF; p[2] = 0x05;               // lock inc dword ptr [counter]
@@ -55,7 +56,7 @@ static const void *make_counting_stub(size_t index, const void *target)
 
 static DWORD WINAPI report_calls(LPVOID)
 {
-    LONG last[256] = {};
+    static LONG last[kMaxHooks] = {};
     for (;;) {
         Sleep(10000);
         bool changed = false;
@@ -77,7 +78,7 @@ static size_t g_thunkUsed;
 
 static const void *make_preserving_thunk(const void *target, uint8_t argBytes, bool calleePops)
 {
-    if (!g_thunks) g_thunks = static_cast<uint8_t *>(VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+    if (!g_thunks) g_thunks = static_cast<uint8_t *>(VirtualAlloc(nullptr, 65536, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
     uint8_t *start = g_thunks + g_thunkUsed, *p = start;
     *p++ = 0x51;                                   // push ecx
     *p++ = 0x52;                                   // push edx
@@ -165,6 +166,7 @@ void install_all()
         log("unexpected SPEED2.EXE (timestamp %08lX): no hooks installed", nt->FileHeader.TimeDateStamp);
         return;
     }
+    if (kReplacementCount > kMaxHooks) { log("too many hooks (%u > %u): none installed", unsigned(kReplacementCount), unsigned(kMaxHooks)); return; }
     int ok = 0, skipped = 0;
     for (size_t i = 0; i < kReplacementCount; ++i) {
         const Replacement &r = kReplacements[i];

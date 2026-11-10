@@ -29,6 +29,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   FEPackage +0x18 priority (GC +0x24, <0 = not pushed), +0x3C parent (GC +0x48). ProcessPackageCommands (5559C0) is
   called every frame after ProcessMessageQueue (558DFE); 0x50D510 is an empty debug-print stub (xor eax; ret).
   FENode::SetName is PC 519DE0 (was mis-matched to the FENode ctor). PC Switch/Pop/UserTransfer don't null-check pkg.
+- FEPackageData (PC 0x54, vtable 0x79B15C, scalar dtor 52CC20) = GC +4 from +8: +0x1C permanent, +0x1E visible, +0x20
+  screen create data, +0x24 render info, +0x4C pkg control mask, +0x50. FEPackage +0x40 = its FEPackageData. Chunk
+  loaders LoaderFEngPackage 51BD30 / UnloaderFEngPackage 5425A0. 8384D0 is also GC gInsideScreenConstructor.
+  PC 51B9D0 = Activate (old auto-match said FEngDebugPrintf; that is the 50D510 stub).
+- Hook host: counters/stubs sized by kMaxHooks (hooks.cpp); >256 hooks overflowed the old 4 KB stub page (DllMain AV).
 - Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
 
 ## Binaries

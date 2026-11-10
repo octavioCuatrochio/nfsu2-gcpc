@@ -41,6 +41,9 @@ std::vector<std::string> levelSortingList;
 FEPackage *pushResult = nullptr;
 std::string lastPushName;
 int32_t fengLoadCounter = 0;
+int fePackageDataVTable = 0;
+void *screenResult = nullptr;
+bool hotChunking = false;
 ::SlotPool *levelSorterSlots = nullptr;
 int renderDisconnectVTable = 0, renderDisconnects = 0, registerJoys = 0;
 }  // namespace teststub
@@ -70,6 +73,7 @@ void VirtualScalarDelete(void *o)
     else if (vt == &teststub::feKeyNodeVTable) static_cast<FEKeyNode *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::feKeyNodeBlockVTable) FEKeyNodeBlock_ScalarDtor(static_cast<FEKeyNodeBlock *>(o), 1);
     else if (vt == &teststub::feScriptBlockVTable) FEScriptBlock_ScalarDtor(static_cast<FEScriptBlock *>(o), 1);
+    else if (vt == &teststub::fePackageDataVTable) static_cast<FEPackageData *>(o)->ScalarDeletingDestructor(1);
     else if (vt == &teststub::fePackageCommandVTable) {   // ~FENode frees the name
         FreeArray(static_cast<FENode *>(o)->mpcName);
         FreeArray(o);
@@ -113,6 +117,22 @@ void MenuScreen_BaseNotify(void *screen, uint32_t msg, void *obj, uint32_t arg, 
     (void)obj;
 }
 int32_t FEngLoadCounter() { return teststub::fengLoadCounter; }
+int32_t *FEngLoadCounterPtr() { return &teststub::fengLoadCounter; }
+void *FEPackageDataVTable() { return &teststub::fePackageDataVTable; }
+void *ScreenFactory(uint32_t h, FEPackage *p, int32_t a)
+{
+    teststub::delivered.push_back({"screen", nullptr, p, h, uint32_t(teststub::fengLoadCounter)});
+    (void)a;
+    return teststub::screenResult;
+}
+#ifdef NFSU2_REFEREE
+uint32_t FindScreenCreateData(uint32_t h) { return reinterpret_cast<uint32_t(__cdecl *)(uint32_t)>(0x50B840)(h); }   // static table
+#else
+uint32_t FindScreenCreateData(uint32_t h) { return h ^ 0x5A5A5A5Au; }
+#endif
+void HackClearCache(FEPackage *p) { teststub::delivered.push_back({"clearcache", nullptr, p, 0, 0}); }
+void FEngine_Update(void *e, uint32_t a, uint32_t b) { teststub::delivered.push_back({"update", e, nullptr, a, b}); }
+bool IsCurrentlyHotChunking() { return teststub::hotChunking; }
 SlotPool *LevelSorterSlots() { return teststub::levelSorterSlots; }
 void cFEng_RegisterJoy(cFEng *) { ++teststub::registerJoys; }
 void *RenderObjectDisconnectVTable() { return &teststub::renderDisconnectVTable; }
