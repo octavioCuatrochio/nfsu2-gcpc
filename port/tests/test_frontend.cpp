@@ -16,6 +16,7 @@
 #include "frontend/UIOptionsScreen.h"
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
+#include "frontend/OptionsMain.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -2995,7 +2996,7 @@ static void TestIconScroller()
     IconOption *o[4];
     for (int i = 0; i < 4; ++i) {
         o[i] = static_cast<IconOption *>(bridge::Alloc(sizeof(IconOption)));
-        o[i]->Construct(i, 0x100u + i, 0x200u + i, 0x300u + i, false);
+        o[i]->Construct(0x100u + i, 0x200u + i, 0x300u + i);
         WidgetListNode *tail = p.mOptions.prev;
         tail->next = &o[i]->node; p.mOptions.prev = &o[i]->node; o[i]->node.prev = tail; o[i]->node.next = &p.mOptions;
     }
@@ -3065,6 +3066,35 @@ static void TestIconScroller()
     DeleteAllNodeOwners(&p.mOptions);
     CHECK(teststub::virtualDeletes == deletes + 4 && p.mOptions.next == &p.mOptions);
     teststub::realTimer = 0;
+}
+
+// Options icon menus: OM* pages, sound filter, exit with / without the memory card.
+static void TestOptionsMain()
+{
+    for (int k = 0; k < 8; ++k) {
+        teststub::optionsPage = -1;
+        OMReact(static_cast<OMKind>(k), 0x911AB364u);
+        CHECK(teststub::optionsPage == -1);
+        OMReact(static_cast<OMKind>(k), 0x0C407210u);
+        CHECK(teststub::optionsPage == OMPage(static_cast<OMKind>(k)) && OMVTable(static_cast<OMKind>(k)) == 0x7918B8u + 8u * k);
+    }
+    CHECK(OMPage(OMKind::Inline) == 7 && OMPage(OMKind::Credits) == 8);
+    CHECK(FilterSoundForHorizontalMenu(0, 4, false) == 4 && FilterSoundForHorizontalMenu(0, 6, true) == 0 &&
+          FilterSoundForHorizontalMenu(0, 7, true) == 0 && FilterSoundForHorizontalMenu(0, 0xA, true) == 0xA &&
+          FilterSoundForHorizontalMenu(0, 0xA, false) == 0 && FilterSoundForHorizontalMenu(0, 0x13, false) == 0x13);
+    const uint8_t s0 = *bridge::GameByte(0x844AD8), s1 = *bridge::GameByte(0x836360);
+    auto exits = [&](uint8_t autosave, uint8_t saved, bool dirty) {
+        *bridge::GameByte(0x844AD8) = autosave; *bridge::GameByte(0x836360) = saved; teststub::optionsDirty = dirty;
+        teststub::delivered.clear();
+        ExitFEOptionsSystem(nullptr);
+        bool memcard = false, dealloc = false;
+        for (const auto &e : teststub::delivered) { memcard |= std::string(e.kind) == "memcard" && e.msg == 0x2042; dealloc |= std::string(e.kind) == "deallocbackup"; }
+        CHECK(dealloc);
+        return memcard;
+    };
+    CHECK(exits(1, 1, true) && exits(1, 0, false));   // (the switch path needs a sorter entry for the package)
+    *bridge::GameByte(0x844AD8) = s0; *bridge::GameByte(0x836360) = s1; teststub::optionsDirty = false;
+    teststub::optionsPage = 0;
 }
 
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
@@ -4183,6 +4213,7 @@ int main()
     TestOptionsScreen();
     TestPauseOptions();
     TestIconScroller();
+    TestOptionsMain();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

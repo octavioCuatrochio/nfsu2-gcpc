@@ -434,7 +434,8 @@ void JumpCamObject_Call578EF0(int32_t a, int32_t b, int32_t c, int32_t d);   // 
 void Player_ChangeCamera(int32_t number, int32_t dir);   // PC Player::pPlayersByNumber[n] (0x8900AC) 5F2FA0(dir) (__thiscall)
 // ---- Icon scrollers (IconOption / IconPanel / IconScroller / IconScrollerMenu) ----
 void *ThumbnailNodeVTable();                     // PC 0x79AFDC (IconOption base, set by ~IconOption)
-void *IconOptionVTable();                        // PC 0x79B604
+void *IconOptionVTable();                        // PC 0x79B4D8 (React pure)
+void *CPPaintOptionVTable();                     // PC 0x79B604
 void *IconPanelVTable();                         // PC 0x795CBC
 void *IconScrollerVTable();                      // PC 0x79C0F4
 void *IconScrollerMenuVTable();                  // PC 0x7974D4
@@ -447,6 +448,17 @@ bool IconPanel_HandleMouse(void *panel);              // slot 6 (+0x18, PC only)
 void IconScrollerMenu_RefreshHeader(void *menu);      // slot 4 (+0x10)
 void SplineSeek(void *cubic, float dt, float a, float b);   // PC 574E30 (__cdecl, cPoint::SplineSeek on a tCubic1D)
 void SetIconScrollTime(int32_t t);                    // PC *(int*)0x8641A0 = RealTimer when an icon scroller moves
+// ---- UIOptionsMain / UIPauseOptionsMain ----
+void *UIOptionsMainVTable();                     // PC 0x797794
+void *UIPauseOptionsMainVTable();                // PC 0x797CCC
+void IconScrollerMenu_AddOption(void *menu, void *opt);        // menu slot 6 (+0x18)
+void IconScroller_SetInitialPos(void *scroller, int32_t index); // scroller slot 8 (+0x20)
+void SetOptionsPage(int32_t page);                // PC *(int*)0x83AA04 = page
+void SetPlayerToEditForOptions(int32_t player);  // PC 49C5F0: *(int*)0x836364 = player
+bool OptionsDB_IsDirty();                        // PC 52A4C0 (__thiscall on 0x83A9D0, AL)
+void OptionsDB_DeallocBackup();                  // PC 5032C0 (__thiscall on 0x83A9D0)
+const char *OptionsReturnScreen();               // PC *(const char **)0x83635C: package to go back to
+void EnterMemcard(const char *pkg, const char *to, uint32_t op, uint32_t a, uint32_t b, uint32_t c, uint32_t d);   // PC 4A3100 (__cdecl)
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable();                    // PC 0x796504
 bool IsCareerFreeRoam();                         // PC 500B60 (__thiscall on 0x85AD40, AL) PlayerCareerState

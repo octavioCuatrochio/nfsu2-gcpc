@@ -552,3 +552,8 @@ FEColor FEngGetObjectColor(const FEObject *obj)
 }
 
 uint32_t FEngGetObjectColorPacked(const FEObject *obj) { return FEColorPack(FEngGetObjectColor(obj)); }
+
+bool FEngIsScriptRunning(const char *pkg, uint32_t objHash, const char *script)
+{
+    return FEngIsScriptRunning(FEngFindObject(pkg, objHash), script);
+}

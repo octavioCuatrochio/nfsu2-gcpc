@@ -122,7 +122,14 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   (horizontal), 0x72619778/0x911C0A4B up/down (vertical), sounds = MakeFrontendSound(event, +0x30 trigger 9).
   In-game A/B of the main menu / quick-race scroller identical except the highlight pulse phase. Also FEngSetColor 51D7F0,
   FEngGetObjectColor 50CCC0 (+ packed 495570), FEColorPack 5054D0 (FEColor c[0] = blue .. c[3] = alpha).
-  Next: UIOptionsMain (5) + UIPauseOptionsMain (5) (IconScrollerMenu subclasses), then PauseMenu (23).
+  CORRECTION: IconOption is PC 0x48, vtable 79B4D8 (React pure), ctor 51F670 (GC 801570E0, 3 args); 521FF0 is the PC
+  ctor of CPPaintOption (0x4C, vtable 79B604, +0x48 paint id, empty React 50C2F0; GC builds it inline).
+- OptionsMain.cpp: UIOptionsMain (0x150, vtable 797794) + UIPauseOptionsMain (0x154, 797CCC, +0x150 exit-to-race) +
+  OM* icons (vtables 7918B8 + 8i, React 49A620 + 0x20i -> page 0,1,2,3,4,5,7,8), ExitFEOptionsSystem 4B6010 (memcard
+  0x2042 when autosave on and OptionsDB 0x83A9D0 dirty / flag changed, else switch to *0x83635C; DeallocBackupDB),
+  FilterSoundForHorizontalMenu 50D1A0, SetPlayerToEditForOptions 49C5F0, FEngIsScriptRunning(pkg, hash, name) 537CC0.
+  Pause resume needs IsJoystickPluggedIn(RaceCoordinator +0x20). In-game A/B identical (front end options flow).
+  Next: PauseMenu (23 GC funcs), then the other IconScrollerMenu screens (UIMain, UIQRModeSelect, PostRaceMenu...).
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

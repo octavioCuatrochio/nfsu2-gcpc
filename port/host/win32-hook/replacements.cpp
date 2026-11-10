@@ -28,6 +28,7 @@
 #include "frontend/UIOptionsScreen.h"
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
+#include "frontend/OptionsMain.h"
 #include "frontend/FEMath.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
@@ -647,7 +648,8 @@ void THISCALL UOS_SetupGameplay(UIOptionsScreen *self) { self->SetupGameplay(); 
 void THISCALL UOS_SetupPlayer(UIOptionsScreen *self) { self->SetupPlayer(); }
 void THISCALL UOS_SetupOnline(UIOptionsScreen *self) { self->SetupOnline(); }
 void THISCALL UOS_SetupTrailers(UIOptionsScreen *self) { self->SetupTrailers(); }
-IconOption *THISCALL IO_Ctor(IconOption *s, uint32_t id, uint32_t n, uint32_t hd, uint32_t ds, uint32_t lock) { return s->Construct(id, n, hd, ds, (lock & 0xFF) != 0); }
+IconOption *THISCALL IO_Ctor(IconOption *s, uint32_t n, uint32_t hd, uint32_t ds) { return s->Construct(n, hd, ds); }
+CPPaintOption *THISCALL CPP_Ctor(CPPaintOption *s, uint32_t id, uint32_t n, uint32_t hd, uint32_t ds, uint32_t lock) { return s->Construct(id, n, hd, ds, (lock & 0xFF) != 0); }
 void THISCALL IO_Dtor(IconOption *s) { s->Destruct(); }
 IconOption *THISCALL IO_ScalarDtor(IconOption *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
 IconPanel *THISCALL IP_Ctor(IconPanel *s, const char *p, const char *a, const char *b, const char *c, const char *pre, uint32_t wrap) { return s->Construct(p, a, b, c, pre, (wrap & 0xFF) != 0); }
@@ -697,6 +699,28 @@ void THISCALL ISM_AddOption(IconScrollerMenu *s, IconOption *o) { s->AddOption(o
 FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
 uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
 void THISCALL ISX_StaticArrow2(FEScrollBar *s) { FEScrollBar_StaticArrow2(s); }
+UIOptionsMain *THISCALL UOM_Ctor(UIOptionsMain *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL UOM_Dtor(UIOptionsMain *s) { s->Destruct(); }
+UIOptionsMain *THISCALL UOM_ScalarDtor(UIOptionsMain *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL UOM_Notify(UIOptionsMain *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+uint32_t THISCALL UOM_NotifySound(void *, uint32_t m, FEObject *, uint32_t, uint32_t, uint32_t e) { return UIOptionsMain::NotifySoundMessage(m, e); }
+void THISCALL UOM_Setup(UIOptionsMain *s) { s->Setup(); }
+UIPauseOptionsMain *THISCALL UPOM_Ctor(UIPauseOptionsMain *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL UPOM_Dtor(UIPauseOptionsMain *s) { s->Destruct(); }
+UIPauseOptionsMain *THISCALL UPOM_ScalarDtor(UIPauseOptionsMain *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL UPOM_Notify(UIPauseOptionsMain *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL UPOM_Setup(UIPauseOptionsMain *s) { s->Setup(); }
+void THISCALL OMAudio_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { OMReact(OMKind::Audio, m); }
+void THISCALL OMVideo_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { OMReact(OMKind::Video, m); }
+void THISCALL OMGameplay_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { OMReact(OMKind::Gameplay, m); }
+void THISCALL OMPlayer_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { OMReact(OMKind::Player, m); }
+void THISCALL OMController_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { OMReact(OMKind::Controller, m); }
+void THISCALL OMEATrax_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { OMReact(OMKind::EATrax, m); }
+void THISCALL OMInline_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { OMReact(OMKind::Inline, m); }
+void THISCALL OMCredits_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { OMReact(OMKind::Credits, m); }
+uint32_t OM_FilterSoundH(uint32_t m, uint32_t e, uint32_t back) { return FilterSoundForHorizontalMenu(m, e, (back & 0xFF) != 0); }
+void OM_SetPlayerToEdit(int32_t p) { bridge::SetPlayerToEditForOptions(p); }
+bool OM_IsScriptRunningName(const char *p, uint32_t h, const char *n) { return FEngIsScriptRunning(p, h, n); }
 UIPauseOptions *THISCALL UPO_Ctor(UIPauseOptions *self, const ScreenConstructorData *d) { return self->Construct(d); }
 UIPauseOptions *THISCALL UPO_ScalarDtor(UIPauseOptions *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL UPO_Dtor(UIPauseOptions *self) { self->Destruct(); }
@@ -1349,7 +1373,8 @@ const Replacement kReplacements[] = {
     {0x4C43D0, (const void *)&OptToggle_Draw<13>, "PPOScore::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x4C4600, (const void *)&OptToggle_Act<14>, "PPOLeaderBoard::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
     {0x4C46C0, (const void *)&OptToggle_Draw<14>, "PPOLeaderBoard::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
-    {0x521FF0, (const void *)&IO_Ctor, "IconOption::IconOption", {0x8B, 0x54, 0x24, 0x0C, 0x8B, 0xC1}},
+    {0x51F670, (const void *)&IO_Ctor, "IconOption::IconOption", {0x8B, 0x54, 0x24, 0x08, 0x8B, 0xC1}},
+    {0x521FF0, (const void *)&CPP_Ctor, "CPPaintOption::CPPaintOption", {0x8B, 0x54, 0x24, 0x0C, 0x8B, 0xC1}},
     {0x527770, (const void *)&IO_Dtor, "IconOption::~IconOption", {0xC7, 0x01, 0xDC, 0xAF, 0x79, 0x00}},
     {0x4AEB70, (const void *)&IO_ScalarDtor, "IconOption scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xF8, 0x8B}},
     {0x543840, (const void *)&IP_Ctor, "IconPanel::IconPanel", {0x6A, 0xFF, 0x68, 0xBB, 0x79, 0x77}},
@@ -1403,6 +1428,29 @@ const Replacement kReplacements[] = {
     {0x50CCC0, (const void *)&ISX_GetObjectColor, "FEngGetObjectColor", {0x8B, 0x44, 0x24, 0x08, 0x33, 0xC9}},
     {0x5054D0, (const void *)&ISX_ColorPack, "FEColor pack", {0x8B, 0x41, 0x08, 0x85, 0xC0, 0x56}},
     {0x495570, (const void *)&FEngGetObjectColorPacked, "FEngGetObjectColor packed", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xEC}},
+    {0x4E3560, (const void *)&UOM_Ctor, "UIOptionsMain::UIOptionsMain", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4E36A0, (const void *)&UOM_Dtor, "UIOptionsMain::~UIOptionsMain", {0xC7, 0x01, 0x94, 0x77, 0x79, 0x00}},
+    {0x4E3680, (const void *)&UOM_ScalarDtor, "UIOptionsMain scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4B6080, (const void *)&UOM_Notify, "UIOptionsMain::NotificationMessage", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54}},
+    {0x49CB40, (const void *)&UOM_NotifySound, "UIOptionsMain::NotifySoundMessage", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x4C}},
+    {0x4B6230, (const void *)&UOM_Setup, "UIOptionsMain::Setup", {0x6A, 0xFF, 0x68, 0x84, 0x31, 0x77}},
+    {0x4EB580, (const void *)&UPOM_Ctor, "UIPauseOptionsMain::UIPauseOptionsMain", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4EB640, (const void *)&UPOM_Dtor, "UIPauseOptionsMain::~UIPauseOptionsMain", {0xC7, 0x01, 0xCC, 0x7C, 0x79, 0x00}},
+    {0x4EB620, (const void *)&UPOM_ScalarDtor, "UIPauseOptionsMain scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4A7D60, (const void *)&UPOM_Notify, "UIPauseOptionsMain::NotificationMessage", {0x8B, 0x44, 0x24, 0x08, 0x53, 0x8B}},
+    {0x4C3000, (const void *)&UPOM_Setup, "UIPauseOptionsMain::Setup", {0x6A, 0xFF, 0x68, 0x30, 0x3D, 0x77}},
+    {0x4B6010, (const void *)&ExitFEOptionsSystem, "ExitFEOptionsSystem", {0x53, 0x8A, 0x1D, 0xD8, 0x4A, 0x84}},
+    {0x50D1A0, (const void *)&OM_FilterSoundH, "FilterSoundForHorizontalMenu", {0x8B, 0x44, 0x24, 0x08, 0x83, 0xF8}},
+    {0x49C5F0, (const void *)&OM_SetPlayerToEdit, "SetPlayerToEditForOptions", {0x8B, 0x44, 0x24, 0x04, 0xA3, 0x64}},
+    {0x537CC0, (const void *)&OM_IsScriptRunningName, "FEngIsScriptRunning(pkg, hash, name)", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x49A620, (const void *)&OMAudio_React, "OMAudio::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x49A640, (const void *)&OMVideo_React, "OMVideo::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x49A660, (const void *)&OMGameplay_React, "OMGameplay::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x49A680, (const void *)&OMPlayer_React, "OMPlayer::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x49A6A0, (const void *)&OMController_React, "OMController::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x49A6C0, (const void *)&OMEATrax_React, "OMEATrax::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x49A6E0, (const void *)&OMInline_React, "OMInline::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x49A700, (const void *)&OMCredits_React, "OMCredits::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4D93C0, (const void *)&UPO_Ctor, "UIPauseOptions::UIPauseOptions", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4D9470, (const void *)&UPO_Dtor, "UIPauseOptions::~UIPauseOptions", {0xC7, 0x01, 0x04, 0x65, 0x79, 0x00}},
     {0x4EB6B0, (const void *)&UPO_ScalarDtor, "UIPauseOptions scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0xDD}},

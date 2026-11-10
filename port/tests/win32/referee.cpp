@@ -63,6 +63,7 @@
 #include "bridge_stub.h"
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
+#include "frontend/OptionsMain.h"
 #define THISCALL __attribute__((thiscall))
 
 static std::mt19937 rng(12345);
@@ -3437,6 +3438,28 @@ static void CheckIconScroller(int iters)
     *timer = savedTimer;
 }
 
+// OM* React (49A620 + 0x20 * i: options page *0x83AA04) and FilterSoundForHorizontalMenu 50D1A0.
+static void CheckOptionsMain(int iters)
+{
+    int32_t *page = reinterpret_cast<int32_t *>(0x83AA04);
+    const int32_t saved = *page;
+    auto oFilter = ORIG<uint32_t(__cdecl *)(uint32_t, uint32_t, uint32_t)>(0x50D1A0);
+    for (int it = 0; it < iters; ++it) {
+        const int k = static_cast<int>(rng() % 8);
+        const uint32_t msg = rng() & 1 ? 0x0C407210u : rng();
+        const int32_t start = static_cast<int32_t>(rng());
+        *page = start;
+        ORIG<void(THISCALL *)(void *, const char *, uint32_t, void *, uint32_t, uint32_t)>(0x49A620 + 0x20 * k)(nullptr, "Pkg", msg, nullptr, 0, 0);
+        const int32_t a = *page;
+        *page = start;
+        OMReact(static_cast<OMKind>(k), msg);
+        EXPECT(a == *page, "OM React %d %x orig %d rewrite %d", k, msg, a, *page);
+        const uint32_t ev = rng() % 4 ? rng() % 0x20 : rng(), flag = rng() & 0x101;
+        EXPECT(oFilter(rng(), ev, flag) == FilterSoundForHorizontalMenu(0, ev, (flag & 0xFF) != 0), "FilterSoundForHorizontalMenu %x %x", ev, flag);
+    }
+    *page = saved;
+}
+
 static void CheckDisplayOptions(int iters)
 {
     uint8_t sTab[24], sIdx[4], sDirty, sDetail[4];
@@ -4383,6 +4406,7 @@ static int RunAll()
     REFEREE_RUN(CheckDisplayOptions(iters));
     REFEREE_RUN(CheckPauseOptions(iters));
     REFEREE_RUN(CheckIconScroller(iters));
+    REFEREE_RUN(CheckOptionsMain(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));

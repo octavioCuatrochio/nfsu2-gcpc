@@ -35,6 +35,7 @@ void FEngSetScript(FEObject *obj, uint32_t id, bool restart);
 bool FEngIsScriptRunning(const FEObject *obj, const char *name);
 // PC 537D40 (__cdecl): FEngFindObject(pkg, objHash) has script id current and not past its end.
 bool FEngIsScriptRunning(const char *pkg, uint32_t objHash, uint32_t scriptId);
+bool FEngIsScriptRunning(const char *pkg, uint32_t objHash, const char *script);   // PC 537CC0 (name hashed by 50B9C0)
 // PC 52D100 (__cdecl, PC only): the click button (0x8763F2, left-handed 0x8763F5) is down over obj
 bool FEngIsClickedOn(const FEObject *obj);
 // GC 80150328 / PC 51CED0: rotation about z by `degrees` (matrix from bSinF, bMatrixToQuaternion, SetRotation).

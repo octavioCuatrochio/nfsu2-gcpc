@@ -87,6 +87,7 @@ bool wheelPlugged = false;
 bool careerFreeRoam = false, dragRace = false, perfTuning = false;
 int iconOptionVTable = 0, thumbnailNodeVTable = 0, iconPanelVTable = 0, iconScrollerVTable = 0, iconScrollerMenuVTable = 0;
 int splineSeeks = 0, iconScrollTime = 0;
+bool optionsDirty = false;
 int32_t quickRacePlayers = 1;
 bool autoSaveAllowed = false;
 bool browsingParts = false;
@@ -958,7 +959,11 @@ void *GameVTable(uint32_t a) { return reinterpret_cast<void *>(static_cast<uintp
 #else
 void *GameVTable(uint32_t) { return &teststub::feButtonWidgetVTable; }
 #endif
+#ifdef NFSU2_REFEREE
+int32_t OptionsPage() { return *reinterpret_cast<const int32_t *>(0x83AA04); }
+#else
 int32_t OptionsPage() { return teststub::optionsPage; }
+#endif
 void FEngPrintfByName(const char *, const char *, const char *) { teststub::delivered.push_back({"printfbyname", nullptr, nullptr, 0, 0}); }
 bool ForceFeedbackAvailable() { return false; }
 bool WheelPluggedIn(int32_t) { return teststub::wheelPlugged; }
@@ -975,7 +980,8 @@ int32_t PlayerId(int32_t n) { return teststub::playerIds[n]; }
 // ---- Icon scrollers ----
 #ifdef NFSU2_REFEREE   // real vtables and slots (the originals and the rewrite share objects)
 void *ThumbnailNodeVTable() { return reinterpret_cast<void *>(0x79AFDC); }
-void *IconOptionVTable() { return reinterpret_cast<void *>(0x79B604); }
+void *IconOptionVTable() { return reinterpret_cast<void *>(0x79B4D8); }
+void *CPPaintOptionVTable() { return reinterpret_cast<void *>(0x79B604); }
 void *IconPanelVTable() { return reinterpret_cast<void *>(0x795CBC); }
 void *IconScrollerVTable() { return reinterpret_cast<void *>(0x79C0F4); }
 void *IconScrollerMenuVTable() { return reinterpret_cast<void *>(0x7974D4); }
@@ -992,6 +998,7 @@ void SetIconScrollTime(int32_t t) { *reinterpret_cast<int32_t *>(0x8641A0) = t; 
 #else
 void *ThumbnailNodeVTable() { return &teststub::thumbnailNodeVTable; }
 void *IconOptionVTable() { return &teststub::iconOptionVTable; }
+void *CPPaintOptionVTable() { return &teststub::iconOptionVTable; }
 void *IconPanelVTable() { return &teststub::iconPanelVTable; }
 void *IconScrollerVTable() { return &teststub::iconScrollerVTable; }
 void *IconScrollerMenuVTable() { return &teststub::iconScrollerMenuVTable; }
@@ -1014,6 +1021,21 @@ void IconScrollerMenu_RefreshHeader(void *m) { static_cast<IconScrollerMenu *>(m
 void SplineSeek(void *, float, float, float) { ++teststub::splineSeeks; }
 void SetIconScrollTime(int32_t t) { teststub::iconScrollTime = t; }
 #endif
+// ---- UIOptionsMain / UIPauseOptionsMain ----
+void *UIOptionsMainVTable() { return &teststub::iconScrollerMenuVTable; }
+void *UIPauseOptionsMainVTable() { return &teststub::iconScrollerMenuVTable; }
+void IconScrollerMenu_AddOption(void *m, void *o) { static_cast<IconScrollerMenu *>(m)->AddOption(static_cast<IconOption *>(o)); }
+void IconScroller_SetInitialPos(void *s, int32_t i) { static_cast<IconScroller *>(s)->SetInitialPos(i); }
+#ifdef NFSU2_REFEREE
+void SetOptionsPage(int32_t p) { *reinterpret_cast<int32_t *>(0x83AA04) = p; }
+#else
+void SetOptionsPage(int32_t p) { teststub::optionsPage = p; }
+#endif
+void SetPlayerToEditForOptions(int32_t p) { teststub::playerToEdit = p; }
+bool OptionsDB_IsDirty() { return teststub::optionsDirty; }
+void OptionsDB_DeallocBackup() { teststub::delivered.push_back({"deallocbackup", nullptr, nullptr, 0, 0}); }
+const char *OptionsReturnScreen() { return "Return.fng"; }
+void EnterMemcard(const char *, const char *, uint32_t op, uint32_t, uint32_t, uint32_t, uint32_t) { teststub::delivered.push_back({"memcard", nullptr, nullptr, op, 0}); }
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return &teststub::fakeFont; }
 bool IsCareerFreeRoam() { return teststub::careerFreeRoam; }

@@ -64,7 +64,7 @@ void SelectFirstIfNone(IconPanel &p)
 
 // ---- IconOption ----
 
-IconOption *IconOption::Construct(uint32_t id, uint32_t nameHash, uint32_t header, uint32_t desc, bool showLock)
+IconOption *IconOption::Construct(uint32_t nameHash, uint32_t header, uint32_t desc)
 {
     mHeaderHash = header;
     mNameHash = nameHash;
@@ -73,14 +73,34 @@ IconOption *IconOption::Construct(uint32_t id, uint32_t nameHash, uint32_t heade
     mOffsetX = 0.0f;
     mOffsetY = 0.0f;
     mbLocked = 0;
-    mScaleTarget = mScaleStart = mScaleDuration = mScale = 1.0f;
-    mbActsDirectly = 0;
     _unknown21 = 1;
-    mbScaleDone = 1;
+    mbShowLock = 0;
+    mbFadeInButton = 0;
     vtable = bridge::IconOptionVTable();
-    mId = id;
-    mbFadeInButton = 1;
-    mbShowLock = showLock;
+    mScaleTarget = mScaleStart = mScaleDuration = mScale = 1.0f;
+    mbScaleDone = 1;
+    mbActsDirectly = 0;
+    return this;
+}
+
+CPPaintOption *CPPaintOption::Construct(uint32_t paint, uint32_t nameHash, uint32_t header, uint32_t desc, bool showLock)
+{
+    IconOption &o = base;
+    o.mHeaderHash = header;
+    o.mNameHash = nameHash;
+    o.mDescHash = desc;
+    o.mpObject = nullptr;
+    o.mOffsetX = 0.0f;
+    o.mOffsetY = 0.0f;
+    o.mbLocked = 0;
+    o.mScaleTarget = o.mScaleStart = o.mScaleDuration = o.mScale = 1.0f;
+    o.mbActsDirectly = 0;
+    o._unknown21 = 1;
+    o.mbScaleDone = 1;
+    o.vtable = bridge::CPPaintOptionVTable();
+    mPaint = paint;
+    o.mbFadeInButton = 1;
+    o.mbShowLock = showLock;
     return this;
 }
 

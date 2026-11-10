@@ -11,22 +11,22 @@
 
 struct FEObject;
 
-// PC 0x4C. Subclasses (one vtable per menu entry) override React (slot 1); the base vtable 0x79B604 has the empty
-// React 50C2F0 (ret 0x14). Base class ThumbnailNode (vtable 0x79AFDC): vtable, list node, name hash, object.
+// PC 0x48, vtable 0x79B4D8 (React pure). Subclasses (one vtable per menu entry) override React (slot 1, ret 0x14:
+// pkg, msg, obj, a3, a4). Base class ThumbnailNode (vtable 0x79AFDC): vtable, list node, name hash, object.
 struct IconOption {
     void *vtable;                    // +0x00
     WidgetListNode node;             // +0x04 next / prev (lists store node pointers, option = node - 4)
-    uint32_t mNameHash;              // +0x0C ctor arg 2
+    uint32_t mNameHash;              // +0x0C ctor arg 1 (texture of the icon, IconScrollerMenu::AddOption)
     FEObject *mpObject;              // +0x10 the "<prefix>N" image (set by AddOption)
     float mOffsetX, mOffsetY;        // +0x14 IconScroller: x of the icon on the strip (AddOption); y unused (0)
     uint32_t mColor;                 // +0x1C colour restored by StartDim / ClearList (IconScroller: 0xFFFFFFFF)
     uint8_t mbLocked;                // +0x20 can't be selected (unless the panel allows locked icons)
     uint8_t _unknown21;              // +0x21 = 1
-    uint8_t mbShowLock;              // +0x22 ctor arg 5: lock overlay shown, accept only plays sound 0x13
-    uint8_t mbFadeInButton;          // +0x23 = 1: button overlay fades in (UpdateIconOverlay)
+    uint8_t mbShowLock;              // +0x22 lock overlay shown, accept only plays sound 0x13
+    uint8_t mbFadeInButton;          // +0x23 button overlay fades in (UpdateIconOverlay)
     float mWidth, mHeight;           // +0x24 image size at AddOption
-    uint32_t mHeaderHash;            // +0x2C ctor arg 3 (IconScrollerMenu title)
-    uint32_t mDescHash;              // +0x30 ctor arg 4 (second header string)
+    uint32_t mHeaderHash;            // +0x2C ctor arg 2 (IconScrollerMenu title)
+    uint32_t mDescHash;              // +0x30 ctor arg 3 (second header string)
     float mScaleTarget;              // +0x34 GC StartScale (PC inlined in IconPanel::SetSelection): 1.25 selected, 1
     float mScaleStart;               // +0x38 start time in seconds (RealTimer * 0.00025)
     float mScaleDuration;            // +0x3C 0.125
@@ -34,12 +34,19 @@ struct IconOption {
     uint8_t mbScaleDone;             // +0x44
     uint8_t mbActsDirectly;          // +0x45 accept goes straight to React (no dim / input stop / out-script)
     uint8_t _pad46[2];
-    uint32_t mId;                    // +0x48 ctor arg 1
 
-    // GC 801570E0 / PC 521FF0 (ret 0x14): PC takes (id, name hash, header hash, desc hash, show lock).
-    IconOption *Construct(uint32_t id, uint32_t nameHash, uint32_t header, uint32_t desc, bool showLock);
+    IconOption *Construct(uint32_t nameHash, uint32_t header, uint32_t desc);   // GC 801570E0 / PC 51F670 (ret 0xC)
     void Destruct();                                  // GC 8030D3E0 / PC 527770: ThumbnailNode vtable
-    IconOption *ScalarDeletingDestructor(uint32_t f);  // PC 4AEB70 (ret 4)
+    IconOption *ScalarDeletingDestructor(uint32_t f);  // PC 4AEB70 (ret 4; slot 0 of every option vtable)
+};
+
+// GC CPPaintOption (ChoosePaintScreen, GC builds it inline); PC has a ctor 521FF0 (ret 0x14), vtable 0x79B604 with
+// the empty React 50C2F0 (GC 8030F44C), 0x4C bytes.
+struct CPPaintOption {
+    IconOption base;                 // +0x00
+    uint32_t mPaint;                 // +0x48 ctor arg 1
+    // PC: IconOption fields + mPaint, mbShowLock = arg 5, mbFadeInButton = 1
+    CPPaintOption *Construct(uint32_t paint, uint32_t nameHash, uint32_t header, uint32_t desc, bool showLock);
 };
 
 // PC 0x38, vtable 0x795CBC: 0 scalar dtor 543BF0, 1 Update 538910, 2 AddOption 5439B0, 3 Act 50D980,
@@ -164,7 +171,7 @@ long double thumbnail_scale(float x, float center, float width, float w);
 void UpdateIconOverlay(const IconOption *opt, FEObject *lock, FEObject *button);
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
-static_assert(sizeof(IconOption) == 0x4C && offsetof(IconOption, mWidth) == 0x24 && offsetof(IconOption, mId) == 0x48);
+static_assert(sizeof(IconOption) == 0x48 && offsetof(IconOption, mWidth) == 0x24 && sizeof(CPPaintOption) == 0x4C);
 static_assert(sizeof(IconPanel) == 0x38 && offsetof(IconPanel, mpPackageName) == 0x1C && offsetof(IconPanel, mLastDir) == 0x34);
 static_assert(sizeof(IconScroller) == 0xE8 && offsetof(IconScroller, mPos) == 0x90 && offsetof(IconScroller, mAlign) == 0xC0 &&
               offsetof(IconScroller, mCenterX) == 0xD4 && offsetof(IconScroller, mNextX) == 0xE0);
