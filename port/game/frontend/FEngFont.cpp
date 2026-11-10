@@ -158,3 +158,73 @@ long double FEngFont::GetLineWidth(const uint16_t *text, uint32_t flags, uint32_
     }
     return w;
 }
+
+namespace {
+uint16_t RemapCharacter(uint16_t c)
+{
+    if (c >= 0xFF80) c &= 0xFF;
+    if (c == 0x99) return 0x2122;   // (TM)
+    if (c == 0x9C) return 0x153;    // oe
+    return c;
+}
+}  // namespace
+
+long double FEngFont::GetCharacterWidth(uint16_t c, uint16_t prev, uint32_t flags)
+{
+    if ((!(flags & 0x20) && (c == '\n' || c == '^')) || c == '\r') return 0.0L;
+    c = RemapCharacter(c);
+    if ((flags & 0x80) && c == 0xA0) {
+        prev = 0;
+        c = 0x20;
+    }
+    const FEngGlyph *g = mpData->FindCharacter(c);
+    if (!g) return 0.0L;
+    if (prev) return L(mpData->GetKerning(g, prev)) + g->mi16Advance;
+    return L(0.0f) + g->mi16Advance;
+}
+
+uint32_t FEngFont::GetNumWordWrappedLines(const uint16_t *text, uint32_t flags, uint32_t maxWidth)
+{
+    if (!text) return 0;
+    if (flags & 0x20) return 1;
+    const uint16_t *p = text, *lastSpace = nullptr;
+    bool skipped = false;
+    float w = 0.0f;
+    uint32_t lines = 1, index = 0;
+    for (uint16_t c = *p; c; c = *p, ++index) {
+        if ((c == '\n' || c == '^') && lastSpace) {
+            ++lines;
+            p = lastSpace + 1;
+            lastSpace = nullptr;
+            w = 0.0f;
+            skipped = true;
+            continue;
+        }
+        if (c == '\r') {
+            ++p;
+            continue;
+        }
+        if (skipped) { index = 0; skipped = false; }
+        if (c == ' ') lastSpace = p;
+        if (FEngIsJoyEventTexture(p, flags)) {
+            p = FEngSkipJoyEventTexture(p, flags);
+            skipped = true;
+        } else {
+            if (const FEngGlyph *g = mpData->FindCharacter(RemapCharacter(c))) {
+                const L base = index ? L(mpData->GetKerning(g, p[-1])) + w : L(w);
+                w = static_cast<float>(L(g->mi16Advance) + base);
+            }
+            ++p;
+        }
+        if (maxWidth && *p && !(L(maxWidth) > w) && !(w != w) && lastSpace) {   // width reached: wrap at the last space
+            ++lines;
+            w = 0.0f;
+            p = lastSpace;
+            if (*p == ' ')
+                while (*p == ' ') ++p;
+            lastSpace = nullptr;
+            skipped = true;
+        }
+    }
+    return lines;
+}

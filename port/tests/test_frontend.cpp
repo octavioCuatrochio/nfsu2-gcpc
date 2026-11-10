@@ -2506,6 +2506,16 @@ static void TestFEngFontMeasure()
     // GetTextWidth: widest suffix measure (PC quirk: whole later lines are not measured with flag 0)
     const uint16_t w1[] = {'A', '\n', 'D', 'B', 'B', 0};
     CHECK(f->GetTextWidth(w1, 0) == 24 && f->GetTextWidth(w1, 0x20) == 38);   // "DBB" = 14+12+12 measured only with 0x20
+    // character width: advance (+ kerning after prev), newline / unknown glyph 0
+    CHECK(f->GetCharacterWidth('D', 'B', 0) == 11 && f->GetCharacterWidth('D', 0, 0) == 14 && f->GetCharacterWidth('\n', 0, 0) == 0);
+    CHECK(f->GetCharacterWidth('C', 0, 0) == 0 && f->GetCharacterWidth('\r', 0, 0x20) == 0);
+    // word wrap: "AB AB AB" (22 per word; the space has no glyph)
+    const uint16_t ww[] = {'A', 'B', ' ', 'A', 'B', ' ', 'A', 'B', 0};
+    CHECK(f->GetNumWordWrappedLines(ww, 0, 0) == 1 && f->GetNumWordWrappedLines(ww, 0, 40) == 2 && f->GetNumWordWrappedLines(ww, 0, 30) == 3);   // no check at the last char
+    CHECK(f->GetNumWordWrappedLines(ww, 0x20, 1) == 1 && f->GetNumWordWrappedLines(nullptr, 0, 1) == 0);
+    const uint16_t nl[] = {'A', '\n', 'B', 0};          // newline without an earlier space: no break (PC)
+    const uint16_t nl2[] = {'A', ' ', 'B', '\n', 'D', 0};
+    CHECK(f->GetNumWordWrappedLines(nl, 0, 0) == 1 && f->GetNumWordWrappedLines(nl2, 0, 0) == 2);
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.

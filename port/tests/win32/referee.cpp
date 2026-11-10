@@ -2029,6 +2029,15 @@ static void CheckFEngLineWidth(int iters)
             long double a = oLine(f, text, flags, maxw, withFlag ? &ta : nullptr);
             long double b = f->GetLineWidth(text, flags, maxw, withFlag ? &tb : nullptr);
             EXPECT(std::memcmp(&a, &b, 10) == 0 && ta == tb, "GetLineWidth len %d flags %x max %u pc=%x: %Lg vs %Lg", len, flags, maxw, pc, a, b);
+            {
+                auto oWrap = ORIG<uint32_t(THISCALL *)(FEngFont *, const uint16_t *, uint32_t, uint32_t)>(0x50C080);
+                auto oChar = ORIG<long double(THISCALL *)(FEngFont *, uint32_t, uint32_t, uint32_t)>(0x50BC10);
+                const uint32_t wm = rng() % 3 ? rng() % 120 : rng();
+                EXPECT(oWrap(f, text, flags, wm) == f->GetNumWordWrappedLines(text, flags, wm), "GetNumWordWrappedLines len %d max %u", len, wm);
+                const uint16_t c = len ? text[rng() % len] : 'A', pv = rng() % 3 ? static_cast<uint16_t>(0x20 + rng() % 40) : 0;
+                long double ca = oChar(f, c, pv, flags), cb = f->GetCharacterWidth(c, pv, flags);
+                EXPECT(std::memcmp(&ca, &cb, 10) == 0, "GetCharacterWidth %x %x", c, pv);
+            }
             const FEngGlyph *g = fd->FindCharacter(static_cast<uint16_t>(0x20 + rng() % 60));
             if (g) {
                 const uint16_t prev = static_cast<uint16_t>(0x20 + rng() % 40);

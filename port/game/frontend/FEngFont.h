@@ -41,6 +41,12 @@ struct FEngFont {
     // count 0). maxWidth != 0 (unsigned): once reached before the end, the width falls back to the last space (flag
     // 0x200: the width before the current character) when > 0, and *truncated = true.
     long double GetLineWidth(const uint16_t *text, uint32_t flags, uint32_t maxWidth, bool *truncated);
+    // PC 50BC10 (ret 0xC; GC 8014C878): advance of `c` (+ kerning after `prev` when prev != 0); newline / CR /
+    // unknown glyph: 0. Same character remaps as GetLineWidth (0xA0 with flag 0x80: space, no kerning).
+    long double GetCharacterWidth(uint16_t c, uint16_t prev, uint32_t flags);
+    // PC 50C080 (ret 0xC; GC 8014CF54): lines when wrapping at `maxWidth` (unsigned) on spaces. Flag 0x20: 1. A
+    // newline only breaks after an earlier space, and measuring restarts after that space (PC behaviour).
+    uint32_t GetNumWordWrappedLines(const uint16_t *text, uint32_t flags, uint32_t maxWidth);
     static long double CalculateXOffset(uint32_t justify, float width);    // PC 50C020: flag 1 -> -w/2, 2 -> -w
     static long double CalculateYOffset(uint32_t justify, float height);   // PC 50C050: flag 4 -> -h/2, 8 -> -h
 };
