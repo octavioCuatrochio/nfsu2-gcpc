@@ -1084,6 +1084,13 @@ void *UIStartCareerVTable() { return &teststub::iconScrollerMenuVTable; }
 void StartCareerHelper(int32_t a) { teststub::delivered.push_back({"startcareer", nullptr, nullptr, static_cast<uint32_t>(a), 0}); }
 int32_t CareerSlot() { return 7; }
 void FEngPrintfString(const char *, uint32_t, const char *) {}
+// ---- UIProfileManager / UIDeleteProfile ----
+void *UIProfileManagerVTable() { return &teststub::iconScrollerMenuVTable; }
+void *UIDeleteProfileVTable() { return &teststub::iconScrollerMenuVTable; }
+const char *ProfileDBName() { return "Player"; }
+uint8_t *MenuMusicObject() { return nullptr; }
+void MenuMusic_Command(int32_t) {}
+void GarageShowSelectedCar() { teststub::delivered.push_back({"garagecar", nullptr, nullptr, 1, 0}); }
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return &teststub::fakeFont; }
 bool IsCareerFreeRoam() { return teststub::careerFreeRoam; }

@@ -149,7 +149,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   stack frame, bridged as GarageShowPlayerCar). QR manager *0x836340 methods are __thiscall (ScreenIndex 4B2960 ret 4,
   ChangeToNextScreen 4B29A0, RestorePreviousStable 4B2A00). Mode icons: Circuit 0, Sprint 1, Drag 2, Drift 3, URL 4,
   LAN 8, FreeRun 9, ShortTrack 0xA (online / LAN modes write *0x850088 instead of *0x83AAB4).
-  Next: UIProfileManager, UIDeleteProfile, UIMagazineSelect, uiCareerCrib, PostRaceMenu, QRCarSelectScreen.
+- ProfileManager.cpp: UIProfileManager (0x154, vtable 797D14, +0x150 PMSave icon) + UIDeleteProfile (0x150, 797D30) +
+  PM* icons (PMSave 7959D4 op 0x4A51, PMLoad 7959DC 0xC11, PMDelete 7959E4 0x831, PMCreateNew 7959EC 0x861: EnterMemcard
+  ops) done, in-game A/B identical. Profile name text = 0x83A9E0 (502FD0 returns this); menu music *0x836498 (+0xB, +0x5C
+  InitCommand 6FBFCC). A/B runs: a key can drop during a transition in either build -> re-run before calling it a bug.
+  Next: UIMagazineSelect, uiCareerCrib, PostRaceMenu, QRCarSelectScreen, CarTunePauseScreen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

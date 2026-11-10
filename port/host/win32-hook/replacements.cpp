@@ -33,6 +33,7 @@
 #include "frontend/MainMenu.h"
 #include "frontend/QRModeSelect.h"
 #include "frontend/StartCareer.h"
+#include "frontend/ProfileManager.h"
 #include "frontend/FEMath.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
@@ -784,6 +785,21 @@ UIStartCareer *USC_Create(const ScreenConstructorData *d) { return UIStartCareer
 void THISCALL SCNewCareerMemcard_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { SCReact(SCKind::NewCareerMemcard, p, m, a3); }
 void THISCALL SCStart_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { SCReact(SCKind::Start, p, m, a3); }
 void THISCALL SCLoad_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { SCReact(SCKind::Load, p, m, a3); }
+UIProfileManager *THISCALL UPM_Ctor(UIProfileManager *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL UPM_Dtor(UIProfileManager *s) { s->Destruct(); }
+UIProfileManager *THISCALL UPM_ScalarDtor(UIProfileManager *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL UPM_Notify(UIProfileManager *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL UPM_Setup(UIProfileManager *s) { s->Setup(); }
+UIDeleteProfile *THISCALL UDP_Ctor(UIDeleteProfile *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL UDP_Dtor(UIDeleteProfile *s) { s->Destruct(); }
+UIDeleteProfile *THISCALL UDP_ScalarDtor(UIDeleteProfile *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL UDP_Notify(UIDeleteProfile *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL UDP_Setup(UIDeleteProfile *s) { s->Setup(); }
+void THISCALL UPM_Refresh(UIProfileManager *s) { s->Refresh(); }
+void THISCALL PMSave_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMIconReact(PMIcon::Save, p, m); }
+void THISCALL PMLoad_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMIconReact(PMIcon::Load, p, m); }
+void THISCALL PMDelete_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMIconReact(PMIcon::Delete, p, m); }
+void THISCALL PMCreateNew_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMIconReact(PMIcon::CreateNew, p, m); }
 UIPauseOptions *THISCALL UPO_Ctor(UIPauseOptions *self, const ScreenConstructorData *d) { return self->Construct(d); }
 UIPauseOptions *THISCALL UPO_ScalarDtor(UIPauseOptions *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL UPO_Dtor(UIPauseOptions *self) { self->Destruct(); }
@@ -1574,6 +1590,21 @@ const Replacement kReplacements[] = {
     {0x4AF090, (const void *)&SCNewCareerMemcard_React, "SCNewCareerMemcard::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4AF0C0, (const void *)&SCStart_React, "SCStart::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4AF0E0, (const void *)&SCLoad_React, "SCLoad::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4EB700, (const void *)&UPM_Ctor, "UIProfileManager::UIProfileManager", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4EB790, (const void *)&UPM_Dtor, "UIProfileManager::~UIProfileManager", {0xC7, 0x01, 0x14, 0x7D, 0x79, 0x00}},
+    {0x4EB770, (const void *)&UPM_ScalarDtor, "UIProfileManager scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4D9800, (const void *)&UPM_Notify, "UIProfileManager::NotificationMessage", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x4C58B0, (const void *)&UPM_Setup, "UIProfileManager::Setup", {0x6A, 0xFF, 0x68, 0x70, 0x40, 0x77}},
+    {0x4EB7A0, (const void *)&UDP_Ctor, "UIDeleteProfile::UIDeleteProfile", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4EB830, (const void *)&UDP_Dtor, "UIDeleteProfile::~UIDeleteProfile", {0xC7, 0x01, 0x30, 0x7D, 0x79, 0x00}},
+    {0x4EB810, (const void *)&UDP_ScalarDtor, "UIDeleteProfile scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4A93E0, (const void *)&UDP_Notify, "UIDeleteProfile::NotificationMessage", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54}},
+    {0x4C5A40, (const void *)&UDP_Setup, "UIDeleteProfile::Setup", {0x6A, 0xFF, 0x68, 0xA8, 0x40, 0x77}},
+    {0x4A9360, (const void *)&UPM_Refresh, "UIProfileManager::Refresh", {0x56, 0x8B, 0xF1, 0x57, 0xB9, 0xE0}},
+    {0x4C57F0, (const void *)&PMSave_React, "PMSave::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C5820, (const void *)&PMLoad_React, "PMLoad::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C5850, (const void *)&PMDelete_React, "PMDelete::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4C5880, (const void *)&PMCreateNew_React, "PMCreateNew::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4D93C0, (const void *)&UPO_Ctor, "UIPauseOptions::UIPauseOptions", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4D9470, (const void *)&UPO_Dtor, "UIPauseOptions::~UIPauseOptions", {0xC7, 0x01, 0x04, 0x65, 0x79, 0x00}},
     {0x4EB6B0, (const void *)&UPO_ScalarDtor, "UIPauseOptions scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0xDD}},

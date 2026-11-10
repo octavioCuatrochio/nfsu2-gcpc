@@ -623,6 +623,27 @@ void *UIStartCareerVTable() { return reinterpret_cast<void *>(0x79752C); }
 void StartCareerHelper(int32_t a) { reinterpret_cast<void(__cdecl *)(int32_t)>(0x495A30)(a); }
 int32_t CareerSlot() { return *reinterpret_cast<const int32_t *>(0x836538); }
 void FEngPrintfString(const char *p, uint32_t h, const char *f) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f); }
+// ---- UIProfileManager / UIDeleteProfile ----
+void *UIProfileManagerVTable() { return reinterpret_cast<void *>(0x797D14); }
+void *UIDeleteProfileVTable() { return reinterpret_cast<void *>(0x797D30); }
+const char *ProfileDBName() { return reinterpret_cast<const char *>(0x83A9E0); }
+uint8_t *MenuMusicObject() { return *reinterpret_cast<uint8_t **>(0x836498); }
+void MenuMusic_Command(int32_t c) { uint8_t *p = MenuMusicObject(); reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x6FBFCC)(*reinterpret_cast<void **>(p + 0x5C), c, 0x100); }
+void GarageShowSelectedCar()
+{
+    alignas(16) uint8_t ride[0x900];
+    reinterpret_cast<void(THISCALL *)(void *)>(0x40C910)(ride);
+    void *rec = reinterpret_cast<void *(THISCALL *)(void *, int32_t)>(0x503510)(reinterpret_cast<void *>(0x83AD90), *reinterpret_cast<const int32_t *>(0x83AAB8));
+    (*reinterpret_cast<void(THISCALL ***)(void *, int32_t, void *, int32_t)>(rec))[3](rec, 0, ride, 0);
+    auto findScreen = [](const char *n) { return reinterpret_cast<uint8_t *(__cdecl *)(const char *)>(0x51BD10)(n); };
+    auto pushed = [](const char *n) { return reinterpret_cast<uint8_t(__cdecl *)(const char *)>(0x52CF60)(n) != 0; };
+    void *garage = nullptr;
+    if (pushed("GarageMain.fng")) garage = findScreen("GarageMain.fng");
+    else if (pushed("GarageMain_2P.fng")) { uint8_t *g = findScreen("GarageMain_2P.fng"); garage = g ? *reinterpret_cast<void **>(g + 0x4C) : nullptr; }
+    reinterpret_cast<void(THISCALL *)(void *, void *)>(0x413440)(reinterpret_cast<void *>(0x8371B0), ride);
+    *reinterpret_cast<int32_t *>(0x83623C) = 1;
+    if (garage) reinterpret_cast<void(THISCALL *)(void *, void *, int32_t)>(0x4D8C70)(garage, reinterpret_cast<void *>(0x8371B0), 1);
+}
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return reinterpret_cast<void *>(0x796504); }
 bool IsCareerFreeRoam() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x500B60)(reinterpret_cast<void *>(0x85AD40)) != 0; }

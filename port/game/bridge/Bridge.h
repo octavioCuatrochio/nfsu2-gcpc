@@ -499,6 +499,14 @@ void *UIStartCareerVTable();                     // PC 0x79752C
 void StartCareerHelper(int32_t arg);             // PC 495A30 (__cdecl)
 int32_t CareerSlot();                            // PC *(int*)0x836538 (StartCareerHelper argument after a load)
 void FEngPrintfString(const char *pkg, uint32_t objHash, const char *fmt);   // PC 537B80 (__cdecl varargs, no args)
+// ---- UIProfileManager / UIDeleteProfile ----
+void *UIProfileManagerVTable();                  // PC 0x797D14
+void *UIDeleteProfileVTable();                   // PC 0x797D30
+const char *ProfileDBName();                     // PC 502FD0 (__thiscall on 0x83A9E0) returns `this`: the name text
+uint8_t *MenuMusicObject();                      // PC *(uint8_t **)0x836498 (+0x0B byte, +0x5C stream)
+void MenuMusic_Command(int32_t cmd);             // PC InitCommand 6FBFCC (__thiscall on obj+0x5C)(cmd, 0x100)
+void GarageShowSelectedCar();                    // PC 4D98AF..4D9959: car record (GetCarRecordByHandle(*0x83AAB8) slot 3)
+                                                 //   -> RideInfo -> 0x8371B0 -> garage SetRideInfo(.., 1)
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable();                    // PC 0x796504
 bool IsCareerFreeRoam();                         // PC 500B60 (__thiscall on 0x85AD40, AL) PlayerCareerState
