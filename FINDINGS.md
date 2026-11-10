@@ -58,7 +58,7 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   bridge::cSlider_*). Done: ctor 51E840, sound 50D6F0, Position/Show/Hide/SetFocus/UnsetFocus. Only on options screens
   (in-game unreached); referee uses a fake cSlider vtable. cSlider (vtable 78F544) done too (Init/Update/Draw*/Toggle/SetCurValue/Highlight;
   in-game Init+DrawHorizontal run in the race). FEngFindString 537A10 done. PreviewSlider (79AE30, 0x4C) / ThreeStageSlider
-  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next (whole files): finish MenuScreen (BaseNotify + rest), FEScrollBar PC mouse members (538130, 495810/495850, 52E670, 52D100), FEWidget file leftovers, then TuningSlidersMenu.
+  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next (whole files): FEScrollBar PC mouse members (538130, 495810/495850, 52E670, 52D100), FEWidget file leftovers, then TuningSlidersMenu.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
@@ -104,7 +104,8 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - Referee: originals that look up packages/objects (FEngFindPackage 52CEF0) crash in DllMain (no cFEng). bridge_stub
   VirtualScalarDelete calls slot 0 for vtables outside the exe (check fakes). Remap only known pointer fields when
   comparing two arenas (blanket "looks like a B address" remaps give rare false mismatches; TuningSlider check still does).
-- MenuScreen::BaseNotify 55B5C0 (ret 0x10; decoded, NOT rewritten): byte 0x838521 -> zero pkg masks +0x1C..+0x28;
+- MenuScreen::BaseNotify 55B5C0 (ret 0x10; rewritten, MenuScreen unit COMPLETE: + CheckKeyboard, Begin/EndTextInput,
+  BaseNotifySound 51DCD0, SetAlternating* 537E60/51DD90, AlternateTheText, UpdateEAMIcons, FEngUtil pkg wrappers 4954xx): byte 0x838521 -> zero pkg masks +0x1C..+0x28;
   CheckKeyboard 54E5B0 (true: swallow); input gate (+0x11 or no pkg or pkg+0x1C == 0) && FEngine::IsInputMessage 50B2A0
   -> drop. Messages: 0x2C0E485A (5F00F0(0x89CF48) false: 4A0140(0), unload FEngine+0xE8 list non-overlays via 5379A0,
   555F10(.., "GarageMain.fng", 0xFF, 0), return), 0x35F8620B/0x9757A0C0 UpdateEAMIcons 542720, 0x9803F6E2 (data pkg

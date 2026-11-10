@@ -82,7 +82,7 @@ UIWidgetMenu *UIWidgetMenu::Construct(const ScreenConstructorData *data)
         FEngSetInvisible(mScrollBar.mpArrow1);
         FEngSetInvisible(mScrollBar.mpArrow2);
         SetInitialPositions();
-        base._unknown2C = 0;
+        base.mbSounds = 0;
     }
     return this;
 }
@@ -631,7 +631,7 @@ void UIWidgetMenu::HandleScrollBarMouse()
 void UIWidgetMenu::NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg)
 {
     uint32_t event = 0;
-    uint32_t trigger = base._unknown30;
+    uint32_t trigger = base.mSoundTrigger;
     const char *name = base.mpPackageName;
     auto enabledCurrent = [this] { return mpCurrent && mpCurrent->mbEnabled; };
     switch (msg) {
@@ -731,7 +731,7 @@ void UIWidgetMenu::NotificationMessage(uint32_t msg, FEObject *obj, uint32_t arg
     case 0xDA5B8712u: {   // text input finished: copy the edited string into the input widget
         FEngSetScript(name, 0x47FF4E7Cu, "UNDIM", true);
         FEWidget *w = mpCurrent;
-        bStrNCpy(reinterpret_cast<char *>(w) + 0x4C, base._unknown0C ? bridge::EditedStringBuffer() : nullptr, 0xFF);
+        bStrNCpy(reinterpret_cast<char *>(w) + 0x4C, base.mpTextInput ? bridge::EditedStringBuffer() : nullptr, 0xFF);
         bridge::FEWidget_Draw(w);
         event = w->DetermineSound(0xDA5B8712u);
         trigger = bridge::FEWidget_DetermineSoundTrigger(w);

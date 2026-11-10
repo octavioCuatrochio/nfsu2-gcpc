@@ -34,6 +34,9 @@ extern int feMessageNodeVTable, fePackageCommandVTable;
 struct Delivered { const char *kind; void *a, *pkg; uint32_t msg, arg; };
 extern std::vector<Delivered> delivered;
 extern int32_t profileState, gameModeFlags, realTimer;
+extern uint8_t textInputFlag, eamIconState, resetMasksFlag;
+extern uint32_t textInputHandle;
+extern bool helpBarHandles;
 extern bool showEAMIcons, callingScreenFrozen;
 extern char callingScreen[64];
 extern const LanguageStringRecord *languageTable;   // LanguageStrings (native builds)

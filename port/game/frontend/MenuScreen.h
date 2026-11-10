@@ -7,6 +7,7 @@
 #include <cstdint>
 
 struct FEPackage;
+struct FEObject;
 
 // GC ScreenConstructorData (5 words, copied whole into the screen)
 struct ScreenConstructorData {
@@ -20,22 +21,38 @@ struct ScreenConstructorData {
 struct MenuScreen {
     void *vtable;                    // +0x00
     const char *mpPackageName;       // +0x04 (GC +0x00)
-    uint8_t _unknown08;              // +0x08 (GC +0x04 word)
+    uint8_t mbMessengerOpen;         // +0x08 (GC +0x04 word) set: the EAM button does not open the messenger
     uint8_t _pad09[3];
-    uint32_t _unknown0C;             // +0x0C (GC +0x08 FEngTextInputObject*)
-    uint8_t _unknown10, _unknown11;  // +0x10 (GC +0x0C / +0x0D: BaseNotify input gate)
+    void *mpTextInput;               // +0x0C (GC +0x08 FEngTextInputObject*) PC: 0xC-byte input object (see BeginTextInput)
+    uint8_t mTextInputState;         // +0x10 (GC +0x0C) 1 started, 2/3 by message 0xC98356BA
+    uint8_t mbIgnoreInputGate;       // +0x11 (GC +0x0D) set: input messages pass even with control mask 0... (see BaseNotify)
     uint8_t _pad12[2];
     ScreenConstructorData mData;     // +0x14 (GC +0x10)
     uint32_t mHelpHash;              // +0x28 copy of mData.mHelpHash
-    uint8_t _unknown2C;              // +0x2C = 1
+    uint8_t mbSounds;                // +0x2C = 1 (GC +0x2C int): BaseNotifySound enabled
     uint8_t _pad2D[3];
-    uint32_t _unknown30;             // +0x30
-    void *_unknown34, *_unknown38, *_unknown3C;   // +0x34 (GC: FEString*, FEString*, FEObject*: alternating text)
-    float _unknown40, _unknown44;    // +0x40
-    uint32_t _unknown48;             // +0x48
+    uint32_t mSoundTrigger;          // +0x30 trigger for BaseNotifySound / UIWidgetMenu sounds
+    FEObject *mpAltText1, *mpAltText2, *mpAltCurrent;   // +0x34 alternating texts (profile name / cash) + the shown one
+    float mAltTime1, mAltTime2;      // +0x40 seconds each text stays
+    int32_t mAltTimer;               // +0x48 Timer::CountDown ticks (seconds * 4000)
 
     MenuScreen *Construct(const ScreenConstructorData *data);   // GC 801515A0 / PC 551DE0 (ret 4)
     MenuScreen *ScalarDeletingDestructor(uint32_t flags);       // GC 80151734 / PC 51DC60 (ret 4)
+
+    // GC 80151768 / PC 55B5C0 (ret 0x10): global input handling, then NotificationMessage (slot 2) with arg 1 (PC).
+    void BaseNotify(uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg);
+    // GC 80151AB8 / PC 54E5B0 (ret 4): true = the text input took the message
+    bool CheckKeyboard(uint32_t msg);
+    void EndTextInput();                                        // PC 51DC80 (PC only): free the input object, clear buffers
+    // GC 80151968 / PC 555F80 (ret 0x18): PC creates a 0xC input object {string, screen, 0} on the manager 0x83A7B0;
+    // buffer2 and flags are unused on PC.
+    void FEngBeginTextInput(uint32_t objHash, uint32_t maxLen, char *buffer, char *buffer2, uint32_t mode, uint32_t flags);
+    // GC 80151B4C / PC 51DCD0 (ret 0x10): message -> sound event, NotifySoundMessage (slot 3) may change it
+    void BaseNotifySound(uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg);
+    void SetAlternatingPlayerCash();                            // GC 80151D20 / PC 537E60
+    void SetAlternatingText(FEObject *a, FEObject *b, float timeA, float timeB);   // GC 80151DF0 / PC 51DD90 (ret 0x10)
+    void AlternateTheText();                                    // GC 80151ED8 / PC 537F50
+    void UpdateEAMIcons();                                      // GC 80151FC8 / PC 542720: "PC_EAM_Status_1..4"
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

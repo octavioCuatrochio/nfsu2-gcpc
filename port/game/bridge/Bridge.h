@@ -245,6 +245,48 @@ char *EditedStringBuffer();                                     // PC 0x83A8B0 (
 int32_t RealTimer();                                            // PC *(int*)0x8651AC
 int32_t KeyboardCreationTimer();                                // PC *(int*)0x83A9C8 (KBCreationTimer)
 float KeyboardDelaySeconds();                                   // PC *(float*)0x7F942C (g_KBDelaySeconds, 0.75)
+// --- MenuScreen (PC): text input, alternating texts, EAM, online, help (addresses in bridge_win32.cpp)
+uint8_t *TextInputFlag();                       // PC byte 0x83A9C0 (FocusedTextbox active)
+uint32_t *TextInputHandle();                    // PC dword 0x83A9C4
+char *TextInputBuffer();                        // PC 0x83A7B0 (0x100 bytes; also the input manager `this`)
+void TextInput_Start(void *obj, uint32_t maxLen, char *buffer, uint32_t mode);   // PC 4FF3B0 __thiscall on 0x83A7B0
+void TextInput_Close(void *obj, uint32_t flag); // PC 540AB0 (__thiscall)
+void TextInput_Accept(void *obj);               // PC 54C8A0
+void TextInput_Cancel(void *obj);               // PC 54C7F0
+void TextInput_Notify(void *obj, uint32_t msg); // PC 540BF0
+void MenuScreen_NotificationMessage(void *screen, uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg);   // vtable +0x08
+uint32_t MenuScreen_NotifySoundMessage(void *screen, uint32_t msg, FEObject *obj, uint32_t arg, uint32_t pkg, uint32_t event);   // +0x0C
+void FEPrintfString(FEObject *str, const char *fmt, const char *s);   // PC 537BE0 (varargs)
+const char *ProfileNameBuffer();                // PC 0x83A9E0
+int32_t PlayerCash();                           // PC *(int*)0x861E74
+int32_t Timer_CountDown(int32_t *timer, float elapsed);   // PC 577310 (__thiscall): nonzero while running
+uint8_t *EAMIconState();                        // PC byte 0x838524 (gEAMIconState)
+uint8_t *ResetMasksFlag();                      // PC byte 0x838521: BaseNotify zeroes the package masks
+bool ShowEAMIcons();                            // PC byte 0x838528
+void SetCallingScreenFrozen(bool on);           // PC byte 0x838520
+int32_t MessengerButtonTimer();                 // PC *(int*)0x8637C8
+bool OnlineBusy();                              // PC 5F00F0 (__thiscall on 0x89CF48)
+void Call4A0140(int32_t a);                     // PC 4A0140 (__cdecl)
+void FEngSwitchPackages(const char *a, const char *b, uint32_t c, uint32_t d);   // PC 555F10 (__cdecl)
+void FEngPushPackageOver(const char *a, const char *b, uint32_t c, uint32_t d);  // PC 555EB0 (__cdecl)
+void PlayUISound(int32_t id);                   // PC 458520 (__thiscall on *(0x82B884))
+void ShowHelpMessage(const char *pkg, const char *s, uint32_t hash);   // PC 558AC0 (__cdecl, DialogInterface)
+bool HelpBar_HandlesSelect();                   // PC 50CF10 (__thiscall on *(0x8384D8))
+void ShowOneButtonDialog(const char *pkg, const char *s, uint32_t a, int32_t b, int32_t c, const char *msg);   // PC 558540
+const char *LocalizedString(uint32_t hash);     // PC 4FFA80 (__cdecl)
+void *Online_Manager();                         // PC 58F6D0 (__cdecl)
+void *Online_GetEntry(void *mgr, int32_t i);    // PC 5847F0 (__thiscall)
+void *Online_Find(void *mgr, const char *name, uint32_t id);   // PC 5847A0 (__thiscall)
+const char *Online_DictGet(void *dict, const char *key);       // PC 7414A0 (__cdecl)
+void Online_CopyOrDefault(const char *src, char *dst, uint32_t size, const char *def);   // PC 742360 (__cdecl)
+void Online_Select(void *mgr, const char *name, uint32_t id);  // PC 58D150 (__thiscall, + 0)
+int32_t Online_Login(char *bufA, char *bufB, void *screen);    // PC 58F740(0)->58D6B0(bufA, bufB, 0x558F50, screen)
+uint32_t Online_558330(const char *pkg, const char *s, uint32_t hash, const char *name);   // PC 558330 (__cdecl)
+const char *OnlineUserName();                   // PC 0x836014
+char *OnlineField85009C();                      // PC 0x85009C (13 bytes)
+char *OnlineField8500A9();                      // PC 0x8500A9
+uint8_t *OnlineFlag85009B();                    // PC byte 0x85009B
+uint32_t *OnlineLoginHandle();                  // PC 0x83852C
 void *UIWidgetMenuVTable();                                     // PC 0x795CDC
 void FEPrintfInt(FEObject *str, const char *fmt, int32_t v);   // PC 537BE0 (__cdecl varargs): format into a string object
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C

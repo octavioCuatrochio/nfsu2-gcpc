@@ -22,6 +22,14 @@ void FEngSetScript(FEObject *obj, const char *name, bool restart);
 // GC 8014FB1C / PC 50C900 (__cdecl): FEString::SetLabelHash, then clear flag 2. PC only: if flag 2 was set before,
 // the object is marked again (0x400000).
 void FEngSetLanguageHash(FEObject *str, uint32_t hash);
+// object-by-package wrappers (PC 4954xx/4955xx, __cdecl; GC overloads)
+void FEngSetTextureHash(const char *pkg, uint32_t objHash, uint32_t tex);    // PC 495430: FEngFindImage + set
+void FEngSetLanguageHash(const char *pkg, uint32_t objHash, uint32_t lang);  // PC 495460: FEngFindString + set
+void FEngSetLanguageHash(const char *pkg, const char *obj, uint32_t lang);   // PC 495490
+void FEngSetInvisible(const char *pkg, const char *obj);                     // PC 4954C0
+void FEngSetInvisible(const char *pkg, uint32_t objHash);                    // PC 4954E0
+void FEngSetVisible(const char *pkg, const char *obj);                       // PC 495500
+void FEngSetVisible(const char *pkg, uint32_t objHash);                      // PC 495520
 void FEngSetScript(FEObject *obj, uint32_t id, bool restart);
 // GC 80150630 (+ 80150698 inlined) / PC 51D040: current script is `name` (FEngHashStringUpper) and not past its end.
 bool FEngIsScriptRunning(const FEObject *obj, const char *name);

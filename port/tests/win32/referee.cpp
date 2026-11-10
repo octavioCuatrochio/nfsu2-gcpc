@@ -2763,6 +2763,54 @@ static void CheckSliderObjects(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// MenuScreen members that run without cFEng: SetAlternatingText (synthetic objects without scripts) and CheckKeyboard
+// on paths that don't reach the text input object (input handle 0, no finish message).
+static void CheckMenuScreenMembers(int iters)
+{
+    auto oAlt = ORIG<void(THISCALL *)(MenuScreen *, FEObject *, FEObject *, float, float)>(0x51DD90);
+    auto oKey = ORIG<uint8_t(THISCALL *)(MenuScreen *, uint32_t)>(0x54E5B0);
+    static MenuScreen A, B;
+    alignas(8) static unsigned char om[2][sizeof(FEObject)];
+    uint8_t &flag = *reinterpret_cast<uint8_t *>(0x83A9C0);
+    uint32_t &handle = *reinterpret_cast<uint32_t *>(0x83A9C4);
+    const uint8_t savedFlag = flag;
+    const uint32_t savedHandle = handle;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memset(om, 0, sizeof om);
+            FEObject *o[2] = {reinterpret_cast<FEObject *>(om[0]), reinterpret_cast<FEObject *>(om[1])};
+            if (rng() % 2) {
+                A.mpAltCurrent = rng() % 3 ? nullptr : o[0];
+                std::memcpy(&B, &A, sizeof A);
+                const float t1 = RefCoord() / 50.0f, t2 = rng() % 3 ? RefCoord() / 50.0f : (rng() % 2 ? 0.00005f : std::nanf(""));
+                FEObject *a = rng() % 4 ? o[0] : nullptr, *b = rng() % 4 ? o[1] : nullptr;
+                oAlt(&A, a, b, t1, t2);
+                B.SetAlternatingText(a, b, t1, t2);
+                EXPECT(std::memcmp(&A, &B, sizeof A) == 0, "MenuScreen::SetAlternatingText pc=%x", pc);
+            } else {
+                A.mpTextInput = rng() % 3 ? reinterpret_cast<void *>(om[0]) : nullptr;
+                A.mTextInputState = static_cast<uint8_t>(rng() % 4);
+                std::memcpy(&B, &A, sizeof A);
+                const uint8_t f = static_cast<uint8_t>(rng() % 2);
+                const uint32_t msg = rng() % 2 ? 0xC98356BAu : rng();
+                if (msg == 0xD15C04ECu) continue;
+                flag = f; handle = 0;
+                const uint8_t ra = oKey(&A, msg) & 1;
+                const uint8_t fa = flag;
+                flag = f; handle = 0;
+                const uint8_t rb = B.CheckKeyboard(msg);
+                EXPECT(ra == rb && fa == flag && std::memcmp(&A, &B, sizeof A) == 0, "MenuScreen::CheckKeyboard %08x", msg);
+            }
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+    flag = savedFlag; handle = savedHandle;
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -3645,6 +3693,7 @@ static int RunAll()
     REFEREE_RUN(CheckTuningSlider(iters));
     REFEREE_RUN(CheckLocalize(iters));
     REFEREE_RUN(CheckMenuScreen(iters));
+    REFEREE_RUN(CheckMenuScreenMembers(iters));
     REFEREE_RUN(CheckUIWidgetMenu(iters));
     REFEREE_RUN(CheckSliderObjects(iters));
     REFEREE_RUN(CheckCSlider(iters));

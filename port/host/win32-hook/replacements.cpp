@@ -399,6 +399,22 @@ FEObject *THISCALL UIWidgetMenu_GetCurrentFEString(UIWidgetMenu *self, const cha
 FEObject *THISCALL UIWidgetMenu_GetCurrentFEImage(UIWidgetMenu *self, const char *p) { return self->GetCurrentFEImage(p); }
 uint32_t THISCALL FEWidget_DetermineSound_Hook(FEWidget *self, uint32_t m) { return self->DetermineSound(m); }
 uint32_t __cdecl FEngTestForIntersectionRect_Hook(float x, float y, const float *p, const float *s) { return FEngTestForIntersection(x, y, p, s); }
+void THISCALL MenuScreen_BaseNotify(MenuScreen *self, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { self->BaseNotify(m, o, a, p); }
+uint32_t THISCALL MenuScreen_CheckKeyboard(MenuScreen *self, uint32_t m) { return self->CheckKeyboard(m); }
+void THISCALL MenuScreen_EndTextInput(MenuScreen *self) { self->EndTextInput(); }
+void THISCALL MenuScreen_BeginTextInput(MenuScreen *self, uint32_t h, uint32_t m, char *b, char *b2, uint32_t mode, uint32_t f) { self->FEngBeginTextInput(h, m, b, b2, mode, f); }
+void THISCALL MenuScreen_BaseNotifySound(MenuScreen *self, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { self->BaseNotifySound(m, o, a, p); }
+void THISCALL MenuScreen_SetAlternatingPlayerCash(MenuScreen *self) { self->SetAlternatingPlayerCash(); }
+void THISCALL MenuScreen_SetAlternatingText(MenuScreen *self, FEObject *a, FEObject *b, float t1, float t2) { self->SetAlternatingText(a, b, t1, t2); }
+void THISCALL MenuScreen_AlternateTheText(MenuScreen *self) { self->AlternateTheText(); }
+void THISCALL MenuScreen_UpdateEAMIcons(MenuScreen *self) { self->UpdateEAMIcons(); }
+void __cdecl FEngSetTextureHashPkg_Hook(const char *p, uint32_t h, uint32_t t) { FEngSetTextureHash(p, h, t); }
+void __cdecl FEngSetLanguageHashPkg_Hook(const char *p, uint32_t h, uint32_t l) { FEngSetLanguageHash(p, h, l); }
+void __cdecl FEngSetLanguageHashName_Hook(const char *p, const char *o, uint32_t l) { FEngSetLanguageHash(p, o, l); }
+void __cdecl FEngSetInvisibleName_Hook(const char *p, const char *o) { FEngSetInvisible(p, o); }
+void __cdecl FEngSetInvisiblePkg_Hook(const char *p, uint32_t h) { FEngSetInvisible(p, h); }
+void __cdecl FEngSetVisibleName_Hook(const char *p, const char *o) { FEngSetVisible(p, o); }
+void __cdecl FEngSetVisiblePkg_Hook(const char *p, uint32_t h) { FEngSetVisible(p, h); }
 MenuScreen *THISCALL MenuScreen_Ctor(MenuScreen *self, const ScreenConstructorData *d) { return self->Construct(d); }
 MenuScreen *THISCALL MenuScreen_ScalarDtor(MenuScreen *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 uint32_t __cdecl IsOverlayPackage_Hook(const char *p) { return IsOverlayPackage(p); }
@@ -852,11 +868,11 @@ const Replacement kReplacements[] = {
     {0x50C6D0, (const void *)&cFEng_GetJoyPadMask, "cFEng::GetJoyPadMask", {0x53, 0x8A, 0x5C, 0x24, 0x08, 0x56}},
     {0x50C630, (const void *)&cFEng::HandleJoy, "cFEng::HandleJoy", {0x53, 0x8A, 0x5C, 0x24, 0x10, 0x56}},
     {0x50C980, (const void *)&FEngGetTextureHash, "FEngGetTextureHash", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
-    {0x50C990, (const void *)&FEngSetTextureHash, "FEngSetTextureHash", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x50C990, (const void *)static_cast<void (*)(FEObject *, uint32_t)>(&FEngSetTextureHash), "FEngSetTextureHash", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x50C9B0, (const void *)&FEngSetMovieName, "FEngSetMovieName", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
     {0x50C9E0, (const void *)&FEngIsVisible, "FEngIsVisible", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
-    {0x50CA00, (const void *)&FEngSetInvisible, "FEngSetInvisible", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}, 1, 4, 0},   // widget Show/Hide (50D530..) keep `this` in EDX
-    {0x50CA50, (const void *)&FEngSetVisible, "FEngSetVisible", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}, 1, 4, 0},   // widget Show/Hide (50D530..) keep `this` in EDX
+    {0x50CA00, (const void *)static_cast<void (*)(FEObject *)>(&FEngSetInvisible), "FEngSetInvisible", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}, 1, 4, 0},   // widget Show/Hide (50D530..) keep `this` in EDX
+    {0x50CA50, (const void *)static_cast<void (*)(FEObject *)>(&FEngSetVisible), "FEngSetVisible", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}, 1, 4, 0},   // widget Show/Hide (50D530..) keep `this` in EDX
     {0x50CAB0, (const void *)&FEngIsScriptFinished, "FEngIsScriptFinished", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x50CB00, (const void *)&FEngSetSize, "FEngSetSize", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x51CF70, (const void *)static_cast<void (*)(FEObject *, const char *, bool)>(&FEngSetScript), "FEngSetScript(name)", {0x57, 0x8B, 0x7C, 0x24, 0x08, 0x85}},
@@ -965,6 +981,22 @@ const Replacement kReplacements[] = {
     {0x5445A0, (const void *)&UIWidgetMenu_GetCurrentFEImage, "UIWidgetMenu::GetCurrentFEImage", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xEC}},
     {0x50D460, (const void *)&FEWidget_DetermineSound_Hook, "FEWidget::DetermineSound", {0x8B, 0x44, 0x24, 0x04, 0x3D, 0x9E}},
     {0x50CD00, (const void *)&FEngTestForIntersectionRect_Hook, "FEngTestForIntersection(pos,size)", {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24}},
+    {0x55B5C0, (const void *)&MenuScreen_BaseNotify, "MenuScreen::BaseNotify", {0xA0, 0x21, 0x85, 0x83, 0x00, 0x83}},
+    {0x54E5B0, (const void *)&MenuScreen_CheckKeyboard, "MenuScreen::CheckKeyboard", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}},
+    {0x51DC80, (const void *)&MenuScreen_EndTextInput, "MenuScreen::EndTextInput", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x56}},
+    {0x555F80, (const void *)&MenuScreen_BeginTextInput, "MenuScreen::FEngBeginTextInput", {0x6A, 0xFF, 0x68, 0xD4, 0x80, 0x77}},
+    {0x51DCD0, (const void *)&MenuScreen_BaseNotifySound, "MenuScreen::BaseNotifySound", {0x56, 0x8B, 0xF1, 0x8A, 0x46, 0x2C}},
+    {0x537E60, (const void *)&MenuScreen_SetAlternatingPlayerCash, "MenuScreen::SetAlternatingPlayerCash", {0x53, 0x56, 0x57, 0x8B, 0xF9, 0x8B}},
+    {0x51DD90, (const void *)&MenuScreen_SetAlternatingText, "MenuScreen::SetAlternatingText", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x3C}},
+    {0x537F50, (const void *)&MenuScreen_AlternateTheText, "MenuScreen::AlternateTheText", {0x51, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x542720, (const void *)&MenuScreen_UpdateEAMIcons, "MenuScreen::UpdateEAMIcons", {0x51, 0x55, 0x56, 0x57, 0x8B, 0xF9}},
+    {0x495430, (const void *)&FEngSetTextureHashPkg_Hook, "FEngSetTextureHash(pkg,hash)", {0x8B, 0x44, 0x24, 0x0C, 0x8B, 0x4C}},
+    {0x495460, (const void *)&FEngSetLanguageHashPkg_Hook, "FEngSetLanguageHash(pkg,hash)", {0x8B, 0x44, 0x24, 0x0C, 0x8B, 0x4C}},
+    {0x495490, (const void *)&FEngSetLanguageHashName_Hook, "FEngSetLanguageHash(pkg,name)", {0x8B, 0x44, 0x24, 0x0C, 0x8B, 0x4C}},
+    {0x4954C0, (const void *)&FEngSetInvisibleName_Hook, "FEngSetInvisible(pkg,name)", {0x8B, 0x44, 0x24, 0x08, 0x50, 0xE8}},
+    {0x4954E0, (const void *)&FEngSetInvisiblePkg_Hook, "FEngSetInvisible(pkg,hash)", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}},
+    {0x495500, (const void *)&FEngSetVisibleName_Hook, "FEngSetVisible(pkg,name)", {0x8B, 0x44, 0x24, 0x08, 0x50, 0xE8}},
+    {0x495520, (const void *)&FEngSetVisiblePkg_Hook, "FEngSetVisible(pkg,hash)", {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C}},
     {0x551DE0, (const void *)&MenuScreen_Ctor, "MenuScreen::MenuScreen", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x33}},
     {0x51DC60, (const void *)&MenuScreen_ScalarDtor, "MenuScreen::~MenuScreen", {0xF6, 0x44, 0x24, 0x04, 0x01, 0x56}},
     {0x49FFA0, (const void *)&IsOverlayPackage_Hook, "IsOverlayPackage", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x68}},

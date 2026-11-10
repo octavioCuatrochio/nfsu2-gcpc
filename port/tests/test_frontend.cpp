@@ -3075,7 +3075,7 @@ static void TestMenuScreen()
     std::strcpy(teststub::callingScreen, "Old.fng");
     CHECK(s->Construct(&d) == s);
     CHECK(s->vtable == &teststub::feWidgetVTable && s->mpPackageName == d.mpPackageName && s->mHelpHash == 0x1234 && s->mData.mArg == 7);
-    CHECK(s->_unknown08 == 0 && s->_pad09[0] == 0x5A && s->_unknown2C == 1 && s->_unknown34 == nullptr && s->_unknown48 == 0);
+    CHECK(s->mbMessengerOpen == 0 && s->_pad09[0] == 0x5A && s->mbSounds == 1 && s->mpAltText1 == nullptr && s->mAltTimer == 0);
     CHECK(std::string(teststub::callingScreen) == "Old.fng");   // profile not loaded: nothing else
     teststub::profileState = 0xC; teststub::gameModeFlags = 0; teststub::showEAMIcons = false;
     teststub::delivered.clear();
@@ -3107,7 +3107,7 @@ static void TestUIWidgetMenu()
     CHECK(m->Construct(&d) == m);
     bridge::cFEngInstance()->mpEngine = savedEngine;
     CHECK(m->base.vtable == &teststub::feButtonWidgetVTable && m->mWidgets.next == &m->mWidgets && m->mVisibleCount == 7);
-    CHECK(m->mTitleW == 175.0f && m->_unknown124 == 4.0f && m->mbScrollBarEnabled == 1 && m->mbSoundsEnabled == 1 && m->base._unknown2C == 1);
+    CHECK(m->mTitleW == 175.0f && m->_unknown124 == 4.0f && m->mbScrollBarEnabled == 1 && m->mbSoundsEnabled == 1 && m->base.mbSounds == 1);
     CHECK(std::string(m->mSliderEnd) == "SLIDER_END_" && m->mpTitleMaster == nullptr);
     // 10 widgets appended (node at FEWidget::_unknown04)
     FEWidget *w[10];
@@ -3231,6 +3231,68 @@ static void TestUIWidgetMenuMessages()
     CHECK(std::string(teststub::delivered[0].kind) == "act" && teststub::delivered.back().msg == 14);
     CHECK(w[3]->DetermineSound(0x12345678u) == 0);
     m->mWidgets.next = m->mWidgets.prev = &m->mWidgets;
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
+static void TestMenuScreenMembers()
+{
+    alignas(8) static unsigned char mm[sizeof(MenuScreen)];
+    std::memset(mm, 0, sizeof mm);
+    auto *s = reinterpret_cast<MenuScreen *>(mm);
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    ScreenConstructorData d{"Pkg", nullptr, 0x55, 0, 0};
+    teststub::profileState = 0;
+    s->Construct(&d);
+    // keyboard: no input object -> not taken
+    CHECK(!s->CheckKeyboard(0xC98356BAu));
+    const int live = teststub::liveAllocations;
+    s->FEngBeginTextInput(0x1234, 16, nullptr, nullptr, 2, 0);
+    CHECK(s->mpTextInput != nullptr && s->mTextInputState == 1 && teststub::textInputFlag == 0);
+    CHECK(s->CheckKeyboard(0xC98356BAu) && s->mTextInputState == 2);   // first: swallowed
+    teststub::textInputFlag = 0;
+    CHECK(s->CheckKeyboard(0xC98356BAu) && s->mTextInputState == 3 && teststub::textInputFlag == 1);
+    teststub::textInputHandle = 7;
+    teststub::delivered.clear();
+    CHECK(s->CheckKeyboard(0x911AB364u) && std::string(teststub::delivered.back().kind) == "ti accept");
+    CHECK(s->CheckKeyboard(0x406415E3u) && std::string(teststub::delivered.back().kind) == "ti cancel");
+    CHECK(s->CheckKeyboard(0x1u) && std::string(teststub::delivered.back().kind) == "ti notify");
+    CHECK(!s->CheckKeyboard(0xD15C04ECu) && s->mpTextInput == nullptr && s->mTextInputState == 0 && teststub::textInputHandle == 0);
+    CHECK(teststub::liveAllocations == live);
+    // alternating texts
+    alignas(8) unsigned char om[2][sizeof(FEObject)] = {};
+    auto *a = reinterpret_cast<FEObject *>(om[0]);
+    auto *b = reinterpret_cast<FEObject *>(om[1]);
+    s->SetAlternatingText(a, nullptr, 1.0f, 0.0f);   // one missing: no current, second time = first
+    CHECK(s->mpAltCurrent == nullptr && s->mAltTime2 == 1.0f && s->mAltTimer == 4000);
+    s->SetAlternatingText(a, b, 0.75f, 5.0f);
+    CHECK(s->mpAltCurrent == a && s->mAltTime2 == 5.0f && s->mAltTimer == 3000);
+    s->SetAlternatingText(b, a, 2.0f, 2.0f);   // already running: unchanged
+    CHECK(s->mpAltText1 == a);
+    s->mAltTimer = 500;
+    s->AlternateTheText();   // stub timer: 500 - 1000 <= 0 -> switch to b for 5 s
+    CHECK(s->mpAltCurrent == b && s->mAltTimer == 20000);
+    s->mAltTimer = 3000;
+    s->AlternateTheText();   // still running
+    CHECK(s->mpAltCurrent == b);
+    // sounds: mapping, gated by mbSounds
+    teststub::delivered.clear();
+    s->BaseNotifySound(0x72619778u, nullptr, 0, 0);
+    CHECK(teststub::delivered.size() == 2 && teststub::delivered[0].arg == 6 && std::string(teststub::delivered[1].kind) == "makesound");
+    s->mbSounds = 0;
+    teststub::delivered.clear();
+    s->BaseNotifySound(0x72619778u, nullptr, 0, 0);
+    CHECK(teststub::delivered.empty());
+    s->UpdateEAMIcons();   // objects absent: no crash
+    // BaseNotify: plain message -> NotificationMessage with arg 1; help-bar click swallowed
+    teststub::delivered.clear();
+    s->BaseNotify(0x12345678u, nullptr, 9, 4);
+    CHECK(teststub::delivered.size() == 1 && std::string(teststub::delivered[0].kind) == "notify" && teststub::delivered[0].arg == 1);
+    teststub::helpBarHandles = true;
+    teststub::delivered.clear();
+    s->BaseNotify(0x911AB364u, nullptr, 3, 4);   // input message, but no package: dropped before the help bar
+    CHECK(teststub::delivered.empty());
+    teststub::helpBarHandles = false;
     bridge::cFEngInstance()->mpEngine = savedEngine;
 }
 
@@ -3599,6 +3661,7 @@ int main()
     TestUIWidgetMenu();
     TestUIWidgetMenuAdd();
     TestUIWidgetMenuMessages();
+    TestMenuScreenMembers();
     TestCSlider();
     TestStageSliders();
     TestFEngExtents();

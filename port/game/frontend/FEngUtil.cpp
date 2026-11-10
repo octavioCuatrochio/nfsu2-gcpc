@@ -52,14 +52,14 @@ void FEngSetInvisible(FEObject *obj)
 {
     if (!obj) return;
     if (bridge::UseOldFEngDirtyFlag() || !(obj->mu32Flags & 1)) obj->mu32Flags |= kFEObjectDirty | 1;
-    ForGroupChildren(obj, FEngSetInvisible);
+    ForGroupChildren(obj, static_cast<void (*)(FEObject *)>(&FEngSetInvisible));
 }
 
 void FEngSetVisible(FEObject *obj)
 {
     if (!obj) return;
     if (bridge::UseOldFEngDirtyFlag() || (obj->mu32Flags & 1)) obj->mu32Flags = (obj->mu32Flags & ~1u) | kFEObjectDirty;
-    ForGroupChildren(obj, FEngSetVisible);
+    ForGroupChildren(obj, static_cast<void (*)(FEObject *)>(&FEngSetVisible));
 }
 
 bool FEngIsScriptFinished(const FEObject *obj, const char *name)
@@ -492,3 +492,11 @@ bool FEngTestForIntersection(float x, float y, const float *pos, const float *si
     if (!(y >= top) || !(y <= bottom)) return false;
     return true;
 }
+
+void FEngSetTextureHash(const char *pkg, uint32_t objHash, uint32_t tex) { FEngSetTextureHash(FEngFindImage(pkg, objHash), tex); }
+void FEngSetLanguageHash(const char *pkg, uint32_t objHash, uint32_t lang) { FEngSetLanguageHash(FEngFindString(pkg, objHash), lang); }
+void FEngSetLanguageHash(const char *pkg, const char *obj, uint32_t lang) { FEngSetLanguageHash(FEngFindString(pkg, FEHashUpper(obj)), lang); }
+void FEngSetInvisible(const char *pkg, const char *obj) { FEngSetInvisible(FEngFindObject(pkg, FEHashUpper(obj))); }
+void FEngSetInvisible(const char *pkg, uint32_t objHash) { FEngSetInvisible(FEngFindObject(pkg, objHash)); }
+void FEngSetVisible(const char *pkg, const char *obj) { FEngSetVisible(FEngFindObject(pkg, FEHashUpper(obj))); }
+void FEngSetVisible(const char *pkg, uint32_t objHash) { FEngSetVisible(FEngFindObject(pkg, objHash)); }

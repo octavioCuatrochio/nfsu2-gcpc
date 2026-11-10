@@ -200,6 +200,51 @@ char *EditedStringBuffer() { return reinterpret_cast<char *>(0x83A8B0); }
 int32_t RealTimer() { return *reinterpret_cast<const int32_t *>(0x8651AC); }
 int32_t KeyboardCreationTimer() { return *reinterpret_cast<const int32_t *>(0x83A9C8); }
 float KeyboardDelaySeconds() { return *reinterpret_cast<const float *>(0x7F942C); }
+uint8_t *TextInputFlag() { return reinterpret_cast<uint8_t *>(0x83A9C0); }
+uint32_t *TextInputHandle() { return reinterpret_cast<uint32_t *>(0x83A9C4); }
+char *TextInputBuffer() { return reinterpret_cast<char *>(0x83A7B0); }
+void TextInput_Start(void *o, uint32_t m, char *b, uint32_t mode) { reinterpret_cast<void(THISCALL *)(void *, void *, uint32_t, char *, uint32_t)>(0x4FF3B0)(reinterpret_cast<void *>(0x83A7B0), o, m, b, mode); }
+void TextInput_Close(void *o, uint32_t f) { reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x540AB0)(o, f); }
+void TextInput_Accept(void *o) { reinterpret_cast<void(THISCALL *)(void *)>(0x54C8A0)(o); }
+void TextInput_Cancel(void *o) { reinterpret_cast<void(THISCALL *)(void *)>(0x54C7F0)(o); }
+void TextInput_Notify(void *o, uint32_t m) { reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x540BF0)(o, m); }
+void MenuScreen_NotificationMessage(void *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t, FEObject *, uint32_t, uint32_t)>(s))[0x08 / 4](s, m, o, a, p); }
+uint32_t MenuScreen_NotifySoundMessage(void *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p, uint32_t e) { return (*reinterpret_cast<uint32_t(THISCALL ***)(void *, uint32_t, FEObject *, uint32_t, uint32_t, uint32_t)>(s))[0x0C / 4](s, m, o, a, p, e); }
+void FEPrintfString(FEObject *o, const char *f, const char *a) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, a); }
+const char *ProfileNameBuffer() { return reinterpret_cast<const char *>(0x83A9E0); }
+int32_t PlayerCash() { return *reinterpret_cast<const int32_t *>(0x861E74); }
+int32_t Timer_CountDown(int32_t *t, float e) { return reinterpret_cast<int32_t(THISCALL *)(int32_t *, float)>(0x577310)(t, e); }
+uint8_t *EAMIconState() { return reinterpret_cast<uint8_t *>(0x838524); }
+uint8_t *ResetMasksFlag() { return reinterpret_cast<uint8_t *>(0x838521); }
+bool ShowEAMIcons() { return *reinterpret_cast<const uint8_t *>(0x838528) != 0; }
+void SetCallingScreenFrozen(bool on) { *reinterpret_cast<uint8_t *>(0x838520) = on; }
+int32_t MessengerButtonTimer() { return *reinterpret_cast<const int32_t *>(0x8637C8); }
+bool OnlineBusy() { return (reinterpret_cast<uint32_t(THISCALL *)(void *)>(0x5F00F0)(reinterpret_cast<void *>(0x89CF48)) & 0xFF) != 0; }
+void Call4A0140(int32_t a) { reinterpret_cast<void(__cdecl *)(int32_t)>(0x4A0140)(a); }
+void FEngSwitchPackages(const char *a, const char *b, uint32_t c, uint32_t d) { reinterpret_cast<void(__cdecl *)(const char *, const char *, uint32_t, uint32_t)>(0x555F10)(a, b, c, d); }
+void FEngPushPackageOver(const char *a, const char *b, uint32_t c, uint32_t d) { reinterpret_cast<void(__cdecl *)(const char *, const char *, uint32_t, uint32_t)>(0x555EB0)(a, b, c, d); }
+void PlayUISound(int32_t id) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x458520)(*reinterpret_cast<void **>(0x82B884), id); }
+void ShowHelpMessage(const char *p, const char *s, uint32_t h) { reinterpret_cast<void(__cdecl *)(const char *, const char *, uint32_t)>(0x558AC0)(p, s, h); }
+bool HelpBar_HandlesSelect() { return (reinterpret_cast<uint32_t(THISCALL *)(void *)>(0x50CF10)(*reinterpret_cast<void **>(0x8384D8)) & 0xFF) != 0; }
+void ShowOneButtonDialog(const char *p, const char *s, uint32_t a, int32_t b, int32_t c, const char *m) { reinterpret_cast<void(__cdecl *)(const char *, const char *, uint32_t, int32_t, int32_t, const char *)>(0x558540)(p, s, a, b, c, m); }
+const char *LocalizedString(uint32_t h) { return reinterpret_cast<const char *(__cdecl *)(uint32_t)>(0x4FFA80)(h); }
+void *Online_Manager() { return reinterpret_cast<void *(__cdecl *)()>(0x58F6D0)(); }
+void *Online_GetEntry(void *m, int32_t i) { return reinterpret_cast<void *(THISCALL *)(void *, int32_t)>(0x5847F0)(m, i); }
+void *Online_Find(void *m, const char *n, uint32_t id) { return reinterpret_cast<void *(THISCALL *)(void *, const char *, uint32_t)>(0x5847A0)(m, n, id); }
+const char *Online_DictGet(void *d, const char *k) { return reinterpret_cast<const char *(__cdecl *)(void *, const char *)>(0x7414A0)(d, k); }
+void Online_CopyOrDefault(const char *s, char *d, uint32_t n, const char *def) { reinterpret_cast<void(__cdecl *)(const char *, char *, uint32_t, const char *)>(0x742360)(s, d, n, def); }
+void Online_Select(void *m, const char *n, uint32_t id) { reinterpret_cast<void(THISCALL *)(void *, const char *, uint32_t, uint32_t)>(0x58D150)(m, n, id, 0); }
+int32_t Online_Login(char *a, char *b, void *s)
+{
+    void *o = reinterpret_cast<void *(__cdecl *)(int32_t)>(0x58F740)(0);
+    return reinterpret_cast<int32_t(THISCALL *)(void *, char *, char *, void *, void *)>(0x58D6B0)(o, a, b, reinterpret_cast<void *>(0x558F50), s);
+}
+uint32_t Online_558330(const char *p, const char *s, uint32_t h, const char *n) { return reinterpret_cast<uint32_t(__cdecl *)(const char *, const char *, uint32_t, const char *)>(0x558330)(p, s, h, n); }
+const char *OnlineUserName() { return reinterpret_cast<const char *>(0x836014); }
+char *OnlineField85009C() { return reinterpret_cast<char *>(0x85009C); }
+char *OnlineField8500A9() { return reinterpret_cast<char *>(0x8500A9); }
+uint8_t *OnlineFlag85009B() { return reinterpret_cast<uint8_t *>(0x85009B); }
+uint32_t *OnlineLoginHandle() { return reinterpret_cast<uint32_t *>(0x83852C); }
 void *UIWidgetMenuVTable() { return reinterpret_cast<void *>(0x795CDC); }
 static void WidgetSlot(void *w, int off) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[off / 4](w); }
 void FEWidget_Position(void *w) { WidgetSlot(w, 0x10); }
