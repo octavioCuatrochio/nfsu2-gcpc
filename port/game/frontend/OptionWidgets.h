@@ -63,6 +63,17 @@ struct OptionCycle {
     void RacingMiniMapAct(uint32_t msg);   void RacingMiniMapDraw() const;
     void DifficultyAct(uint32_t msg);      void DifficultyDraw() const;
     void ExploringMiniMapAct(uint32_t msg); void ExploringMiniMapDraw() const;
+    // edited player's record (0x83AA64 + *0x836364 * 0x28):
+    //   POTransmission 7940F0: 4B75D0 / 4B7630  byte +0x15: 0 <-> 1, name 0xD31407E7, values 0x61CB0720 0x1B3A2485
+    //   POHandling     794138: 4B7690 / 4B76F0  byte +0x16: 0 <-> 1, name 0xDF06ED22, values 0x63C 0xCCFA
+    //   PODriveCam     794180: 4B7750 / 4B77B0  int +0x10, max 3, name 0xF6CCDC5F, values 0xC3E9AE58 0x414F19D7
+    //                  0x5AE3441F 0x1EA4CEC2 0x916039B4 (jump table, 5 cases)
+    //   POSplitTime    7942E8: 4B7AA0 / 4B7B00  byte +0x14, max 4, name 0x084BC378, values 0xD93F8F55 0xC44D3943
+    //                  0x17FAFC32 0x1EA459F8 0xCCFA
+    void TransmissionAct(uint32_t msg);    void TransmissionDraw() const;
+    void HandlingAct(uint32_t msg);        void HandlingDraw() const;
+    void DriveCamAct(uint32_t msg);        void DriveCamDraw() const;
+    void SplitTimeAct(uint32_t msg);       void SplitTimeDraw() const;
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

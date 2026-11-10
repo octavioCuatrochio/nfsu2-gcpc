@@ -157,3 +157,45 @@ void OptionCycle::ExploringMiniMapAct(uint32_t msg)
     BlinkDraw(this, msg);
 }
 void OptionCycle::ExploringMiniMapDraw() const { SetNameValue(base, 0xC6269082u, Pick(*bridge::GameByte(0x83AA1C), {0xCCFAu, 0xF75595F2u, 0xF4B00E99u})); }
+
+namespace {
+uint8_t *EditedRecord() { return bridge::PlayerControllerOptions(bridge::PlayerToEditForOptions()); }
+void FlipBinary(uint8_t &f) { if (f == 0) f = 1; else if (f == 1) f = 0; }
+}  // namespace
+
+void OptionCycle::TransmissionAct(uint32_t msg)
+{
+    if (msg == kLeft || msg == kRight) FlipBinary(EditedRecord()[0x15]);
+    BlinkDraw(this, msg);
+}
+void OptionCycle::TransmissionDraw() const { SetNameValue(base, 0xD31407E7u, Pick(EditedRecord()[0x15], {0x61CB0720u, 0x1B3A2485u})); }
+
+void OptionCycle::HandlingAct(uint32_t msg)
+{
+    if (msg == kLeft || msg == kRight) FlipBinary(EditedRecord()[0x16]);
+    BlinkDraw(this, msg);
+}
+void OptionCycle::HandlingDraw() const { SetNameValue(base, 0xDF06ED22u, Pick(EditedRecord()[0x16], {0x63Cu, 0xCCFAu})); }
+
+void OptionCycle::DriveCamAct(uint32_t msg)
+{
+    auto &v = *reinterpret_cast<int32_t *>(EditedRecord() + 0x10);
+    v = Cycle(v, msg, 3);
+    BlinkDraw(this, msg);
+}
+void OptionCycle::DriveCamDraw() const
+{
+    const int32_t v = *reinterpret_cast<const int32_t *>(EditedRecord() + 0x10);
+    SetNameValue(base, 0xF6CCDC5Fu, Pick(v, {0xC3E9AE58u, 0x414F19D7u, 0x5AE3441Fu, 0x1EA4CEC2u, 0x916039B4u}));
+}
+
+void OptionCycle::SplitTimeAct(uint32_t msg)
+{
+    uint8_t &f = EditedRecord()[0x14];
+    f = static_cast<uint8_t>(Cycle(f, msg, 4));
+    BlinkDraw(this, msg);
+}
+void OptionCycle::SplitTimeDraw() const
+{
+    SetNameValue(base, 0x084BC378u, Pick(EditedRecord()[0x14], {0xD93F8F55u, 0xC44D3943u, 0x17FAFC32u, 0x1EA459F8u, 0xCCFAu}));
+}

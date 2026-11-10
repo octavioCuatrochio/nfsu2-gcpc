@@ -593,6 +593,14 @@ void THISCALL OC_Difficulty_Act(OptionCycle *self, const char *, uint32_t msg) {
 void THISCALL OC_Difficulty_Draw(OptionCycle *self) { self->DifficultyDraw(); }
 void THISCALL OC_ExploringMiniMap_Act(OptionCycle *self, const char *, uint32_t msg) { self->ExploringMiniMapAct(msg); }
 void THISCALL OC_ExploringMiniMap_Draw(OptionCycle *self) { self->ExploringMiniMapDraw(); }
+void THISCALL OC_Transmission_Act(OptionCycle *self, const char *, uint32_t msg) { self->TransmissionAct(msg); }
+void THISCALL OC_Transmission_Draw(OptionCycle *self) { self->TransmissionDraw(); }
+void THISCALL OC_Handling_Act(OptionCycle *self, const char *, uint32_t msg) { self->HandlingAct(msg); }
+void THISCALL OC_Handling_Draw(OptionCycle *self) { self->HandlingDraw(); }
+void THISCALL OC_DriveCam_Act(OptionCycle *self, const char *, uint32_t msg) { self->DriveCamAct(msg); }
+void THISCALL OC_DriveCam_Draw(OptionCycle *self) { self->DriveCamDraw(); }
+void THISCALL OC_SplitTime_Act(OptionCycle *self, const char *, uint32_t msg) { self->SplitTimeAct(msg); }
+void THISCALL OC_SplitTime_Draw(OptionCycle *self) { self->SplitTimeDraw(); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1216,6 +1224,14 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x4B75D0, (const void *)&OC_Transmission_Act, "POTransmission::Act", {0x8B, 0x54, 0x24, 0x08, 0x81, 0xFA}},
+    {0x4B7630, (const void *)&OC_Transmission_Draw, "POTransmission::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B7690, (const void *)&OC_Handling_Act, "POHandling::Act", {0x8B, 0x54, 0x24, 0x08, 0x81, 0xFA}},
+    {0x4B76F0, (const void *)&OC_Handling_Draw, "POHandling::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B7750, (const void *)&OC_DriveCam_Act, "PODriveCam::Act", {0xA1, 0x64, 0x63, 0x83, 0x00, 0x8B}},
+    {0x4B77B0, (const void *)&OC_DriveCam_Draw, "PODriveCam::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4B7AA0, (const void *)&OC_SplitTime_Act, "POSplitTime::Act", {0xA1, 0x64, 0x63, 0x83, 0x00, 0x8B}},
+    {0x4B7B00, (const void *)&OC_SplitTime_Draw, "POSplitTime::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x49AB80, (const void *)&OC_AudioMode_Act, "AOAudioMode::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0x9E}},
     {0x49ABD0, (const void *)&OC_AudioMode_Draw, "AOAudioMode::Draw", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x49AE80, (const void *)&OC_SpeedoUnits_Act, "GOSpeedoUnits::Act", {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24}},
