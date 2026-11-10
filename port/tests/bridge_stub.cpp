@@ -59,6 +59,7 @@ const float *contextTransform = nullptr;
 std::vector<void *> hitObjects;
 std::vector<HitTest> hitTests;
 bool textInputFocused = false;
+int fakeFont = 0;
 std::vector<void *> renderedObjects;
 float viewMatrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 FESortGlobals sortGlobals{};
@@ -208,6 +209,27 @@ void FEGameInterface_RenderObjectList(void *gi, void *e, uint32_t n)
 }
 void FEGameInterface_GetViewTransformation(void *gi, void *m) { teststub::delivered.push_back({"view", gi, nullptr, 0, 0}); std::memcpy(m, teststub::viewMatrix, 64); }
 FESortGlobals *FEngSortGlobals() { return &teststub::sortGlobals; }
+#endif
+#ifdef NFSU2_REFEREE
+uint32_t FEngHashStringUpper(const char *f) { return reinterpret_cast<uint32_t(__cdecl *)(const char *, ...)>(0x50B9C0)(f); }
+#else
+uint32_t FEngHashStringUpper(const char *f) { return FEHashUpper(f); }   // no % in test names
+#endif
+#ifdef NFSU2_REFEREE
+void *FEngFindFont(uint32_t h) { return reinterpret_cast<void *(__cdecl *)(uint32_t)>(0x51BD70)(h); }
+long double FEngFont_GetTextWidth(void *f, const uint16_t *t, uint32_t a) { return reinterpret_cast<long double(__attribute__((thiscall)) *)(void *, const uint16_t *, uint32_t)>(0x50BEC0)(f, t, a); }
+long double FEngFont_GetTextHeight(void *f, const uint16_t *t, uint32_t a) { return reinterpret_cast<long double(__attribute__((thiscall)) *)(void *, const uint16_t *, uint32_t)>(0x50BF40)(f, t, a); }
+long double FEngFont_CalculateXOffset(void *f, uint32_t j, float w) { return reinterpret_cast<long double(__attribute__((thiscall)) *)(void *, uint32_t, float)>(0x50C020)(f, j, w); }
+long double FEngFont_CalculateYOffset(void *f, uint32_t j, float h) { return reinterpret_cast<long double(__attribute__((thiscall)) *)(void *, uint32_t, float)>(0x50C050)(f, j, h); }
+bool FEngGetLocalizedString(uint16_t *b, int32_t n, uint32_t h) { return reinterpret_cast<bool(__cdecl *)(uint16_t *, int32_t, uint32_t)>(0x512570)(b, n, h); }
+#else
+// fake font: width = 10 per character, height 20, offsets: justify 1 -> -width/2, else 0
+void *FEngFindFont(uint32_t h) { return h ? &teststub::fakeFont : nullptr; }
+long double FEngFont_GetTextWidth(void *, const uint16_t *t, uint32_t) { int n = 0; while (t && t[n]) ++n; return 10.0L * n; }
+long double FEngFont_GetTextHeight(void *, const uint16_t *, uint32_t) { return 20.0L; }
+long double FEngFont_CalculateXOffset(void *, uint32_t j, float w) { return j & 1 ? -w / 2.0L : 0.0L; }
+long double FEngFont_CalculateYOffset(void *, uint32_t j, float h) { return j & 4 ? -h / 2.0L : 0.0L; }
+bool FEngGetLocalizedString(uint16_t *b, int32_t, uint32_t h) { if (h != 0x77) return false; b[0] = 'A'; b[1] = 'B'; b[2] = 'C'; b[3] = 0; return true; }
 #endif
 bool TextInputFocused() { return teststub::textInputFocused; }
 #ifdef NFSU2_REFEREE

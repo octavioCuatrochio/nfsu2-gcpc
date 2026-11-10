@@ -37,6 +37,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   50C630 stays the registered address (hooked). 579410 = AddJoyHandler (DB name wrong).
 - Referee: game data the rewrite reads through bridge:: must also resolve to the real address in bridge_stub.cpp
   under NFSU2_REFEREE (else ORIGINAL uses real data, REWRITE the stub's).
+- FEng helpers (FEngUtil.cpp): visibility/texture/script/size/position done. Position helpers switch on type:
+  boxes 1/7/9 pivot at the center (pos +- size/2), strings 2 use the FEngFont (bridged: FindFont 51BD70,
+  GetTextWidth/Height 50BEC0/50BF40, X/YOffset 50C020/50C050; FEString +0x6C justify, +0x70 height arg), groups
+  differ per function. 50B9C0 FEngHashStringUpper = printf-format then hash (bridged). Referee can't run string
+  paths (FindFont crashes in DllMain).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.
 - Referee: bridge_stub.cpp under NFSU2_REFEREE must call game-interface slots through the vtable (fake gi).

@@ -1691,6 +1691,79 @@ static void CheckFEngUtil(int iters)
     }
 }
 
+// FEngSetRotationZ on objects without scripts (rotation data + dirty flag), both FPU precisions.
+static void CheckFEngRotationZ(int iters)
+{
+    auto o = ORIG<void(__cdecl *)(FEObject *, float)>(0x51CED0);
+    alignas(8) static unsigned char ma[sizeof(FEObject)], mb[sizeof(FEObject)];
+    static float da[20], db[20];
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            std::memset(ma, 0, sizeof ma);
+            for (float &f : da) f = RefCoord() / 300.0f;
+            auto *a = reinterpret_cast<FEObject *>(ma);
+            a->mpData = da;
+            a->mu32Flags = rng() & 3;
+            std::memcpy(mb, ma, sizeof mb);
+            std::memcpy(db, da, sizeof db);
+            auto *b = reinterpret_cast<FEObject *>(mb);
+            b->mpData = db;
+            const float deg = rng() % 4 ? static_cast<float>(static_cast<int32_t>(rng() % 721) - 360) : RefCoord();
+            o(a, deg);
+            FEngSetRotationZ(b, deg);
+            EXPECT(std::memcmp(da, db, sizeof da) == 0 && a->mu32Flags == b->mu32Flags, "FEngSetRotationZ(%g) pc=%x", deg, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
+// FEng position helpers on random objects (boxes, strings without a loaded font, groups, others), both precisions.
+static void CheckFEngPosition(int iters)
+{
+    using Get = void(__cdecl *)(const FEObject *, float *, float *);
+    using Set = void(__cdecl *)(FEObject *, float, float);
+    const Get og[4] = {ORIG<Get>(0x51D070), ORIG<Get>(0x51D170), ORIG<Get>(0x51D620), ORIG<Get>(0x51D730)};
+    const Get rg[4] = {&FEngGetTopLeft, &FEngGetBottomRight, &FEngGetCenter, &FEngGetSize};
+    const Set os[3] = {ORIG<Set>(0x51D380), ORIG<Set>(0x51D2D0), ORIG<Set>(0x51D4D0)};
+    const Set rs[3] = {&FEngSetTopLeft, &FEngSetBottomRight, &FEngSetCenter};
+    // no strings (type 2): FindFont (51BD70) walks the font list, which is not set up while the referee runs
+    static const uint32_t types[] = {0, 1, 3, 3, 4, 5, 6, 7, 8, 9, 10, 0x100, 0x200};
+    alignas(8) static unsigned char ma[sizeof(FEString)], mb[sizeof(FEString)];
+    static float da[20], db[20];
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            std::memset(ma, 0, sizeof ma);
+            for (float &f : da) f = rng() % 5 ? RefCoord() / static_cast<float>(1 + rng() % 7) : 0.0f;
+            auto *a = reinterpret_cast<FEObject *>(ma);
+            a->mpData = da;
+            a->mu32Type = types[rng() % 13];
+            a->mu32Flags = rng() & 0x400003;
+            a->_unknown24 = rng();   // font hash: no fonts are loaded while the referee runs
+            std::memcpy(mb, ma, sizeof mb);
+            std::memcpy(db, da, sizeof db);
+            auto *b = reinterpret_cast<FEObject *>(mb);
+            b->mpData = db;
+            const int op = static_cast<int>(rng() % 7);
+            if (op < 4) {
+                float ax = 1234.5f, ay = -77.25f, bx = ax, by = ay;
+                og[op](a, &ax, &ay);
+                rg[op](b, &bx, &by);
+                EXPECT(std::memcmp(&ax, &bx, 4) == 0 && std::memcmp(&ay, &by, 4) == 0, "FEng get op %d type %x pc=%x: %g,%g vs %g,%g", op, a->mu32Type, pc, ax, ay, bx, by);
+            } else {
+                const float x = RefCoord(), y = RefCoord();
+                os[op - 4](a, x, y);
+                rs[op - 4](b, x, y);
+                EXPECT(std::memcmp(da, db, sizeof da) == 0 && a->mu32Flags == b->mu32Flags, "FEng set op %d type %x pc=%x", op, a->mu32Type, pc);
+            }
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEJoyPad::Update + HeldFor / FEMouse::Update on random state.
 static void CheckPadMouse(int iters)
 {
@@ -2271,6 +2344,8 @@ static int RunAll()
     REFEREE_RUN(CheckTypeLib(iters * 5));
     REFEREE_RUN(CheckHandleJoy(iters));
     REFEREE_RUN(CheckFEngUtil(iters * 5));
+    REFEREE_RUN(CheckFEngRotationZ(iters));
+    REFEREE_RUN(CheckFEngPosition(iters * 3));
     REFEREE_RUN(CheckIsInputMessage(iters));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));

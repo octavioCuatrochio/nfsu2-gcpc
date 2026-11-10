@@ -10,7 +10,7 @@ struct bASinTableEntry {             // PC 0x7EA628 (.data, 12 segments x 16 + 1
 };
 
 long double bSin(uint16_t angle);    // GC 8005930C (bSin(ushort)) / PC 43C2B0: 9th-order polynomial, returns st0
-long double bSinF(float radians);
+long double bSinF(float radians);   // PC 43C350: bSin(ftol(radians * 65536/2pi)) (low 16 bits)
 long double bCos(uint16_t angle);    // PC 43C370: bSin(angle + 0x4000)
 // GC 80059370 / PC 43C390: sine and cosine series sharing x^2; even powers x^4, x^6, x^8 are rounded to float
 // (stack temporaries), both results multiplied by the quadrant sign and stored as float.
@@ -77,12 +77,12 @@ void bInvertMatrix(bMatrix4 *out, const bMatrix4 *in);
 // PC 43CBD0: rotation part of m -> quaternion (x, y, z, w). trace (m5 + m0 + m10, unrounded) > 0: w = s/2 with
 // s = sqrt(trace + 1); else the largest diagonal element i (strictly greater wins, NaN keeps the earlier one),
 // j = i+1, k = j+1 (mod 3); s == 0 skips the 0.5/s division. Written through a temporary.
-void bMatrixToQuaternion(bVector4 *q, const bMatrix4 *m);      // PC 43C9D0 (via a copy: in may alias out)
+void bMatrixToQuaternion(bVector4 *q, const bMatrix4 *m);      // PC 43CBD0 (via a copy: in may alias out)
 // GC 80059210 / PC 43C280: a - (a / |b| * |b| - (a < 0 ? |b| : 0)); note a < 0 and divisible -> |b|, not 0.
 int32_t bSignedMod(int32_t a, int32_t b);
 // GC 800598A0 / PC 43C650: atan of a 16.16 ratio, piecewise linear over two uint16 tables (PC 0x7EB1C0 below 4.0,
 // 0x7EB2C8 below 32.0), a fixed segment below 256.0, 0x3FFF above. Odd: negative input -> negated result.
 int32_t bFixATan(int32_t ratio);
 // GC 8005996C / PC 43C6F0: integer atan2(y, x) via bFixATan((0x7FFFFFFF / |x| * |y|) >> 16 << 1); |x| <= |y| >> 14 -> 0x4000.
-int32_t bFixATan(int32_t x, int32_t y);    // PC 43C350: bSin(ftol(radians * 65536/2pi)) (low 16 bits)
+int32_t bFixATan(int32_t x, int32_t y);
 uint16_t bASin(float x);             // GC 800594C8 / PC 43C490: table + slope; |x| >= 1 -> +-0x4000

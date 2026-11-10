@@ -131,6 +131,13 @@ void FEGameInterface_GenerateRenderContext(void *gi, uint32_t c, FEObject *g) { 
 void FEGameInterface_RenderObjectList(void *gi, void *e, uint32_t n) { (*reinterpret_cast<void(THISCALL ***)(void *, void *, uint32_t)>(gi))[0x30 / 4](gi, e, n); }
 void FEGameInterface_GetViewTransformation(void *gi, void *m) { (*reinterpret_cast<void(THISCALL ***)(void *, void *)>(gi))[0x3C / 4](gi, m); }
 FESortGlobals *FEngSortGlobals() { return reinterpret_cast<FESortGlobals *>(0x838488); }
+uint32_t FEngHashStringUpper(const char *f) { return reinterpret_cast<uint32_t(__cdecl *)(const char *, ...)>(0x50B9C0)(f); }
+void *FEngFindFont(uint32_t h) { return reinterpret_cast<void *(__cdecl *)(uint32_t)>(0x51BD70)(h); }
+long double FEngFont_GetTextWidth(void *f, const uint16_t *t, uint32_t a) { return reinterpret_cast<long double(THISCALL *)(void *, const uint16_t *, uint32_t)>(0x50BEC0)(f, t, a); }
+long double FEngFont_GetTextHeight(void *f, const uint16_t *t, uint32_t a) { return reinterpret_cast<long double(THISCALL *)(void *, const uint16_t *, uint32_t)>(0x50BF40)(f, t, a); }
+long double FEngFont_CalculateXOffset(void *f, uint32_t j, float w) { return reinterpret_cast<long double(THISCALL *)(void *, uint32_t, float)>(0x50C020)(f, j, w); }
+long double FEngFont_CalculateYOffset(void *f, uint32_t j, float h) { return reinterpret_cast<long double(THISCALL *)(void *, uint32_t, float)>(0x50C050)(f, j, h); }
+bool FEngGetLocalizedString(uint16_t *b, int32_t n, uint32_t h) { return reinterpret_cast<bool(__cdecl *)(uint16_t *, int32_t, uint32_t)>(0x512570)(b, n, h); }
 bool TextInputFocused() { return *reinterpret_cast<const uint8_t *>(0x83A9C0) && *reinterpret_cast<const uint32_t *>(0x83A9C4); }
 void SetHoldDirtyFlags(uint32_t v) { *reinterpret_cast<uint32_t *>(0x7F7C8C) = v; }
 void FEGameInterface_LibraryLoaded(void *gi, FEPackage *p) { (*reinterpret_cast<void(THISCALL ***)(void *, FEPackage *)>(gi))[3](gi, p); }

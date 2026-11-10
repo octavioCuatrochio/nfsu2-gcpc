@@ -46,6 +46,7 @@ struct HitTest { void *obj; float x, y; };
 extern std::vector<void *> hitObjects;   // FEGameInterface_IsPointInObject: these are hit
 extern std::vector<HitTest> hitTests;
 extern bool textInputFocused;
+extern int fakeFont;
 extern std::vector<void *> renderedObjects;   // objects of the last FEGameInterface_RenderObjectList, in order
 extern float viewMatrix[16];
 extern FESortGlobals sortGlobals;

@@ -103,6 +103,14 @@ void FEGameInterface_GenerateRenderContext(void *gi, uint32_t context, ::FEObjec
 void FEGameInterface_RenderObjectList(void *gi, void *entries, uint32_t count);              // +0x30 ({obj, key} x count)
 void FEGameInterface_GetViewTransformation(void *gi, void *matrix);                          // +0x3C (FEMatrix4)
 ::FESortGlobals *FEngSortGlobals();   // PC 0x838488
+uint32_t FEngHashStringUpper(const char *fmt);   // PC 50B9C0 (__cdecl, varargs): bVSPrintf into 0x100 bytes, then FEHashUpper
+// FEngFont (not rewritten): FindFont PC 51BD70 (__cdecl hash); members __thiscall, results in st0.
+void *FEngFindFont(uint32_t hash);
+long double FEngFont_GetTextWidth(void *font, const uint16_t *text, uint32_t flags);     // PC 50BEC0 (ret 8)
+long double FEngFont_GetTextHeight(void *font, const uint16_t *text, uint32_t arg);      // PC 50BF40 (ret 8)
+long double FEngFont_CalculateXOffset(void *font, uint32_t justify, float width);       // PC 50C020 (ret 8)
+long double FEngFont_CalculateYOffset(void *font, uint32_t justify, float height);      // PC 50C050 (ret 8)
+bool FEngGetLocalizedString(uint16_t *buffer, int32_t bytes, uint32_t labelHash);        // PC 512570 (__cdecl)
 bool TextInputFocused();   // PC globals 0x83A9C0 (byte, FocusedTextbox active) && 0x83A9C4 (dword) both nonzero
 void SetHoldDirtyFlags(uint32_t v);                                   // uHoldDirtyFlags, PC 0x7F7C8C
 // constructors of object types not rewritten yet (types 1, 4, 5, 6, 7, 9, 10, 11; PC 532640/5349C0/52B080/52B9E0/52B0B0/534B90/534DB0/52B480)

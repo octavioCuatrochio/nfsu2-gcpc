@@ -9,6 +9,7 @@
 #include "frontend/FEButtonMap.h"
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
+#include "frontend/FEString.h"
 #include <cmath>
 #include "frontend/FEPool.h"
 #include "frontend/FEPackage.h"
@@ -2277,6 +2278,90 @@ static void TestFEngUtil()
     CHECK(!FEngIsScriptFinished(o[0], "fade") && !FEngIsScriptFinished(o[0], "Other") && !FEngIsScriptFinished(nullptr, "Fade"));
     sc->mi32Time = 10;
     CHECK(FEngIsScriptFinished(o[0], "FADE"));
+    // scripts: current script, time reset on change, restart
+    alignas(8) unsigned char sm2[sizeof(FEScript)] = {};
+    auto *sc2 = reinterpret_cast<FEScript *>(sm2);
+    sc2->mu32Id = FEHashUpper("Glow");
+    sc2->mi32Length = 5;
+    sc2->mi32Time = 3;
+    o[0]->mScripts.AddTail(&sc2->node);
+    o[0]->mpCurrentScript = sc;
+    FEngSetScript(o[0], "glow", false);
+    CHECK(o[0]->mpCurrentScript == sc2 && sc2->mi32Time == 0);
+    CHECK(FEngIsScriptRunning(o[0], "GLOW") && !FEngIsScriptRunning(o[0], "Fade") && !FEngIsScriptRunning(nullptr, "Glow"));
+    sc2->mi32Time = 4;
+    FEngSetScript(o[0], FEHashUpper("Glow"), false);   // already current: time kept
+    CHECK(sc2->mi32Time == 4);
+    FEngSetScript(o[0], FEHashUpper("Glow"), true);
+    CHECK(sc2->mi32Time == 0);
+    sc2->mi32Time = 6;
+    CHECK(!FEngIsScriptRunning(o[0], "Glow"));
+    FEngSetScript(o[0], "Missing", true);
+    CHECK(o[0]->mpCurrentScript == sc2);
+}
+
+// FEng position helpers: boxes (pivot at the center), strings (fake font: 10 px/char, 20 high), others.
+static void TestFEngPosition()
+{
+    alignas(8) unsigned char bm[sizeof(FEObject)] = {}, sm[sizeof(FEString)] = {}, gm[sizeof(FEObject)] = {};
+    float bd[20] = {}, sd[20] = {}, gd[20] = {};
+    auto *box = reinterpret_cast<FEObject *>(bm);
+    auto *str = reinterpret_cast<FEString *>(sm);
+    auto *grp = reinterpret_cast<FEObject *>(gm);
+    box->mu32Type = 1; box->mpData = bd;
+    grp->mu32Type = 5; grp->mpData = gd;
+    FEObject *so = reinterpret_cast<FEObject *>(str);
+    so->mu32Type = 2; so->mpData = sd; so->_unknown24 = 1;   // font hash (stub: any non-zero)
+    uint16_t text[4] = {'a', 'b', 'c', 0};
+    str->mstrText.mpsString = text;
+    str->_unknown6C = 1 | 4;                                 // stub: centred in x and y
+    bd[7] = 100; bd[8] = 50; bd[14] = 40; bd[15] = 20;       // box at (100, 50) size 40x20
+    sd[7] = 10; sd[8] = 20; sd[14] = 2; sd[15] = 1;          // string at (10, 20), scale 2x1 -> 60 x 20
+    gd[7] = 7; gd[8] = 8;
+    float x = -1, y = -1;
+    FEngGetTopLeft(box, &x, &y);
+    CHECK(x == 80 && y == 40);
+    FEngGetBottomRight(box, &x, &y);
+    CHECK(x == 120 && y == 60);
+    FEngGetTopLeft(so, &x, &y);                               // offset (-30, -10) + position
+    CHECK(x == -20 && y == 10);
+    FEngGetBottomRight(so, &x, &y);                           // position - offset + extent
+    CHECK(x == 100 && y == 50);
+    x = y = -1;
+    FEngGetTopLeft(grp, &x, &y);                              // groups: untouched
+    CHECK(x == -1 && y == -1);
+    FEngGetBottomRight(grp, &x, &y);                          // ... but bottom-right gives the position
+    CHECK(x == 7 && y == 8);
+    FEngGetCenter(so, &x, &y);                                // offset + extent/2 + position
+    CHECK(x == 10 && y == 20);
+    FEngGetSize(so, &x, &y);
+    CHECK(x == 60 && y == 20);
+    FEngGetSize(grp, &x, &y);
+    CHECK(x == 0 && y == 0);
+    // setters: dirty on change, SetTrackValue writes the data position
+    box->mu32Flags = 0;
+    FEngSetTopLeft(box, 0, 0);
+    CHECK(bd[7] == 20 && bd[8] == 10 && (box->mu32Flags & kFEObjectDirty));
+    box->mu32Flags = 0;
+    FEngSetTopLeft(box, 0, 0);                                // unchanged: not dirty
+    CHECK(box->mu32Flags == 0);
+    FEngSetBottomRight(box, 100, 100);
+    CHECK(bd[7] == 80 && bd[8] == 90);
+    FEngSetCenter(box, 5, 6);
+    CHECK(bd[7] == 5 && bd[8] == 6);
+    FEngSetTopLeft(so, 0, 0);                                 // x - offset
+    CHECK(sd[7] == 30 && sd[8] == 10);
+    FEngSetCenter(so, 0, 0);                                  // x - (offset + extent/2) = 0
+    CHECK(sd[7] == 0 && sd[8] == 0);
+    so->_unknown24 = 0;                                       // no font: position kept, getters untouched
+    FEngSetCenter(so, 9, 9);
+    CHECK(sd[7] == 0);
+    x = -5;
+    FEngGetCenter(so, &x, &y);
+    CHECK(x == -5);
+    grp->mu32Type = 0x100;                                    // types >= 0x100: no position change
+    FEngSetTopLeft(grp, 1, 2);
+    CHECK(gd[7] == 7);
 }
 
 // cFEng package wrappers over the global FEPackageManager + engine command queue.
@@ -2452,6 +2537,7 @@ int main()
     TestEngineConstructTypes();
     TestCFEngJoy();
     TestFEngUtil();
+    TestFEngPosition();
     TestProcessPads();
     TestProcessMouse();
     TestSlotPool();
