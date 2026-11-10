@@ -153,7 +153,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   PM* icons (PMSave 7959D4 op 0x4A51, PMLoad 7959DC 0xC11, PMDelete 7959E4 0x831, PMCreateNew 7959EC 0x861: EnterMemcard
   ops) done, in-game A/B identical. Profile name text = 0x83A9E0 (502FD0 returns this); menu music *0x836498 (+0xB, +0x5C
   InitCommand 6FBFCC). A/B runs: a key can drop during a transition in either build -> re-run before calling it a bug.
-  Next: UIMagazineSelect, uiCareerCrib, PostRaceMenu, QRCarSelectScreen, CarTunePauseScreen.
+- CareerCrib.cpp: uiCareerCrib (0x150, vtable 797548, ctor 4DF3A0 shows the current ride) + CC* icons (790CF4..790D8C,
+  React 4AF630..4AF7D0) done; native tests only (the crib needs a saved profile: don't create one in the user's saves).
+  Flag 0x836324 = came from main menu (back dialog text), 0x863480 = crib car handle (BeginCarCustomize 552CC0,
+  BeginCarTuning 5309E0). 4DF570 (vtable 797564, Setup 4AFB70) is a sibling crib-style screen (same car code).
+  Next: UIMagazineSelect, PostRaceMenu, QRCarSelectScreen, CarTunePauseScreen, 797564 screen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

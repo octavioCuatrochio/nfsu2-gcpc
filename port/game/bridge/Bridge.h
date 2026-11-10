@@ -507,6 +507,16 @@ uint8_t *MenuMusicObject();                      // PC *(uint8_t **)0x836498 (+0
 void MenuMusic_Command(int32_t cmd);             // PC InitCommand 6FBFCC (__thiscall on obj+0x5C)(cmd, 0x100)
 void GarageShowSelectedCar();                    // PC 4D98AF..4D9959: car record (GetCarRecordByHandle(*0x83AAB8) slot 3)
                                                  //   -> RideInfo -> 0x8371B0 -> garage SetRideInfo(.., 1)
+// ---- uiCareerCrib ----
+void *CareerCribVTable();                        // PC 0x797548
+void GarageShowCurrentRide();                    // PC crib ctor 4DF3EA..4DF49D (BuildCurrentRideForPlayer always)
+void Garage_ChangePlatform(int32_t a, int32_t b);   // PC FEngFindScreen("GarageMain.fng")->ChangePlatform 4A7180(a, b) (no null check)
+bool PlatformFileLoaded(const char *path);       // PC 577EB0 (__cdecl) != 0
+void FESpeech_HandleEvent(int32_t e);            // PC HandleFESpeechEvent 5243D0 (__thiscall on 0x8635BC)
+void StartCareerFreeRoam();                      // PC 5404A0 (__cdecl)
+void Crib_ChangeParts(const char *pkg);          // PC 552CC0(1, pkg, 0, *0x863480) (__cdecl)
+void Crib_StartTuning();                         // PC 5309E0(0, *0x863480, 0) (__cdecl)
+int32_t CareerStage();                           // PC *(int*)0x862838 (> 1: world map icon)
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable();                    // PC 0x796504
 bool IsCareerFreeRoam();                         // PC 500B60 (__thiscall on 0x85AD40, AL) PlayerCareerState

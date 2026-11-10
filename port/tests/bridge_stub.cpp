@@ -1091,6 +1091,16 @@ const char *ProfileDBName() { return "Player"; }
 uint8_t *MenuMusicObject() { return nullptr; }
 void MenuMusic_Command(int32_t) {}
 void GarageShowSelectedCar() { teststub::delivered.push_back({"garagecar", nullptr, nullptr, 1, 0}); }
+// ---- uiCareerCrib ----
+void *CareerCribVTable() { return &teststub::iconScrollerMenuVTable; }
+void GarageShowCurrentRide() {}
+void Garage_ChangePlatform(int32_t, int32_t) {}
+bool PlatformFileLoaded(const char *) { return true; }
+void FESpeech_HandleEvent(int32_t) {}
+void StartCareerFreeRoam() { teststub::delivered.push_back({"freeroam", nullptr, nullptr, 0, 0}); }
+void Crib_ChangeParts(const char *) { teststub::delivered.push_back({"changeparts", nullptr, nullptr, 0, 0}); }
+void Crib_StartTuning() { teststub::delivered.push_back({"tuning", nullptr, nullptr, 0, 0}); }
+int32_t CareerStage() { return 2; }
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return &teststub::fakeFont; }
 bool IsCareerFreeRoam() { return teststub::careerFreeRoam; }

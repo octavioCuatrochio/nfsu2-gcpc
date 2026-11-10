@@ -34,6 +34,7 @@
 #include "frontend/QRModeSelect.h"
 #include "frontend/StartCareer.h"
 #include "frontend/ProfileManager.h"
+#include "frontend/CareerCrib.h"
 #include "frontend/FEMath.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
@@ -800,6 +801,21 @@ void THISCALL PMSave_React(void *, const char *p, uint32_t m, void *, uint32_t, 
 void THISCALL PMLoad_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMIconReact(PMIcon::Load, p, m); }
 void THISCALL PMDelete_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMIconReact(PMIcon::Delete, p, m); }
 void THISCALL PMCreateNew_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMIconReact(PMIcon::CreateNew, p, m); }
+uiCareerCrib *THISCALL CCR_Ctor(uiCareerCrib *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL CCR_Dtor(uiCareerCrib *s) { s->Destruct(); }
+uiCareerCrib *THISCALL CCR_ScalarDtor(uiCareerCrib *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL CCR_Notify(uiCareerCrib *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL CCR_Setup(uiCareerCrib *s) { s->Setup(); }
+void THISCALL CCR_CheckMemory(uiCareerCrib *s) { s->CheckMemory(); }
+void THISCALL CCR_DoStartTuning(uiCareerCrib *s) { s->DoStartTuning(); }
+void THISCALL CCEnterGameplay_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { CCReact(CCKind::EnterGameplay, p, m); }
+void THISCALL CCChangeParts_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { CCReact(CCKind::ChangeParts, p, m); }
+void THISCALL CCCarSel_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { CCReact(CCKind::CarSel, p, m); }
+void THISCALL CCViewSponsors_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { CCReact(CCKind::ViewSponsors, p, m); }
+void THISCALL CCViewWorldMap_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { CCReact(CCKind::ViewWorldMap, p, m); }
+void THISCALL CCSaveMemcard_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { CCReact(CCKind::SaveMemcard, p, m); }
+void THISCALL CCTestTrack_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { CCReact(CCKind::TestTrack, p, m); }
+void THISCALL CCBackToMain_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { CCReact(CCKind::BackToMain, p, m); }
 UIPauseOptions *THISCALL UPO_Ctor(UIPauseOptions *self, const ScreenConstructorData *d) { return self->Construct(d); }
 UIPauseOptions *THISCALL UPO_ScalarDtor(UIPauseOptions *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL UPO_Dtor(UIPauseOptions *self) { self->Destruct(); }
@@ -1605,6 +1621,21 @@ const Replacement kReplacements[] = {
     {0x4C5820, (const void *)&PMLoad_React, "PMLoad::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4C5850, (const void *)&PMDelete_React, "PMDelete::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4C5880, (const void *)&PMCreateNew_React, "PMCreateNew::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4DF3A0, (const void *)&CCR_Ctor, "uiCareerCrib::uiCareerCrib", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x4DF560, (const void *)&CCR_Dtor, "uiCareerCrib::~uiCareerCrib", {0xC7, 0x01, 0x48, 0x75, 0x79, 0x00}},
+    {0x4DF540, (const void *)&CCR_ScalarDtor, "uiCareerCrib scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4AF3A0, (const void *)&CCR_Notify, "uiCareerCrib::NotificationMessage", {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x14}},
+    {0x4AF820, (const void *)&CCR_Setup, "uiCareerCrib::Setup", {0x6A, 0xFF, 0x68, 0x90, 0x2D, 0x77}},
+    {0x4AF360, (const void *)&CCR_CheckMemory, "uiCareerCrib::CheckMemory", {0x56, 0x8B, 0xF1, 0xB9, 0xD0, 0xA9}},
+    {0x495AF0, (const void *)&CCR_DoStartTuning, "uiCareerCrib::DoStartTuning", {0x8B, 0x41, 0x04, 0x6A, 0x00, 0x50}},
+    {0x4AF630, (const void *)&CCEnterGameplay_React, "CCEnterGameplay::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AF680, (const void *)&CCChangeParts_React, "CCChangeParts::React", {0x55, 0x8B, 0xEC, 0x81, 0x7D, 0x0C}},
+    {0x4AF6B0, (const void *)&CCCarSel_React, "CCCarSel::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AF6E0, (const void *)&CCViewSponsors_React, "CCViewSponsors::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AF710, (const void *)&CCViewWorldMap_React, "CCViewWorldMap::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AF740, (const void *)&CCSaveMemcard_React, "CCSaveMemcard::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AF780, (const void *)&CCTestTrack_React, "CCTestTrack::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AF7D0, (const void *)&CCBackToMain_React, "CCBackToMain::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4D93C0, (const void *)&UPO_Ctor, "UIPauseOptions::UIPauseOptions", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4D9470, (const void *)&UPO_Dtor, "UIPauseOptions::~UIPauseOptions", {0xC7, 0x01, 0x04, 0x65, 0x79, 0x00}},
     {0x4EB6B0, (const void *)&UPO_ScalarDtor, "UIPauseOptions scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0xDD}},

@@ -21,6 +21,8 @@
 #include "frontend/MainMenu.h"
 #include "frontend/QRModeSelect.h"
 #include "frontend/StartCareer.h"
+#include "frontend/ProfileManager.h"
+#include "frontend/CareerCrib.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -3164,6 +3166,28 @@ static void TestMenuIcons()
     CHECK(teststub::delivered.size() == 2 && teststub::delivered[0].msg == 3 && teststub::delivered[1].msg == 0xC11);
 }
 
+// Career crib / profile icons: dialogs and memory card operations.
+static void TestCribIcons()
+{
+    auto last = [](void (*f)()) { teststub::delivered.clear(); f(); return teststub::delivered; };
+    auto d = last([] { CCReact(CCKind::BackToMain, nullptr, 0x0C407210u); });
+    CHECK(!d.empty() && std::string(d[0].kind) == "twobuttons" && d[0].msg == 0x88579775u && d[0].arg == 0xCB5E3178u);
+    d = last([] { CCReact(CCKind::EnterGameplay, nullptr, 0x0C407210u); });
+    CHECK(!d.empty() && d[0].arg == 0x60B42AFBu);
+    d = last([] { CCReact(CCKind::TestTrack, nullptr, 0x0C407210u); });
+    bool tt = false;
+    for (const auto &e : d) tt |= std::string(e.kind) == "twobuttons" && e.msg == 0xF770u && e.arg == 0xB10AE56Fu;
+    CHECK(tt);
+    d = last([] { CCReact(CCKind::SaveMemcard, nullptr, 0x0C407210u); });
+    CHECK(d.size() == 2 && std::string(d[0].kind) == "deallocbackup" && d[1].msg == 0xC41);
+    d = last([] { CCReact(CCKind::ChangeParts, nullptr, 0x911AB364u); });
+    CHECK(d.empty());
+    d = last([] { PMIconReact(PMIcon::Save, nullptr, 0x0C407210u); PMIconReact(PMIcon::Load, nullptr, 0x0C407210u);
+                  PMIconReact(PMIcon::Delete, nullptr, 0x0C407210u); PMIconReact(PMIcon::CreateNew, nullptr, 0x0C407210u); });
+    CHECK(d.size() == 4 && d[0].msg == 0x4A51 && d[1].msg == 0xC11 && d[2].msg == 0x831 && d[3].msg == 0x861);
+    CHECK(CCVTable(CCKind::BackToMain) == 0x790D8Cu && CCVTable(CCKind::ViewWorldMap) == 0x790D44u);
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -4283,6 +4307,7 @@ int main()
     TestOptionsMain();
     TestPauseMenu();
     TestMenuIcons();
+    TestCribIcons();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

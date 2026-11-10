@@ -644,6 +644,34 @@ void GarageShowSelectedCar()
     *reinterpret_cast<int32_t *>(0x83623C) = 1;
     if (garage) reinterpret_cast<void(THISCALL *)(void *, void *, int32_t)>(0x4D8C70)(garage, reinterpret_cast<void *>(0x8371B0), 1);
 }
+// ---- uiCareerCrib ----
+void *CareerCribVTable() { return reinterpret_cast<void *>(0x797548); }
+void GarageShowCurrentRide()
+{
+    alignas(16) uint8_t ride[0x900];
+    reinterpret_cast<void(THISCALL *)(void *)>(0x5AC6E0)(ride + 0x10);
+    reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t, int32_t, int32_t)>(0x610270)(ride, -1, 0, 0, 0);
+    reinterpret_cast<void(THISCALL *)(void *, int32_t, void *, int32_t)>(0x515D00)(reinterpret_cast<void *>(0x83A9D0), 0, ride, 0);
+    auto findScreen = [](const char *n) { return reinterpret_cast<uint8_t *(__cdecl *)(const char *)>(0x51BD10)(n); };
+    auto pushed = [](const char *n) { return reinterpret_cast<uint8_t(__cdecl *)(const char *)>(0x52CF60)(n) != 0; };
+    void *garage = nullptr;
+    if (pushed("GarageMain.fng")) garage = findScreen("GarageMain.fng");
+    else if (pushed("GarageMain_2P.fng")) { uint8_t *g = findScreen("GarageMain_2P.fng"); garage = g ? *reinterpret_cast<void **>(g + 0x4C) : nullptr; }
+    reinterpret_cast<void(THISCALL *)(void *, void *)>(0x413440)(reinterpret_cast<void *>(0x8371B0), ride);
+    *reinterpret_cast<int32_t *>(0x83623C) = 2;
+    if (garage) reinterpret_cast<void(THISCALL *)(void *, void *, int32_t)>(0x4D8C70)(garage, reinterpret_cast<void *>(0x8371B0), 2);
+}
+void Garage_ChangePlatform(int32_t a, int32_t b)
+{
+    void *g = reinterpret_cast<void *(__cdecl *)(const char *)>(0x51BD10)("GarageMain.fng");
+    reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t)>(0x4A7180)(g, a, b);
+}
+bool PlatformFileLoaded(const char *p) { return reinterpret_cast<int32_t(__cdecl *)(const char *)>(0x577EB0)(p) != 0; }
+void FESpeech_HandleEvent(int32_t e) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x5243D0)(reinterpret_cast<void *>(0x8635BC), e); }
+void StartCareerFreeRoam() { reinterpret_cast<void(__cdecl *)()>(0x5404A0)(); }
+void Crib_ChangeParts(const char *p) { reinterpret_cast<void(__cdecl *)(int32_t, const char *, int32_t, int32_t)>(0x552CC0)(1, p, 0, *reinterpret_cast<const int32_t *>(0x863480)); }
+void Crib_StartTuning() { reinterpret_cast<void(__cdecl *)(int32_t, int32_t, int32_t)>(0x5309E0)(0, *reinterpret_cast<const int32_t *>(0x863480), 0); }
+int32_t CareerStage() { return *reinterpret_cast<const int32_t *>(0x862838); }
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return reinterpret_cast<void *>(0x796504); }
 bool IsCareerFreeRoam() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x500B60)(reinterpret_cast<void *>(0x85AD40)) != 0; }
