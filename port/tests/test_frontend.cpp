@@ -1724,6 +1724,50 @@ static void TestCodeListBox()
     lb->SetCellScale(0, 1, xy, 1, 1);
     lb->SetCellJustification(2, 1, 7, 1, 1);
     CHECK(lb->mpCells[3].mfScaleY == 3.0f && lb->mpCells[5]._unknown1C == 7);
+    // FillAllCells: callback first, else the game interface; virtual indices wrap
+    static std::vector<std::pair<int32_t, int32_t>> calls;
+    calls.clear();
+    lb->mu32TotalColumns = 5; lb->mu32TotalRows = 1; lb->mi32ColumnOffset = 4; lb->mi32RowOffset = 0;
+    lb->mpFillCallback = [](void *, FECodeListBox *, int32_t c, int32_t r) { calls.push_back({c, r}); };
+    lb->FillAllCells();   // 3 columns x min(2, 1) rows
+    CHECK(calls.size() == 3 && calls[0].first == 4 && calls[1].first == 0 && calls[2].first == 1 && calls[2].second == 0);
+    lb->mpFillCallback = nullptr;
+    int gi = 0;
+    lb->mpGameInterface = &gi;
+    teststub::delivered.clear();
+    lb->FillAllCells();
+    CHECK(teststub::delivered.size() == 3 && std::string(teststub::delivered[0].kind) == "fillcell" && teststub::delivered[1].msg == 0);
+    teststub::delivered.clear();
+    // movement: clamped list at its end -> "CLB AT MAX"; a window shift rotates texts and refills the new column
+    lb->mpGameInterface = &gi;
+    lb->mu32Flags = 1 | 2 | 4;
+    lb->mu32TotalColumns = 3; lb->mu32NumColumns = 3;   // everything visible: MIN + MAX, no move
+    CHECK(!lb->CheckMovement(1, 0, 0, 3, 3) && teststub::delivered.size() == 2 && teststub::delivered[0].msg == FEHashUpper("CLB AT MIN") && teststub::delivered[1].msg == FEHashUpper("CLB AT MAX"));
+    teststub::delivered.clear();
+    lb->mu32Flags = 1 | 8;                              // centered: offset and selection wrap together
+    lb->mu32TotalColumns = 5; lb->mi32ColumnOffset = 4; lb->mu32SelColumn = 0;
+    lb->mpCells[0].mpText = reinterpret_cast<uint16_t *>(uintptr_t{0x10});
+    lb->mpCells[1].mpText = reinterpret_cast<uint16_t *>(uintptr_t{0x20});
+    lb->mpCells[2].mpText = reinterpret_cast<uint16_t *>(uintptr_t{0x30});
+    lb->mpCells[1].mu32Color = 0xABCDu;
+    CHECK(!lb->ScrollSelection(1, 0));   // returns the row result (dy = 0: no move)
+    CHECK(lb->mi32ColumnOffset == 0 && lb->mu32SelColumn == 1 && lb->mpCells[0].mu32Color == 0xABCDu);
+    CHECK(lb->mpCells[0].mpText == reinterpret_cast<uint16_t *>(uintptr_t{0x20}) && lb->mpCells[2].mpText == reinterpret_cast<uint16_t *>(uintptr_t{0x10}));
+    CHECK(teststub::delivered.size() == lb->mu32NumRows && std::string(teststub::delivered[0].kind) == "fillcell" && teststub::delivered[0].msg == 2 && teststub::delivered[0].arg == 0);
+    for (int i = 0; i < 3; ++i) lb->mpCells[i].mpText = nullptr;
+    teststub::delivered.clear();
+    lb->mfPulse = 0.5f;
+    FECodeListBox::DefaultSelectCallback(lb);
+    CHECK(lb->mColor.c[3] == 127);
+    // Update: pulse bounces between 0 and 1
+    lb->mpSelectCallback = nullptr;
+    lb->mfPulse = 0.5f; lb->mfPulseRate = -0.25f;
+    lb->Update(1.0f);
+    CHECK(lb->mfPulse == 0.25f);
+    lb->Update(2.0f);
+    CHECK(lb->mfPulse == 0.0f && lb->mfPulseRate == 0.25f);
+    lb->Update(8.0f);
+    CHECK(lb->mfPulse == 1.0f && lb->mfPulseRate == -0.25f);
     bridge::VirtualScalarDelete(lb);
     CHECK(teststub::liveAllocations == live0);
 }

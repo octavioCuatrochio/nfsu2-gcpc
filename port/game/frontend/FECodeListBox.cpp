@@ -1,6 +1,7 @@
 #include "FECodeListBox.h"
 #include <cstring>
 #include "bridge/Bridge.h"
+#include "FEHash.h"
 
 int32_t FEPositiveMod(int32_t v, int32_t n)
 {
@@ -29,7 +30,8 @@ FECodeListBox *FECodeListBox::Construct(void *mem)
     const uint32_t rate = 0xBAB60B61u;
     std::memcpy(&lb->mfPulseRate, &rate, 4);
     lb->mColor = FEColor{{0xFF, 0xFF, 0xFF, 0xFF}};
-    lb->_unknownC0 = lb->_unknownC4 = 0;
+    lb->mpFillCallback = nullptr;
+    lb->mpFillCallbackData = nullptr;
     lb->mpSelectCallback = reinterpret_cast<void (*)(FECodeListBox *)>(bridge::FECodeListBoxDefaultCallback());
     lb->obj.mu32Type = 6;
     return lb;
@@ -197,4 +199,159 @@ void FECodeListBox::SetCellScale(uint32_t column0, uint32_t row0, const float *x
 void FECodeListBox::SetCellJustification(uint32_t column0, uint32_t row0, uint32_t value, uint32_t columns, uint32_t rows)
 {
     ForCells(*this, column0, row0, columns, rows, [&](FEListBoxCell &c) { c._unknown1C = value; });
+}
+
+void FECodeListBox::FillAllCells()
+{
+    if (!mu32TotalColumns || !mu32TotalRows || !mu32NumRows || !mu32NumColumns) return;
+    const uint32_t rows = mu32NumRows > mu32TotalRows ? mu32TotalRows : mu32NumRows;
+    const uint32_t columns = mu32NumColumns > mu32TotalColumns ? mu32TotalColumns : mu32NumColumns;
+    int32_t row = mi32RowOffset;
+    const int32_t column0 = mi32ColumnOffset;
+    if (!mpFillCallback && !mpGameInterface) return;
+    for (uint32_t r = 0; r < rows; ++r) {
+        int32_t column = column0;
+        for (uint32_t c = 0; c < columns; ++c) {
+            if (mpFillCallback) mpFillCallback(mpFillCallbackData, this, column, row);
+            else bridge::FEGameInterface_FillCodeListBoxCell(mpGameInterface, this, column, row);
+            column = FEPositiveMod(column + 1, static_cast<int32_t>(mu32TotalColumns));   // re-read: the callback may resize
+        }
+        row = FEPositiveMod(row + 1, static_cast<int32_t>(mu32TotalRows));
+    }
+}
+
+void FECodeListBox::Update(float dt)
+{
+    if (mpSelectCallback) mpSelectCallback(this);
+    const long double v = static_cast<long double>(dt) * mfPulseRate + mfPulse;
+    mfPulse = static_cast<float>(v);
+    if (v < 0.0L) {
+        mfPulse = 0.0f;
+        mfPulseRate = -mfPulseRate;
+    } else if (v > 1.0L) {   // NaN: no change (both tests false, like fcom + jp / jne)
+        mfPulse = 1.0f;
+        mfPulseRate = -mfPulseRate;
+    }
+}
+
+namespace {
+void NotifyGame(FECodeListBox &lb, const char *what)
+{
+    bridge::FEGameInterface_Message(lb.mpGameInterface, FEHashUpper(what), &lb, 0xFF, 0);
+}
+}  // namespace
+
+bool FECodeListBox::CheckMovement(int32_t dir, int32_t offset, uint32_t sel, int32_t total, int32_t visible)
+{
+    const bool clamp = (mu32Flags & 4) != 0;
+    if (clamp && total <= visible) {
+        NotifyGame(*this, "CLB AT MIN");
+        NotifyGame(*this, "CLB AT MAX");   // the original falls through to the MAX message too
+        return false;
+    }
+    if (!(mu32Flags & 2)) return true;
+    int32_t v, limit;
+    if (clamp) { v = offset + dir; limit = total - visible; }
+    else { v = static_cast<int32_t>(sel) + dir; limit = total; }
+    if (v < 0) { NotifyGame(*this, "CLB AT MIN"); return false; }
+    if (v >= limit) { NotifyGame(*this, "CLB AT MAX"); return false; }
+    return true;
+}
+
+bool FECodeListBox::MakeMove(int32_t dir, int32_t *offset, uint32_t *sel, int32_t total, int32_t visible)
+{
+    if (mu32Flags & 8) {
+        *offset = FEPositiveMod(*offset + dir, total);
+        *sel = static_cast<uint32_t>(FEPositiveMod(static_cast<int32_t>(*sel) + dir, total));
+        return true;
+    }
+    if ((mu32Flags & 4) && (mu32Flags & 2)) {
+        const int32_t v = FEPositiveMod(*offset + dir, total);
+        *offset = v;
+        *sel = static_cast<uint32_t>(v);
+        return true;
+    }
+    const uint32_t old = *sel;
+    const uint32_t v = static_cast<uint32_t>(FEPositiveMod(static_cast<int32_t>(old) + dir, total));
+    *sel = v;
+    if (dir < 0) {
+        if (static_cast<uint32_t>(*offset) != old) return false;
+        *offset = static_cast<int32_t>(v);
+        return true;
+    }
+    const uint32_t off = static_cast<uint32_t>(*offset);
+    if (off == old) return false;
+    const uint32_t distance = off < v ? v - off : v - off + static_cast<uint32_t>(total);
+    if (distance < static_cast<uint32_t>(visible)) return false;
+    *offset = FEPositiveMod(*offset + dir, total);
+    return true;
+}
+
+bool FECodeListBox::ScrollSelection(int32_t dir, int32_t *offset, uint32_t *sel, uint32_t total, uint32_t visible, bool columns)
+{
+    if (dir == 0) return false;
+    if (!CheckMovement(dir, *offset, *sel, static_cast<int32_t>(total), static_cast<int32_t>(visible))) return false;
+    if (!MakeMove(dir, offset, sel, static_cast<int32_t>(total), static_cast<int32_t>(visible))) return false;
+    if (total == 0) return true;
+    const uint32_t C = mu32NumColumns, R = mu32NumRows;
+    auto cell = [&](uint32_t r, uint32_t c) -> FEListBoxCell & { return mpCells[mu32NumColumns * r + c]; };
+    auto fill = [&](int32_t column, int32_t row) {
+        if (mpFillCallback) mpFillCallback(mpFillCallbackData, this, column, row);
+        else bridge::FEGameInterface_FillCodeListBoxCell(mpGameInterface, this, column, row);
+    };
+    if (!mpFillCallback && !mpGameInterface) return true;
+    auto rowOf = [&](uint32_t r) { return FEPositiveMod(mi32RowOffset + static_cast<int32_t>(r), static_cast<int32_t>(mu32TotalRows)); };
+    auto colOf = [&](uint32_t c) { return FEPositiveMod(mi32ColumnOffset + static_cast<int32_t>(c), static_cast<int32_t>(mu32TotalColumns)); };
+    if (columns) {
+        if (dir > 0) {   // shift left, refill the last column
+            const int32_t vc = FEPositiveMod(mi32ColumnOffset + static_cast<int32_t>(C) - 1, static_cast<int32_t>(mu32TotalColumns));
+            for (uint32_t r = 0; r < mu32NumRows; ++r) {
+                uint16_t *text = cell(r, 0).mpText;
+                uint32_t k = 0;
+                for (; k + 1 < C; ++k) std::memcpy(&cell(r, k), &cell(r, k + 1), sizeof(FEListBoxCell));
+                cell(r, k).mpText = text;
+                fill(vc, rowOf(r));
+            }
+        } else {         // shift right, refill the first column
+            for (uint32_t r = 0; r < mu32NumRows; ++r) {
+                uint16_t *text = cell(r, mu32NumColumns - 1).mpText;
+                uint32_t k = mu32NumColumns - 1;
+                for (; k != 0; --k) std::memcpy(&cell(r, k), &cell(r, k - 1), sizeof(FEListBoxCell));
+                cell(r, 0).mpText = text;
+                fill(mi32ColumnOffset, rowOf(r));
+            }
+        }
+    } else {
+        if (dir > 0) {   // shift up, refill the last row
+            const int32_t vr = FEPositiveMod(mi32RowOffset + static_cast<int32_t>(R) - 1, static_cast<int32_t>(mu32TotalRows));
+            for (uint32_t c = 0; c < mu32NumColumns; ++c) {
+                uint16_t *text = cell(0, c).mpText;
+                uint32_t k = 0;
+                for (; k + 1 < R; ++k) std::memcpy(&cell(k, c), &cell(k + 1, c), sizeof(FEListBoxCell));
+                cell(k, c).mpText = text;
+                fill(colOf(c), vr);
+            }
+        } else {         // shift down, refill the first row
+            for (uint32_t c = 0; c < mu32NumColumns; ++c) {
+                uint32_t k = mu32NumRows - 1;
+                uint16_t *text = cell(k, c).mpText;
+                for (; k != 0; --k) std::memcpy(&cell(k, c), &cell(k - 1, c), sizeof(FEListBoxCell));
+                cell(0, c).mpText = text;
+                fill(mi32ColumnOffset, rowOf(0));   // sic: column offset for every column
+            }
+        }
+    }
+    return true;
+}
+
+bool FECodeListBox::ScrollSelection(int32_t dx, int32_t dy)
+{
+    ScrollSelection(dx, &mi32ColumnOffset, &mu32SelColumn, mu32TotalColumns, mu32NumColumns, true);
+    return ScrollSelection(dy, &mi32RowOffset, &mu32SelRow, mu32TotalRows, mu32NumRows, false);
+}
+
+void FECodeListBox::DefaultSelectCallback(FECodeListBox *lb)
+{
+    const long double a = static_cast<long double>(lb->mfPulse) * 255.0L;   // x87, then _ftol (truncate)
+    lb->mColor.c[3] = static_cast<int32_t>(a);
 }

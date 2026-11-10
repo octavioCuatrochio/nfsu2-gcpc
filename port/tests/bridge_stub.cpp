@@ -145,8 +145,20 @@ FEObject *FEObjectTypeConstruct(void *mem, uint32_t type)
 }
 FEObject *FEObject_VirtualClone(FEObject *o, bool ref) { return o->Clone(ref); }
 FEObject *FEGroup_CopyConstruct(void *, FEObject *, bool, bool) { std::abort(); }
-void FECodeListBox_FillAllCells(void *lb) { teststub::delivered.push_back({"fillcells", lb, nullptr, 0, 0}); }
 void FEKeyInterpScript(void *s, uint8_t t, uint32_t time, void *o) { teststub::delivered.push_back({"keyinterp", s, static_cast<FEPackage *>(o), t, time}); }
+#ifdef NFSU2_REFEREE
+void FEGameInterface_Message(void *gi, uint32_t m, void *o, uint32_t a, uint32_t e)
+{
+    (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, uint32_t, void *, uint32_t, uint32_t)>(gi))[0x18 / 4](gi, m, o, a, e);
+}
+void FEGameInterface_FillCodeListBoxCell(void *gi, void *lb, int32_t c, int32_t r)
+{
+    (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *, int32_t, int32_t)>(gi))[0x4C / 4](gi, lb, c, r);
+}
+#else
+void FEGameInterface_Message(void *gi, uint32_t m, void *o, uint32_t a, uint32_t) { teststub::delivered.push_back({"gimsg", gi, static_cast<FEPackage *>(o), m, a}); }
+void FEGameInterface_FillCodeListBoxCell(void *gi, void *lb, int32_t c, int32_t r) { teststub::delivered.push_back({"fillcell", gi, static_cast<FEPackage *>(lb), uint32_t(c), uint32_t(r)}); }
+#endif
 #ifdef NFSU2_REFEREE
 void *FECodeListBoxVTable() { return reinterpret_cast<void *>(0x79B904); }
 void *FECodeListBoxDefaultCallback() { return *reinterpret_cast<void **>(0x7F7CC4); }
@@ -236,7 +248,6 @@ const bASinTableEntry *BASinTable()
     return t;
 #endif
 }
-void FECodeListBox_ScrollSelection(void *lb, int32_t dx, int32_t dy) { teststub::delivered.push_back({"cscroll", lb, nullptr, uint32_t(dx), uint32_t(dy)}); }
 void FEUIData_Call4(void *, uint32_t slot, uint32_t a, const void *, uint32_t c, const void *) { teststub::delivered.push_back({"ui", nullptr, nullptr, a + slot * 0x10000, c}); }
 void FEUIData_Call5(void *, uint32_t slot, uint32_t a, const void *, const void *, const void *, uint32_t e) { teststub::delivered.push_back({"fwd", nullptr, nullptr, a + slot * 0x10000, e}); }
 void FEngine_UnloadPackage(void *, FEPackage *p) { teststub::delivered.push_back({"unload", nullptr, p, 0, 0}); }

@@ -80,8 +80,11 @@ void FEGameInterface_LibraryLoaded(void *gi, ::FEPackage *pkg);   // vtable slot
 ::FEObject *FEObjectTypeConstruct(void *mem, uint32_t type);
 ::FEObject *FEObject_VirtualClone(::FEObject *obj, bool reference);       // vtable slot 1
 ::FEObject *FEGroup_CopyConstruct(void *mem, ::FEObject *src, bool a, bool b);   // PC 5548A0 (__thiscall, 0x6C bytes)
-void FECodeListBox_FillAllCells(void *listBox);                    // PC 504C40 (__thiscall)
 void FEKeyInterpScript(void *script, uint8_t track, uint32_t time, void *obj);   // PC 541F60 (__cdecl; GC FEKeyInterp 4 args)
+// FEGameInterface vtable +0x4C (__thiscall): fill one code list box cell (virtual column, row)
+void FEGameInterface_FillCodeListBoxCell(void *gi, void *listBox, int32_t column, int32_t row);
+// FEGameInterface vtable +0x18 (__thiscall): message to the game (msg hash, object, arg, extra)
+void FEGameInterface_Message(void *gi, uint32_t msg, void *obj, uint32_t arg, uint32_t extra);
 void *FECodeListBoxVTable();                                       // PC 0x79B904 (slot 0 = 5352B0)
 void *FECodeListBoxDefaultCallback();                              // FECodeListBox::mpDefaultCallback (PC *0x7F7CC4)
 void *FEListBoxVTable();                                           // PC 0x79BAE4 (slot 0 = 541D90)
@@ -116,7 +119,6 @@ FEPackage *FEngine_PushPackage(void *engine, const char *name, uint8_t priority,
 cFEng *cFEngInstance();                                 // cFEng::pInstance (PC 0x8384C4)
 void *FEPackageCommandVTable();                                                   // PC 0x79AB64
 void *FEMessageNodeVTable();                                                      // PC 0x79AB60
-void FECodeListBox_ScrollSelection(void *listBox, int32_t dx, int32_t dy);         // 52BD70
 // game UI handler virtual calls (__thiscall), slot given as a byte offset
 void FEUIData_Call4(void *ui, uint32_t slotOffset, uint32_t a, const void *b, uint32_t c, const void *d);
 void FEUIData_Call5(void *ui, uint32_t slotOffset, uint32_t a, const void *b, const void *c, const void *d, uint32_t e);

@@ -244,7 +244,7 @@ bool FEPackageReader::ReadObjectChunk()
         FEObject *obj = mpCurrentObject;
         if (!obj) continue;
         if (obj->mu32Type == 4) reinterpret_cast<FEListBox *>(obj)->RecalculateCummulative();
-        else if (obj->mu32Type == 6) bridge::FECodeListBox_FillAllCells(obj);
+        else if (obj->mu32Type == 6) reinterpret_cast<FECodeListBox *>(obj)->FillAllCells();
         for (auto *s = reinterpret_cast<FEScript *>(obj->mScripts.head); s; s = reinterpret_cast<FEScript *>(s->node.next)) {
             const auto chained = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(s->mpChainedScript));   // id while loading
             if (chained) s->mpChainedScript = obj->FindScript(chained);

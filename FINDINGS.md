@@ -47,8 +47,10 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FEPackageReader done (all tags).
 - FECodeListBox (0xC8, vtable 0x79B904) data side done: Initialize, totals (offset = clamped selection, or centered
   with flag 8), string pool, range setters (virtual -> visible via FEPositiveMod 504790, which can yield index n).
-  Left: FillAllCells 504C40, Update 504DC0, CheckMovement 518E70, ScrollSelection 518F20/52BD70, MakeMove,
-  CalculateCurrentFromTarget, CopyProperties/Clone 554710/554830, DefaultSelectCallback (*0x7F7CC4 = 518E20).
+  Behaviour done too (FillAllCells, Update, CheckMovement, MakeMove, ScrollSelection axis/xy, DefaultSelectCallback):
+  referee-verified with a fake game interface (vtable +0x18 messages "CLB AT MIN/MAX", +0x4C fill cell).
+  Quirk: backward row shift refills every column with the column offset itself. Left: CopyProperties/Clone
+  554710/554830, CalculateCurrentFromTarget, DeallocateString/AllocateString (GC only?). Not on the auto-race path.
 - FEListBox (vtable 0x79BAE4) done. Cells 0x30 (FEListBoxCell, +0x90). SetNumColumns/Rows copy min(old,new) BYTES (GC
   too); Terminate frees columns/rows first so CleanupCells frees nothing (leak, original). Not reached in menus/race.
   Script chunk: one script per Scrp; "Kd" first key overwrites the base key; "Ti" inserts tracks via the type library.

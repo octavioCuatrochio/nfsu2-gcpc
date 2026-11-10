@@ -268,6 +268,12 @@ void THISCALL FECodeListBox_Dtor(FECodeListBox *self) { self->Destruct(); }
 FECodeListBox *THISCALL FECodeListBox_ScalarDtor(FECodeListBox *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL FECodeListBox_Initialize(FECodeListBox *self, uint32_t c, uint32_t r) { self->Initialize(c, r); }
 void THISCALL FECodeListBox_SetTotalNumColumns(FECodeListBox *self, uint32_t n) { self->SetTotalNumColumns(n); }
+void THISCALL FECodeListBox_FillAllCells(FECodeListBox *self) { self->FillAllCells(); }
+bool THISCALL FECodeListBox_CheckMovement(FECodeListBox *self, int32_t d, int32_t o, uint32_t s, int32_t t, int32_t v) { return self->CheckMovement(d, o, s, t, v); }
+bool THISCALL FECodeListBox_MakeMove(FECodeListBox *self, int32_t d, int32_t *o, uint32_t *s, int32_t t, int32_t v) { return self->MakeMove(d, o, s, t, v); }
+bool THISCALL FECodeListBox_ScrollAxis(FECodeListBox *self, int32_t d, int32_t *o, uint32_t *s, uint32_t t, uint32_t v, uint32_t cols) { return self->ScrollSelection(d, o, s, t, v, (cols & 0xFF) != 0); }
+bool THISCALL FECodeListBox_ScrollSelection(FECodeListBox *self, int32_t dx, int32_t dy) { return self->ScrollSelection(dx, dy); }
+void THISCALL FECodeListBox_Update(FECodeListBox *self, float dt) { self->Update(dt); }
 void THISCALL FECodeListBox_SetTotalNumRows(FECodeListBox *self, uint32_t n) { self->SetTotalNumRows(n); }
 void THISCALL FECodeListBox_AllocateStrings(FECodeListBox *self, uint32_t c, uint32_t l) { self->AllocateStrings(c, l); }
 void THISCALL FECodeListBox_SetCellColor(FECodeListBox *self, uint32_t c0, uint32_t r0, uint32_t v, uint32_t nc, uint32_t nr) { self->SetCellColor(c0, r0, v, nc, nr); }
@@ -575,6 +581,13 @@ const Replacement kReplacements[] = {
     {0x54D1D0, (const void *)&FEPackageReader_ReadMessageResponseTags, "FEPackageReader::ReadMessageResponseTags", {0x51, 0x8B, 0x44, 0x24, 0x0C, 0x53}},
     {0x518190, (const void *)&FEPackage_SetNumLibraryRefs, "FEPackage::SetNumLibraryRefs", {0x64, 0xA1, 0x00, 0x00, 0x00, 0x00}},
     {0x555800, (const void *)&FEngine_LoadPackageHook, "FEngine::LoadPackage", {0x83, 0xEC, 0x50, 0x33, 0xC0, 0x89}},
+    {0x504C40, (const void *)&FECodeListBox_FillAllCells, "FECodeListBox::FillAllCells", {0x83, 0xEC, 0x0C, 0x56, 0x8B, 0xF1}},
+    {0x504DC0, (const void *)&FECodeListBox_Update, "FECodeListBox::Update", {0x56, 0x8B, 0xF1, 0x8B, 0x86, 0xBC}},
+    {0x518E70, (const void *)&FECodeListBox_CheckMovement, "FECodeListBox::CheckMovement", {0x8B, 0x54, 0x24, 0x10, 0x53, 0x56}},
+    {0x504E40, (const void *)&FECodeListBox_MakeMove, "FECodeListBox::MakeMove", {0x8B, 0x41, 0x68, 0xA8, 0x08, 0x53}},
+    {0x518F20, (const void *)&FECodeListBox_ScrollAxis, "FECodeListBox::ScrollSelection(axis)", {0x53, 0x56, 0x8B, 0x74, 0x24, 0x0C}},
+    {0x52BD70, (const void *)&FECodeListBox_ScrollSelection, "FECodeListBox::ScrollSelection", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x60}},
+    {0x518E20, (const void *)&FECodeListBox::DefaultSelectCallback, "FECodeListBox::DefaultSelectCallback", {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24}},
     {0x52B9E0, (const void *)&FECodeListBox_Ctor, "FECodeListBox::FECodeListBox", {0x56, 0x8B, 0xF1, 0xE8, 0x38, 0xF5}},
     {0x52BAA0, (const void *)&FECodeListBox_Dtor, "FECodeListBox::~FECodeListBox", {0x6A, 0xFF, 0x68, 0xD8, 0x74, 0x77}},
     {0x5352B0, (const void *)&FECodeListBox_ScalarDtor, "FECodeListBox scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xE8, 0x67}},

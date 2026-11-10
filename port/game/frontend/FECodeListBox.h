@@ -29,7 +29,8 @@ struct FECodeListBox {
     float mfPulseRate;               // +0xA8 -1/720
     FEColor mColor;                  // +0xAC 0xFF x4
     void (*mpSelectCallback)(FECodeListBox *);   // +0xBC __cdecl, ctor: FECodeListBox::mpDefaultCallback (PC *0x7F7CC4)
-    uint32_t _unknownC0, _unknownC4;
+    void (*mpFillCallback)(void *data, FECodeListBox *lb, int32_t column, int32_t row);   // +0xC0 __cdecl
+    void *mpFillCallbackData;        // +0xC4
 
     static FECodeListBox *Construct(void *mem);   // GC 8013E120 / PC 52B9E0
     void Destruct();                               // GC 8013E4FC / PC 52BAA0
@@ -53,6 +54,25 @@ struct FECodeListBox {
     void SetCellColor(uint32_t column0, uint32_t row0, uint32_t color, uint32_t columns, uint32_t rows);
     void SetCellScale(uint32_t column0, uint32_t row0, const float *xy, uint32_t columns, uint32_t rows);
     void SetCellJustification(uint32_t column0, uint32_t row0, uint32_t value, uint32_t columns, uint32_t rows);   // cell +0x1C
+    // GC 8013E7DC / PC 504C40: for each visible cell (min(visible, total) per axis, starting at the offsets, wrapping
+    // with FEPositiveMod) ask the fill callback, else the game interface (vtable +0x4C), with the virtual column/row.
+    void FillAllCells();
+    // GC 8013ECF0 / PC 504DC0 (ret 4): select callback, then the pulse (x87: tested unrounded, stored rounded;
+    // below 0 -> 0, above 1 -> 1, the rate flips at both ends).
+    void Update(float dt);
+    // GC 8013EF18 / PC 518E70 (ret 0x14): may the selection move by dir? Flag 4 (clamp) with everything visible:
+    // "CLB AT MIN" and "CLB AT MAX" to the game, false. Flag 2: past either end -> that message, false.
+    bool CheckMovement(int32_t dir, int32_t offset, uint32_t sel, int32_t total, int32_t visible);
+    // GC 8013F03C / PC 504E40 (ret 0x14): move selection/offset; true when the visible window shifted.
+    bool MakeMove(int32_t dir, int32_t *offset, uint32_t *sel, int32_t total, int32_t visible);
+    // GC 8013F1EC / PC 518F20 (ret 0x18): one axis; on a window shift the visible cells move one step (the text
+    // pointers rotate) and the new edge line is refilled through the fill callback or the game interface. Like the
+    // original, a backward row shift asks every new cell with the column offset itself (not offset + column).
+    bool ScrollSelection(int32_t dir, int32_t *offset, uint32_t *sel, uint32_t total, uint32_t visible, bool columns);
+    // GC 8013EC8C / PC 52BD70 (ret 8): columns by dx, then rows by dy; returns the row result.
+    bool ScrollSelection(int32_t dx, int32_t dy);
+    // GC 8013ED74 / PC 518E20 (__cdecl, mpDefaultCallback): color alpha = _ftol(pulse * 255).
+    static void DefaultSelectCallback(FECodeListBox *lb);
 };
 
 // PC 504790 (__cdecl): modulo that is positive for negative values (n - (-v % n), so a multiple gives n; n <= 1 -> 0).

@@ -1221,6 +1221,118 @@ static void CheckCodeListBox(int iters)
     }
 }
 
+// FECodeListBox::FillAllCells (recording fill callback) and Update (x87 pulse, no select callback).
+static std::vector<int32_t> g_fillCalls;
+static void __cdecl RecordFill(void *data, FECodeListBox *, int32_t c, int32_t r)
+{
+    g_fillCalls.push_back(static_cast<int32_t>(reinterpret_cast<uintptr_t>(data)));
+    g_fillCalls.push_back(c);
+    g_fillCalls.push_back(r);
+}
+static void CheckCodeListBoxFillUpdate(int iters)
+{
+    auto oFill = ORIG<void(THISCALL *)(FECodeListBox *)>(0x504C40);
+    auto oUpdate = ORIG<void(THISCALL *)(FECodeListBox *, float)>(0x504DC0);
+    for (int it = 0; it < iters; ++it) {
+        FECodeListBox A, B;
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        A.mpSelectCallback = nullptr;
+        if (rng() % 2) {
+            A.mu32NumColumns = rng() % 5; A.mu32NumRows = rng() % 5;
+            A.mu32TotalColumns = rng() % 7; A.mu32TotalRows = rng() % 7;
+            A.mi32ColumnOffset = static_cast<int32_t>(rng() % 9) - 2; A.mi32RowOffset = static_cast<int32_t>(rng() % 9) - 2;
+            A.mpFillCallback = RecordFill;
+            A.mpFillCallbackData = reinterpret_cast<void *>(uintptr_t{0x1234});
+            std::memcpy(&B, &A, sizeof A);
+            g_fillCalls.clear();
+            oFill(&A);
+            std::vector<int32_t> orig = g_fillCalls;
+            g_fillCalls.clear();
+            B.FillAllCells();
+            EXPECT(orig == g_fillCalls && std::memcmp(&A, &B, sizeof A) == 0, "FECodeListBox::FillAllCells");
+        } else {
+            A.mfPulse = static_cast<float>(static_cast<int32_t>(rng() % 3000) - 1000) / 1000.0f;
+            A.mfPulseRate = static_cast<float>(static_cast<int32_t>(rng() % 2001) - 1000) / 777.0f;
+            std::memcpy(&B, &A, sizeof A);
+            const float dt = static_cast<float>(rng() % 1000) / 333.0f;
+            oUpdate(&A, dt);
+            B.Update(dt);
+            EXPECT(std::memcmp(&A, &B, sizeof A) == 0, "FECodeListBox::Update dt %g", dt);
+        }
+    }
+}
+
+// FECodeListBox movement: CheckMovement / MakeMove / per-axis ScrollSelection (cell shifts + refills through a fake
+// game interface whose vtable records messages and fill requests) and the default select callback.
+static std::vector<uint32_t> g_giLog;
+static void THISCALL FakeGiMessage(void *, uint32_t m, void *o, uint32_t a, uint32_t e)
+{
+    g_giLog.insert(g_giLog.end(), {1u, m, static_cast<uint32_t>(reinterpret_cast<uintptr_t>(o)), a, e});
+}
+static void THISCALL FakeGiFill(void *, void *lb, int32_t c, int32_t r)
+{
+    g_giLog.insert(g_giLog.end(), {2u, static_cast<uint32_t>(reinterpret_cast<uintptr_t>(lb)), static_cast<uint32_t>(c), static_cast<uint32_t>(r)});
+}
+static void CheckCodeListBoxMove(int iters)
+{
+    static void *vtable[32] = {};
+    vtable[0x18 / 4] = reinterpret_cast<void *>(&FakeGiMessage);
+    vtable[0x4C / 4] = reinterpret_cast<void *>(&FakeGiFill);
+    static void *gi = vtable;
+    auto oCheck = ORIG<bool(THISCALL *)(FECodeListBox *, int32_t, int32_t, uint32_t, int32_t, int32_t)>(0x518E70);
+    auto oMove = ORIG<bool(THISCALL *)(FECodeListBox *, int32_t, int32_t *, uint32_t *, int32_t, int32_t)>(0x504E40);
+    auto oAxis = ORIG<bool(THISCALL *)(FECodeListBox *, int32_t, int32_t *, uint32_t *, uint32_t, uint32_t, uint32_t)>(0x518F20);
+    auto oSel = ORIG<void(__cdecl *)(FECodeListBox *)>(0x518E20);
+    for (int it = 0; it < iters; ++it) {
+        struct Arena { FECodeListBox lb; FEListBoxCell cells[25]; } A, B;
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        A.lb.mu32NumColumns = 1 + rng() % 5;
+        A.lb.mu32NumRows = 1 + rng() % 5;
+        A.lb.mu32TotalColumns = 1 + rng() % 9;
+        A.lb.mu32TotalRows = 1 + rng() % 9;
+        A.lb.mi32ColumnOffset = static_cast<int32_t>(rng() % A.lb.mu32TotalColumns);
+        A.lb.mi32RowOffset = static_cast<int32_t>(rng() % A.lb.mu32TotalRows);
+        A.lb.mu32SelColumn = rng() % A.lb.mu32TotalColumns;
+        A.lb.mu32SelRow = rng() % A.lb.mu32TotalRows;
+        A.lb.mu32Flags = rng() & 0xE;
+        A.lb.mpGameInterface = &gi;
+        A.lb.mpFillCallback = (rng() % 2) ? RecordFill : nullptr;
+        A.lb.mpFillCallbackData = reinterpret_cast<void *>(uintptr_t{0x77});
+        A.lb.mfPulse = static_cast<float>(rng() % 1000) / 999.0f;
+        std::memcpy(&B, &A, sizeof A);
+        A.lb.mpCells = A.cells; B.lb.mpCells = B.cells;
+        const int op = rng() % 4;
+        const int32_t dir = static_cast<int32_t>(rng() % 5) - 2;
+        bool ra = false, rb = false;
+        std::vector<int32_t> fa;
+        std::vector<uint32_t> ga;
+        g_fillCalls.clear(); g_giLog.clear();
+        switch (op) {
+        case 0: ra = oCheck(&A.lb, dir, A.lb.mi32ColumnOffset, A.lb.mu32SelColumn, static_cast<int32_t>(A.lb.mu32TotalColumns), static_cast<int32_t>(A.lb.mu32NumColumns)); break;
+        case 1: ra = oMove(&A.lb, dir, &A.lb.mi32RowOffset, &A.lb.mu32SelRow, static_cast<int32_t>(A.lb.mu32TotalRows), static_cast<int32_t>(A.lb.mu32NumRows)); break;
+        case 2: {
+            const bool cols = rng() % 2;
+            ra = cols ? oAxis(&A.lb, dir, &A.lb.mi32ColumnOffset, &A.lb.mu32SelColumn, A.lb.mu32TotalColumns, A.lb.mu32NumColumns, 1)
+                      : oAxis(&A.lb, dir, &A.lb.mi32RowOffset, &A.lb.mu32SelRow, A.lb.mu32TotalRows, A.lb.mu32NumRows, 0);
+            fa = g_fillCalls; ga = g_giLog; g_fillCalls.clear(); g_giLog.clear();
+            rb = cols ? B.lb.ScrollSelection(dir, &B.lb.mi32ColumnOffset, &B.lb.mu32SelColumn, B.lb.mu32TotalColumns, B.lb.mu32NumColumns, true)
+                      : B.lb.ScrollSelection(dir, &B.lb.mi32RowOffset, &B.lb.mu32SelRow, B.lb.mu32TotalRows, B.lb.mu32NumRows, false);
+            break;
+        }
+        case 3: oSel(&A.lb); FECodeListBox::DefaultSelectCallback(&B.lb); break;
+        }
+        if (op == 0) { fa = g_fillCalls; ga = g_giLog; g_fillCalls.clear(); g_giLog.clear();
+            rb = B.lb.CheckMovement(dir, B.lb.mi32ColumnOffset, B.lb.mu32SelColumn, static_cast<int32_t>(B.lb.mu32TotalColumns), static_cast<int32_t>(B.lb.mu32NumColumns)); }
+        if (op == 1) rb = B.lb.MakeMove(dir, &B.lb.mi32RowOffset, &B.lb.mu32SelRow, static_cast<int32_t>(B.lb.mu32TotalRows), static_cast<int32_t>(B.lb.mu32NumRows));
+        // object pointers in the logs differ (A vs B): compare after mapping them
+        for (size_t i = 0; i < ga.size(); ++i) if (ga[i] == static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&A.lb))) ga[i] = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&B.lb));
+        A.lb.mpCells = B.lb.mpCells = nullptr;
+        EXPECT(ra == rb && fa == g_fillCalls && ga == g_giLog && std::memcmp(&A, &B, sizeof A) == 0, "FECodeListBox move op %d dir %d flags %x", op, dir, A.lb.mu32Flags);
+    }
+}
+
 // FEPackageManager lookups on a synthetic list (one arena, original and rewrite on the same memory).
 static void CheckPackageManager(int iters)
 {
@@ -1742,6 +1854,8 @@ static int RunAll()
     REFEREE_RUN(CheckReaderStringTags(iters / 4 + 1));
     REFEREE_RUN(CheckListBoxCells(iters));
     REFEREE_RUN(CheckCodeListBox(iters * 5));
+    REFEREE_RUN(CheckCodeListBoxFillUpdate(iters * 5));
+    REFEREE_RUN(CheckCodeListBoxMove(iters * 10));
     REFEREE_RUN(CheckPackageManager(iters));
     REFEREE_RUN(CheckFENodeFind(iters));
     REFEREE_RUN(CheckUpdateObjectTracks(iters));
