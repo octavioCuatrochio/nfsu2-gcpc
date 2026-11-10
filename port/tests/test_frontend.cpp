@@ -13,6 +13,7 @@
 #include "frontend/TuningSlidersMenu.h"
 #include "frontend/UIWheelOptionsMenu.h"
 #include "frontend/ChooseBrandsScreen.h"
+#include "frontend/UIOptionsScreen.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -2861,6 +2862,30 @@ static void TestChooseBrands()
     bridge::cFEngInstance()->mpEngine = saved;
 }
 
+// UIOptionsScreen: rows per page (audio 8, video 4, gameplay 7, player 12, online 2, trailers 3, others 0).
+static void TestOptionsScreen()
+{
+    FEngine *saved = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    const int expected[8] = {8, 4, 7, 12, 0, 0, 3, 2};
+    for (int page = 0; page < 8; ++page) {
+        alignas(8) static unsigned char mm[sizeof(UIOptionsScreen)];
+        std::memset(mm, 0, sizeof mm);
+        auto *o = reinterpret_cast<UIOptionsScreen *>(mm);
+        ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+        teststub::profileState = 0;
+        teststub::optionsPage = page;
+        const int live = teststub::liveAllocations;
+        CHECK(o->Construct(&d) == o);
+        CHECK(static_cast<int>(o->base.mCurrentIndex) - 1 == expected[page] && o->base.mVisibleCount == 8);
+        if (page == 3) CHECK(o->mWheelButtonIndex == 10 && o->mForceFeedbackIndex == 11 && o->mbPlayerPage == 1);
+        o->Destruct();
+        CHECK(teststub::liveAllocations == live);
+    }
+    teststub::optionsPage = 0;
+    bridge::cFEngInstance()->mpEngine = saved;
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -3974,6 +3999,7 @@ int main()
     TestRenderEntryPoints();
     TestWheelOptions();
     TestChooseBrands();
+    TestOptionsScreen();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

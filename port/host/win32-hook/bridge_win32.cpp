@@ -513,4 +513,14 @@ void DialogInterface_ShowTwoButtons(const char *p, const char *dlg, uint32_t a, 
 }
 const char *TrailerNameSSX() { return reinterpret_cast<const char *>(0x7944C0); }
 void SetTrailerName(const char *n) { *reinterpret_cast<const char **>(0x7F4480) = n; }
+// ---- UIOptionsScreen ----
+void *UIOptionsScreenVTable() { return reinterpret_cast<void *>(0x795E28); }
+void *GameVTable(uint32_t a) { return reinterpret_cast<void *>(static_cast<uintptr_t>(a)); }
+int32_t OptionsPage() { return *reinterpret_cast<const int32_t *>(0x83AA04); }
+void FEngPrintfByName(const char *p, const char *o, const char *f) { reinterpret_cast<void(__cdecl *)(const char *, const char *, const char *, ...)>(0x542600)(p, o, f); }
+bool ForceFeedbackAvailable() { return reinterpret_cast<uint8_t(__cdecl *)()>(0x5B8240)() != 0; }
+bool WheelPluggedIn(int32_t p) { return reinterpret_cast<uint8_t(__cdecl *)(int32_t)>(0x5C1000)(reinterpret_cast<const int32_t *>(0x83A9D8)[p]) != 0; }
+void FEWidget_Enable(void *w) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[0x1C / 4](w); }
+void ResetVideoDefaults() { reinterpret_cast<void(__cdecl *)()>(0x5CEC90)(); }
+void ApplyVideoSettings() { reinterpret_cast<void(__cdecl *)()>(0x5BEEA0)(); }
 }  // namespace bridge

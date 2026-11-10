@@ -418,4 +418,14 @@ void DialogInterface_ShowTwoButtons(const char *pkg, const char *dlg, uint32_t a
                                     uint32_t e, uint32_t f, uint32_t g);   // PC 558790 (__cdecl)
 const char *TrailerNameSSX();                    // PC 0x7944C0 "SSX" (the game's own string, stored as a pointer)
 void SetTrailerName(const char *name);           // PC *(const char**)0x7F4480
+// ---- UIOptionsScreen ----
+void *UIOptionsScreenVTable();                   // PC 0x795E28
+void *GameVTable(uint32_t pcAddress);            // a game vtable by address (option widget classes)
+int32_t OptionsPage();                           // PC *(int*)0x83AA04
+void FEngPrintfByName(const char *pkg, const char *obj, const char *fmt);   // PC 542600 (__cdecl varargs)
+bool ForceFeedbackAvailable();                   // PC 5B8240 (__cdecl, AL)
+bool WheelPluggedIn(int32_t player);             // PC 5C1000(*(0x83A9D8 + player * 4)) (__cdecl, AL)
+void FEWidget_Enable(void *widget);              // widget vtable +0x1C
+void ResetVideoDefaults();                       // PC 5CEC90 (__cdecl)
+void ApplyVideoSettings();                       // PC 5BEEA0 (__cdecl)
 }  // namespace bridge

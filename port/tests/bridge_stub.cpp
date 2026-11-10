@@ -80,6 +80,8 @@ uint32_t chosenBrands[8] = {};
 uint8_t audioSettings[0x40] = {};
 uint8_t gameBytes[0x100] = {};
 void *jumpCamObject = nullptr;
+int32_t optionsPage = 0;
+bool wheelPlugged = false;
 bool autoSaveAllowed = false;
 bool browsingParts = false;
 const uint8_t *perfPackage = nullptr, *perfPart = nullptr;
@@ -933,4 +935,18 @@ void ApplyDetailLevel() { teststub::delivered.push_back({"applydetail", nullptr,
 void DialogInterface_ShowTwoButtons(const char *, const char *, uint32_t a, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t g) { teststub::delivered.push_back({"twobuttons", nullptr, nullptr, a, g}); }
 const char *TrailerNameSSX() { return "SSX"; }
 void SetTrailerName(const char *) { teststub::delivered.push_back({"trailer", nullptr, nullptr, 0, 0}); }
+// ---- UIOptionsScreen ----
+void *UIOptionsScreenVTable() { return &teststub::fakeFont; }
+#ifdef NFSU2_REFEREE
+void *GameVTable(uint32_t a) { return reinterpret_cast<void *>(static_cast<uintptr_t>(a)); }
+#else
+void *GameVTable(uint32_t) { return &teststub::feButtonWidgetVTable; }
+#endif
+int32_t OptionsPage() { return teststub::optionsPage; }
+void FEngPrintfByName(const char *, const char *, const char *) { teststub::delivered.push_back({"printfbyname", nullptr, nullptr, 0, 0}); }
+bool ForceFeedbackAvailable() { return false; }
+bool WheelPluggedIn(int32_t) { return teststub::wheelPlugged; }
+void FEWidget_Enable(void *w) { teststub::delivered.push_back({"enable", w, nullptr, 0, 0}); }
+void ResetVideoDefaults() { teststub::delivered.push_back({"videodefaults", nullptr, nullptr, 0, 0}); }
+void ApplyVideoSettings() { teststub::delivered.push_back({"applyvideo", nullptr, nullptr, 0, 0}); }
 }  // namespace bridge

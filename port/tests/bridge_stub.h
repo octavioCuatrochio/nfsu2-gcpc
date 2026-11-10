@@ -66,6 +66,8 @@ extern uint32_t chosenBrands[8];
 extern uint8_t audioSettings[0x40];
 extern uint8_t gameBytes[0x100];
 extern void *jumpCamObject;
+extern int32_t optionsPage;
+extern bool wheelPlugged;
 extern bool autoSaveAllowed;
 extern bool browsingParts;
 extern const uint8_t *perfPackage, *perfPart;

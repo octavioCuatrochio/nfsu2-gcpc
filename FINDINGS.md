@@ -89,7 +89,15 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   BrandScrollerThing (PC 0x60 = FEToggleImageWidget + part +0x58 + index +0x5C, vtable 79B6A0) done. Selected perf
   package *0x839BB4 (+8 part count, parts +0x0C stride 0x5C: +4 name hash, +0xC brand count, +0x10 brands), part
   *0x839BB0, browsing-parts byte 0x83855D, chosen brands 0x8389B4, gCarCustomizeManager 0x838980.
-  Next (whole files): UIOptionsController / UIOptionsScreen.
+- UIOptionsScreen (UIOptionsScreen.cpp; PC 0x164, vtable 795E28) + all its option widgets (OptionWidgets.cpp:
+  AO*Vol, OO/GO/PO toggles and cycles, PC display resolution 791F30 / detail 791F78 / buttons, COWheelOptions,
+  TO* trailers) done; in-game every page is built and drawn by the rewrite. Page index *0x83AA04; audio settings
+  0x83AA28; player records 0x83AA64 + p * 0x28 (+0..+6 HUD bytes, +0x10 cam, +0x14 split, +0x15 transmission,
+  +0x16 handling, +0x1C.. wheel floats); edited player *0x836364; display: modes 0x86E880[6], index 0x870D1C,
+  detail 0x87099C, dirty 0x8709D1. On/off hashes 0x63C / 0xCCFA. UIWidgetMenu::GetWidget is a PC function (51FE70).
+  In-game nav: 3 boot Returns -> main menu (Quick race); 5 Rights = Options; pages Sound, Display, Gameplay,
+  Player, Controls, EA Trax, Credits (port/build-native/shots/nav.sh helper, not committed).
+  Next (whole files): UIOptionsController (Controls page).
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

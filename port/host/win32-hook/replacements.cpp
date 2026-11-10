@@ -25,6 +25,7 @@
 #include "frontend/UIWheelOptionsMenu.h"
 #include "frontend/ChooseBrandsScreen.h"
 #include "frontend/OptionWidgets.h"
+#include "frontend/UIOptionsScreen.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -622,6 +623,20 @@ void THISCALL OB_TrailerAct(void *, const char *p, uint32_t m) { OptionButton::T
 void THISCALL OB_TrailerDrawSSX(OptionButton *self) { self->TrailerDraw(bridge::TrailerNameSSX()); }
 void THISCALL OB_TrailerDrawNFL(OptionButton *self) { self->TrailerDraw(reinterpret_cast<const char *>(0x794508)); }
 void THISCALL OB_TrailerDrawNascar(OptionButton *self) { self->TrailerDraw(reinterpret_cast<const char *>(0x794558)); }
+UIOptionsScreen *THISCALL UOS_Ctor(UIOptionsScreen *self, const ScreenConstructorData *d) { return self->Construct(d); }
+UIOptionsScreen *THISCALL UOS_ScalarDtor(UIOptionsScreen *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL UOS_Dtor(UIOptionsScreen *self) { self->Destruct(); }
+void THISCALL UOS_Notify(UIOptionsScreen *self, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { self->NotificationMessage(m, o, a, p); }
+uint32_t THISCALL UOS_NotifySound(UIOptionsScreen *self, uint32_t, FEObject *, uint32_t, uint32_t, uint32_t) { return self->NotifySoundMessage(); }
+void THISCALL UOS_CheckForWheels(UIOptionsScreen *self) { self->CheckForWheels(); }
+void THISCALL UOS_Setup(UIOptionsScreen *self) { self->Setup(); }
+void THISCALL UOS_SetupAudio(UIOptionsScreen *self) { self->SetupAudio(); }
+void THISCALL UOS_SetupVideo(UIOptionsScreen *self) { self->SetupVideo(); }
+void THISCALL UOS_SetupGameplay(UIOptionsScreen *self) { self->SetupGameplay(); }
+void THISCALL UOS_SetupPlayer(UIOptionsScreen *self) { self->SetupPlayer(); }
+void THISCALL UOS_SetupOnline(UIOptionsScreen *self) { self->SetupOnline(); }
+void THISCALL UOS_SetupTrailers(UIOptionsScreen *self) { self->SetupTrailers(); }
+FEWidget *THISCALL UIWidgetMenu_GetWidget(UIWidgetMenu *self, uint32_t i) { return self->GetWidget(i); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1245,6 +1260,20 @@ const Replacement kReplacements[] = {
     {0x549DC0, (const void *)&TSM_SetupAero, "TuningSlidersMenu::SetupAero", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x549E00, (const void *)&TSM_SetupWheelBrakes, "TuningSlidersMenu::SetupWheelBrakes", {0x56, 0x6A, 0x00, 0x6A, 0x00, 0x68}},
     {0x50D2D0, (const void *)&FEngMapPortToControlMask_Hook, "FEngMapPortToControlMask", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
+    {0x4CF750, (const void *)&UOS_Ctor, "UIOptionsScreen::UIOptionsScreen", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
+    {0x4CFAF0, (const void *)&UOS_ScalarDtor, "UIOptionsScreen scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4CFB10, (const void *)&UOS_Dtor, "UIOptionsScreen::~UIOptionsScreen", {0xC7, 0x01, 0x28, 0x5E, 0x79, 0x00}},
+    {0x49C690, (const void *)&UOS_Notify, "UIOptionsScreen::NotificationMessage", {0x53, 0x56, 0x8B, 0xF1, 0x8A, 0x86}},
+    {0x4CFAC0, (const void *)&UOS_NotifySound, "UIOptionsScreen::NotifySoundMessage", {0x8A, 0x81, 0x4E, 0x01, 0x00, 0x00}},
+    {0x49C600, (const void *)&UOS_CheckForWheels, "UIOptionsScreen::CheckForWheels", {0x83, 0x3D, 0x04, 0xAA, 0x83, 0x00}},
+    {0x4B8470, (const void *)&UOS_Setup, "UIOptionsScreen::Setup", {0x56, 0x57, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x4B6E60, (const void *)&UOS_SetupAudio, "UIOptionsScreen::SetupAudio", {0x6A, 0xFF, 0x68, 0x10, 0x34, 0x77}},
+    {0x4B7180, (const void *)&UOS_SetupVideo, "UIOptionsScreen::SetupVideo", {0x6A, 0xFF, 0x68, 0x30, 0x3E, 0x77}},
+    {0x4B7310, (const void *)&UOS_SetupGameplay, "UIOptionsScreen::SetupGameplay", {0x6A, 0xFF, 0x68, 0xAC, 0x34, 0x77}},
+    {0x4B7CD0, (const void *)&UOS_SetupPlayer, "UIOptionsScreen::SetupPlayer", {0x6A, 0xFF, 0x68, 0xB0, 0x35, 0x77}},
+    {0x4B81A0, (const void *)&UOS_SetupOnline, "UIOptionsScreen::SetupOnline", {0x6A, 0xFF, 0x68, 0xE8, 0x35, 0x77}},
+    {0x4B8350, (const void *)&UOS_SetupTrailers, "UIOptionsScreen::SetupTrailers", {0x6A, 0xFF, 0x68, 0x3C, 0x36, 0x77}},
+    {0x51FE70, (const void *)&UIWidgetMenu_GetWidget, "UIWidgetMenu::GetWidget", {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0}},
     {0x49B2F0, (const void *)&OB_WheelAct, "COWheelOptions::Act", {0x8B, 0x44, 0x24, 0x08, 0x3D, 0xE3}},
     {0x49B330, (const void *)&OB_WheelDraw, "COWheelOptions::Draw", {0x8B, 0x41, 0x2C, 0x68, 0x31, 0xB9}},
     {0x4B5FD0, (const void *)&OB_WheelEnable, "COWheelOptions::Enable", {0x8B, 0x41, 0x2C, 0x6A, 0x01, 0x68}},
