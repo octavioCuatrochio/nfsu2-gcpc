@@ -230,6 +230,7 @@ void FEWidget_Disable(void *widget);                            // widget vtable
 void FEWidget_Slot17(void *widget);                             // widget vtable +0x44 (slider widgets; GC vptr[0x12])
 void FEWidget_SetFocus(void *widget, const char *pkg);          // widget vtable +0x24
 void FEWidget_UnsetFocus(void *widget);                         // widget vtable +0x28
+void FEWidget_SetPosX(void *widget, float x);                   // widget vtable +0x30
 void FEWidget_SetPosY(void *widget, float y);                   // widget vtable +0x34
 void FEWidget_CheckMouse(void *widget, const char *pkg, float x, float y);   // widget vtable +0x08
 void MenuScreen_Setup(void *screen);                            // screen vtable +0x10 (UIWidgetMenu Setup)

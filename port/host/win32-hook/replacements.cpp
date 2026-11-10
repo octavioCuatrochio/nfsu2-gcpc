@@ -519,6 +519,12 @@ void THISCALL FEButtonWidget_CheckMouse(FEButtonWidget *self, const char *p, flo
 FELabelWidget *THISCALL FELabelWidget_Ctor(FELabelWidget *self, const float *pos, const float *size) { return self->Construct(pos, size); }
 void THISCALL FELabelWidget_Position(FELabelWidget *self) { self->Position(); }
 void THISCALL FELabelWidget_SetFocus(FELabelWidget *self, const char *p) { self->SetFocus(p); }
+void THISCALL FEWidget_SetPosVirtual(FEWidget *self, const float *v) { self->SetPosVirtual(v); }
+void THISCALL FEWidget_Destruct(FEWidget *self) { self->Destruct(); }
+FEWidget *THISCALL FEWidget_ScalarDtor(FEWidget *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+void THISCALL FESliderWidget_Destruct(FESliderWidget *self) { self->Destruct(); }
+FESliderWidget *THISCALL FESliderWidget_ScalarDtor(FESliderWidget *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
+uint32_t THISCALL FEButtonWidget_DetermineSpecialSound(void *, uint32_t m, uint32_t e) { return FEButtonWidget::DetermineSpecialSound(m, e); }
 FEStatWidget *THISCALL FEStatWidget_Ctor(FEStatWidget *self, const float *a, const float *b, const float *c, const float *d, bool e) { return self->Construct(a, b, c, d, e); }
 void THISCALL FEStatWidget_Show(FEStatWidget *self) { self->Show(); }
 void THISCALL FEStatWidget_Hide(FEStatWidget *self) { self->Hide(); }
@@ -1108,6 +1114,12 @@ const Replacement kReplacements[] = {
     {0x51E020, (const void *)&FEButtonWidget_UnsetFocus, "FEButtonWidget::UnsetFocus", {0x53, 0x8B, 0xD9, 0x57, 0x8B, 0x7B}},
     {0x52D6B0, (const void *)&FEButtonWidget_Position, "FEButtonWidget::Position", {0x83, 0xEC, 0x10, 0x56, 0x8B, 0xF1}},
     {0x52D650, (const void *)&FEButtonWidget_CheckMouse, "FEButtonWidget::CheckMouse", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
+    {0x4AE9C0, (const void *)&FEWidget_SetPosVirtual, "FEButtonWidget::SetPos", {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}},
+    {0x4CF650, (const void *)&FEWidget_Destruct, "FEWidget::~FEWidget", {0xC7, 0x01, 0x98, 0x0B, 0x79, 0x00}},
+    {0x4AEA10, (const void *)&FEWidget_ScalarDtor, "FEWidget scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x38, 0x0C}},
+    {0x4CF640, (const void *)&FESliderWidget_Destruct, "FESliderWidget::~FESliderWidget", {0xC7, 0x41, 0x54, 0x44, 0xF5, 0x78}},
+    {0x4CF620, (const void *)&FESliderWidget_ScalarDtor, "FESliderWidget scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x50D800, (const void *)&FEButtonWidget_DetermineSpecialSound, "FEButtonWidget::DetermineSpecialSound", {0x8B, 0x4C, 0x24, 0x04, 0x33, 0xC0}},
     {0x51D8A0, (const void *)&FEngGetObjBBox, "FEngGetObjBBox", {0x81, 0xEC, 0x10, 0x08, 0x00, 0x00}},
     {0x51D9F0, (const void *)&FEngGet2DExtents, "FEngGet2DExtents", {0x83, 0xEC, 0x18, 0x53, 0x55, 0x8B}},
     {0x52D020, (const void *)static_cast<bool (*)(float, float, const FEObject *)>(&FEngTestForIntersection), "FEngTestForIntersection", {0x8B, 0x44, 0x24, 0x0C, 0x83, 0xEC}},

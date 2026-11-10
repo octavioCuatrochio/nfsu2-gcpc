@@ -2742,6 +2742,36 @@ static void TestFEngPosition()
     CHECK(gd[7] == 7);
 }
 
+// FEWidget file leftovers: SetPos (virtual through the vtable), dtors, button special sound, trivial slots.
+static void TestWidgetSmall()
+{
+    alignas(8) unsigned char bm[sizeof(FEButtonWidget)];
+    std::memset(bm, 0x5A, sizeof bm);
+    auto *b = reinterpret_cast<FEButtonWidget *>(bm);
+    const float pos[2] = {1, 2}, size[2] = {3, 4}, v[2] = {7, 9};
+    b->Construct(pos, size, true);
+    teststub::delivered.clear();
+    b->base.SetPosVirtual(v);
+    CHECK(teststub::delivered.size() == 2 && std::string(teststub::delivered[0].kind) == "setposx" && teststub::delivered[0].msg == 7 &&
+          std::string(teststub::delivered[1].kind) == "setposy" && teststub::delivered[1].msg == 9);
+    b->base.SetPos(v);
+    CHECK(b->base.mPosX == 7 && b->base.mPosY == 9);
+    b->base.SetTopLeft(pos);
+    CHECK(b->base.mPosX == 1 && b->base.mPosY == 2);
+    CHECK(b->base.ScalarDeletingDestructor(0) == &b->base && b->base.vtable == bridge::FEWidgetVTable() && b->mWidth == 3);
+    auto *h = static_cast<FEWidget *>(bridge::Alloc(sizeof(FEWidget)));
+    const int live = teststub::liveAllocations;
+    h->ScalarDeletingDestructor(1);
+    CHECK(teststub::liveAllocations == live - 1);
+    alignas(8) unsigned char sm[sizeof(FESliderWidget)];
+    std::memset(sm, 0x5A, sizeof sm);
+    auto *s = reinterpret_cast<FESliderWidget *>(sm);
+    CHECK(s->ScalarDeletingDestructor(0) == s && s->mSlider.vtable == bridge::cSliderVTable() && s->base.base.vtable == bridge::FEWidgetVTable());
+    CHECK(s->mpLeftArrow == [] { FEObject *p; std::memset(&p, 0x5A, sizeof p); return p; }());
+    CHECK(FEButtonWidget::DetermineSpecialSound(0x406415E3u, 0) == 8 && FEButtonWidget::DetermineSpecialSound(0, 0x406415E3u) == 0);
+    CHECK(FEWidget::DetermineSpecialSound(1, 6) == 6 && FEWidget::DetermineSoundTrigger() == 0 && FEButtonWidget::DetermineSoundTrigger() == 4);
+}
+
 // FEButtonWidget: construction, show/hide, focus scripts, positioning (box and centred text), mouse check.
 static void TestScrollBar()
 {
@@ -3705,6 +3735,7 @@ int main()
     TestFEngPosition();
     TestButtonWidget();
     TestScrollBar();
+    TestWidgetSmall();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

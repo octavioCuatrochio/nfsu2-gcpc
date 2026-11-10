@@ -59,7 +59,12 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   bridge::cSlider_*). Done: ctor 51E840, sound 50D6F0, Position/Show/Hide/SetFocus/UnsetFocus. Only on options screens
   (in-game unreached); referee uses a fake cSlider vtable. cSlider (vtable 78F544) done too (Init/Update/Draw*/Toggle/SetCurValue/Highlight;
   in-game Init+DrawHorizontal run in the race). FEngFindString 537A10 done. PreviewSlider (79AE30, 0x4C) / ThreeStageSlider
-  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next (whole files): FEWidget file leftovers (FEButtonWidget/FELabelWidget/FEStatWidget small members), then TuningSlidersMenu.
+  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). FEWidget file leftovers done: widget slot 12 SetPos 4AE9C0 (virtual
+  SetPosX/SetPosY, folded for every widget), dtors 4CF650 / scalar 4AEA10 (all widgets but the slider) and slider 4CF640 /
+  4CF620, button/label DetermineSpecialSound 50D800 (PC tests the *message* == 0x406415E3 -> 8; GC tests the event).
+  FELabelWidget Show/Hide/UnsetFocus are folded with the button's. Trivial slots: Act 402350, CheckMouse 50D520,
+  trigger 50D510 0 / 40CBB0 4 / 4BF980 5 / 408CD0 2 / 40CB20 1. Next (whole files): FEInputWidget + FEDateWidget
+  (exist on PC: 51E9E0?, 51EB60, 51EC10, 51EC90, 51EA90, 51ED60, 538060; verify), then TuningSlidersMenu.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

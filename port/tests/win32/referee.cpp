@@ -2875,6 +2875,42 @@ static void CheckScrollBarMouse(int iters)
 }
 
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
+// FEWidget file leftovers: virtual SetPos (button vtable: real SetPosX/SetPosY), non-deleting dtors (flag 0),
+// FEButtonWidget::DetermineSpecialSound.
+static void CheckWidgetSmall(int iters)
+{
+    auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
+    auto oSetPos = ORIG<void(THISCALL *)(void *, const float *)>(0x4AE9C0);
+    auto oDtor = ORIG<void(THISCALL *)(void *)>(0x4CF650);
+    auto oScalar = ORIG<void *(THISCALL *)(void *, uint32_t)>(0x4AEA10);
+    auto oSDtor = ORIG<void(THISCALL *)(void *)>(0x4CF640);
+    auto oSScalar = ORIG<void *(THISCALL *)(void *, uint32_t)>(0x4CF620);
+    auto oSound = ORIG<uint32_t(THISCALL *)(void *, uint32_t, uint32_t)>(0x50D800);
+    static FEButtonWidget A, B;
+    alignas(8) static unsigned char sa[sizeof(FESliderWidget)], sb[sizeof(FESliderWidget)];
+    for (int it = 0; it < iters; ++it) {
+        uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+        for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+        const float pos[2] = {RefCoord(), RefCoord()}, size[2] = {RefCoord(), RefCoord()};
+        oCtor(&A, pos, size, rng() & 1);
+        std::memcpy(&B, &A, sizeof A);
+        const float v[2] = {RefCoord(), RefCoord()};
+        const int op = static_cast<int>(rng() % 3);
+        if (op == 0) { oSetPos(&A, v); B.base.SetPosVirtual(v); }
+        else if (op == 1) { oDtor(&A); B.base.Destruct(); }
+        else { void *r = oScalar(&A, rng() & ~1u); EXPECT(r == &A && B.base.ScalarDeletingDestructor(0) == &B.base, "FEWidget scalar ret"); }
+        EXPECT(std::memcmp(&A, &B, sizeof A) == 0, "FEWidget small op %d", op);
+        for (size_t i = 0; i < sizeof sa; ++i) sa[i] = static_cast<uint8_t>(rng());
+        std::memcpy(sb, sa, sizeof sa);
+        auto *s = reinterpret_cast<FESliderWidget *>(sb);
+        if (rng() & 1) { oSDtor(sa); s->Destruct(); }
+        else { void *r = oSScalar(sa, rng() & ~1u); EXPECT(r == sa && s->ScalarDeletingDestructor(0) == s, "FESliderWidget scalar ret"); }
+        EXPECT(std::memcmp(sa, sb, sizeof sa) == 0, "FESliderWidget dtor");
+        const uint32_t m = rng() % 4 ? 0x406415E3u : rng(), e = rng() % 4 ? 0x406415E3u : rng() % 12;
+        EXPECT(oSound(&A, m, e) == FEButtonWidget::DetermineSpecialSound(m, e), "FEButtonWidget::DetermineSpecialSound %x %x", m, e);
+    }
+}
+
 static void CheckButtonWidget(int iters)
 {
     auto oCtor = ORIG<FEButtonWidget *(THISCALL *)(FEButtonWidget *, const float *, const float *, uint32_t)>(0x51DFC0);
@@ -3750,6 +3786,7 @@ static int RunAll()
     REFEREE_RUN(CheckFEngRotationZ(iters));
     REFEREE_RUN(CheckFEngPosition(iters * 3));
     REFEREE_RUN(CheckButtonWidget(iters));
+    REFEREE_RUN(CheckWidgetSmall(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));

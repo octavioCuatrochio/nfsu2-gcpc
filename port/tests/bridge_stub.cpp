@@ -586,6 +586,7 @@ void FEWidget_Disable(void *w) { WidgetSlot(w, 0x20); }
 void FEWidget_Slot17(void *w) { WidgetSlot(w, 0x44); }
 void FEWidget_UnsetFocus(void *w) { WidgetSlot(w, 0x28); }
 void FEWidget_SetFocus(void *w, const char *p) { (*reinterpret_cast<void(__thiscall ***)(void *, const char *)>(w))[0x24 / 4](w, p); }
+void FEWidget_SetPosX(void *w, float x) { (*reinterpret_cast<void(__thiscall ***)(void *, float)>(w))[0x30 / 4](w, x); }
 void FEWidget_SetPosY(void *w, float y) { (*reinterpret_cast<void(__thiscall ***)(void *, float)>(w))[0x34 / 4](w, y); }
 void FEWidget_Draw(void *w) { WidgetSlot(w, 0x0C); }
 #else
@@ -596,6 +597,7 @@ void FEWidget_Disable(void *w) { teststub::delivered.push_back({"disable", w, nu
 void FEWidget_Slot17(void *w) { teststub::delivered.push_back({"slot17", w, nullptr, 0, 0}); }
 void FEWidget_UnsetFocus(void *w) { teststub::delivered.push_back({"unsetfocus", w, nullptr, 0, 0}); }
 void FEWidget_SetFocus(void *w, const char *) { teststub::delivered.push_back({"setfocus", w, nullptr, 0, 0}); }
+void FEWidget_SetPosX(void *w, float x) { teststub::delivered.push_back({"setposx", w, nullptr, static_cast<uint32_t>(x), 0}); }
 void FEWidget_SetPosY(void *w, float y) { teststub::delivered.push_back({"setposy", w, nullptr, static_cast<uint32_t>(y), 0}); }
 void FEWidget_Draw(void *w) { teststub::delivered.push_back({"draw", w, nullptr, 0, 0}); }
 #endif

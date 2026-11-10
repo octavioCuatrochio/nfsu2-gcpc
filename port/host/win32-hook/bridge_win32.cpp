@@ -251,6 +251,7 @@ void FEWidget_Disable(void *w) { WidgetSlot(w, 0x20); }
 void FEWidget_Slot17(void *w) { WidgetSlot(w, 0x44); }
 void FEWidget_UnsetFocus(void *w) { WidgetSlot(w, 0x28); }
 void FEWidget_SetFocus(void *w, const char *p) { (*reinterpret_cast<void(THISCALL ***)(void *, const char *)>(w))[0x24 / 4](w, p); }
+void FEWidget_SetPosX(void *w, float x) { (*reinterpret_cast<void(THISCALL ***)(void *, float)>(w))[0x30 / 4](w, x); }
 void FEWidget_SetPosY(void *w, float y) { (*reinterpret_cast<void(THISCALL ***)(void *, float)>(w))[0x34 / 4](w, y); }
 void FEWidget_Draw(void *w) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[0x0C / 4](w); }
 void FEPrintfInt(FEObject *o, const char *f, int32_t v) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v); }

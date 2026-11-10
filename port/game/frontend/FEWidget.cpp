@@ -28,6 +28,29 @@ void FEWidget::Init(const float *pos, const float *size, bool enabled)
     mbHidden = 0;
 }
 
+void FEWidget::SetPosVirtual(const float *v)
+{
+    bridge::FEWidget_SetPosX(this, v[0]);   // vtable +0x30
+    bridge::FEWidget_SetPosY(this, v[1]);   // vtable +0x34
+}
+
+void FEWidget::Destruct()
+{
+    vtable = bridge::FEWidgetVTable();
+}
+
+FEWidget *FEWidget::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) bridge::FreeArray(this);
+    return this;
+}
+
+uint32_t FEButtonWidget::DetermineSpecialSound(uint32_t msg, uint32_t)
+{
+    return msg == 0x406415E3u ? 8u : 0u;
+}
+
 FEButtonWidget *FEButtonWidget::Construct(const float *pos, const float *size, bool enabled)
 {
     base.Init(pos, size, enabled);
@@ -878,4 +901,17 @@ uint32_t FEWidget::DetermineSound(uint32_t msg)
     default: return 0;
     }
     return bridge::FEWidget_DetermineSpecialSound(this, msg, event);
+}
+
+void FESliderWidget::Destruct()
+{
+    mSlider.vtable = bridge::cSliderVTable();
+    base.base.vtable = bridge::FEWidgetVTable();
+}
+
+FESliderWidget *FESliderWidget::ScalarDeletingDestructor(uint32_t flags)
+{
+    Destruct();
+    if (flags & 1) bridge::FreeArray(this);
+    return this;
 }

@@ -26,6 +26,20 @@ struct FEWidget {
     void Disable() { mbEnabled = 0; }
     void SetPosX(float x) { mPosX = x; }   // PC 4047F0 (folded)
     void SetPosY(float y) { mPosY = y; }   // PC 4AE9B0
+    void SetPos(const float *v) { mPosX = v[0]; mPosY = v[1]; }      // GC 8018B9F8 / PC 4AE990 (folded)
+    void SetTopLeft(const float *v) { mPosX = v[0]; mPosY = v[1]; }  // GC 8018BA58 (PC: no vtable slot, inlined)
+    void SetTopLeftX(float x) { mPosX = x; }                         // GC 8018BA6C (PC inlined)
+    void SetTopLeftY(float y) { mPosY = y; }                         // GC 8018BA74 (PC inlined)
+    // GC 8018BAB0 (FEButtonWidget / FEStatWidget::SetPos, identical) / PC 4AE9C0 (ret 4; slot 12 of every widget
+    // but the base): virtual SetPosX (+0x30) then SetPosY (+0x34).
+    void SetPosVirtual(const float *v);
+    // Trivial slots (PC folded): Act 402350 (ret 8) / CheckMouse 50D520 (ret 0xC) no-ops, base DetermineSpecialSound
+    // 50D500 returns the event, DetermineSoundTrigger: base 50D510 0, button/label 40CBB0 4, stat 4BF980 5, slider 40CB20 1.
+    static uint32_t DetermineSpecialSound(uint32_t, uint32_t event) { return event; }
+    static uint32_t DetermineSoundTrigger() { return 0; }
+    void Destruct();                                  // GC ~FEWidget 8018B994 / PC 4CF650: vtable = FEWidget
+    // PC 4AEA10 (ret 4): slot 0 of every widget vtable but FESliderWidget's; flag bit 0 -> operator delete 575630
+    FEWidget *ScalarDeletingDestructor(uint32_t flags);
     // GC 8015375C / PC 50D460 (ret 4): message -> sound event (0x911C0A4B 7, 0x911AB364 10, 0x72619778 6,
     // 0x9120409E 4, 0xB5971BF1 5, 0xB5AF2461 9), then DetermineSpecialSound (slot 14); other messages 0.
     uint32_t DetermineSound(uint32_t msg);
@@ -44,6 +58,10 @@ struct FEButtonWidget {
     void UnsetFocus();                           // GC 80153B20 / PC 51E020: "UnHighlight"
     void Position();                             // GC 80153960 / PC 52D6B0: place object (centred strings) + label
     void CheckMouse(const char *pkg, float x, float y);   // GC 801538D8 / PC 52D650 (ret 0xC)
+    // GC 801538BC / PC 50D800 (ret 8; also FELabelWidget's slot): 8 if the message is 0x406415E3, else 0.
+    // PC compares the *message* (first arg); GC compares the event argument (never that hash, so always 0 on GC).
+    static uint32_t DetermineSpecialSound(uint32_t msg, uint32_t event);
+    static uint32_t DetermineSoundTrigger() { return 4; }   // GC 8018BB14 / PC 40CBB0 (folded)
 };
 
 // GC FELabelWidget (PC 0x38 bytes, vtable 0x79B338): same fields as the button, always enabled, no current button.
@@ -205,6 +223,10 @@ struct FESliderWidget {
     void Hide();                     // GC 80154BC8 / PC 50D780
     void SetFocus(const char *pkg);  // GC 80154C3C / PC 52DFF0 (ret 4): current button + "Highlight" (inlined)
     void UnsetFocus();               // GC 80154CC4 / PC 51E8D0
+    float GetValue() const { return mSlider.mValue; }   // GC 8018BD24 / PC 45D300 (fld +0x84; folded)
+    // Enable/Disable: PC uses the FEWidget base slots 50D7C0/50D7D0 (GC 80154C24/80154C30 identical).
+    void Destruct();                 // GC 8018BCDC / PC 4CF640: cSlider vtable at +0x54, then FEWidget's
+    FESliderWidget *ScalarDeletingDestructor(uint32_t flags);   // PC 4CF620 (ret 4; slot 0 of 0x79B400)
     // PC 5275B0 (ret 0x18; GC: inlined in AddSliderOption): slider objects, length = backing width - 2 * margin
     void SetSliderObjects(FEObject *backing, FEObject *handle, FEObject *value, FEObject *current, FEObject *endCap, FEObject *end);
 };
