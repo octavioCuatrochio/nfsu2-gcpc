@@ -1849,6 +1849,101 @@ static void CheckScrollBar(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// cSlider on synthetic objects (no names, no value string): ctor, Init, Update (fake vtable logs Draw), Draw
+// dispatch, DrawHorizontal / DrawVertical, Toggle, SetCurValue, Highlight / UnHighlight.
+namespace cslider_fake {
+std::vector<int> log;
+void __thiscall Draw(void *) { log.push_back(0x18); }
+void __thiscall DrawV(void *) { log.push_back(0x1C); }
+void __thiscall DrawH(void *) { log.push_back(0x20); }
+void *vtable[9] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, (void *)&Draw, (void *)&DrawV, (void *)&DrawH};
+}
+static void CheckCSlider(int iters)
+{
+    auto oCtor = ORIG<cSlider *(THISCALL *)(cSlider *)>(0x4FF430);
+    auto oUpdate = ORIG<uint32_t(THISCALL *)(cSlider *, uint32_t)>(0x4FF480);
+    auto oInit = ORIG<void(THISCALL *)(cSlider *, const SliderInitParams *, uint32_t)>(0x540C10);
+    auto oToggle = ORIG<void(THISCALL *)(cSlider *, uint32_t)>(0x512240);
+    auto oSet = ORIG<void(THISCALL *)(cSlider *, float)>(0x4FF550);
+    using M0 = void(THISCALL *)(cSlider *);
+    const M0 o0[5] = {ORIG<M0>(0x4FF530), ORIG<M0>(0x540D20), ORIG<M0>(0x540E90), ORIG<M0>(0x526D90), ORIG<M0>(0x526F80)};
+    struct Arena { cSlider s; unsigned char om[6][sizeof(FEObject)]; float d[6][20]; };
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&B, &A, sizeof A);
+            EXPECT(oCtor(&A.s) == &A.s && B.s.Construct() == &B.s && std::memcmp(&A.s, &B.s, sizeof A.s) == 0, "cSlider ctor");
+            FEObject **slots[] = {&A.s.mpBacking, &A.s.mpHandle, &A.s.mpValue, &A.s.mpCurrent, &A.s.mpEndCap, &A.s.mpEnd};
+            for (int k = 0; k < 6; ++k) {
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 3 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+                *slots[k] = k != 2 && rng() % 6 ? o : nullptr;
+            }
+            A.s.vtable = cslider_fake::vtable;
+            A.s.mbVertical = rng() % 2;
+            float *fl[] = {&A.s.mMax, &A.s.mMin, &A.s.mPrev, &A.s.mValue, &A.s.mStep, &A.s.mLength, &A.s.mMargin};
+            for (float *f : fl) *f = rng() % 4 ? static_cast<float>(static_cast<int>(rng() % 40) - 10) / static_cast<float>(1 + rng() % 4) : RefCoord();
+            std::memcpy(&B, &A, sizeof A);
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            FEObject **bslots[] = {&B.s.mpBacking, &B.s.mpHandle, &B.s.mpValue, &B.s.mpCurrent, &B.s.mpEndCap, &B.s.mpEnd};
+            for (int k = 0; k < 6; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) + delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            }
+            const int op = static_cast<int>(rng() % 10);
+            if (op == 5 || op == 6) {   // null backing / handle: the original reads uninitialized locals
+                A.s.mpBacking = reinterpret_cast<FEObject *>(A.om[0]); B.s.mpBacking = reinterpret_cast<FEObject *>(B.om[0]);
+                A.s.mpHandle = reinterpret_cast<FEObject *>(A.om[1]); B.s.mpHandle = reinterpret_cast<FEObject *>(B.om[1]);
+            }
+            uint32_t ra = 0, rb = 0;
+            std::vector<int> la, lb;
+            SliderInitParams ip = {};
+            ip.mMin = RefCoord(); ip.mMax = RefCoord(); ip.mValue = RefCoord(); ip.mStep = RefCoord(); ip.mMargin = RefCoord();
+            const uint32_t msgs[3] = {0x9120409Eu, 0xB5971BF1u, rng()};
+            const uint32_t msg = msgs[rng() % 3], flag = (rng() & ~0xFFu) | (rng() & 1);
+            const float v = static_cast<float>(static_cast<int>(rng() % 40) - 10);
+            cslider_fake::log.clear();
+            switch (op) {
+            case 0: ra = oUpdate(&A.s, msg) & 0xFF; break;
+            case 1: oInit(&A.s, &ip, flag); break;
+            case 2: oToggle(&A.s, flag); break;
+            case 3: oSet(&A.s, v); break;
+            default: o0[op - 4 < 5 ? op - 4 : 0](&A.s);
+            }
+            la = cslider_fake::log;
+            cslider_fake::log.clear();
+            switch (op) {
+            case 0: rb = B.s.Update(msg); break;
+            case 1: B.s.Init(&ip, flag & 0xFF); break;
+            case 2: B.s.Toggle(flag & 0xFF); break;
+            case 3: B.s.SetCurValue(v); break;
+            case 4: case 9: B.s.Draw(); break;
+            case 5: B.s.DrawHorizontal(); break;
+            case 6: B.s.DrawVertical(); break;
+            case 7: B.s.Highlight(); break;
+            case 8: B.s.UnHighlight(); break;
+            }
+            lb = cslider_fake::log;
+            for (int k = 0; k < 6; ++k) {
+                if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) - delta);
+                reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
+            }
+            int off = -1;
+            for (size_t i = 0; i < offsetof(Arena, d) && off < 0; ++i) if (reinterpret_cast<uint8_t *>(&A)[i] != reinterpret_cast<uint8_t *>(&B)[i]) off = static_cast<int>(i);
+            EXPECT(ra == rb && la == lb && off < 0 && std::memcmp(A.d, B.d, sizeof A.d) == 0, "cSlider op %d pc=%x vert %d byte %x", op, pc, A.s.mbVertical, off);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FESliderWidget: ctor, sound events, Position / Show / Hide / SetFocus / UnsetFocus on synthetic boxes with a fake
 // cSlider vtable that logs its calls (both sides must make the same calls in the same order).
 namespace slider_fake {
@@ -1881,7 +1976,7 @@ static void CheckSliderWidget(int iters)
             FESliderWidget *ra = oCtor(&A.w, pos, size, vs, vp, en), *rb = B.w.Construct(pos, size, vs, vp, en & 0xFF);
             EXPECT(ra == &A.w && rb == &B.w && std::memcmp(&A.w, &B.w, sizeof A.w) == 0, "FESliderWidget ctor");
             // members on a constructed widget
-            FEObject **slots[] = {&A.w.base.mpObject, &A.w.mpLeftArrow, &A.w.mpRightArrow, &A.w.mSlider.mpThumb, &A.w.base.base.mpLabel};
+            FEObject **slots[] = {&A.w.base.mpObject, &A.w.mpLeftArrow, &A.w.mpRightArrow, &A.w.mSlider.mpBacking, &A.w.base.base.mpLabel};
             for (int k = 0; k < 5; ++k) {
                 for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
                 auto *o = reinterpret_cast<FEObject *>(A.om[k]);
@@ -1892,11 +1987,11 @@ static void CheckSliderWidget(int iters)
                 *slots[k] = (k == 0 || k == 3 || rng() % 5) ? o : nullptr;   // object / thumb always set (PC uses them unchecked in some paths)
             }
             A.w.mSlider.vtable = slider_fake::vtable;
-            A.w.mSlider._unknown24 = static_cast<float>(rng() % 3); A.w.mSlider._unknown28 = static_cast<float>(rng() % 3);
-            A.w.mSlider._unknown2C = static_cast<float>(rng() % 3);
+            A.w.mSlider.mMax = static_cast<float>(rng() % 3); A.w.mSlider.mMin = static_cast<float>(rng() % 3);
+            A.w.mSlider.mPrev = static_cast<float>(rng() % 3);
             std::memcpy(&B, &A, sizeof A);
             const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
-            FEObject **bslots[] = {&B.w.base.mpObject, &B.w.mpLeftArrow, &B.w.mpRightArrow, &B.w.mSlider.mpThumb, &B.w.base.base.mpLabel};
+            FEObject **bslots[] = {&B.w.base.mpObject, &B.w.mpLeftArrow, &B.w.mpRightArrow, &B.w.mSlider.mpBacking, &B.w.base.base.mpLabel};
             for (int k = 0; k < 5; ++k) {
                 if (*bslots[k]) *bslots[k] = reinterpret_cast<FEObject *>(reinterpret_cast<uint8_t *>(*bslots[k]) + delta);
                 reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
@@ -2807,6 +2902,7 @@ static int RunAll()
     REFEREE_RUN(CheckButtonWidget(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
+    REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckFEngExtents(iters * 3));
     REFEREE_RUN(CheckLabelStatWidgets(iters));
     REFEREE_RUN(CheckFEngFontMeasure(iters * 3));

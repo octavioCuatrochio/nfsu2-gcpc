@@ -72,18 +72,48 @@ struct FEStatWidget {
     void Position();                 // GC 80153D94 / PC 52D800
 };
 
-// GC cSlider (PC 0x44, vtable 0x78F544; virtuals through bridge::cSlider_*). Embedded in FESliderWidget.
+// GC SliderInitParams (cSlider::Init): object names (null = keep the current object) and values.
+struct SliderInitParams {
+    const char *mpPackage;           // +0x00 null: keep
+    const char *mpBacking, *mpHandle, *mpValue, *mpCurrent, *mpEndCap, *mpEnd;   // +0x04 .. +0x18
+    float mMin, mMax, mValue, mStep, mMargin;   // +0x1C .. +0x2C
+};
+
+// GC cSlider (zFe2.cpp; nfsu2-re UIProgressBar). PC 0x44, vtable 0x78F544: +0 scalar dtor 4957B0, +4 Update,
+// +8 Init, +0xC Toggle, +0x10 Highlight, +0x14 UnHighlight, +0x18 Draw, +0x1C DrawVertical, +0x20 DrawHorizontal.
+// Two subclasses (0x79AE30 / 0x79AE54) override Toggle / Draw / Update. Own virtual calls go through the vtable.
 struct cSlider {
     void *vtable;              // +0x00
-    uint8_t _unknown04[4];     // +0x04 (byte cleared)
-    const char *_unknown08;    // +0x08 "" (0x783FE5)
-    FEObject *mpThumb;         // +0x0C
-    uint32_t _unknown10[5];    // +0x10
-    float _unknown24;          // +0x24 (widget +0x78) compared with +0x2C for sound event 5
-    float _unknown28;          // +0x28 (widget +0x7C) compared with +0x2C for sound event 4
-    float _unknown2C;          // +0x2C (widget +0x80)
-    uint32_t _unknown30[4];    // +0x30
-    float _unknown40;          // +0x40 46.0
+    uint8_t mbVertical;        // +0x04
+    uint8_t _pad05[3];
+    const char *mpPackage;     // +0x08 "" (0x783FE5) until Init
+    FEObject *mpBacking;       // +0x0C
+    FEObject *mpHandle;        // +0x10
+    FEObject *mpValue;         // +0x14 string: "%d" of the value
+    FEObject *mpCurrent;       // +0x18 fill bar
+    FEObject *mpEndCap;        // +0x1C
+    FEObject *mpEnd;           // +0x20
+    float mMax;                // +0x24
+    float mMin;                // +0x28
+    float mPrev;               // +0x2C value before the last change
+    float mValue;              // +0x30
+    float mInitial;            // +0x34 value at Init
+    float mStep;               // +0x38
+    float mLength;             // +0x3C backing width - 2 * margin
+    float mMargin;             // +0x40 46.0 by default
+
+    cSlider *Construct();                          // GC 8011F220 / PC 4FF430
+    // GC 8011F290 / PC 4FF480 (ret 4): msg 0x9120409E: value -= step (>= min); 0xB5971BF1: += step (<= max); then
+    // Draw (virtual, also for other messages). True if it moved: false when new and previous value are the limit.
+    bool Update(uint32_t msg);
+    void Init(const SliderInitParams *params, bool vertical);   // GC 8011F350 / PC 540C10 (ret 8)
+    void Draw();                                   // GC 8011F790 / PC 4FF530: DrawVertical / DrawHorizontal (virtual)
+    void DrawHorizontal();                         // GC 8011F7F0 / PC 540D20
+    void DrawVertical();                           // GC 8011FA88 / PC 540E90
+    void Toggle(bool on);                          // GC 8011FFE4 / PC 512240 (ret 4)
+    void SetCurValue(float v);                     // GC 80120078 / PC 4FF550 (ret 4): clamp to [min, max]
+    void Highlight();                              // GC 801200AC / PC 526D90 (FEngSetScript inlined x6)
+    void UnHighlight();                            // GC 80120138 / PC 526F80
 };
 
 // GC FESliderWidget (PC 0x98, vtable 0x79B400; 7 option-screen subclasses override it). PC: FEStatWidget base
@@ -96,7 +126,7 @@ struct FESliderWidget {
 
     // PC 51E840 (ret 0x14; GC 801549D4): FEStatWidget ctor, arrows 0, cSlider ctor 4FF430 inlined.
     FESliderWidget *Construct(const float *pos, const float *size, const float *valueSize, const float *valuePos, bool enabled);
-    // GC 80154A18 / PC 50D6F0 (ret 8): event 4 -> 4 if slider +0x2C != +0x28, 5 -> 5 if +0x2C != +0x24 (else 0); others kept.
+    // GC 80154A18 / PC 50D6F0 (ret 8): event 4 -> 4 if slider mPrev != mMin, 5 -> 5 if mPrev != mMax (else 0); others kept.
     uint32_t DetermineSpecialSound(uint32_t msg, uint32_t event) const;
     void Position();                 // GC 80154A70 / PC 52DEF0: object, thumb centred on the value box, Draw, arrows
     void Show();                     // GC 80154B6C / PC 50D740
@@ -106,7 +136,7 @@ struct FESliderWidget {
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu
-static_assert(sizeof(cSlider) == 0x44 && sizeof(FESliderWidget) == 0x98 && offsetof(FESliderWidget, mSlider) + offsetof(cSlider, _unknown2C) == 0x80);
+static_assert(sizeof(cSlider) == 0x44 && sizeof(FESliderWidget) == 0x98 && offsetof(FESliderWidget, mSlider) + offsetof(cSlider, mPrev) == 0x80);
 #endif
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(FELabelWidget) == 0x38 && sizeof(FEStatWidget) == 0x4C && offsetof(FEStatWidget, mValuePosY) == 0x48);

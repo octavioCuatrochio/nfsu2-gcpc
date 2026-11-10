@@ -323,6 +323,7 @@ void THISCALL FEScrollBar_SetPosResized(FEScrollBar *self, int32_t v, int32_t t,
 void THISCALL FEScrollBar_SetPosNonResized(FEScrollBar *self, int32_t v, int32_t t, int32_t i) { self->SetPosNonResized(v, t, i); }
 void THISCALL FEScrollBar_SetArrowVisibility(FEScrollBar *self, int32_t a, uint32_t v) { self->SetArrowVisibility(a, v & 0xFF); }
 void THISCALL FEScrollBar_SetBackingVisibility(FEScrollBar *self, uint32_t v) { self->SetBackingVisibility(v & 0xFF); }
+FEObject *FEngFindStringHook(const char *pkg, uint32_t h) { return FEngFindString(pkg, h); }
 FEObject *FEngFindImageByName(const char *pkg, const char *name) { return FEngFindImage(pkg, name); }
 FESliderWidget *THISCALL FESliderWidget_Ctor(FESliderWidget *self, const float *p, const float *sz, const float *vs, const float *vp, uint32_t en) { return self->Construct(p, sz, vs, vp, en & 0xFF); }
 uint32_t THISCALL FESliderWidget_DetermineSpecialSound(FESliderWidget *self, uint32_t m, uint32_t e) { return self->DetermineSpecialSound(m, e); }
@@ -331,6 +332,16 @@ void THISCALL FESliderWidget_Show(FESliderWidget *self) { self->Show(); }
 void THISCALL FESliderWidget_Hide(FESliderWidget *self) { self->Hide(); }
 void THISCALL FESliderWidget_SetFocus(FESliderWidget *self, const char *pkg) { self->SetFocus(pkg); }
 void THISCALL FESliderWidget_UnsetFocus(FESliderWidget *self) { self->UnsetFocus(); }
+cSlider *THISCALL cSlider_Ctor(cSlider *self) { return self->Construct(); }
+uint32_t THISCALL cSlider_Update(cSlider *self, uint32_t msg) { return self->Update(msg); }
+void THISCALL cSlider_Init(cSlider *self, const SliderInitParams *p, uint32_t v) { self->Init(p, v & 0xFF); }
+void THISCALL cSlider_Draw(cSlider *self) { self->Draw(); }
+void THISCALL cSlider_DrawHorizontal(cSlider *self) { self->DrawHorizontal(); }
+void THISCALL cSlider_DrawVertical(cSlider *self) { self->DrawVertical(); }
+void THISCALL cSlider_Toggle(cSlider *self, uint32_t on) { self->Toggle(on & 0xFF); }
+void THISCALL cSlider_SetCurValue(cSlider *self, float v) { self->SetCurValue(v); }
+void THISCALL cSlider_Highlight(cSlider *self) { self->Highlight(); }
+void THISCALL cSlider_UnHighlight(cSlider *self) { self->UnHighlight(); }
 FEButtonWidget *THISCALL FEButtonWidget_Ctor(FEButtonWidget *self, const float *pos, const float *size, bool en) { return self->Construct(pos, size, en); }
 void THISCALL FEButtonWidget_Show(FEButtonWidget *self) { self->Show(); }
 void THISCALL FEButtonWidget_Hide(FEButtonWidget *self) { self->Hide(); }
@@ -748,6 +759,17 @@ const Replacement kReplacements[] = {
     {0x50D780, (const void *)&FESliderWidget_Hide, "FESliderWidget::Hide", {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x2C}},
     {0x52DFF0, (const void *)&FESliderWidget_SetFocus, "FESliderWidget::SetFocus", {0x53, 0x55, 0x8B, 0xE9, 0x8B, 0x0D}},
     {0x51E8D0, (const void *)&FESliderWidget_UnsetFocus, "FESliderWidget::UnsetFocus", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x4FF430, (const void *)&cSlider_Ctor, "cSlider::cSlider", {0x8B, 0xC1, 0x33, 0xC9, 0xC7, 0x00}},
+    {0x4FF480, (const void *)&cSlider_Update, "cSlider::Update", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x32}},
+    {0x540C10, (const void *)&cSlider_Init, "cSlider::Init", {0x51, 0x56, 0x57, 0x8B, 0x7C, 0x24}},
+    {0x4FF530, (const void *)&cSlider_Draw, "cSlider::Draw", {0x8A, 0x41, 0x04, 0x84, 0xC0, 0x74}},
+    {0x540D20, (const void *)&cSlider_DrawHorizontal, "cSlider::DrawHorizontal", {0x83, 0xEC, 0x1C, 0x56, 0x57, 0x8B}},
+    {0x540E90, (const void *)&cSlider_DrawVertical, "cSlider::DrawVertical", {0x83, 0xEC, 0x14, 0x56, 0x57, 0x8B}},
+    {0x512240, (const void *)&cSlider_Toggle, "cSlider::Toggle", {0x8A, 0x44, 0x24, 0x04, 0x84, 0xC0}},
+    {0x4FF550, (const void *)&cSlider_SetCurValue, "cSlider::SetCurValue", {0xD9, 0x44, 0x24, 0x04, 0x8B, 0x41}},
+    {0x526D90, (const void *)&cSlider_Highlight, "cSlider::Highlight", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x526F80, (const void *)&cSlider_UnHighlight, "cSlider::UnHighlight", {0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57}},
+    {0x537A10, (const void *)&FEngFindStringHook, "FEngFindString", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
     {0x51DFC0, (const void *)&FEButtonWidget_Ctor, "FEButtonWidget::FEButtonWidget", {0x8B, 0xC1, 0x8B, 0x4C, 0x24, 0x04}},
     {0x50D530, (const void *)&FEButtonWidget_Show, "FEButtonWidget::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x50D550, (const void *)&FEButtonWidget_Hide, "FEButtonWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},

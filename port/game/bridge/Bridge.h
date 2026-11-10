@@ -124,6 +124,9 @@ void cSlider_Toggle(void *slider, bool on);
 void cSlider_Highlight(void *slider);
 void cSlider_UnHighlight(void *slider);
 void cSlider_Draw(void *slider);
+void cSlider_DrawVertical(void *slider);     // vtable +0x1C
+void cSlider_DrawHorizontal(void *slider);   // vtable +0x20
+void FEPrintfInt(FEObject *str, const char *fmt, int32_t v);   // PC 537BE0 (__cdecl varargs): format into a string object
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04
 void PlayFrontendSound(uint32_t trigger);       // PC: idx = (int8) table 0x8380B8[trigger]; != -1 -> PlayUISoundFX 458520

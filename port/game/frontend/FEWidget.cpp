@@ -4,6 +4,11 @@
 #include "FEObject.h"
 #include "FEString.h"
 #include "cFEng.h"
+#include "FEHash.h"
+#include "FEMath.h"
+#include "FEScrollBar.h"
+#include <cstring>
+#include <initializer_list>
 
 void FEWidget::Init(const float *pos, const float *size, bool enabled)
 {
@@ -181,22 +186,14 @@ FESliderWidget *FESliderWidget::Construct(const float *pos, const float *size, c
     base.Construct(pos, size, valueSize, valuePos, enabled);
     mpLeftArrow = mpRightArrow = nullptr;
     base.base.vtable = bridge::FESliderWidgetVTable();
-    cSlider &s = mSlider;   // PC: cSlider ctor (4FF430) inlined
-    s.mpThumb = nullptr;
-    for (uint32_t &u : s._unknown10) u = 0;
-    s._unknown24 = s._unknown28 = s._unknown2C = 0;
-    for (uint32_t &u : s._unknown30) u = 0;
-    s._unknown04[0] = 0;
-    s.vtable = bridge::cSliderVTable();
-    s._unknown08 = bridge::GameEmptyString();
-    s._unknown40 = 46.0f;
+    mSlider.Construct();   // PC: inlined
     return this;
 }
 
 uint32_t FESliderWidget::DetermineSpecialSound(uint32_t, uint32_t event) const
 {
-    if (event == 4) return mSlider._unknown2C != mSlider._unknown28 ? 4 : 0;   // PC: NaN counts as different
-    if (event == 5) return mSlider._unknown2C != mSlider._unknown24 ? 5 : 0;
+    if (event == 4) return mSlider.mPrev != mSlider.mMin ? 4 : 0;   // PC: NaN counts as different
+    if (event == 5) return mSlider.mPrev != mSlider.mMax ? 5 : 0;
     return event;
 }
 
@@ -206,8 +203,8 @@ void FESliderWidget::Position()
     const float y = base.mValuePosY;
     const float cx = static_cast<float>(L(base.mValueSizeX) * 0.5L + base.mValuePosX);
     float w, h;
-    FEngGetSize(mSlider.mpThumb, &w, &h);
-    FEngSetTopLeft(mSlider.mpThumb, static_cast<float>(cx - L(w) * 0.5L), y);
+    FEngGetSize(mSlider.mpBacking, &w, &h);
+    FEngSetTopLeft(mSlider.mpBacking, static_cast<float>(cx - L(w) * 0.5L), y);
     bridge::cSlider_Draw(&mSlider);
     FEngGetSize(mpRightArrow, &w, &h);
     FEngSetTopLeft(mpLeftArrow, static_cast<float>(cx - (L(base.mValueSizeX) * 0.5L + w)), base.mValuePosY);
@@ -252,4 +249,145 @@ void FESliderWidget::UnsetFocus()
     FEngSetScript(mpRightArrow, "UnHighlight", true);
     bridge::cSlider_UnHighlight(&mSlider);
     if (base.base.mpLabel) FEngSetScript(base.base.mpLabel, "UnHighlight", true);
+}
+
+cSlider *cSlider::Construct()
+{
+    vtable = bridge::cSliderVTable();
+    mpPackage = bridge::GameEmptyString();
+    mpBacking = mpHandle = mpValue = mpCurrent = mpEndCap = mpEnd = nullptr;
+    mMax = mMin = mValue = mPrev = mInitial = mStep = mLength = 0;
+    mMargin = 46.0f;
+    mbVertical = 0;
+    return this;
+}
+
+bool cSlider::Update(uint32_t msg)
+{
+    bool moved = false;
+    if (msg == 0x9120409Eu || msg == 0xB5971BF1u) {
+        // x87: the new value stays extended for the limit test (rounded only in memory)
+        L v;
+        float limit;
+        mPrev = mValue;
+        if (msg == 0x9120409Eu) {
+            v = L(mValue) - mStep;
+            limit = mMin;
+            if (L(limit) > v) v = limit;   // PC: test 0x41 (NaN keeps v)
+        } else {
+            v = L(mStep) + mValue;
+            limit = mMax;
+            if (L(limit) < v) v = limit;   // PC: test 0x05 (NaN keeps v)
+        }
+        mValue = static_cast<float>(v);
+        moved = !(v == L(limit) && mPrev == limit);
+    }
+    bridge::cSlider_Draw(this);
+    return moved;
+}
+
+void cSlider::Init(const SliderInitParams *p, bool vertical)
+{
+    if (p->mpPackage) mpPackage = p->mpPackage;
+    if (p->mpHandle) mpHandle = FEngFindImage(mpPackage, FEHashUpper(p->mpHandle));
+    if (p->mpBacking) mpBacking = FEngFindImage(mpPackage, FEHashUpper(p->mpBacking));
+    if (p->mpValue) mpValue = FEngFindString(mpPackage, FEHashUpper(p->mpValue));
+    if (p->mpCurrent) mpCurrent = FEngFindImage(mpPackage, FEHashUpper(p->mpCurrent));
+    if (p->mpEndCap) mpEndCap = FEngFindImage(mpPackage, FEHashUpper(p->mpEndCap));
+    if (p->mpEnd) mpEnd = FEngFindImage(mpPackage, FEHashUpper(p->mpEnd));
+    mMax = p->mMax;
+    mMin = p->mMin;
+    mValue = mInitial = p->mValue;
+    mStep = p->mStep;
+    mMargin = p->mMargin;
+    // PC: the width lands in the `params` argument slot, so without a backing object it is the pointer's bits
+    float w, h;
+    const uint32_t bits = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(p));
+    std::memcpy(&w, &bits, 4);
+    FEngGetSize(mpBacking, &w, &h);
+    mbVertical = vertical;
+    mLength = static_cast<float>(L(w) - (L(mMargin) + mMargin));
+}
+
+void cSlider::Draw()
+{
+    if (mbVertical) bridge::cSlider_DrawVertical(this);
+    else bridge::cSlider_DrawHorizontal(this);
+}
+
+// PC also measures the end cap / handle / centre / fill bar here into unused locals (pure, left out).
+void cSlider::DrawHorizontal()
+{
+    float hw = 0, hh = 0, x = 0, y = 0, bw = 0, bh = 0;
+    FEngGetSize(mpHandle, &hw, &hh);
+    FEngGetTopLeft(mpBacking, &x, &y);
+    if (mbVertical) { const float t = x; x = y; y = t; }
+    const L ratio = (L(mValue) - mMin) / (L(mMax) - mMin);
+    const float ratioF = static_cast<float>(ratio);
+    const float hx = static_cast<float>(((ratio * mLength - L(hw) * 0.5L) + mMargin) + x);
+    bh = hw;   // PC: same stack slot (kept when there is no backing)
+    FEngGetSize(mpBacking, &bw, &bh);
+    const L hy = ((L(bh) * 0.5L + y) - L(hh) * 0.5L) + 1.0L;
+    const float hyF = static_cast<float>(hy);
+    FEngSetTopLeft(mpHandle, hx, static_cast<float>(hy - 2.0L));
+    FEngSetWidth(mpCurrent, static_cast<float>(L(ratioF) * mLength));
+    FEngSetTopLeft(mpCurrent, static_cast<float>(L(x) + mMargin), hyF);
+    if (mpValue) bridge::FEPrintfInt(mpValue, "%d", FEFtol(mValue));
+}
+
+void cSlider::DrawVertical()
+{
+    float w = 0, h = 0, cy = 0;
+    FEngGetSize(mpHandle, &w, &h);    // PC: only feed the centre's x slot when there is no backing
+    FEngGetSize(mpBacking, &w, &h);
+    float cx = w;
+    FEngGetCenter(mpBacking, &cx, &cy);
+    const float x = static_cast<float>(L(cx) + 4.0L);
+    const float base = static_cast<float>(L(mLength) * 0.5L + cy);
+    const float ratio = static_cast<float>((L(mValue) - mMin) / (L(mMax) - mMin));
+    const float hx = static_cast<float>(L(x) - 3.0L);
+    L hy = L(base) - L(ratio) * mLength * L(0.95f);
+    if (ratio > 0.0f) hy -= 7.0L;
+    FEngSetCenter(mpHandle, hx, static_cast<float>(hy));
+    const float size = static_cast<float>(L(ratio) * mLength * L(0.95f));
+    FEngSetInvisible(mpEndCap);
+    FEngSetInvisible(mpEnd);
+    FEngSetWidth(mpCurrent, size);   // PC: width, also for the vertical bar
+    FEngSetCenter(mpCurrent, x, static_cast<float>((L(base) - L(size) * 0.5L) - 7.0L));
+    if (mpValue) bridge::FEPrintfInt(mpValue, "%d", FEFtol(mValue));
+}
+
+void cSlider::Toggle(bool on)
+{
+    if (on) {
+        FEngSetVisible(mpBacking);
+        FEngSetVisible(mpHandle);
+        FEngSetVisible(mpValue);
+        FEngSetVisible(mpCurrent);
+    } else {
+        FEngSetInvisible(mpValue);
+        FEngSetInvisible(mpBacking);
+        FEngSetInvisible(mpHandle);
+        FEngSetInvisible(mpCurrent);
+        FEngSetInvisible(mpEndCap);
+        FEngSetInvisible(mpEnd);
+    }
+}
+
+void cSlider::SetCurValue(float v)
+{
+    mPrev = mValue;
+    mValue = v;
+    if (v > mMax) mValue = mMax;          // PC: test 0x41 (NaN kept)
+    if (mValue < mMin) mValue = mMin;     // PC: test 0x05
+}
+
+void cSlider::Highlight()
+{
+    for (FEObject *o : {mpBacking, mpHandle, mpValue, mpCurrent, mpEndCap, mpEnd}) FEngSetScript(o, "Highlight", true);
+}
+
+void cSlider::UnHighlight()
+{
+    for (FEObject *o : {mpBacking, mpHandle, mpValue, mpCurrent, mpEndCap, mpEnd}) FEngSetScript(o, "UnHighlight", true);
 }

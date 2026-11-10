@@ -249,6 +249,9 @@ void cSlider_Toggle(void *s, bool on) { (*reinterpret_cast<void(__thiscall ***)(
 void cSlider_Highlight(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x10 / 4](s); }
 void cSlider_UnHighlight(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x14 / 4](s); }
 void cSlider_Draw(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x18 / 4](s); }
+void cSlider_DrawVertical(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x1C / 4](s); }
+void cSlider_DrawHorizontal(void *s) { (*reinterpret_cast<void(__thiscall ***)(void *)>(s))[0x20 / 4](s); }
+void FEPrintfInt(FEObject *o, const char *f, int32_t v) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v); }
 #else
 void *FEWidgetVTable() { return &teststub::feWidgetVTable; }
 void *FEButtonWidgetVTable() { return &teststub::feButtonWidgetVTable; }
@@ -261,6 +264,9 @@ void cSlider_Toggle(void *s, bool on) { teststub::delivered.push_back({"slider t
 void cSlider_Highlight(void *s) { teststub::delivered.push_back({"slider highlight", s, nullptr, 0, 0}); }
 void cSlider_UnHighlight(void *s) { teststub::delivered.push_back({"slider unhighlight", s, nullptr, 0, 0}); }
 void cSlider_Draw(void *s) { teststub::delivered.push_back({"slider draw", s, nullptr, 0, 0}); }
+void cSlider_DrawVertical(void *s) { teststub::delivered.push_back({"slider drawv", s, nullptr, 0, 0}); }
+void cSlider_DrawHorizontal(void *s) { teststub::delivered.push_back({"slider drawh", s, nullptr, 0, 0}); }
+void FEPrintfInt(FEObject *o, const char *, int32_t v) { teststub::delivered.push_back({"printf", o, nullptr, static_cast<uint32_t>(v), 0}); }
 #endif
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
 void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }

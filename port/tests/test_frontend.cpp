@@ -2419,6 +2419,58 @@ static void TestScrollBar()
     CHECK(od[0][14] == 33 && od[0][15] == 44);
 }
 
+static void TestCSlider()
+{
+    alignas(8) unsigned char sm[sizeof(cSlider)];
+    std::memset(sm, 0x5A, sizeof sm);
+    auto *s = reinterpret_cast<cSlider *>(sm);
+    CHECK(s->Construct() == s && s->mMargin == 46.0f && s->mpPackage && !*s->mpPackage && s->mpEnd == nullptr && s->mValue == 0 && s->mbVertical == 0);
+    // init without names: values, length = backing width - 2 * margin
+    alignas(8) unsigned char om[6][sizeof(FEString)] = {};
+    float od[6][20] = {};
+    FEObject *o[6];
+    for (int i = 0; i < 6; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mu32Type = 1; o[i]->mpData = od[i]; od[i][14] = 10; od[i][15] = 4; }
+    od[0][14] = 200; od[0][15] = 20; od[0][7] = 300; od[0][8] = 100;   // backing: centre (300, 100), 200 x 20
+    s->mpBacking = o[0]; s->mpHandle = o[1]; s->mpCurrent = o[3]; s->mpEndCap = o[4]; s->mpEnd = o[5];
+    SliderInitParams ip = {};
+    ip.mMin = 0; ip.mMax = 10; ip.mValue = 4; ip.mStep = 3; ip.mMargin = 20;
+    s->Init(&ip, false);
+    CHECK(s->mpBacking == o[0] && s->mMax == 10 && s->mMin == 0 && s->mValue == 4 && s->mInitial == 4 && s->mStep == 3 && s->mLength == 160 && s->mbVertical == 0);
+    // update: +3 / -3 clamped; false once at the limit twice
+    teststub::delivered.clear();
+    CHECK(s->Update(0xB5971BF1u) && s->mValue == 7 && s->mPrev == 4);
+    CHECK(s->Update(0xB5971BF1u) && s->mValue == 10);
+    CHECK(!s->Update(0xB5971BF1u) && s->mValue == 10 && s->mPrev == 10);
+    CHECK(!s->Update(0x1234) && s->mPrev == 10 && teststub::delivered.size() == 4);   // other messages: just draw
+    s->SetCurValue(1);
+    CHECK(s->Update(0x9120409Eu) && s->mValue == 0 && s->mPrev == 1);
+    CHECK(!s->Update(0x9120409Eu));
+    s->SetCurValue(12);
+    CHECK(s->mValue == 10 && s->mPrev == 0);
+    s->SetCurValue(-5);
+    CHECK(s->mValue == 0);
+    // horizontal draw at 50%: backing top-left (200, 90); handle 10 x 4
+    s->SetCurValue(5);
+    s->Draw();
+    CHECK(std::string(teststub::delivered.back().kind) == "slider drawh");
+    s->DrawHorizontal();   // handle x = 0.5 * 160 - 5 + 20 + 200 = 295, y = 10 + 90 - 2 + 1 = 99 (- 2)
+    CHECK(od[1][7] == 300 && od[1][8] == 99 && od[3][14] == 80 && od[3][7] == 260 && od[3][8] == 101);
+    s->mpValue = o[2];
+    s->DrawHorizontal();
+    CHECK(std::string(teststub::delivered.back().kind) == "printf" && teststub::delivered.back().msg == 5);
+    s->mpValue = nullptr;
+    // vertical: centre (300, 100) -> x 304; base 80 + 100 = 180; 0.5 * 160 * 0.95 = 76
+    s->mbVertical = 1;
+    s->DrawVertical();
+    CHECK(od[1][7] == 301 && od[1][8] == 180 - 76 - 7 && od[3][14] == 76 && od[3][7] == 304 && od[3][8] == 180 - 38 - 7 && (o[4]->mu32Flags & 1) && (o[5]->mu32Flags & 1));
+    s->Toggle(true);
+    CHECK(!(o[0]->mu32Flags & 1) && (o[4]->mu32Flags & 1));
+    s->Toggle(false);
+    CHECK((o[0]->mu32Flags & 1) && (o[1]->mu32Flags & 1) && (o[3]->mu32Flags & 1));
+    s->Highlight();
+    s->UnHighlight();
+}
+
 static void TestSliderWidget()
 {
     alignas(8) unsigned char wm[sizeof(FESliderWidget)];
@@ -2426,20 +2478,20 @@ static void TestSliderWidget()
     auto *w = reinterpret_cast<FESliderWidget *>(wm);
     const float pos[2] = {100, 200}, size[2] = {300, 30}, vsize[2] = {80, 20}, vpos[2] = {150, 210};
     CHECK(w->Construct(pos, size, vsize, vpos, true) == w);
-    CHECK(w->base.base.vtable == &teststub::feButtonWidgetVTable && w->mSlider.vtable == &teststub::fakeFont && w->mSlider._unknown40 == 46.0f);
-    CHECK(w->mpLeftArrow == nullptr && w->mSlider.mpThumb == nullptr && w->mSlider._unknown04[0] == 0 && w->mSlider._unknown2C == 0 && w->base.mValuePosX == 150);
-    CHECK(w->mSlider._unknown04[1] == 0x5A);   // untouched
+    CHECK(w->base.base.vtable == &teststub::feButtonWidgetVTable && w->mSlider.vtable == &teststub::fakeFont && w->mSlider.mMargin == 46.0f);
+    CHECK(w->mpLeftArrow == nullptr && w->mSlider.mpBacking == nullptr && w->mSlider.mbVertical == 0 && w->mSlider.mPrev == 0 && w->base.mValuePosX == 150);
+    CHECK(w->mSlider._pad05[0] == 0x5A);   // untouched
     // sound events
-    w->mSlider._unknown24 = 1; w->mSlider._unknown28 = 2; w->mSlider._unknown2C = 2;
+    w->mSlider.mMax = 1; w->mSlider.mMin = 2; w->mSlider.mPrev = 2;
     CHECK(w->DetermineSpecialSound(0, 4) == 0 && w->DetermineSpecialSound(0, 5) == 5 && w->DetermineSpecialSound(0, 7) == 7);
-    w->mSlider._unknown2C = 1;
+    w->mSlider.mPrev = 1;
     CHECK(w->DetermineSpecialSound(0, 4) == 4 && w->DetermineSpecialSound(0, 5) == 0);
     // objects: boxes
     alignas(8) unsigned char om[5][sizeof(FEObject)] = {};
     float od[5][20] = {};
     FEObject *o[5];
     for (int i = 0; i < 5; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mu32Type = 1; o[i]->mpData = od[i]; od[i][14] = 10; od[i][15] = 4; }
-    w->base.mpObject = o[0]; w->mpLeftArrow = o[1]; w->mpRightArrow = o[2]; w->mSlider.mpThumb = o[3]; w->base.base.mpLabel = o[4];
+    w->base.mpObject = o[0]; w->mpLeftArrow = o[1]; w->mpRightArrow = o[2]; w->mSlider.mpBacking = o[3]; w->base.base.mpLabel = o[4];
     teststub::delivered.clear();
     w->Position();   // value box centre x 190: thumb 185, left arrow 190 - (40 + 10) = 140, right 230 (top-left)
     CHECK(od[0][7] == 105 && od[0][8] == 202 && od[3][7] == 190 && od[3][8] == 212 && od[1][7] == 145 && od[2][7] == 235 && od[2][8] == 212);
@@ -2813,6 +2865,7 @@ int main()
     TestButtonWidget();
     TestScrollBar();
     TestSliderWidget();
+    TestCSlider();
     TestFEngExtents();
     TestFEngFontMeasure();
     TestProcessPads();

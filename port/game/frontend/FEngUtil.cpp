@@ -355,6 +355,11 @@ FEObject *FEngFindImage(const char *pkg, uint32_t objHash)
     FEObject *o = FEngFindObject(pkg, objHash);
     return o && o->mu32Type == 1 ? o : nullptr;
 }
+FEObject *FEngFindString(const char *pkg, uint32_t objHash)
+{
+    FEObject *o = FEngFindObject(pkg, objHash);
+    return o && o->mu32Type == 2 ? o : nullptr;
+}
 
 void FEngSetPosition(const char *pkg, const char *obj, const FEVector3 *pos)
 {
