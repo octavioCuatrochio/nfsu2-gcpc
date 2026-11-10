@@ -106,6 +106,17 @@ struct cFEng {
     bool DoesPointTouchObject(float x, float y, FEObject *obj);   // GC 8014EC4C / PC 537690 (ret 0xC)
     void OutputWarning(const char *text, int32_t level);          // GC 8014E328 / PC 50C7C0: nothing (release build)
     void NotifySoundMessage(uint32_t a, uint32_t b, uint32_t c, uint32_t d);   // GC 8014D7FC / PC 52CDC0 -> manager
+    // GC 8014E034 / PC 51C990 (ret 0xC): *flag = 0, then FEPackageManager::GetPackageData(name).
+    uint8_t *GetPackageData(const char *name, uint32_t unused, uint8_t *flag);
+    // GC 8014D99C / PC 51C690 (ret 8): rendering flag (+0x06) = not (disc error and not the error screen 0x942C98B5)
+    // and (no FEngPleaseRenderSinglePackage or it is this one) and package visible and not (`magazine` and
+    // UI_MAGAZINEBACK.FNG); then cFEngRender::PrepForPackage (inlined): clear every context's +0xC0 byte.
+    void BeginPackageRendering(FEPackage *pkg, bool magazine);
+    // GC 8014D850 / PC 50C3D0 (ret 8): identity, or the render context's matrix (context +0x10) when id != 0.
+    bool GetContextTransform(uint16_t context, float *matrix);
+    // GC 8014EC48 (empty) / PC 50C860 (ret 4): PC-only mouse: position relative to the 640x480 centre (_ftol),
+    // buttons at +6 (swapped when the mouse is left-handed).
+    void GetMouseInfo(void *info);
     cFEngLevelSorter *SortSentinel() { return reinterpret_cast<cFEngLevelSorter *>(&mpSortHead); }
 };
 

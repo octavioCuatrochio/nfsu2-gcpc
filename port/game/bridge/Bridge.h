@@ -101,6 +101,9 @@ void FEGameInterface_BeginPackageRendering(void *gi, ::FEPackage *pkg, uint32_t 
 void FEGameInterface_EndPackageRendering(void *gi, ::FEPackage *pkg);                        // +0x24
 void FEGameInterface_GenerateRenderContext(void *gi, uint32_t context, ::FEObject *group);   // +0x28
 void FEGameInterface_RenderObjectList(void *gi, void *entries, uint32_t count);              // +0x30 ({obj, key} x count)
+int32_t *DiscErrorOccurred();                    // PC 0x864F2C g_discErrorOccured
+const char **FEngPleaseRenderSinglePackage();    // PC 0x8384B4
+const uint8_t *MouseGlobals();                   // PC 0x8763D4: +0 x, +4 y (int), +0x1C left-handed, +0x1D / +0x20 buttons
 void FEGameInterface_RenderObject(void *gi, ::FEObject *obj);                                // +0x34
 void cFEngRender_GenerateRenderContext(void *render, uint32_t context, ::FEObject *group);  // PC 51B7F0 (__thiscall, ret 8)
 void cFEngRender_AddToRenderList(void *render, ::FEObject *obj);                           // PC 51B850 (ret 4)

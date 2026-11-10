@@ -2016,6 +2016,9 @@ static void CheckCFEngInterface(int iters)
     auto oUnload = ORIG<uint32_t(THISCALL *)(cFEng *, FEPackage *, int32_t, FEResourceRequest *)>(0x50C3A0);
     auto oView = ORIG<void(THISCALL *)(cFEng *, void *)>(0x50C490);
     auto oRender = ORIG<void(THISCALL *)(cFEng *, FEObject *)>(0x51C670);
+    auto oCtx = ORIG<uint32_t(THISCALL *)(cFEng *, uint32_t, float *)>(0x50C3D0);
+    auto oBegin = ORIG<void(THISCALL *)(cFEng *, FEPackage *, uint32_t)>(0x51C690);
+    auto oMouse = ORIG<void(THISCALL *)(cFEng *, void *)>(0x50C860);
     static const char alpha[] = "ab./\\.xY";
     for (int it = 0; it < iters; ++it) {
         char path[40];
@@ -2055,6 +2058,32 @@ static void CheckCFEngInterface(int iters)
         oRender(reinterpret_cast<cFEng *>(fa), o);   // must not reach the renderer
         reinterpret_cast<cFEng *>(fb)->mbRendering = reinterpret_cast<cFEng *>(fa)->mbRendering;
         reinterpret_cast<cFEng *>(fb)->RenderObject(o);
+        // render contexts / begin rendering / mouse (real globals: zero while the referee runs)
+        static uint8_t ra2[0x20 + 0x40 * 0xD0], rb2[sizeof ra2];
+        for (auto &c : ra2) c = static_cast<uint8_t>(rng());
+        std::memcpy(rb2, ra2, sizeof ra2);
+        reinterpret_cast<cFEng *>(fa)->mpRender = ra2;
+        reinterpret_cast<cFEng *>(fb)->mpRender = rb2;
+        const uint32_t ctx = rng() % 3 ? rng() % 0x40 : 0;
+        float ca[16], cb[16];
+        for (int i = 0; i < 16; ++i) ca[i] = cb[i] = RefCoord();
+        const uint32_t xa = oCtx(reinterpret_cast<cFEng *>(fa), ctx | (rng() << 16), ca) & 0xFF;
+        const bool xb = reinterpret_cast<cFEng *>(fb)->GetContextTransform(static_cast<uint16_t>(ctx), cb);
+        EXPECT(xa == xb && std::memcmp(ca, cb, sizeof ca) == 0, "GetContextTransform %u", ctx);
+        alignas(4) static unsigned char pm[sizeof(FEPackage)], dm[sizeof(FEPackageData)];
+        std::memset(pm, 0, sizeof pm); std::memset(dm, 0, sizeof dm);
+        auto *pkg = reinterpret_cast<FEPackage *>(pm);
+        pkg->mpPackageData = reinterpret_cast<FEPackageData *>(dm);
+        reinterpret_cast<FEPackageData *>(dm)->mVisible = static_cast<int16_t>(rng() % 2);
+        pkg->mu32NameHash = rng() % 2 ? 0x942C98B5u : (rng() % 2 ? bStringHash("UI_MAGAZINEBACK.FNG") : rng());
+        const uint32_t mag = (rng() & ~0xFFu) | (rng() & 1);
+        oBegin(reinterpret_cast<cFEng *>(fa), pkg, mag);
+        reinterpret_cast<cFEng *>(fb)->BeginPackageRendering(pkg, mag & 0xFF);
+        EXPECT(reinterpret_cast<cFEng *>(fa)->mbRendering == reinterpret_cast<cFEng *>(fb)->mbRendering && std::memcmp(ra2, rb2, sizeof ra2) == 0, "BeginPackageRendering");
+        uint16_t mia[4] = {1, 2, 3, 4}, mib[4] = {1, 2, 3, 4};
+        oMouse(reinterpret_cast<cFEng *>(fa), mia);
+        reinterpret_cast<cFEng *>(fb)->GetMouseInfo(mib);
+        EXPECT(std::memcmp(mia, mib, sizeof mia) == 0, "GetMouseInfo");
     }
 }
 

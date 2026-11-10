@@ -61,6 +61,9 @@ std::vector<HitTest> hitTests;
 bool textInputFocused = false;
 int fakeFont = 0;
 int32_t joyPluggedPort = -1;
+int32_t discError = 0;
+const char *singlePackage = nullptr;
+uint8_t mouseGlobals[0x24] = {};
 uint8_t joyPortConfig[8] = {0xFF, 0, 0, 0, 0xFF, 0, 0, 0};
 std::string lastJoyTextureName;
 uint32_t lastTextureHash = 0;
@@ -203,12 +206,18 @@ void FEGameInterface_GenerateRenderContext(void *gi, uint32_t c, FEObject *g) { 
 void FEGameInterface_RenderObjectList(void *gi, void *e, uint32_t n) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *, uint32_t)>(gi))[0x30 / 4](gi, e, n); }
 void FEGameInterface_GetViewTransformation(void *gi, void *m) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, void *)>(gi))[0x3C / 4](gi, m); }
 FESortGlobals *FEngSortGlobals() { return reinterpret_cast<FESortGlobals *>(0x838488); }
+int32_t *DiscErrorOccurred() { return reinterpret_cast<int32_t *>(0x864F2C); }
+const char **FEngPleaseRenderSinglePackage() { return reinterpret_cast<const char **>(0x8384B4); }
+const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D4); }
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { (*reinterpret_cast<void(__attribute__((thiscall)) ***)(void *, FEObject *)>(gi))[0x34 / 4](gi, o); }
 void cFEngRender_GenerateRenderContext(void *r, uint32_t c, FEObject *g) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, uint32_t, FEObject *)>(0x51B7F0)(r, c, g); }
 void cFEngRender_AddToRenderList(void *r, FEObject *o) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, FEObject *)>(0x51B850)(r, o); }
 void cFEngRender_PackageFinished(void *r, FEPackage *p) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, FEPackage *)>(0x5371F0)(r, p); }
 void FEPackageManager_NotifySoundMessage(FEPackageManager *m, uint32_t a, uint32_t b, uint32_t c, uint32_t d) { reinterpret_cast<void(__attribute__((thiscall)) *)(void *, uint32_t, uint32_t, uint32_t, uint32_t)>(0x52CC90)(m, a, b, c, d); }
 #else
+int32_t *DiscErrorOccurred() { return &teststub::discError; }
+const char **FEngPleaseRenderSinglePackage() { return &teststub::singlePackage; }
+const uint8_t *MouseGlobals() { return teststub::mouseGlobals; }
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { teststub::delivered.push_back({"renderobj", gi, reinterpret_cast<FEPackage *>(o), 0, 0}); }
 void cFEngRender_GenerateRenderContext(void *r, uint32_t c, FEObject *g) { teststub::delivered.push_back({"render genctx", r, reinterpret_cast<FEPackage *>(g), c, 0}); }
 void cFEngRender_AddToRenderList(void *r, FEObject *o) { teststub::delivered.push_back({"render add", r, reinterpret_cast<FEPackage *>(o), 0, 0}); }

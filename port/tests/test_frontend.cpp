@@ -2243,6 +2243,46 @@ static void TestCFEngInterface()
     float m[16] = {};
     fe->GetViewTransformation(m);
     CHECK(m[0] == 1 && m[5] == 1 && m[10] == 1 && m[15] == 1 && m[1] == 0);
+    // render contexts
+    std::vector<uint8_t> render(0x20 + 0x40 * 0xD0, 0xAB);
+    fe->mpRender = render.data();
+    float cm[16];
+    CHECK(fe->GetContextTransform(0, cm) && cm[0] == 1 && cm[1] == 0);
+    const float two = 2.0f;
+    std::memcpy(&render[0x20 + 3 * 0xD0 + 0x10], &two, 4);
+    CHECK(fe->GetContextTransform(3, cm) && cm[0] == 2);
+    // begin rendering: visibility, disc error, single package, magazine
+    alignas(8) unsigned char pm[sizeof(FEPackage)] = {};
+    alignas(8) unsigned char dm[sizeof(FEPackageData)] = {};
+    auto *pkg = reinterpret_cast<FEPackage *>(pm);
+    auto *pd = reinterpret_cast<FEPackageData *>(dm);
+    pkg->mpPackageData = pd; pd->mVisible = 1; pkg->mu32NameHash = FEHashUpper("A.FNG");
+    fe->mbRendering = 0;
+    fe->BeginPackageRendering(pkg, false);
+    CHECK(fe->mbRendering == 1 && render[0x20 + 0xC0] == 0 && render[0x20 + 63 * 0xD0 + 0xC0] == 0 && render[0x20 + 0xC1] == 0xAB);
+    pd->mVisible = 0; fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 0);
+    pd->mVisible = 1; teststub::singlePackage = "b.fng"; fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 0);
+    teststub::singlePackage = "a.fng"; fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 1);
+    teststub::singlePackage = nullptr; teststub::discError = 1; fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 0);
+    pkg->mu32NameHash = 0x942C98B5u; fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 1);
+    teststub::discError = 0;
+    pkg->mu32NameHash = bStringHash("UI_MAGAZINEBACK.FNG");
+    fe->BeginPackageRendering(pkg, false); CHECK(fe->mbRendering == 1);
+    fe->BeginPackageRendering(pkg, true); CHECK(fe->mbRendering == 0);
+    // mouse: (330, 200), left-handed swaps the buttons
+    const int32_t mx = 330, my = 200;
+    std::memcpy(teststub::mouseGlobals, &mx, 4); std::memcpy(teststub::mouseGlobals + 4, &my, 4);
+    teststub::mouseGlobals[0x20] = 1;
+    uint16_t mi[4] = {9, 9, 9, 9};
+    fe->GetMouseInfo(mi);
+    CHECK(mi[0] == 10 && mi[1] == static_cast<uint16_t>(-40) && mi[2] == 9 && mi[3] == 2);
+    teststub::mouseGlobals[0x1C] = 1;
+    fe->GetMouseInfo(mi);
+    CHECK(mi[3] == 1);
+    std::memset(teststub::mouseGlobals, 0, sizeof teststub::mouseGlobals);
+    uint8_t flag = 5;
+    fe->GetPackageData("none", 0, &flag);
+    CHECK(flag == 0);
 }
 
 static void TestCFEngJoy()

@@ -219,6 +219,9 @@ void InitDebugLanguageChange() { reinterpret_cast<void(__cdecl *)(uint32_t, uint
 void CloseDebugLanguageChange() { reinterpret_cast<void(__cdecl *)(uint32_t, uint32_t)>(0x57C330)(0, 0x34); }
 int32_t IsLiveJoystickPluggedIn(int32_t p) { return reinterpret_cast<int32_t(__cdecl *)(int32_t)>(0x571A80)(p); }
 void *RenderObjectDisconnectVTable() { return reinterpret_cast<void *>(0x79AB9C); }
+int32_t *DiscErrorOccurred() { return reinterpret_cast<int32_t *>(0x864F2C); }
+const char **FEngPleaseRenderSinglePackage() { return reinterpret_cast<const char **>(0x8384B4); }
+const uint8_t *MouseGlobals() { return reinterpret_cast<const uint8_t *>(0x8763D4); }
 void FEGameInterface_RenderObject(void *gi, FEObject *o) { (*reinterpret_cast<void(THISCALL ***)(void *, FEObject *)>(gi))[0x34 / 4](gi, o); }
 void cFEngRender_GenerateRenderContext(void *r, uint32_t c, FEObject *g) { reinterpret_cast<void(THISCALL *)(void *, uint32_t, FEObject *)>(0x51B7F0)(r, c, g); }
 void cFEngRender_AddToRenderList(void *r, FEObject *o) { reinterpret_cast<void(THISCALL *)(void *, FEObject *)>(0x51B850)(r, o); }

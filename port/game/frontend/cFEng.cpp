@@ -9,6 +9,9 @@
 #include "bWare/bSlotPool.h"
 #include "bWare/bMath.h"
 #include "FEngUtil.h"
+#include "FEHash.h"
+#include "FEMath.h"
+#include <cstring>
 
 cFEngLevelSorter *cFEng::FindInLevelSortingList(const char *name)
 {
@@ -345,3 +348,52 @@ void cFEng::GetViewTransformation(void *matrix) { bIdentity(static_cast<bMatrix4
 bool cFEng::DoesPointTouchObject(float x, float y, FEObject *obj) { return FEngTestForIntersection(x, y, obj); }
 void cFEng::OutputWarning(const char *, int32_t) {}
 void cFEng::NotifySoundMessage(uint32_t a, uint32_t b, uint32_t c, uint32_t d) { bridge::FEPackageManager_NotifySoundMessage(bridge::TheFEPackageManager(), a, b, c, d); }
+
+uint8_t *cFEng::GetPackageData(const char *name, uint32_t, uint8_t *flag)
+{
+    *flag = 0;
+    return bridge::TheFEPackageManager()->GetPackageData(name);
+}
+
+namespace {
+// cFEngRender: 64 render contexts of 0xD0 bytes from +0x20 (matrix at +0x10, "used" byte at +0xC0).
+uint8_t *RenderContext(void *render, uint32_t id) { return static_cast<uint8_t *>(render) + 0x20 + id * 0xD0; }
+}
+
+void cFEng::BeginPackageRendering(FEPackage *pkg, bool magazine)
+{
+    mbRendering = 1;
+    if (*bridge::DiscErrorOccurred() && pkg->mu32NameHash != 0x942C98B5u) mbRendering = 0;
+    if (const char *single = *bridge::FEngPleaseRenderSinglePackage())
+        if (FEHashUpper(single) != pkg->mu32NameHash) mbRendering = 0;
+    bool visible;
+    if (pkg->mpPackageData) {
+        visible = pkg->mpPackageData->mVisible != 0;
+    } else {
+        FEPackageData *d = bridge::TheFEPackageManager()->FindFEPackageData(pkg->mpcName);
+        visible = d && d->mVisible != 0;
+    }
+    if (!visible) mbRendering = 0;
+    if (magazine && bStringHash("UI_MAGAZINEBACK.FNG") == pkg->mu32NameHash) mbRendering = 0;
+    for (uint32_t i = 0; i < 0x40; ++i) RenderContext(mpRender, i)[0xC0] = 0;
+}
+
+bool cFEng::GetContextTransform(uint16_t context, float *m)
+{
+    bIdentity(reinterpret_cast<bMatrix4 *>(m));
+    if (context) std::memcpy(m, RenderContext(mpRender, context) + 0x10, 0x40);
+    return true;
+}
+
+void cFEng::GetMouseInfo(void *info)
+{
+    const uint8_t *g = bridge::MouseGlobals();
+    int32_t x, y;
+    std::memcpy(&x, g, 4);
+    std::memcpy(&y, g + 4, 4);
+    auto *out = static_cast<uint16_t *>(info);
+    out[0] = static_cast<uint16_t>(FEFtol(static_cast<long double>(x) - 320.0f));
+    out[1] = static_cast<uint16_t>(FEFtol(static_cast<long double>(y) - 240.0f));
+    const uint32_t a = g[0x20], b = g[0x1D];   // PC 0x8763F4 / 0x8763F1
+    out[3] = static_cast<uint16_t>(g[0x1C] ? (b * 2 | a) : (a * 2 | b));
+}
