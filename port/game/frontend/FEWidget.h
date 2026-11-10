@@ -204,6 +204,36 @@ struct FESliderWidget {
     void UnsetFocus();               // GC 80154CC4 / PC 51E8D0
 };
 
+// GC TuningSlider (zFe2.cpp; PC 0xC0, vtable 0x79B7B0 = FEToggleWidget's 17 slots with 0 dtor 531010, 1 Act 564F10,
+// 2 CheckMouse 565050, 3 Draw 53CD30, 4 Position, 5 Show, 6 Hide, 9 SetFocus, 10 UnsetFocus; Enable/Disable/BlinkArrows
+// are FEToggleWidget's). One per tuning setting on the tuning sliders screen (built in 549xxx).
+struct TuningSlider {
+    FEToggleWidget base;             // +0x00
+    uint32_t mMinHash, mMaxHash;     // +0x54 (GC +0x58) range label language hashes; both set -> range labels shown
+    FEObject *mpMinLabel;            // +0x5C (GC +0x60) (not set by the ctor)
+    FEObject *mpMaxLabel;            // +0x60 (GC +0x64)
+    FEObject *mpExtra;               // +0x64 PC only, optional: placed under the bar, centred on it
+    int32_t mTuningType;             // +0x68
+    ThreeStageSlider mSlider;        // +0x6C
+    float mYOffset;                  // +0xBC
+
+    // PC 522AF0 (ret 0x24; GC ctor inlined in TuningSlidersMenu). Label offset X = 0 (not -276).
+    TuningSlider *Construct(int32_t type, const float *pos, const float *size, const float *valueSize, const float *valuePos,
+                            uint32_t minHash, uint32_t maxHash, bool enabled, float yOffset);
+    // PC 530D20 (ret 0x1C, PC only): slider objects; length = backing width - 2 * margin
+    void SetSliderObjects(FEObject *backing, FEObject *handle, FEObject *value, FEObject *current, FEObject *previewBar,
+                          FEObject *endCap, FEObject *end);
+    void Position();                 // GC 80310264 / PC 530AA0 (PC: mpExtra, no +0.0 terms; label offset Y -= y offset)
+    void Hide();                     // GC 803104F0 / PC 522BC0 (FEToggleWidget::Hide inlined)
+    void Show();                     // GC 80310538 / PC 522C30
+    void SetFocus(const char *pkg);  // GC 80310580 / PC 530F30 (ret 4)
+    void UnsetFocus();               // GC 803105D8 / PC 522CA0
+};
+
+#if UINTPTR_MAX == 0xFFFFFFFFu
+static_assert(sizeof(TuningSlider) == 0xC0 && offsetof(TuningSlider, mSlider) == 0x6C && offsetof(TuningSlider, mTuningType) == 0x68);
+#endif
+
 #if UINTPTR_MAX == 0xFFFFFFFFu
 static_assert(sizeof(cSlider) == 0x44 && sizeof(FESliderWidget) == 0x98 && offsetof(FESliderWidget, mSlider) + offsetof(cSlider, mPrev) == 0x80);
 #endif

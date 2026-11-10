@@ -641,3 +641,127 @@ void ThreeStageSlider::Draw()
     FEngSetTopLeft(base.mpPreviewBar, right, barY);
     FEngSetTopLeft(b.mpHandle, static_cast<float>(L(right) - 4.0L), static_cast<float>(L(y) + 4.0L));
 }
+
+TuningSlider *TuningSlider::Construct(int32_t type, const float *pos, const float *size, const float *valueSize,
+                                      const float *valuePos, uint32_t minHash, uint32_t maxHash, bool enabled, float yOffset)
+{
+    base.base.Construct(pos, size, valueSize, valuePos, enabled);
+    mMinHash = minHash;
+    base.mpLeftArrow = base.mpRightArrow = nullptr;
+    mMaxHash = maxHash;
+    mpExtra = nullptr;
+    base.base.base.vtable = bridge::TuningSliderVTable();
+    mTuningType = type;
+    // ThreeStageSlider ctor (inlined): cSlider fields, then the subclass vtable; preview / stage limits untouched
+    cSlider &s = mSlider.base.base;
+    s.mpBacking = s.mpHandle = s.mpValue = s.mpCurrent = s.mpEndCap = s.mpEnd = nullptr;
+    s.mMax = s.mMin = 0.0f;
+    s.mValue = s.mPrev = s.mInitial = s.mStep = s.mLength = 0.0f;
+    s.mbVertical = 0;
+    mSlider.base.mpPreviewBar = nullptr;
+    s.mpPackage = bridge::GameEmptyString();
+    s.mMargin = 46.0f;
+    s.vtable = bridge::ThreeStageSliderVTable();
+    base.base.base.mLabelOffsetX = 0.0f;
+    mYOffset = yOffset;
+    return this;
+}
+
+void TuningSlider::SetSliderObjects(FEObject *backing, FEObject *handle, FEObject *value, FEObject *current,
+                                    FEObject *previewBar, FEObject *endCap, FEObject *end)
+{
+    cSlider &s = mSlider.base.base;
+    s.mpHandle = handle;
+    s.mpBacking = backing;
+    s.mpValue = value;
+    mSlider.base.mpPreviewBar = previewBar;
+    s.mpCurrent = current;
+    s.mpEndCap = endCap;
+    s.mpEnd = end;
+    float w, h;
+    FEngGetSize(s.mpBacking, &w, &h);
+    s.mLength = static_cast<float>(L(w) - (L(s.mMargin) + s.mMargin));
+}
+
+void TuningSlider::Position()
+{
+    FEStatWidget &st = base.base;
+    FEWidget &wd = st.base;
+    const bool ranges = mMinHash && mMaxHash;
+    float aw, ah;
+    FEngGetSize(base.mpRightArrow, &aw, &ah);
+    const float y = static_cast<float>(L(st.mValuePosY) + mYOffset);
+    const float x = st.mValuePosX, sx = st.mValueSizeX;
+    const float d = ranges ? -6.0f : 0.0f;   // arrows / bar raised when the range labels go below
+    FEngSetTopLeft(st.mpObject, wd.mPosX, static_cast<float>((L(wd.mPosY) + mYOffset) - 3.0f));
+    const float ay = static_cast<float>(L(d) + y);
+    FEngSetTopLeft(base.mpLeftArrow, x, ay);
+    FEngSetTopLeft(base.mpRightArrow, static_cast<float>((L(sx) + x) - aw), ay);
+    // the bar fills the space between the arrows (9 px gap each side)
+    cSlider &s = mSlider.base.base;
+    const float bx = static_cast<float>((L(aw) + x) + 9.0f);
+    const float by = static_cast<float>(L(d) + y);
+    const L gap = L(bx) - x;
+    FEngSetWidth(s.mpBacking, static_cast<float>(sx - (gap + gap)));
+    FEngSetTopLeft(s.mpBacking, bx, by);
+    float ltx, lty, rbx, rby, bw, bh;
+    FEngGetTopLeft(base.mpLeftArrow, &ltx, &lty);
+    FEngGetBottomRight(base.mpRightArrow, &rbx, &rby);
+    FEngGetSize(s.mpBacking, &bw, &bh);
+    const float ly = static_cast<float>(L(bh) + by);   // just below the bar
+    if (ranges) {
+        FEngSetTopLeft(mpMinLabel, ltx, ly);            // min under the left arrow, max right-aligned to the right arrow
+        float px, py;
+        FEngGetBottomRight(mpMaxLabel, &px, &py);
+        FEngSetBottomRight(mpMaxLabel, rbx, py);
+        FEngGetTopLeft(mpMaxLabel, &px, &py);
+        FEngSetTopLeft(mpMaxLabel, px, ly);
+    }
+    if (mpExtra) {
+        float px, py, bcx, bcy, ecx, ecy;
+        FEngGetTopLeft(mpExtra, &px, &py);
+        FEngSetTopLeft(mpExtra, px, ly);
+        FEngGetCenter(s.mpBacking, &bcx, &bcy);
+        FEngGetCenter(mpExtra, &ecx, &ecy);
+        FEngSetCenter(mpExtra, bcx, ecy);
+    }
+    FEngSetTopLeft(s.mpValue, static_cast<float>(L(x) - 50.0f), static_cast<float>(L(y) - 3.0f));
+    wd.mLabelOffsetY = static_cast<float>(L(wd.mLabelOffsetY) - mYOffset);   // PC: shifts again on every call
+    bridge::cSlider_Draw(&mSlider);                                          // vtable +0x18: ThreeStageSlider::Draw
+}
+
+void TuningSlider::Hide()
+{
+    base.Hide();
+    FEngSetInvisible(mpMinLabel);
+    FEngSetInvisible(mpMaxLabel);
+    if (mpExtra) FEngSetInvisible(mpExtra);
+    bridge::cSlider_Toggle(&mSlider, false);   // vtable +0x0C: PreviewSlider::Toggle
+}
+
+void TuningSlider::Show()
+{
+    base.Show();
+    FEngSetVisible(mpMinLabel);
+    FEngSetVisible(mpMaxLabel);
+    if (mpExtra) FEngSetVisible(mpExtra);
+    bridge::cSlider_Toggle(&mSlider, true);
+}
+
+void TuningSlider::SetFocus(const char *pkg)
+{
+    base.SetFocus(pkg);
+    bridge::cSlider_Highlight(&mSlider);   // vtable +0x10
+    FEngSetScript(mpMinLabel, "Highlight", true);
+    FEngSetScript(mpMaxLabel, "Highlight", true);
+    if (mpExtra) FEngSetScript(mpExtra, "Highlight", true);
+}
+
+void TuningSlider::UnsetFocus()
+{
+    base.UnsetFocus();
+    bridge::cSlider_UnHighlight(&mSlider);   // vtable +0x14
+    FEngSetScript(mpMinLabel, "UnHighlight", true);
+    FEngSetScript(mpMaxLabel, "UnHighlight", true);
+    if (mpExtra) FEngSetScript(mpExtra, "UnHighlight", true);
+}

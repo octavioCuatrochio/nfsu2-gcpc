@@ -185,6 +185,8 @@ void *FELabelWidgetVTable();                     // PC 0x79B338
 void *FEStatWidgetVTable();                      // PC 0x79B378
 void *FESliderWidgetVTable();                    // PC 0x79B400
 void *FEToggleWidgetVTable();                    // PC 0x79B3B8
+void *TuningSliderVTable();                      // PC 0x79B7B0
+void *ThreeStageSliderVTable();                  // PC 0x79AE54
 void *cSliderVTable();                           // PC 0x78F544
 const char *GameEmptyString();                   // PC 0x783FE5 ("")
 // cSlider virtuals (thiscall through the object's vtable): +0x0C Toggle(bool) 512240, +0x10 Highlight 526D90,

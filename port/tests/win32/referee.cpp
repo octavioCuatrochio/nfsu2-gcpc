@@ -2400,6 +2400,85 @@ static void CheckToggleWidget(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// TuningSlider: ctor, SetSliderObjects and Position / Show / Hide / SetFocus / UnsetFocus on synthetic boxes; the
+// embedded ThreeStageSlider gets the logging fake vtable (both sides must make the same slider calls).
+static void CheckTuningSlider(int iters)
+{
+    auto oCtor = ORIG<TuningSlider *(THISCALL *)(TuningSlider *, int32_t, const float *, const float *, const float *, const float *, uint32_t, uint32_t, uint32_t, float)>(0x522AF0);
+    auto oObjs = ORIG<void(THISCALL *)(TuningSlider *, FEObject *, FEObject *, FEObject *, FEObject *, FEObject *, FEObject *, FEObject *)>(0x530D20);
+    using M0 = void(THISCALL *)(TuningSlider *);
+    const M0 o0[3] = {ORIG<M0>(0x530AA0), ORIG<M0>(0x522BC0), ORIG<M0>(0x522C30)};
+    auto oUnset = ORIG<M0>(0x522CA0);
+    auto oFocus = ORIG<void(THISCALL *)(TuningSlider *, const char *)>(0x530F30);
+    constexpr int K = 10;
+    struct Arena { TuningSlider w; unsigned char om[K][sizeof(FEObject)]; float d[K][20]; };
+    static Arena A, B;
+    const unsigned int saved = _controlfp(0, 0);
+    for (unsigned int pc : {static_cast<unsigned int>(_PC_53), static_cast<unsigned int>(_PC_24)}) {
+        _controlfp(pc, _MCW_PC);
+        for (int it = 0; it < iters; ++it) {
+            uint8_t *pa = reinterpret_cast<uint8_t *>(&A);
+            for (size_t i = 0; i < sizeof A; ++i) pa[i] = static_cast<uint8_t>(rng());
+            std::memcpy(&B, &A, sizeof A);
+            const float pos[2] = {RefCoord(), RefCoord()}, size[2] = {RefCoord(), RefCoord()};
+            const float vs[2] = {RefCoord(), RefCoord()}, vp[2] = {RefCoord(), RefCoord()};
+            const uint32_t en = (rng() & ~0xFFu) | (rng() & 1), lo = rng() % 3 ? rng() : 0, hi = rng() % 3 ? rng() : 0;
+            const int32_t type = static_cast<int32_t>(rng() % 20);
+            const float yo = RefCoord() / 10.0f;
+            TuningSlider *ra = oCtor(&A.w, type, pos, size, vs, vp, lo, hi, en, yo);
+            TuningSlider *rb = B.w.Construct(type, pos, size, vs, vp, lo, hi, en & 0xFF, yo);
+            EXPECT(ra == &A.w && rb == &B.w && std::memcmp(&A.w, &B.w, sizeof A.w) == 0, "TuningSlider ctor");
+            // objects: 0 object 1 value 2 left 3 right 4 label 5 min 6 max 7 extra | 8 backing 9 slider value
+            for (int k = 0; k < K; ++k) {
+                for (float &f : A.d[k]) f = RefCoord() / static_cast<float>(1 + rng() % 5);
+                auto *o = reinterpret_cast<FEObject *>(A.om[k]);
+                std::memset(A.om[k], 0, sizeof A.om[k]);
+                o->mpData = A.d[k];
+                o->mu32Type = rng() % 3 ? 1 : 3;
+                o->mu32Flags = rng() & 0x400001;
+            }
+            auto obj = [](Arena &R, int k) { return reinterpret_cast<FEObject *>(R.om[k]); };
+            auto wire = [&](Arena &R, bool label, bool extra) {
+                R.w.base.base.mpObject = obj(R, 0); R.w.base.base.mpValue = obj(R, 1);
+                R.w.base.mpLeftArrow = obj(R, 2); R.w.base.mpRightArrow = obj(R, 3);
+                R.w.base.base.base.mpLabel = label ? obj(R, 4) : nullptr;
+                R.w.mpMinLabel = obj(R, 5); R.w.mpMaxLabel = obj(R, 6); R.w.mpExtra = extra ? obj(R, 7) : nullptr;
+            };
+            const bool label = rng() % 3, extra = rng() % 2;
+            wire(A, label, extra);
+            A.w.mSlider.base.base.mMargin = RefCoord() / 20.0f;
+            std::memcpy(&B, &A, sizeof A);
+            for (int k = 0; k < K; ++k) reinterpret_cast<FEObject *>(B.om[k])->mpData = B.d[k];
+            wire(B, label, extra);
+            oObjs(&A.w, obj(A, 8), nullptr, obj(A, 9), nullptr, nullptr, nullptr, nullptr);
+            B.w.SetSliderObjects(obj(B, 8), nullptr, obj(B, 9), nullptr, nullptr, nullptr, nullptr);
+            A.w.mSlider.base.base.vtable = B.w.mSlider.base.base.vtable = slider_fake::vtable;
+            const int op = static_cast<int>(rng() % 5);
+            slider_fake::log.clear();
+            if (op < 3) o0[op](&A.w); else if (op == 3) oUnset(&A.w); else oFocus(&A.w, "Pkg");
+            auto la = slider_fake::log;
+            slider_fake::log.clear();
+            switch (op) {
+            case 0: B.w.Position(); break; case 1: B.w.Hide(); break; case 2: B.w.Show(); break;
+            case 3: B.w.UnsetFocus(); break; default: B.w.SetFocus("Pkg"); break;
+            }
+            auto lb = slider_fake::log;
+            for (auto &e : lb) if (e.first == 0x0C) e.second = (e.second & 0xFF) | (static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&A.w.mSlider)) << 8);
+            // compare with B's pointers mapped back into A
+            wire(B, label, extra);   // (pointers differ by arena only; rewire A-relative for the memcmp)
+            const intptr_t delta = reinterpret_cast<uint8_t *>(&B) - reinterpret_cast<uint8_t *>(&A);
+            uint8_t *wb = reinterpret_cast<uint8_t *>(&B.w);
+            for (size_t off = 0; off + 4 <= sizeof B.w; off += 4) {
+                uintptr_t v; std::memcpy(&v, wb + off, 4);
+                if (v >= reinterpret_cast<uintptr_t>(&B) && v < reinterpret_cast<uintptr_t>(&B) + sizeof B) { v -= delta; std::memcpy(wb + off, &v, 4); }
+            }
+            for (int k = 0; k < K; ++k) reinterpret_cast<FEObject *>(B.om[k])->mpData = A.d[k];
+            EXPECT(la == lb && std::memcmp(&A, &B, offsetof(Arena, d)) == 0 && std::memcmp(A.d, B.d, sizeof A.d) == 0, "TuningSlider op %d pc=%x", op, pc);
+        }
+    }
+    _controlfp(saved, _MCW_PC);
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -3279,6 +3358,7 @@ static int RunAll()
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));
+    REFEREE_RUN(CheckTuningSlider(iters));
     REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckCFEngInterface(iters));

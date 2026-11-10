@@ -2950,6 +2950,35 @@ static void TestToggleWidget()
     CHECK(teststub::delivered.size() == 5 && teststub::delivered[0].msg == 0xB5971BF1u && teststub::delivered[3].arg == 5 && teststub::delivered[4].msg == 15);
 }
 
+static void TestTuningSlider()
+{
+    alignas(8) unsigned char wm[sizeof(TuningSlider)];
+    std::memset(wm, 0x5A, sizeof wm);
+    auto *w = reinterpret_cast<TuningSlider *>(wm);
+    const float pos[2] = {100, 200}, size[2] = {300, 30}, vsize[2] = {200, 20}, vpos[2] = {150, 210};
+    CHECK(w->Construct(7, pos, size, vsize, vpos, 0x11, 0x22, true, 5.0f) == w);
+    CHECK(w->mTuningType == 7 && w->mMinHash == 0x11 && w->mMaxHash == 0x22 && w->mpExtra == nullptr && w->mYOffset == 5.0f);
+    CHECK(w->base.base.base.mLabelOffsetX == 0.0f && w->mSlider.base.base.mMargin == 46.0f && w->mSlider.base.base.vtable == &teststub::fakeFont);
+    alignas(8) unsigned char om[9][sizeof(FEObject)] = {};
+    float od[9][20] = {};
+    FEObject *o[9];
+    for (int i = 0; i < 9; ++i) { o[i] = reinterpret_cast<FEObject *>(om[i]); o[i]->mu32Type = 1; o[i]->mpData = od[i]; od[i][14] = 10; od[i][15] = 4; }
+    od[7][14] = 100;   // backing 100 wide
+    w->base.base.mpObject = o[0]; w->base.base.mpValue = o[1]; w->base.mpLeftArrow = o[2]; w->base.mpRightArrow = o[3];
+    w->base.base.base.mpLabel = nullptr; w->mpMinLabel = o[4]; w->mpMaxLabel = o[5]; w->mpExtra = o[6];
+    w->SetSliderObjects(o[7], nullptr, o[8], nullptr, nullptr, nullptr, nullptr);
+    CHECK(w->mSlider.base.base.mpBacking == o[7] && w->mSlider.base.base.mpValue == o[8] && w->mSlider.base.base.mLength == 8.0f);
+    teststub::delivered.clear();
+    w->Position();   // y = 215, arrows/bar at 209; left arrow at x 150, right at 340; bar x 169, width 200 - 2*19 = 162
+    CHECK(od[0][7] == 105 && od[0][8] == 204 && od[2][7] == 155 && od[2][8] == 211 && od[3][7] == 345 && od[3][8] == 211);
+    CHECK(od[7][14] == 162 && od[7][7] == 250 && od[7][8] == 211);
+    CHECK(od[4][7] == 155 && od[4][8] == 215 && od[5][7] == 345 && od[5][8] == 215);   // range labels under the bar
+    CHECK(od[6][7] == 250 && od[6][8] == 215 && od[8][7] == 105 && od[8][8] == 214);   // extra centred; value at (100, 212)
+    CHECK(w->base.base.base.mLabelOffsetY == -15.0f && std::string(teststub::delivered.back().kind) == "slider draw");
+    w->Hide();
+    CHECK((o[4]->mu32Flags & 1) && (o[6]->mu32Flags & 1) && teststub::delivered.back().msg == 0);
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -3308,6 +3337,7 @@ int main()
     TestScrollBar();
     TestSliderWidget();
     TestToggleWidget();
+    TestTuningSlider();
     TestCSlider();
     TestStageSliders();
     TestFEngExtents();

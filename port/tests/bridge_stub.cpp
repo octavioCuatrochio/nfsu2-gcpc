@@ -380,6 +380,8 @@ void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
 void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
 void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
 void *FEToggleWidgetVTable() { return reinterpret_cast<void *>(0x79B3B8); }
+void *TuningSliderVTable() { return reinterpret_cast<void *>(0x79B7B0); }
+void *ThreeStageSliderVTable() { return reinterpret_cast<void *>(0x79AE54); }
 void *cSliderVTable() { return reinterpret_cast<void *>(0x78F544); }
 const char *GameEmptyString() { return reinterpret_cast<const char *>(0x783FE5); }
 void cSlider_Toggle(void *s, bool on) { (*reinterpret_cast<void(__thiscall ***)(void *, uint32_t)>(s))[0x0C / 4](s, on); }
@@ -396,6 +398,8 @@ void *FELabelWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FEStatWidgetVTable() { return &teststub::feWidgetVTable; }
 void *FESliderWidgetVTable() { return &teststub::feButtonWidgetVTable; }
 void *FEToggleWidgetVTable() { return &teststub::feWidgetVTable; }
+void *TuningSliderVTable() { return &teststub::feButtonWidgetVTable; }
+void *ThreeStageSliderVTable() { return &teststub::fakeFont; }
 void *cSliderVTable() { return &teststub::fakeFont; }
 const char *GameEmptyString() { return ""; }
 void cSlider_Toggle(void *s, bool on) { teststub::delivered.push_back({"slider toggle", s, nullptr, on, 0}); }

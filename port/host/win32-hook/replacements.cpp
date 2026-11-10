@@ -350,6 +350,13 @@ void THISCALL FEToggleImageWidget_Show(FEToggleImageWidget *self) { self->Show()
 void THISCALL FEToggleImageWidget_Hide(FEToggleImageWidget *self) { self->Hide(); }
 void THISCALL FEToggleImageWidget_SetFocus(FEToggleImageWidget *self, const char *pkg) { self->SetFocus(pkg); }
 void THISCALL FEToggleImageWidget_UnsetFocus(FEToggleImageWidget *self) { self->UnsetFocus(); }
+TuningSlider *THISCALL TuningSlider_Ctor(TuningSlider *self, int32_t type, const float *p, const float *sz, const float *vs, const float *vp, uint32_t lo, uint32_t hi, uint32_t en, float yo) { return self->Construct(type, p, sz, vs, vp, lo, hi, en & 0xFF, yo); }
+void THISCALL TuningSlider_SetSliderObjects(TuningSlider *self, FEObject *a, FEObject *b, FEObject *c, FEObject *d, FEObject *e, FEObject *f, FEObject *g) { self->SetSliderObjects(a, b, c, d, e, f, g); }
+void THISCALL TuningSlider_Position(TuningSlider *self) { self->Position(); }
+void THISCALL TuningSlider_Hide(TuningSlider *self) { self->Hide(); }
+void THISCALL TuningSlider_Show(TuningSlider *self) { self->Show(); }
+void THISCALL TuningSlider_SetFocus(TuningSlider *self, const char *pkg) { self->SetFocus(pkg); }
+void THISCALL TuningSlider_UnsetFocus(TuningSlider *self) { self->UnsetFocus(); }
 cSlider *THISCALL cSlider_Ctor(cSlider *self) { return self->Construct(); }
 uint32_t THISCALL cSlider_Update(cSlider *self, uint32_t msg) { return self->Update(msg); }
 void THISCALL cSlider_Init(cSlider *self, const SliderInitParams *p, uint32_t v) { self->Init(p, v & 0xFF); }
@@ -865,6 +872,13 @@ const Replacement kReplacements[] = {
     {0x50D6A0, (const void *)&FEToggleImageWidget_Hide, "FEToggleImageWidget::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x52DE80, (const void *)&FEToggleImageWidget_SetFocus, "FEToggleImageWidget::SetFocus", {0x8B, 0x44, 0x24, 0x04, 0x56, 0x57}},
     {0x51E7D0, (const void *)&FEToggleImageWidget_UnsetFocus, "FEToggleImageWidget::UnsetFocus", {0x56, 0x57, 0x8B, 0xF1, 0xE8, 0x77}},
+    {0x522AF0, (const void *)&TuningSlider_Ctor, "TuningSlider::TuningSlider", {0x8B, 0x44, 0x24, 0x20, 0x8B, 0x54}},
+    {0x530D20, (const void *)&TuningSlider_SetSliderObjects, "TuningSlider::SetSliderObjects", {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x54}},
+    {0x530AA0, (const void *)&TuningSlider_Position, "TuningSlider::Position", {0x83, 0xEC, 0x1C, 0x53, 0x56, 0x8B}},
+    {0x522BC0, (const void *)&TuningSlider_Hide, "TuningSlider::Hide", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x522C30, (const void *)&TuningSlider_Show, "TuningSlider::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
+    {0x530F30, (const void *)&TuningSlider_SetFocus, "TuningSlider::SetFocus", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x55}},
+    {0x522CA0, (const void *)&TuningSlider_UnsetFocus, "TuningSlider::UnsetFocus", {0x53, 0x55, 0x56, 0x57, 0x8B, 0xD9}},
     {0x4FF430, (const void *)&cSlider_Ctor, "cSlider::cSlider", {0x8B, 0xC1, 0x33, 0xC9, 0xC7, 0x00}},
     {0x4FF480, (const void *)&cSlider_Update, "cSlider::Update", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x32}},
     {0x540C10, (const void *)&cSlider_Init, "cSlider::Init", {0x51, 0x56, 0x57, 0x8B, 0x7C, 0x24}},

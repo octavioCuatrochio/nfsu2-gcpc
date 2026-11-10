@@ -144,6 +144,8 @@ void *FELabelWidgetVTable() { return reinterpret_cast<void *>(0x79B338); }
 void *FEStatWidgetVTable() { return reinterpret_cast<void *>(0x79B378); }
 void *FESliderWidgetVTable() { return reinterpret_cast<void *>(0x79B400); }
 void *FEToggleWidgetVTable() { return reinterpret_cast<void *>(0x79B3B8); }
+void *TuningSliderVTable() { return reinterpret_cast<void *>(0x79B7B0); }
+void *ThreeStageSliderVTable() { return reinterpret_cast<void *>(0x79AE54); }
 void *cSliderVTable() { return reinterpret_cast<void *>(0x78F544); }
 const char *GameEmptyString() { return reinterpret_cast<const char *>(0x783FE5); }
 void cSlider_Toggle(void *s, bool on) { (*reinterpret_cast<void(THISCALL ***)(void *, uint32_t)>(s))[0x0C / 4](s, on); }
