@@ -32,6 +32,7 @@
 #include "frontend/QRTrackSelect.h"
 #include "frontend/QRModeOptions.h"
 #include "frontend/PostRaceMenu.h"
+#include "frontend/CarTunePause.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
@@ -807,6 +808,20 @@ void THISCALL PRM_QuitRaceToFreeRoam(PostRaceMenu *m) { m->QuitRaceToFreeRoam();
 void THISCALL PRM_RaceDone(PostRaceMenu *m) { m->QuitRaceToFreeRoamRaceDone(); }
 void THISCALL PRM_QuitGame(PostRaceMenu *m) { m->QuitGame(); }
 template <PRKind K> void THISCALL PR_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PRReact(K, p, m); }
+
+// ---- CarTunePauseScreen + icons ----
+CarTunePauseScreen *THISCALL CTP_Ctor(CarTunePauseScreen *m, const ScreenConstructorData *d) { return m->Construct(d); }
+void THISCALL CTP_Dtor(CarTunePauseScreen *m) { m->Destruct(); }
+CarTunePauseScreen *THISCALL CTP_ScalarDtor(CarTunePauseScreen *m, uint32_t f) { return m->ScalarDeletingDestructor(f); }
+void THISCALL CTP_Notify(CarTunePauseScreen *m, uint32_t msg, FEObject *o, uint32_t a, uint32_t p) { m->NotificationMessage(msg, o, a, p); }
+uint32_t THISCALL CTP_NotifySound(void *, uint32_t, void *, uint32_t, uint32_t, uint32_t e) { return CarTunePauseScreen::NotifySoundMessage(e); }
+bool THISCALL CTP_IsOkToResume(CarTunePauseScreen *m) { return m->IsOkToResume(); }
+void THISCALL CTP_Setup(CarTunePauseScreen *m) { m->Setup(); }
+void THISCALL CTP_SetupDyno(CarTunePauseScreen *m) { m->SetupDynoPause(); }
+void THISCALL CTP_SetupTuning(CarTunePauseScreen *m) { m->SetupTuningPause(); }
+void THISCALL CTP_RefreshHeader(CarTunePauseScreen *m) { m->RefreshHeader(); }
+void THISCALL CTP_DoQuitTuning(CarTunePauseScreen *m) { m->DoQuitTuning(); }
+template <CTKind K> void THISCALL CT_React(void *, const char *p, uint32_t m, void *, uint32_t a, uint32_t) { CTReact(K, p, m, a); }
 
 FEColor *ISX_GetObjectColor(FEColor *out, const FEObject *o) { *out = FEngGetObjectColor(o); return out; }
 uint32_t THISCALL ISX_ColorPack(const FEColor *c) { return FEColorPack(*c); }
@@ -1738,6 +1753,27 @@ const Replacement kReplacements[] = {
     {0x4A3E30, (const void *)&PRM_RaceDone, "PostRaceMenu::QuitRaceToFreeRoamRaceDone", {0x83, 0xEC, 0x40, 0x56, 0x8D, 0x44}},
     {0x4A3E80, (const void *)&PRM_QuitGame, "PostRaceMenu::QuitGame", {0x83, 0x3D, 0x78, 0x00, 0x85, 0x00}},
     {0x4A3D50, (const void *)&PostRace_SetControlMask, "PostRace_SetControlMask", {0x8B, 0x15, 0x78, 0x00, 0x85, 0x00}},
+    {0x55A460, (const void *)&CTP_Ctor, "CarTunePauseScreen::CarTunePauseScreen", {0x55, 0x8B, 0xEC, 0x6A, 0xFF, 0x68}},
+    {0x55A570, (const void *)&CTP_Dtor, "CarTunePauseScreen::~CarTunePauseScreen", {0xC7, 0x01, 0x0C, 0xD3, 0x79, 0x00}},
+    {0x55A550, (const void *)&CTP_ScalarDtor, "CarTunePauseScreen scalar deleting destructor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x5647E0, (const void *)&CTP_Notify, "CarTunePauseScreen::NotificationMessage", {0x55, 0x8B, 0xEC, 0xA0, 0xA4, 0xA7}},
+    {0x510EB0, (const void *)&CTP_NotifySound, "CarTunePauseScreen::NotifySoundMessage", {0x8B, 0x44, 0x24, 0x14, 0x8B, 0xC8}},
+    {0x5100E0, (const void *)&CTP_IsOkToResume, "CarTunePauseScreen::IsOkToResume", {0x8B, 0x81, 0x50, 0x01, 0x00, 0x00}},
+    {0x557350, (const void *)&CTP_Setup, "CarTunePauseScreen::Setup", {0xA1, 0x44, 0xA6, 0x83, 0x00, 0x83}},
+    {0x53C9E0, (const void *)&CTP_SetupDyno, "CarTunePauseScreen::SetupDynoPause", {0x53, 0x56, 0x57, 0x6A, 0x48, 0x8B}},
+    {0x5227E0, (const void *)&CTP_SetupTuning, "CarTunePauseScreen::SetupTuningPause", {0x6A, 0xFF, 0x68, 0xE4, 0x72, 0x77}},
+    {0x549760, (const void *)&CTP_RefreshHeader, "CarTunePauseScreen::RefreshHeader", {0x56, 0x8B, 0xF1, 0xE8, 0xE8, 0x42}},
+    {0x53CC70, (const void *)&CTP_DoQuitTuning, "CarTunePauseScreen::DoQuitTuning", {0x53, 0x56, 0x68, 0x00, 0x00, 0x79}},
+    {0x53C7D0, (const void *)&CT_React<CTKind::Resume>, "ct Resume React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x564C80, (const void *)&CT_React<CTKind::Restart>, "ct Restart React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x53C830, (const void *)&CT_React<CTKind::DynoChart>, "ct DynoChart React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x564CF0, (const void *)&CT_React<CTKind::QuitToTuning>, "ct QuitToTuning React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x53C860, (const void *)&CT_React<CTKind::Options>, "ct Options React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x53C890, (const void *)&CT_React<CTKind::TuningMaster>, "ct TuningMaster React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x53C8C0, (const void *)&CT_React<CTKind::BackToDyno>, "ct BackToDyno React", {0x55, 0x8B, 0xEC, 0x81, 0x7D, 0x0C}},
+    {0x564D60, (const void *)&CT_React<CTKind::DiscardChanges>, "ct DiscardChanges React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x564DD0, (const void *)&CT_React<CTKind::QuitTuning>, "ct QuitTuning React", {0x55, 0x8B, 0xEC, 0x81, 0x7D, 0x0C}},
+    {0x55A580, (const void *)&CT_React<CTKind::GoToSetting>, "ct GoToSetting React", {0x55, 0x8B, 0xEC, 0x81, 0x7D, 0x0C}},
     {0x4BEC90, (const void *)&PR_React<PRKind::NextEvent>, "pr NextEvent React", {0x55, 0x8B, 0xEC, 0x81, 0x7D, 0x0C}},
     {0x4BEC20, (const void *)&PR_React<PRKind::QuitToFreeRoam>, "pr QuitToFreeRoam React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4BEDC0, (const void *)&PR_React<PRKind::WorldMap>, "pr WorldMap React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},

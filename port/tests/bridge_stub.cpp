@@ -115,6 +115,7 @@ void (*loadCallback)(void *) = nullptr;
 void *loadParam = nullptr;
 const void *currentTrackInfo = nullptr;
 int iconOptionsAdded = 0;
+bool carTuneActive = false, carTuneChanged = false, carTuneDirty = false;
 bool autoSaveAccepted = false, nextEventExists = false, postRaceReplay = false;
 uint32_t lastJoyTypes[2] = {};
 uint8_t joyTypes[2] = {};
@@ -1186,4 +1187,26 @@ bool PlayerCareerState_NotifyEnterFreeRoamFromPostRace(char *m) { m[0] = 'm'; m[
 void LaunchPostRaceMovie(const char *, const char *m) { teststub::delivered.push_back({"movie", const_cast<char *>(m), nullptr, 0, 0}); }
 void PlayerCareerState_MarkCurrentEventComplete() { teststub::delivered.push_back({"eventcomplete", nullptr, nullptr, 0, 0}); }
 void PostRaceManager_Back() { teststub::delivered.push_back({"postraceback", nullptr, nullptr, 0, 0}); }
+// ---- CarTunePauseScreen ----
+const char *GameStringPointer(uint32_t) { return "UI_Stub.fng"; }
+const char **GameStringSlot(uint32_t a) { static const char *slots[0x40]; return &slots[(a >> 2) & 0x3F]; }
+int32_t RaceCoordinatorState() { return 0; }
+void RaceCoordinator_RequestPause(int32_t p) { teststub::delivered.push_back({"pause", nullptr, nullptr, static_cast<uint32_t>(p), 0}); }
+int32_t TuningPlayerId() { return 0; }
+bool Player_IsHudKPH(int32_t) { return true; }
+void SetCarTuningSpec() { teststub::delivered.push_back({"tuningspec", nullptr, nullptr, 0, 0}); }
+void cFEng_RegisterJoy() {}
+uint8_t *CarTuneStoredSpecs() { static uint8_t s[0x40]; return s; }
+bool CarTuneManagerActive() { return teststub::carTuneActive; }
+bool CarTune_59AE90(int32_t) { return teststub::carTuneChanged; }
+void CarTune_RestoreCustomTunings(int32_t c) { teststub::delivered.push_back({"cartune", nullptr, nullptr, 0x50FC60, static_cast<uint32_t>(c)}); }
+void CarTune_50FAE0(int32_t c) { teststub::delivered.push_back({"cartune", nullptr, nullptr, 0x50FAE0, static_cast<uint32_t>(c)}); }
+void CarTune_50FC20(int32_t c) { teststub::delivered.push_back({"cartune", nullptr, nullptr, 0x50FC20, static_cast<uint32_t>(c)}); }
+bool CarTune_50FD10() { return teststub::carTuneDirty; }
+void CarTune_50FDF0() { teststub::delivered.push_back({"cartune", nullptr, nullptr, 0x50FDF0, 0}); }
+void CarTune_50F7E0(int32_t v) { teststub::delivered.push_back({"cartune", nullptr, nullptr, 0x50F7E0, static_cast<uint32_t>(v)}); }
+void CarTune_5B7ED0(int32_t) {}
+void PresetCarSlot_DefaultCustomTuningSpecs(int32_t) {}
+void CarTune_CopyStoredSpecs() {}
+void Race_SimulateRaceFinish() {}
 }  // namespace bridge

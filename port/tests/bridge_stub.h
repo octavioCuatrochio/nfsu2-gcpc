@@ -97,7 +97,8 @@ extern int32_t lockedTrack, resourceLoads, resourceUnloads;   // IsTrackUnlocked
 extern void (*loadCallback)(void *);   // last LoadResourceFile callback (ServiceResourceLoading calls it)
 extern void *loadParam;
 extern const void *currentTrackInfo;
-extern int iconOptionsAdded;   // IconScrollerMenu_AddOption calls
+extern int iconOptionsAdded;
+extern bool carTuneActive, carTuneChanged, carTuneDirty;   // CarTunePauseScreen bridges   // IconScrollerMenu_AddOption calls
 extern bool autoSaveAccepted, nextEventExists, postRaceReplay;   // PostRaceMenu bridges   // TrackInfo_GetTrackInfo result
 extern uint32_t lastJoyTypes[2];
 extern uint8_t joyTypes[2];

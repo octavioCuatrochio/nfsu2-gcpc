@@ -24,6 +24,7 @@
 #include "frontend/QRTrackSelect.h"
 #include "frontend/QRModeOptions.h"
 #include "frontend/PostRaceMenu.h"
+#include "frontend/CarTunePause.h"
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/StartCareer.h"
 #include "frontend/ProfileManager.h"
@@ -4798,6 +4799,81 @@ static void TestPostRaceMenu()
     bridge::cFEngInstance()->mpEngine = savedEngine;
 }
 
+static void TestCarTunePause()
+{
+    FEngine *savedEngine = bridge::cFEngInstance()->mpEngine;
+    bridge::cFEngInstance()->mpEngine = TestEngine();
+    auto has = [](const char *kind, uint32_t msg) {
+        for (const auto &e : teststub::delivered) if (std::string(e.kind) == kind && e.msg == msg) return true;
+        return false;
+    };
+    CHECK(CarTunePauseScreen::NotifySoundMessage(4) == 0 && CarTunePauseScreen::NotifySoundMessage(5) == 0 &&
+          CarTunePauseScreen::NotifySoundMessage(6) == 6);
+    CHECK(CTVTable(CTKind::Resume) == 0x79B720u && CTVTable(CTKind::GoToSetting) == 0x79B768u);
+    alignas(8) static unsigned char mem[sizeof(CarTunePauseScreen)];
+    std::memset(mem, 0, sizeof mem);
+    auto *m = reinterpret_cast<CarTunePauseScreen *>(mem);
+    ScreenConstructorData d{nullptr, nullptr, 0, 0, 0};
+    m->base.Construct(&d);
+    auto count = [&](void (CarTunePauseScreen::*f)()) {
+        const int before = teststub::iconOptionsAdded;
+        (m->*f)();
+        return teststub::iconOptionsAdded - before;
+    };
+    CHECK(count(&CarTunePauseScreen::SetupDynoPause) == 6);
+    teststub::carTuneDirty = false;
+    CHECK(count(&CarTunePauseScreen::SetupTuningPause) == 5);
+    teststub::carTuneDirty = true;
+    CHECK(count(&CarTunePauseScreen::SetupTuningPause) == 6);
+    // resume test: not in the opening tick, tuning mode resumes without a pad check
+    teststub::realTimer = 100;
+    m->mOpenTime = 100;
+    CHECK(!m->IsOkToResume());
+    m->mOpenTime = 50;
+    *bridge::GameInt(0x83A644) = 1;
+    CHECK(m->IsOkToResume());
+    // quit tuning: globals reset, next screen by the entry point, unpause 6
+    *bridge::GameInt(0x83A640) = 1;
+    *bridge::GameInt(0x83A63C) = 3;
+    teststub::delivered.clear();
+    m->DoQuitTuning();
+    CHECK(*bridge::GameInt(0x83A63C) == 0xFF && *bridge::GameStringSlot(0x8384C8) != nullptr &&
+          std::string(*bridge::GameStringSlot(0x8384C8)) == "UI_ChoosePerformanceCategory.fng" && has("unpause", 6));
+    // quit confirmed with unsaved changes and autosave: save dialog, else quit at once
+    *bridge::GameByte(0x844AD8) = 1;
+    teststub::carTuneDirty = true;
+    teststub::delivered.clear();
+    m->NotificationMessage(0x30ED2368u, nullptr, 0, 0);
+    bool dlg = false;
+    for (const auto &e : teststub::delivered) dlg |= std::string(e.kind) == "twobuttons";
+    CHECK(dlg && !has("unpause", 6));
+    teststub::carTuneDirty = false;
+    teststub::delivered.clear();
+    m->NotificationMessage(0x30ED2368u, nullptr, 0, 0);
+    CHECK(has("unpause", 6));
+    *bridge::GameByte(0x844AD8) = 0;
+    // restart
+    *bridge::GameInt(0x83A63C) = 2;
+    teststub::delivered.clear();
+    m->NotificationMessage(0xE1A57D51u, nullptr, 0, 0);
+    CHECK(has("cartune", 0x50FDF0) && has("unpause", 3));
+    teststub::delivered.clear();
+    m->NotificationMessage(0x159C894Du, nullptr, 0, 0);
+    CHECK(has("cartune", 0x50FC60));
+    // the tuning setting icon acts directly only when the settings are unchanged
+    teststub::carTuneActive = true;
+    teststub::carTuneChanged = false;
+    teststub::delivered.clear();
+    CTReact(CTKind::GoToSetting, nullptr, 0x0C407210u, 0);
+    dlg = false;
+    for (const auto &e : teststub::delivered) dlg |= std::string(e.kind) == "twobuttons";
+    CHECK(dlg);
+    teststub::carTuneActive = false;
+    *bridge::GameInt(0x83A644) = 0;
+    *bridge::GameInt(0x83A640) = 0;
+    bridge::cFEngInstance()->mpEngine = savedEngine;
+}
+
 int main()
 {
     TestLevelSorter();
@@ -4835,6 +4911,7 @@ int main()
     TestQuickRaceSettings();
     TestQRModeOptions();
     TestPostRaceMenu();
+    TestCarTunePause();
     TestOptionsMain();
     TestPauseMenu();
     TestMenuIcons();

@@ -66,6 +66,7 @@
 #include "frontend/ThumbnailScroller.h"
 #include "frontend/QRTrackSelect.h"
 #include "frontend/QuickRaceSettings.h"
+#include "frontend/CarTunePause.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/MainMenu.h"
 #define THISCALL __attribute__((thiscall))
@@ -4375,6 +4376,15 @@ static int TSIndex(const ThumbnailNode *p, const ThumbnailNode *base) { return p
 // UIQRTrackSelect / SelectableTrack / TrackMapScroller pure functions: icon hash, availability, sort compare,
 // SetTrackMap, InitZoom / ZoomIn (synthetic image without scripts). The mode globals are set and restored.
 // QuickRaceSettings accessors on two synthetic copies (modes 0..12, incl. the mode-12 fields).
+static void CheckCarTunePauseSound(int iters)
+{
+    auto o = ORIG<uint32_t(THISCALL *)(void *, uint32_t, void *, uint32_t, uint32_t, uint32_t)>(0x510EB0);
+    for (int it = 0; it < iters; ++it) {
+        const uint32_t e = rng() % 3 ? rng() % 12 : rng();
+        EXPECT(o(nullptr, rng(), nullptr, 0, 0, e) == CarTunePauseScreen::NotifySoundMessage(e), "CarTunePause sound %u", e);
+    }
+}
+
 static void CheckQuickRaceSettings(int iters)
 {
     using G = int32_t(THISCALL *)(QuickRaceSettings *);
@@ -4739,6 +4749,7 @@ static int RunAll()
     REFEREE_RUN(CheckThumbnailScroller(iters));
     REFEREE_RUN(CheckQRTrackSelect(iters));
     REFEREE_RUN(CheckQuickRaceSettings(iters));
+    REFEREE_RUN(CheckCarTunePauseSound(iters));
     REFEREE_RUN(CheckOptionsMain(iters));
     REFEREE_RUN(CheckMenuHelpers(iters));
     REFEREE_RUN(CheckScrollBar(iters));

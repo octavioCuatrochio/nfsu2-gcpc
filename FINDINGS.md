@@ -181,8 +181,12 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   quit / free roam (flags 1 && 0x844AD8 && 5287A0(0x85BA64, 0)) -> MarkCurrentEventComplete 54CA30 + EnterMemcard op 0x441;
   0x911AB364 -> cPostRaceScreenManager (*0x8363DC). Replay icon uses *(0x8650B8)+0xBC (PauseMenu: +0xB8). Not tested
   in-game (needs a finished race).
+  CarTunePauseScreen done (CarTunePause.cpp, PC 0x158, vtable 79D30C; 10 icons 79B720 + 8k): *0x83A644 0 dyno / 1
+  tuning, *0x83A63C category (0xFF none), byte 0x83A7A4 from crib, *0x83A640 entry (0 crib, 1 performance, 2
+  customize -> next screen *0x8384C8). 59AE90 result is inverted (`neg; sbb; inc`): GoToSetting acts directly / asks
+  only when it returned 0. CarTuneManager (0x839C40) methods bridged by address (not rewritten). Not tested in-game.
   Next: other ThumbnailScroller users (PartSelectionScreen 55E820, RimsBrowser 5678E0, ChooseDecalScreen 568450, CribWorld-
-  MapScreen 4EE690), UIMagazineSelect, PostRaceMenu, CarTunePauseScreen, 797564 screen.
+  MapScreen 4EE690), UIMagazineSelect, CarTuneManager (0x839C40), 797564 screen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).

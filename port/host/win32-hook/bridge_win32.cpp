@@ -1,3 +1,4 @@
+#include <cstring>
 #include "frontend/QuickRaceSettings.h"
 #include "frontend/FERender.h"
 #include "frontend/FEPackageManager.h"
@@ -736,4 +737,31 @@ void PostRaceManager_Back()
     }
     reinterpret_cast<void(THISCALL *)(void *)>(0x4C0020)(m);
 }
+// ---- CarTunePauseScreen ----
+const char *GameStringPointer(uint32_t a) { return *reinterpret_cast<const char *const *>(static_cast<uintptr_t>(a)); }
+const char **GameStringSlot(uint32_t a) { return reinterpret_cast<const char **>(static_cast<uintptr_t>(a)); }
+int32_t RaceCoordinatorState() { return **reinterpret_cast<int32_t **>(0x8900D8); }
+void RaceCoordinator_RequestPause(int32_t p) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x5F4230)(*reinterpret_cast<void **>(0x8900D8), p); }
+static uint8_t *TuningPlayer() { return reinterpret_cast<uint8_t **>(0x8900AC)[*reinterpret_cast<int32_t *>(0x83A64C)]; }
+int32_t TuningPlayerId() { return *reinterpret_cast<int32_t *>(TuningPlayer() + 8); }
+bool Player_IsHudKPH(int32_t i) { return reinterpret_cast<bool(THISCALL *)(void *)>(0x5EA8B0)(reinterpret_cast<void **>(0x8900AC)[i]); }
+void SetCarTuningSpec() { reinterpret_cast<void(__cdecl *)()>(0x50FE20)(); }
+void cFEng_RegisterJoy() { reinterpret_cast<void(THISCALL *)(void *)>(0x52CDD0)(*reinterpret_cast<void **>(0x8384C4)); }
+uint8_t *CarTuneStoredSpecs() { return *reinterpret_cast<uint8_t **>(0x83A540); }
+bool CarTuneManagerActive() { return *reinterpret_cast<int32_t *>(0x839C40) != 0 && *reinterpret_cast<int32_t *>(0x83A540) != 0; }
+bool CarTune_59AE90(int32_t c) { return reinterpret_cast<bool(THISCALL *)(void *, void *)>(0x59AE90)(CarTuneStoredSpecs() + 0x14, reinterpret_cast<uint8_t *>(0x83A544) + c * 0x29); }
+static void *CTM() { return reinterpret_cast<void *>(0x839C40); }
+void CarTune_RestoreCustomTunings(int32_t c) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x50FC60)(CTM(), c); }
+void CarTune_50FAE0(int32_t c) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x50FAE0)(CTM(), c); }
+void CarTune_50FC20(int32_t c) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x50FC20)(CTM(), c); }
+bool CarTune_50FD10() { return reinterpret_cast<bool(THISCALL *)(void *)>(0x50FD10)(CTM()); }
+void CarTune_50FDF0() { reinterpret_cast<void(THISCALL *)(void *)>(0x50FDF0)(CTM()); }
+void CarTune_50F7E0(int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x50F7E0)(CTM(), v); }
+void CarTune_5B7ED0(int32_t v) { reinterpret_cast<void(__cdecl *)(int32_t)>(0x5B7ED0)(v); }
+void PresetCarSlot_DefaultCustomTuningSpecs(int32_t v) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x59AFE0)(reinterpret_cast<void *>(0x83A611), v); }
+void CarTune_CopyStoredSpecs()
+{
+    if (const uint8_t *s = CarTuneStoredSpecs()) std::memcpy(reinterpret_cast<void *>(0x83A611), s + 0x14, 0x29);
+}
+void Race_SimulateRaceFinish() { reinterpret_cast<void(THISCALL *)(void *)>(0x608CA0)(*reinterpret_cast<void **>(0x890118)); }
 }  // namespace bridge

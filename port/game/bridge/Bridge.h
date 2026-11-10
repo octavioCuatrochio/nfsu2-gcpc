@@ -571,4 +571,26 @@ void LaunchPostRaceMovie(const char *pkg, const char *movie);   // PC InGamePlay
 void PlayerCareerState_MarkCurrentEventComplete();   // PC 54CA30 (__thiscall on 0x85AD40)
 // PC PostRaceMenu 0x911AB364: m = *0x8363DC (cPostRaceScreenManager); 4A45E0(m) ? 4EA240(m) : -; ChangeToPrevScreen 4C0020
 void PostRaceManager_Back();
+// ---- CarTunePauseScreen (CarTuneManager 0x839C40 not rewritten) ----
+const char *GameStringPointer(uint32_t addr);    // a game `const char *` global (e.g. 0x7FA218 tuning setting package)
+const char **GameStringSlot(uint32_t addr);      // a game `const char *` global to write (0x83A650, 0x8384C8)
+int32_t RaceCoordinatorState();                  // PC *(int*)*(0x8900D8)
+void RaceCoordinator_RequestPause(int32_t player);   // PC 5F4230 (__thiscall on *(0x8900D8), ret 4)
+int32_t TuningPlayerId();                        // PC Player::pPlayersByNumber[*0x83A64C] (0x8900AC) +0x08
+bool Player_IsHudKPH(int32_t index);             // PC 5EA8B0 (__thiscall on pPlayersByNumber[index], AL)
+void SetCarTuningSpec();                         // PC 50FE20 (__cdecl)
+void cFEng_RegisterJoy();                        // PC 52CDD0 (__thiscall on *(0x8384C4))
+uint8_t *CarTuneStoredSpecs();                   // PC *(uint8_t **)0x83A540
+bool CarTuneManagerActive();                     // PC *(int*)0x839C40 && *(int*)0x83A540
+bool CarTune_59AE90(int32_t category);           // PC 59AE90 (__thiscall on stored + 0x14, arg 0x83A544 + cat * 0x29, AL)
+void CarTune_RestoreCustomTunings(int32_t category);   // PC 50FC60 (__thiscall on 0x839C40, ret 4)
+void CarTune_50FAE0(int32_t category);           // PC 50FAE0 (__thiscall on 0x839C40, ret 4)
+void CarTune_50FC20(int32_t category);           // PC 50FC20 (__thiscall on 0x839C40, ret 4)
+bool CarTune_50FD10();                           // PC 50FD10 (__thiscall on 0x839C40, AL)
+void CarTune_50FDF0();                           // PC 50FDF0 (__thiscall on 0x839C40)
+void CarTune_50F7E0(int32_t v);                  // PC 50F7E0 (__thiscall on 0x839C40, ret 4)
+void CarTune_5B7ED0(int32_t v);                  // PC 5B7ED0 (__cdecl)
+void PresetCarSlot_DefaultCustomTuningSpecs(int32_t v);   // PC 59AFE0 (__thiscall on 0x83A611, ret 4)
+void CarTune_CopyStoredSpecs();                  // PC 53C901..: 0x83A611 <- *(0x83A540) + 0x14 (0x29 bytes) when set
+void Race_SimulateRaceFinish();                  // PC 608CA0 (__thiscall on *(0x890118))
 }  // namespace bridge
