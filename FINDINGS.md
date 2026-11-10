@@ -44,6 +44,9 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - FEObject factory (CreateObject 534DF0) types: 0 none, 1 image 0x60 (532640), 2 FEString 0x78, 3/8/>11 FEObject 0x5C,
   4 list box 0xAC (5349C0), 5 group 0x6C (52B080), 6 code list box 0xC8 (52B9E0, +0x5C = game interface), 7 0x60
   (52B0B0), 9 0x60 (534B90), 10 0x60 (534DB0), 11 0x5C (52B480). Image types 1/9/10 take tag "If" -> +0x5C.
+- FEPackageReader done except ProcessListBoxTag 52B740 / ProcessCodeListBoxTag 535060 (do with FEListBox/FECodeListBox).
+  Script chunk: one script per Scrp; "Kd" first key overwrites the base key; "Ti" inserts tracks via the type library.
+- Only one SPEED2.EXE can run: never run the referee and the in-game test at the same time.
 - Referee: ~4 min per full run; random chunk tests must keep sizes consistent (the original scan never stops otherwise).
 - Hook host: counters/stubs sized by kMaxHooks (hooks.cpp); >256 hooks overflowed the old 4 KB stub page (DllMain AV).
 - Not reachable by driving menus: FEObject copy ctor/Clone (unit tests only).
