@@ -473,3 +473,12 @@ bool FEngTestForIntersection(float x, float y, const FEObject *obj)
     // each test fails on NaN: x >= left, x <= right, y >= top, y <= bottom
     return !(x < r.left || x != x) && (x <= r.right) && !(y < r.top || y != y) && (y <= r.bottom);
 }
+
+void FEngSetLanguageHash(FEObject *obj, uint32_t hash)
+{
+    if (!obj) return;
+    const bool flag2 = (obj->mu32Flags & 2) != 0;
+    reinterpret_cast<FEString *>(obj)->SetLabelHash(hash);   // inlined on PC (label callback 0x838478 slot 0)
+    obj->mu32Flags &= ~2u;
+    if (flag2) obj->mu32Flags |= 0x400000;
+}

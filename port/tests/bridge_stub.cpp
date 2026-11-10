@@ -7,6 +7,7 @@
 #include "frontend/FEListBox.h"
 #include "frontend/FECodeListBox.h"
 #include "frontend/FEHash.h"
+#include "frontend/FELocalize.h"
 #include "bWare/bSlotPool.h"
 #include "frontend/cFEng.h"
 #include "frontend/FENode.h"
@@ -25,6 +26,10 @@
 #include "bWare/bMath.h"
 
 namespace teststub {
+const LanguageStringRecord *languageTable = nullptr;
+uint32_t languageCount = 0;
+int32_t tuningUnitType = 1, tuningUnavailableType = -1;
+long double tuningMin = 0, tuningMax = 10, tuningValue = 5, tuningUpper = 8, tuningLower = 2;
 bool useOldDirtyFlag = false;
 int liveAllocations = 0;
 int feStringVTable = 0;
@@ -412,6 +417,29 @@ void FEPrintfInt(FEObject *o, const char *, int32_t v) { teststub::delivered.pus
 #endif
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { teststub::delivered.push_back({"soundtrigger", w, nullptr, 0, 0}); return 8; }
 void FEWidget_Act(void *w, const char *, uint32_t m) { teststub::delivered.push_back({"act", w, nullptr, m, 0}); }
+void FEPrintfStrings(FEObject *o, const char *, const char *a, const char *b) { teststub::delivered.push_back({"printf2", o, nullptr, a ? static_cast<uint32_t>(a[0]) : 0u, b ? static_cast<uint32_t>(b[0]) : 0u}); }
+void FEPrintfDouble(FEObject *o, const char *f, double v) { teststub::delivered.push_back({"printfd", o, nullptr, static_cast<uint32_t>(f[4]), static_cast<uint32_t>(v * 100.0)}); }
+#ifdef NFSU2_REFEREE
+const LanguageStringRecord *LanguageStrings(uint32_t *n)
+{
+    *n = *reinterpret_cast<const uint32_t *>(0x8383D0);
+    return *reinterpret_cast<const LanguageStringRecord *const *>(0x8383D8);
+}
+#else
+const LanguageStringRecord *LanguageStrings(uint32_t *n) { *n = teststub::languageCount; return teststub::languageTable; }
+#endif
+const char *TuningMasterScreenName() { return "TuningMaster"; }
+int32_t TuningUnitType() { return teststub::tuningUnitType; }
+bool Tuning_IsAvailable(int32_t t) { teststub::delivered.push_back({"tuning avail", nullptr, nullptr, static_cast<uint32_t>(t), 0}); return t != teststub::tuningUnavailableType; }
+long double Tuning_GetMin(int32_t) { return teststub::tuningMin; }
+long double Tuning_GetMax(int32_t) { return teststub::tuningMax; }
+long double Tuning_GetValue(int32_t) { return teststub::tuningValue; }
+long double Tuning_GetUpper(int32_t) { return teststub::tuningUpper; }
+long double Tuning_GetLower(int32_t) { return teststub::tuningLower; }
+void Tuning_SetValue(float v, int32_t t) { teststub::tuningValue = v; teststub::delivered.push_back({"tuning set", nullptr, nullptr, static_cast<uint32_t>(t), 0}); }
+long double CarTuneManager_GetStep(int32_t) { return 0.25L; }
+bool cSlider_Update(void *s, uint32_t m) { teststub::delivered.push_back({"slider update", s, nullptr, m, 0}); return true; }
+void FEWidget_Draw(void *w) { teststub::delivered.push_back({"draw", w, nullptr, 0, 0}); }
 uint32_t FEWidget_DetermineSpecialSound(void *w, uint32_t m, uint32_t e) { teststub::delivered.push_back({"specialsound", w, nullptr, m, e}); return e + 10; }
 void FEWidget_BlinkArrows(void *w, uint32_t m) { teststub::delivered.push_back({"blink", w, nullptr, m, 0}); }
 void MakeFrontendSound(uint32_t e, uint32_t t) { teststub::delivered.push_back({"makesound", nullptr, nullptr, e, t}); }

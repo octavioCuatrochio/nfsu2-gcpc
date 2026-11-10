@@ -19,6 +19,9 @@ void FEngSetSize(FEObject *obj, float w, float h);
 // GC 8015043C / PC 51CF70 and GC 801504A8 / PC 51CFE0: make the named / id'd script current (time reset when it
 // changes) and optionally restart it. Missing script: nothing.
 void FEngSetScript(FEObject *obj, const char *name, bool restart);
+// GC 8014FB1C / PC 50C900 (__cdecl): FEString::SetLabelHash, then clear flag 2. PC only: if flag 2 was set before,
+// the object is marked again (0x400000).
+void FEngSetLanguageHash(FEObject *str, uint32_t hash);
 void FEngSetScript(FEObject *obj, uint32_t id, bool restart);
 // GC 80150630 (+ 80150698 inlined) / PC 51D040: current script is `name` (FEngHashStringUpper) and not past its end.
 bool FEngIsScriptRunning(const FEObject *obj, const char *name);

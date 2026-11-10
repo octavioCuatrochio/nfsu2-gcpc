@@ -17,6 +17,7 @@ struct SlotPoolManager;   // bWare/bSlotPool.h
 struct SlotPool;
 struct FEPackageManager;   // frontend/FEPackageManager.h
 struct FEObject;
+struct LanguageStringRecord;
 
 struct bASinTableEntry;
 struct FESortGlobals;
@@ -197,6 +198,22 @@ void cSlider_UnHighlight(void *slider);
 void cSlider_Draw(void *slider);
 void cSlider_DrawVertical(void *slider);     // vtable +0x1C
 void cSlider_DrawHorizontal(void *slider);   // vtable +0x20
+void FEPrintfStrings(FEObject *str, const char *fmt, const char *a, const char *b);   // PC 537BE0 (varargs)
+void FEPrintfDouble(FEObject *str, const char *fmt, double v);                         // PC 537BE0 (varargs)
+const LanguageStringRecord *LanguageStrings(uint32_t *count);   // PC count *(0x8383D0), table *(0x8383D8)
+const char *TuningMasterScreenName();                           // PC *(0x7FA214) (GC gTuningMasterScreenName)
+// PC car tuning object *(0x83A540) (GC: CarTuneManager / CustomPhysicsSpec calls). All __thiscall on it.
+int32_t TuningUnitType();                                       // *(*(0x83A540) + 4) (GC eUnitType, 1 = metric)
+bool Tuning_IsAvailable(int32_t type);                          // 59B080 (type)
+long double Tuning_GetMin(int32_t type);                        // 5B0BD0 (type, 0, 1)
+long double Tuning_GetMax(int32_t type);                        // 5B0C00 (type, 0, 1)
+long double Tuning_GetValue(int32_t type);                      // 5B3E40 (type, 0, 1)
+long double Tuning_GetUpper(int32_t type);                      // 5B2BD0 (type, 0, 1): ThreeStageSlider upper stage
+long double Tuning_GetLower(int32_t type);                      // 5B2BA0 (type, 0, 1): lower stage
+void Tuning_SetValue(float v, int32_t type);                    // 5B4670 (v, type, 0, 1)
+long double CarTuneManager_GetStep(int32_t type);               // 522560 (__thiscall on 0x839C40)
+bool cSlider_Update(void *slider, uint32_t msg);                // slider vtable +0x04
+void FEWidget_Draw(void *widget);                               // widget vtable +0x0C
 void FEPrintfInt(FEObject *str, const char *fmt, int32_t v);   // PC 537BE0 (__cdecl varargs): format into a string object
 uint32_t FEWidget_DetermineSoundTrigger(void *widget);             // widget vtable +0x3C
 void FEWidget_Act(void *widget, const char *pkg, uint32_t msg);   // widget vtable +0x04

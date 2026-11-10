@@ -7,6 +7,9 @@
 #include "FEHash.h"
 #include "FEMath.h"
 #include "FEScrollBar.h"
+#include "FELocalize.h"
+#include "TuningUtil.h"
+#include "FEPackageManager.h"
 #include <cstring>
 #include <initializer_list>
 #include <cmath>
@@ -764,4 +767,86 @@ void TuningSlider::UnsetFocus()
     FEngSetScript(mpMinLabel, "UnHighlight", true);
     FEngSetScript(mpMaxLabel, "UnHighlight", true);
     if (mpExtra) FEngSetScript(mpExtra, "UnHighlight", true);
+}
+
+namespace {
+// value = v (previous kept), clamped to [min, max] like cSlider::SetCurValue (PC: inlined, v compared unrounded)
+void SetSliderValue(cSlider &s, long double v)
+{
+    s.mPrev = s.mValue;
+    s.mValue = static_cast<float>(v);
+    if (v > s.mMax) s.mValue = s.mMax;
+    if (s.mValue < s.mMin) s.mValue = s.mMin;
+}
+}  // namespace
+
+void TuningSlider::InitValues()
+{
+    cSlider &s = mSlider.base.base;
+    const int32_t t = mTuningType;
+    s.mMin = bridge::Tuning_IsAvailable(t) ? static_cast<float>(bridge::Tuning_GetMin(t)) : 0.0f;
+    long double mx = 1.0f;
+    if (bridge::Tuning_IsAvailable(t)) {
+        mx = bridge::Tuning_GetMax(t);
+        if (mx == 0.0f) mx = 1.0f;
+    }
+    s.mMax = static_cast<float>(mx);
+    s.mStep = static_cast<float>(bridge::CarTuneManager_GetStep(t));
+    SetSliderValue(s, bridge::Tuning_IsAvailable(t) ? bridge::Tuning_GetValue(t) : 0.0L);
+    long double up = 1.0f;
+    if (bridge::Tuning_IsAvailable(t)) {
+        up = bridge::Tuning_GetUpper(t);
+        if (up == 0.0f) up = 1.0f;
+    }
+    mSlider.base.mPreview = static_cast<float>(up);
+    mSlider.mStageLow = bridge::Tuning_IsAvailable(t) ? static_cast<float>(bridge::Tuning_GetLower(t)) : 0.0f;
+    float w, h;
+    FEngGetSize(s.mpBacking, &w, &h);
+    s.mLength = static_cast<float>(L(w) - (L(s.mMargin) + s.mMargin));
+}
+
+void TuningSlider::Draw()
+{
+    bridge::cSlider_Draw(&mSlider);
+    const uint32_t name = GetNameHashForTuningType(mTuningType);
+    const uint32_t units = GetUnitsHashForTuningType(mTuningType, bridge::TuningUnitType());
+    if (units == 0) {
+        FEngSetLanguageHash(base.base.mpObject, name);
+    } else {
+        const char *u = GetLocalizedString(units);   // PC: units looked up first
+        const char *n = GetLocalizedString(name);
+        bridge::FEPrintfStrings(base.base.mpObject, "%s (%s)", n, u);
+    }
+    cSlider &s = mSlider.base.base;
+    if (mTuningType >= 10 && mTuningType <= 15) {
+        bridge::FEPrintfDouble(s.mpValue, "%$2.1f", s.mValue);
+    } else {
+        if (mpExtra) FEngSetLanguageHash(mpExtra, 0xCBBCB1C5u);
+        bridge::FEPrintfDouble(s.mpValue, "%$2.2f", s.mValue);
+    }
+    if (mMinHash && mMaxHash) {
+        FEngSetLanguageHash(mpMinLabel, mMinHash);
+        FEngSetLanguageHash(mpMaxLabel, mMaxHash);
+    }
+}
+
+void TuningSlider::Act(const char *pkg, uint32_t msg)
+{
+    if (msg == 0x9120409Eu || msg == 0xB5971BF1u) {
+        cSlider &s = mSlider.base.base;
+        bridge::cSlider_Update(&mSlider, msg);   // vtable +0x04: ThreeStageSlider::Update
+        const float v = s.mValue;
+        if (bridge::Tuning_IsAvailable(mTuningType)) bridge::Tuning_SetValue(v, mTuningType);
+        SetSliderValue(s, bridge::Tuning_IsAvailable(mTuningType) ? bridge::Tuning_GetValue(mTuningType) : 0.0L);
+    }
+    if (mTuningType >= 9 && mTuningType <= 15) bridge::TheFEPackageManager()->SendMessageToPackage(pkg, 0x5FE4BAE4u);
+    bridge::TheFEPackageManager()->SendMessageToPackage(bridge::TuningMasterScreenName(), 0xE15F62F8u);
+    bridge::FEWidget_BlinkArrows(this, msg);   // vtable +0x40
+    bridge::FEWidget_Draw(this);               // vtable +0x0C
+}
+
+void TuningSlider::CheckMouse(const char *pkg, float x, float y)
+{
+    base.CheckMouse(pkg, x, y);
+    if (FEngTestForIntersection(x, y, mpExtra)) bridge::TheFEPackageManager()->SendMessageToPackage(pkg, 0xC519BFC3u);
 }

@@ -58,7 +58,7 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   bridge::cSlider_*). Done: ctor 51E840, sound 50D6F0, Position/Show/Hide/SetFocus/UnsetFocus. Only on options screens
   (in-game unreached); referee uses a fake cSlider vtable. cSlider (vtable 78F544) done too (Init/Update/Draw*/Toggle/SetCurValue/Highlight;
   in-game Init+DrawHorizontal run in the race). FEngFindString 537A10 done. PreviewSlider (79AE30, 0x4C) / ThreeStageSlider
-  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next: TuningSlider Draw/Act/CheckMouse (see TuningSlider below).
+  (79AE54, 0x50) done (ctors inlined in screens / TuningSlider 522AF0). Next: TuningSlidersMenu (screen around TuningSlider, 5650C0 NotificationMessage) or UIWidgetMenu.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
@@ -83,9 +83,11 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
 - audit_hooks.py: indexes all E8 calls in one pass + one objdump sweep (2m12s -> 4.5s, same output).
 - TuningSlider (PC 0xC0, vtable 0x79B7B0 = toggle's 17 slots): FEToggleWidget + hashes +0x54/+0x58, range labels +0x5C/
   +0x60, PC-only optional +0x64, type +0x68, ThreeStageSlider +0x6C, y offset +0xBC. Done + referee: ctor 522AF0,
-  SetSliderObjects 530D20, Position/Show/Hide/SetFocus/UnsetFocus. Next: Draw 53CD30, Act 564F10, CheckMouse 565050,
-  value init 530D90 (need car-tuning bridges: 59B080, 5B0BD0, 5B0C00, 5B3E40, 5B2BD0, 5B2BA0, 522560, 5B4670; localization
-  50FE90/50FFB0/4FF9D0; FEngSendMessageToPackage 55B5C0).
+  SetSliderObjects 530D20, Position/Show/Hide/SetFocus/UnsetFocus; Draw 53CD30, Act 564F10, CheckMouse 565050, InitValues
+  530D90 hooked (native tests; tuning object *(0x83A540): 59B080 avail, 5B0BD0 min, 5B0C00 max, 5B3E40 get, 5B4670 set,
+  5B2BD0/5B2BA0 stage limits, step 522560 on 0x839C40). Inlined GC FEngSendMessageToPackage = FEPackageManager::
+  SendMessageToPackage. Strings: SearchForString 4FF9D0 (EDX arg; table *(0x8383D8), count *(0x8383D0)), GetLocalized-
+  String inlined (fallback 0xC01A6F63). Referee calls EDX-arg originals with an inline-asm `call`.
 - PC 79B7B0 vtable (ctor 522AF0) is a TuningSlider-like class built on FEStatWidget, not FEToggleWidget (bad match).
 - Hook log: "calls at exit:" block written on DLL_PROCESS_DETACH (shutdown-only functions).
 - Referee: CRT functions (e.g. _stricmp 75DD6F) crash in DllMain -> originals that call them can't be compared.

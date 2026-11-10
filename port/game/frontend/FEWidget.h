@@ -228,6 +228,17 @@ struct TuningSlider {
     void Show();                     // GC 80310538 / PC 522C30
     void SetFocus(const char *pkg);  // GC 80310580 / PC 530F30 (ret 4)
     void UnsetFocus();               // GC 803105D8 / PC 522CA0
+    // PC 530D90 (PC only; called by the screen and its notifications): min / max (0 -> 1) / step / value (clamped,
+    // previous kept) / stage limits from the car tuning object, then the bar length.
+    void InitValues();
+    // GC 8031014C / PC 53CD30: slider, name "name (units)" or plain, value "%$2.1f" (types 10-15) else "%$2.2f" (PC:
+    // then mpExtra gets hash 0xCBBCB1C5 first), range labels.
+    void Draw();
+    // GC 80310054 / PC 564F10 (ret 8): left/right: slider Update, write the value, read it back clamped; types 9-15
+    // notify pkg 0x5FE4BAE4; master screen 0xE15F62F8; BlinkArrows; Draw (both virtual).
+    void Act(const char *pkg, uint32_t msg);
+    // PC 565050 (ret 0xC; GC: FEToggleWidget's): toggle CheckMouse, then a click on mpExtra sends 0xC519BFC3 to pkg.
+    void CheckMouse(const char *pkg, float x, float y);
 };
 
 #if UINTPTR_MAX == 0xFFFFFFFFu

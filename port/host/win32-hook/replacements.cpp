@@ -21,6 +21,7 @@
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/TuningUtil.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/cFEngRender.h"
 #include "frontend/FEngFont.h"
@@ -357,6 +358,13 @@ void THISCALL TuningSlider_Hide(TuningSlider *self) { self->Hide(); }
 void THISCALL TuningSlider_Show(TuningSlider *self) { self->Show(); }
 void THISCALL TuningSlider_SetFocus(TuningSlider *self, const char *pkg) { self->SetFocus(pkg); }
 void THISCALL TuningSlider_UnsetFocus(TuningSlider *self) { self->UnsetFocus(); }
+void THISCALL TuningSlider_InitValues(TuningSlider *self) { self->InitValues(); }
+void THISCALL TuningSlider_Draw(TuningSlider *self) { self->Draw(); }
+void THISCALL TuningSlider_Act(TuningSlider *self, const char *pkg, uint32_t m) { self->Act(pkg, m); }
+void THISCALL TuningSlider_CheckMouse(TuningSlider *self, const char *pkg, float x, float y) { self->CheckMouse(pkg, x, y); }
+void __cdecl FEngSetLanguageHash_Hook(FEObject *o, uint32_t h) { FEngSetLanguageHash(o, h); }
+uint32_t __cdecl GetNameHashForTuningType_Hook(int32_t t) { return GetNameHashForTuningType(t); }
+uint32_t __cdecl GetUnitsHashForTuningType_Hook(int32_t t, int32_t u) { return GetUnitsHashForTuningType(t, u); }
 cSlider *THISCALL cSlider_Ctor(cSlider *self) { return self->Construct(); }
 uint32_t THISCALL cSlider_Update(cSlider *self, uint32_t msg) { return self->Update(msg); }
 void THISCALL cSlider_Init(cSlider *self, const SliderInitParams *p, uint32_t v) { self->Init(p, v & 0xFF); }
@@ -879,6 +887,13 @@ const Replacement kReplacements[] = {
     {0x522C30, (const void *)&TuningSlider_Show, "TuningSlider::Show", {0x8B, 0xD1, 0x8B, 0x42, 0x2C, 0x50}},
     {0x530F30, (const void *)&TuningSlider_SetFocus, "TuningSlider::SetFocus", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x55}},
     {0x522CA0, (const void *)&TuningSlider_UnsetFocus, "TuningSlider::UnsetFocus", {0x53, 0x55, 0x56, 0x57, 0x8B, 0xD9}},
+    {0x530D90, (const void *)&TuningSlider_InitValues, "TuningSlider::InitValues", {0x83, 0xEC, 0x08, 0x56, 0x8B, 0xF1}},
+    {0x53CD30, (const void *)&TuningSlider_Draw, "TuningSlider::Draw", {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x46}},
+    {0x564F10, (const void *)&TuningSlider_Act, "TuningSlider::Act", {0x55, 0x8B, 0xEC, 0x51, 0x53, 0x57}},
+    {0x565050, (const void *)&TuningSlider_CheckMouse, "TuningSlider::CheckMouse", {0x53, 0x8B, 0x5C, 0x24, 0x0C, 0x55}},
+    {0x50C900, (const void *)&FEngSetLanguageHash_Hook, "FEngSetLanguageHash", {0x56, 0x8B, 0x74, 0x24, 0x08, 0x85}},
+    {0x50FE90, (const void *)&GetNameHashForTuningType_Hook, "GetNameHashForTuningType", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xF8}, 1, 4, 0},   // TuningSlider::Draw reuses ECX
+    {0x50FFB0, (const void *)&GetUnitsHashForTuningType_Hook, "GetUnitsHashForTuningType", {0x8B, 0x44, 0x24, 0x04, 0x83, 0xC0}},
     {0x4FF430, (const void *)&cSlider_Ctor, "cSlider::cSlider", {0x8B, 0xC1, 0x33, 0xC9, 0xC7, 0x00}},
     {0x4FF480, (const void *)&cSlider_Update, "cSlider::Update", {0x8B, 0x44, 0x24, 0x04, 0x53, 0x32}},
     {0x540C10, (const void *)&cSlider_Init, "cSlider::Init", {0x51, 0x56, 0x57, 0x8B, 0x7C, 0x24}},

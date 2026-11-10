@@ -45,6 +45,9 @@
 #include "camera/Camera.h"
 #include "frontend/FEPackageManager.h"
 #include "frontend/FENode.h"
+#include "frontend/FELocalize.h"
+#include "frontend/TuningUtil.h"
+#include "frontend/FEString.h"
 #include "bWare/bMath.h"
 #include <cmath>
 #include <float.h>
@@ -2479,6 +2482,53 @@ static void CheckTuningSlider(int iters)
     _controlfp(saved, _MCW_PC);
 }
 
+// Language string search (original takes the hash in EDX), tuning name/units hashes, FEngSetLanguageHash. The
+// search runs on synthetic tables swapped into the game's globals (both sides read them).
+static const char *OrigSearchForString(uint32_t hash)
+{
+    const char *r;
+    uint32_t h = hash;
+    asm volatile("call *%2" : "=a"(r), "+d"(h) : "r"(0x4FF9D0u) : "ecx", "memory", "cc");
+    return r;
+}
+static void CheckLocalize(int iters)
+{
+    uint32_t &gCount = *reinterpret_cast<uint32_t *>(0x8383D0);
+    const LanguageStringRecord *&gTable = *reinterpret_cast<const LanguageStringRecord **>(0x8383D8);
+    const uint32_t savedCount = gCount;
+    const LanguageStringRecord *savedTable = gTable;
+    static LanguageStringRecord tab[64];
+    static char texts[64];
+    for (int it = 0; it < iters; ++it) {
+        const uint32_t n = 1 + rng() % 64;
+        uint32_t h = rng() % 50;
+        for (uint32_t i = 0; i < n; ++i) { h += 1 + rng() % (rng() % 4 ? 3 : 0x10000000); tab[i] = {h, &texts[i]}; }
+        if (rng() % 8 == 0) tab[rng() % n].hash = 0xC01A6F63u;   // unsorted entry: same probing on both sides
+        gCount = n; gTable = tab;
+        for (int q = 0; q < 8; ++q) {
+            const uint32_t key = rng() % 2 ? tab[rng() % n].hash : (rng() % 2 ? rng() : tab[rng() % n].hash + 1);
+            EXPECT(OrigSearchForString(key) == SearchForString(key), "SearchForString n=%u key=%08X", n, key);
+        }
+    }
+    gCount = savedCount; gTable = savedTable;
+    auto oName = ORIG<uint32_t(__cdecl *)(int32_t)>(0x50FE90);
+    auto oUnits = ORIG<uint32_t(__cdecl *)(int32_t, int32_t)>(0x50FFB0);
+    for (int32_t t = -3; t < 32; ++t) {
+        EXPECT(oName(t) == GetNameHashForTuningType(t), "GetNameHashForTuningType %d", t);
+        for (int32_t u = -1; u < 4; ++u) EXPECT(oUnits(t, u) == GetUnitsHashForTuningType(t, u), "GetUnitsHashForTuningType %d %d", t, u);
+    }
+    auto oLang = ORIG<void(__cdecl *)(FEObject *, uint32_t)>(0x50C900);
+    for (int it = 0; it < iters; ++it) {
+        alignas(8) static unsigned char a[sizeof(FEString)], b[sizeof(FEString)];
+        for (auto &c : a) c = static_cast<unsigned char>(rng());
+        std::memcpy(b, a, sizeof a);
+        const uint32_t hash = rng() % 2 ? reinterpret_cast<FEString *>(a)->mu32LabelHash : rng();
+        oLang(reinterpret_cast<FEObject *>(a), hash);
+        FEngSetLanguageHash(reinterpret_cast<FEObject *>(b), hash);
+        EXPECT(std::memcmp(a, b, sizeof a) == 0, "FEngSetLanguageHash");
+    }
+}
+
 // FEButtonWidget constructor / Show / Hide / Position on synthetic objects (boxes and plain objects), both precisions.
 static void CheckButtonWidget(int iters)
 {
@@ -3359,6 +3409,7 @@ static int RunAll()
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));
     REFEREE_RUN(CheckTuningSlider(iters));
+    REFEREE_RUN(CheckLocalize(iters));
     REFEREE_RUN(CheckCSlider(iters));
     REFEREE_RUN(CheckStageSliders(iters));
     REFEREE_RUN(CheckCFEngInterface(iters));

@@ -4,6 +4,7 @@
 #include <string>
 #include "frontend/FERender.h"
 #include "frontend/cFEng.h"
+struct LanguageStringRecord;
 namespace teststub {
 extern bool useOldDirtyFlag;   // value returned by bridge::UseOldFEngDirtyFlag()
 extern int liveAllocations;    // bridge::Alloc minus bridge::FreeArray
@@ -32,6 +33,10 @@ extern std::vector<QueuedMessage> queued, forwarded;   // queued: SendMessageToG
 extern int feMessageNodeVTable, fePackageCommandVTable;
 struct Delivered { const char *kind; void *a, *pkg; uint32_t msg, arg; };
 extern std::vector<Delivered> delivered;
+extern const LanguageStringRecord *languageTable;   // LanguageStrings (native builds)
+extern uint32_t languageCount;
+extern int32_t tuningUnitType, tuningUnavailableType;
+extern long double tuningMin, tuningMax, tuningValue, tuningUpper, tuningLower;
 extern std::vector<std::string> levelSortingList;          // cFEng_FindInLevelSortingList (case-insensitive)
 extern std::string lastPushName;                            // copy: the command (and its name) is freed
 extern FEPackage *pushResult;

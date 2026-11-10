@@ -10,6 +10,8 @@
 #include "frontend/FERender.h"
 #include "frontend/FEngUtil.h"
 #include "frontend/FEWidget.h"
+#include "frontend/FELocalize.h"
+#include "frontend/TuningUtil.h"
 #include "frontend/FEScrollBar.h"
 #include "frontend/FEngFont.h"
 #include "frontend/FEString.h"
@@ -2979,6 +2981,85 @@ static void TestTuningSlider()
     CHECK((o[4]->mu32Flags & 1) && (o[6]->mu32Flags & 1) && teststub::delivered.back().msg == 0);
 }
 
+static void TestLocalizeAndTuning()
+{
+    // binary search: every present hash found for every table size, absent ones null
+    static const char *texts[9] = {"a", "b", "c", "d", "e", "f", "g", "h", "missing"};
+    LanguageStringRecord tab[9];
+    for (uint32_t n = 1; n <= 8; ++n) {
+        for (uint32_t i = 0; i < n; ++i) tab[i] = {10 * (i + 1), texts[i]};
+        teststub::languageTable = tab; teststub::languageCount = n;
+        for (uint32_t i = 0; i < n; ++i) CHECK(SearchForString(10 * (i + 1)) == texts[i]);
+        CHECK(SearchForString(5) == nullptr && SearchForString(10 * n + 5) == nullptr && SearchForString(15) == nullptr);
+        CHECK(GetLocalizedString(15) == nullptr);   // no fallback entry
+    }
+    tab[0] = {7, "x"}; tab[1] = {0xC01A6F63u, texts[8]};
+    teststub::languageCount = 2;
+    CHECK(GetLocalizedString(7) == std::string("x") && GetLocalizedString(8) == texts[8]);
+    teststub::languageTable = nullptr; teststub::languageCount = 0;
+    // tuning hashes
+    CHECK(GetNameHashForTuningType(0) == 0xFE22B6A2u && GetNameHashForTuningType(3) == 0x0B161EC3u && GetNameHashForTuningType(24) == 0xFE82FDE0u);
+    CHECK(GetNameHashForTuningType(25) == 0 && GetNameHashForTuningType(-1) == 0);
+    CHECK(GetUnitsHashForTuningType(10, 1) == 0xCBBC8BF8u && GetUnitsHashForTuningType(10, 0) == 0x8569AB44u);
+    CHECK(GetUnitsHashForTuningType(7, 2) == 0x6382ECE0u && GetUnitsHashForTuningType(23, 1) == 0x5B81D613u && GetUnitsHashForTuningType(4, 1) == 0);
+    // FEngSetLanguageHash: flag 2 cleared; if it was set the object is marked again
+    alignas(8) unsigned char sm[sizeof(FEString)] = {};
+    auto *str = reinterpret_cast<FEString *>(sm);
+    str->mu32LabelHash = 5; str->base.mu32Flags = 2;
+    FEngSetLanguageHash(&str->base, 5);
+    CHECK(str->base.mu32Flags == 0x400000);
+    str->base.mu32Flags = 1;
+    FEngSetLanguageHash(&str->base, 6);
+    CHECK(str->base.mu32Flags == 0x400001 && str->mu32LabelHash == 6);
+    FEngSetLanguageHash(nullptr, 1);
+}
+
+static void TestTuningSliderValues()
+{
+    alignas(8) unsigned char wm[sizeof(TuningSlider)] = {};
+    auto *w = reinterpret_cast<TuningSlider *>(wm);
+    const float pos[2] = {0, 0}, size[2] = {10, 10};
+    w->Construct(17, pos, size, size, pos, 0, 0, true, 0.0f);
+    alignas(8) unsigned char bm[sizeof(FEObject)] = {};
+    float bd[20] = {};
+    auto *backing = reinterpret_cast<FEObject *>(bm);
+    backing->mu32Type = 1; backing->mpData = bd; bd[14] = 200;
+    w->mSlider.base.base.mpBacking = backing;
+    teststub::tuningMin = 1; teststub::tuningMax = 0; teststub::tuningValue = 7; teststub::tuningUpper = 0; teststub::tuningLower = 2;
+    w->mSlider.base.base.mValue = 3;
+    w->InitValues();   // max 0 -> 1, value 7 -> clamped to max 1 (>= min 1)
+    const cSlider &s = w->mSlider.base.base;
+    CHECK(s.mMin == 1 && s.mMax == 1 && s.mStep == 0.25f && s.mPrev == 3 && s.mValue == 1 && w->mSlider.base.mPreview == 1);
+    CHECK(w->mSlider.mStageLow == 2 && s.mLength == 108);
+    teststub::tuningUnavailableType = 17;
+    w->InitValues();   // unavailable: min 0, max 1, value 0, preview 1, stage 0
+    CHECK(s.mMin == 0 && s.mMax == 1 && s.mValue == 0 && s.mPrev == 1 && w->mSlider.base.mPreview == 1 && w->mSlider.mStageLow == 0);
+    teststub::tuningUnavailableType = -1;
+    // Act: update, write, read back; type 17 is not 9..15 -> only the master screen message; blink + draw
+    teststub::tuningMin = 0; teststub::tuningMax = 10; teststub::tuningValue = 4;
+    w->InitValues();
+    teststub::delivered.clear();
+    w->Act("Pkg", 0xB5971BF1u);
+    CHECK(teststub::delivered.size() >= 5 && std::string(teststub::delivered[0].kind) == "slider update");
+    CHECK(std::string(teststub::delivered.back().kind) == "draw" && std::string(teststub::delivered[teststub::delivered.size() - 2].kind) == "blink");
+    // Draw: type 17 metric has units -> "name (units)"; value with 2 decimals
+    alignas(8) unsigned char om[2][sizeof(FEString)] = {};
+    w->base.base.mpObject = reinterpret_cast<FEObject *>(om[0]);
+    w->mSlider.base.base.mpValue = reinterpret_cast<FEObject *>(om[1]);
+    w->mSlider.base.base.mValue = 2.5f;
+    static const LanguageStringRecord lang[2] = {{0x5B81D613u, "Units"}, {0xFBBDD223u, "Name"}};   // sorted; type 17
+    teststub::languageTable = lang; teststub::languageCount = 2;
+    teststub::delivered.clear();
+    w->Draw();
+    teststub::languageTable = nullptr; teststub::languageCount = 0;
+    bool p2 = false, pd = false;
+    for (auto &d : teststub::delivered) {
+        if (std::string(d.kind) == "printf2" && d.a == om[0] && d.msg == 'N' && d.arg == 'U') p2 = true;
+        if (std::string(d.kind) == "printfd" && d.a == om[1] && d.msg == '2' && d.arg == 250) pd = true;
+    }
+    CHECK(p2 && pd);
+}
+
 static void TestButtonWidget()
 {
     alignas(8) unsigned char wm[sizeof(FEButtonWidget)];
@@ -3338,6 +3419,8 @@ int main()
     TestSliderWidget();
     TestToggleWidget();
     TestTuningSlider();
+    TestLocalizeAndTuning();
+    TestTuningSliderValues();
     TestCSlider();
     TestStageSliders();
     TestFEngExtents();

@@ -4,6 +4,7 @@
 #include "bWare/bMath.h"
 // Bridge implementation for the hooked build: calls into the original SPEED2.EXE (PC v1.2).
 #include "bridge/Bridge.h"
+#include "frontend/FELocalize.h"
 
 #define THISCALL __attribute__((thiscall))
 
@@ -154,6 +155,27 @@ void cSlider_UnHighlight(void *s) { (*reinterpret_cast<void(THISCALL ***)(void *
 void cSlider_Draw(void *s) { (*reinterpret_cast<void(THISCALL ***)(void *)>(s))[0x18 / 4](s); }
 void cSlider_DrawVertical(void *s) { (*reinterpret_cast<void(THISCALL ***)(void *)>(s))[0x1C / 4](s); }
 void cSlider_DrawHorizontal(void *s) { (*reinterpret_cast<void(THISCALL ***)(void *)>(s))[0x20 / 4](s); }
+void FEPrintfStrings(FEObject *o, const char *f, const char *a, const char *b) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, a, b); }
+void FEPrintfDouble(FEObject *o, const char *f, double v) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v); }
+const LanguageStringRecord *LanguageStrings(uint32_t *n)
+{
+    *n = *reinterpret_cast<const uint32_t *>(0x8383D0);
+    return *reinterpret_cast<const LanguageStringRecord *const *>(0x8383D8);
+}
+const char *TuningMasterScreenName() { return *reinterpret_cast<const char *const *>(0x7FA214); }
+static void *TuningObject() { return *reinterpret_cast<void **>(0x83A540); }
+int32_t TuningUnitType() { return *reinterpret_cast<const int32_t *>(static_cast<const char *>(TuningObject()) + 4); }
+bool Tuning_IsAvailable(int32_t t) { return (reinterpret_cast<uint32_t(THISCALL *)(void *, int32_t)>(0x59B080)(TuningObject(), t) & 0xFF) != 0; }
+static long double TuningGet(uintptr_t fn, int32_t t) { return reinterpret_cast<long double(THISCALL *)(void *, int32_t, int32_t, int32_t)>(fn)(TuningObject(), t, 0, 1); }
+long double Tuning_GetMin(int32_t t) { return TuningGet(0x5B0BD0, t); }
+long double Tuning_GetMax(int32_t t) { return TuningGet(0x5B0C00, t); }
+long double Tuning_GetValue(int32_t t) { return TuningGet(0x5B3E40, t); }
+long double Tuning_GetUpper(int32_t t) { return TuningGet(0x5B2BD0, t); }
+long double Tuning_GetLower(int32_t t) { return TuningGet(0x5B2BA0, t); }
+void Tuning_SetValue(float v, int32_t t) { reinterpret_cast<void(THISCALL *)(void *, float, int32_t, int32_t, int32_t)>(0x5B4670)(TuningObject(), v, t, 0, 1); }
+long double CarTuneManager_GetStep(int32_t t) { return reinterpret_cast<long double(THISCALL *)(void *, int32_t)>(0x522560)(reinterpret_cast<void *>(0x839C40), t); }
+bool cSlider_Update(void *s, uint32_t m) { return ((*reinterpret_cast<uint32_t(THISCALL ***)(void *, uint32_t)>(s))[0x04 / 4](s, m) & 0xFF) != 0; }
+void FEWidget_Draw(void *w) { (*reinterpret_cast<void(THISCALL ***)(void *)>(w))[0x0C / 4](w); }
 void FEPrintfInt(FEObject *o, const char *f, int32_t v) { reinterpret_cast<void(__cdecl *)(FEObject *, const char *, ...)>(0x537BE0)(o, f, v); }
 uint32_t FEWidget_DetermineSoundTrigger(void *w) { return (*reinterpret_cast<uint32_t(THISCALL ***)(void *)>(w))[0x3C / 4](w); }
 void FEWidget_Act(void *w, const char *p, uint32_t m) { (*reinterpret_cast<void(THISCALL ***)(void *, const char *, uint32_t)>(w))[0x04 / 4](w, p, m); }
