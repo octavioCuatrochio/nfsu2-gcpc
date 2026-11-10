@@ -30,6 +30,9 @@
 #include "frontend/IconScroller.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
+#include "frontend/MainMenu.h"
+#include "frontend/QRModeSelect.h"
+#include "frontend/StartCareer.h"
 #include "frontend/FEMath.h"
 #include "frontend/TuningUtil.h"
 #include "frontend/MenuScreen.h"
@@ -745,6 +748,42 @@ void THISCALL pm_SwitchToOptions_React(void *, const char *p, uint32_t m, void *
 void THISCALL pm_QuitToCrib_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::QuitToCrib, p, m); }
 void THISCALL pm_QuitRaceToFreeRoam_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::QuitRaceToFreeRoam, p, m); }
 void THISCALL pm_QuitToFrontEnd_React(void *, const char *p, uint32_t m, void *, uint32_t, uint32_t) { PMReact(PMKind::QuitToFrontEnd, p, m); }
+UIMain *THISCALL UIM_Ctor(UIMain *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL UIM_Dtor(UIMain *s) { s->Destruct(); }
+UIMain *THISCALL UIM_ScalarDtor(UIMain *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL UIM_Notify(UIMain *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL UIM_Setup(UIMain *s) { s->Setup(); }
+void THISCALL MMQuickRace_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { MMReact(MMKind::QuickRace, p, m, a3); }
+void THISCALL MMOnline_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { MMReact(MMKind::Online, p, m, a3); }
+void THISCALL MMOptions_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { MMReact(MMKind::Options, p, m, a3); }
+void THISCALL MMCarSelect_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { MMReact(MMKind::CarSelect, p, m, a3); }
+void THISCALL MMCareer_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { MMReact(MMKind::Career, p, m, a3); }
+void THISCALL MMSaveLoad_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { MMReact(MMKind::SaveLoad, p, m, a3); }
+void THISCALL MMSplitScreen_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { MMReact(MMKind::SplitScreen, p, m, a3); }
+int32_t MM_MapJoy(uint32_t p) { return FEngMapJoyParamToJoyport(p); }
+void MM_JoyActive(int32_t p, uint32_t on) { FEngSetJoyPortActive(p, (on & 0xFF) != 0); }
+UIQRModeSelect *THISCALL QRMS_Ctor(UIQRModeSelect *s, const ScreenConstructorData *d) { return s->Construct(d); }
+void THISCALL QRMS_Dtor(UIQRModeSelect *s) { s->Destruct(); }
+UIQRModeSelect *THISCALL QRMS_ScalarDtor(UIQRModeSelect *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL QRMS_Notify(UIQRModeSelect *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL QRMS_Setup(UIQRModeSelect *s) { s->Setup(); }
+void THISCALL MSCircuit_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { MSReact(MSKind::Circuit, m); }
+void THISCALL MSSprint_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { MSReact(MSKind::Sprint, m); }
+void THISCALL MSDrag_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { MSReact(MSKind::Drag, m); }
+void THISCALL MSDrift_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { MSReact(MSKind::Drift, m); }
+void THISCALL MSLan_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { MSReact(MSKind::Lan, m); }
+void THISCALL MSFreeRun_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { MSReact(MSKind::FreeRun, m); }
+void THISCALL MSShortTrack_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { MSReact(MSKind::ShortTrack, m); }
+void THISCALL MSURL_React(void *, const char *, uint32_t m, void *, uint32_t, uint32_t) { MSReact(MSKind::URL, m); }
+void QR_SetGameModeHook(int32_t m) { QR_SetGameMode(m); }
+void THISCALL USC_Dtor(UIStartCareer *s) { s->Destruct(); }
+UIStartCareer *THISCALL USC_ScalarDtor(UIStartCareer *s, uint32_t f) { return s->ScalarDeletingDestructor(f); }
+void THISCALL USC_Notify(UIStartCareer *s, uint32_t m, FEObject *o, uint32_t a, uint32_t p) { s->NotificationMessage(m, o, a, p); }
+void THISCALL USC_Setup(UIStartCareer *s) { s->Setup(); }
+UIStartCareer *USC_Create(const ScreenConstructorData *d) { return UIStartCareer::Create(d); }
+void THISCALL SCNewCareerMemcard_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { SCReact(SCKind::NewCareerMemcard, p, m, a3); }
+void THISCALL SCStart_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { SCReact(SCKind::Start, p, m, a3); }
+void THISCALL SCLoad_React(void *, const char *p, uint32_t m, void *, uint32_t a3, uint32_t) { SCReact(SCKind::Load, p, m, a3); }
 UIPauseOptions *THISCALL UPO_Ctor(UIPauseOptions *self, const ScreenConstructorData *d) { return self->Construct(d); }
 UIPauseOptions *THISCALL UPO_ScalarDtor(UIPauseOptions *self, uint32_t f) { return self->ScalarDeletingDestructor(f); }
 void THISCALL UPO_Dtor(UIPauseOptions *self) { self->Destruct(); }
@@ -1499,6 +1538,42 @@ const Replacement kReplacements[] = {
     {0x4C2730, (const void *)&pm_QuitToCrib_React, "pm_QuitToCrib::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4C2780, (const void *)&pm_QuitRaceToFreeRoam_React, "pm_QuitRaceToFreeRoam::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4C2820, (const void *)&pm_QuitToFrontEnd_React, "pm_QuitToFrontEnd::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4DF140, (const void *)&UIM_Ctor, "UIMain::UIMain", {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}},
+    {0x4DF360, (const void *)&UIM_Dtor, "UIMain::~UIMain", {0xC7, 0x01, 0x10, 0x75, 0x79, 0x00}},
+    {0x4DF340, (const void *)&UIM_ScalarDtor, "UIMain scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4F98B0, (const void *)&UIM_Notify, "UIMain::NotificationMessage", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54}},
+    {0x4AEE30, (const void *)&UIM_Setup, "UIMain::Setup", {0x6A, 0xFF, 0x68, 0x7C, 0x2C, 0x77}},
+    {0x4FC050, (const void *)&MMQuickRace_React, "MMQuickRace::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AECB0, (const void *)&MMOnline_React, "MMOnline::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AECE0, (const void *)&MMOptions_React, "MMOptions::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AED30, (const void *)&MMCarSelect_React, "MMCarSelect::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AED80, (const void *)&MMCareer_React, "MMCareer::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AEDB0, (const void *)&MMSaveLoad_React, "MMSaveLoad::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AEDE0, (const void *)&MMSplitScreen_React, "MMSplitScreen::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x50D2A0, (const void *)&MM_MapJoy, "FEngMapJoyParamToJoyport", {0x8B, 0x44, 0x24, 0x04, 0xA8, 0x01}},
+    {0x50CEE0, (const void *)&MM_JoyActive, "FEngSetJoyPortActive", {0x8B, 0x4C, 0x24, 0x04, 0xB8, 0x01}},
+    {0x4E2A50, (const void *)&QRMS_Ctor, "UIQRModeSelect::UIQRModeSelect", {0x6A, 0xFF, 0x68, 0x78, 0x61, 0x77}},
+    {0x4E2C60, (const void *)&QRMS_Dtor, "UIQRModeSelect::~UIQRModeSelect", {0xC7, 0x01, 0x34, 0x77, 0x79, 0x00}},
+    {0x4E2C40, (const void *)&QRMS_ScalarDtor, "UIQRModeSelect scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4B2B30, (const void *)&QRMS_Notify, "UIQRModeSelect::NotificationMessage", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54}},
+    {0x4B2D60, (const void *)&QRMS_Setup, "UIQRModeSelect::Setup", {0x6A, 0xFF, 0x68, 0x70, 0x2F, 0x77}},
+    {0x4B2BE0, (const void *)&MSCircuit_React, "MSCircuit::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B2C70, (const void *)&MSSprint_React, "MSSprint::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B2C90, (const void *)&MSDrag_React, "MSDrag::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B2CB0, (const void *)&MSDrift_React, "MSDrift::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B2CD0, (const void *)&MSLan_React, "MSLan::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B2CF0, (const void *)&MSFreeRun_React, "MSFreeRun::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B2D20, (const void *)&MSShortTrack_React, "MSShortTrack::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B2D40, (const void *)&MSURL_React, "MSURL::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4B2C00, (const void *)&QR_SetGameModeHook, "_SetGameMode", {0xA1, 0x78, 0x00, 0x85, 0x00, 0x83}},
+    {0x4DF390, (const void *)&USC_Dtor, "UIStartCareer::~UIStartCareer", {0xC7, 0x01, 0x2C, 0x75, 0x79, 0x00}},
+    {0x4DF370, (const void *)&USC_ScalarDtor, "UIStartCareer scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0x18, 0x00}},
+    {0x4AF2C0, (const void *)&USC_Notify, "UIStartCareer::NotificationMessage", {0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54}},
+    {0x4AF110, (const void *)&USC_Setup, "UIStartCareer::Setup", {0x6A, 0xFF, 0x68, 0xE0, 0x2C, 0x77}},
+    {0x4ED710, (const void *)&USC_Create, "UIStartCareer factory", {0x6A, 0xFF, 0x68, 0xB4, 0x62, 0x77}},
+    {0x4AF090, (const void *)&SCNewCareerMemcard_React, "SCNewCareerMemcard::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AF0C0, (const void *)&SCStart_React, "SCStart::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
+    {0x4AF0E0, (const void *)&SCLoad_React, "SCLoad::React", {0x81, 0x7C, 0x24, 0x08, 0x10, 0x72}},
     {0x4D93C0, (const void *)&UPO_Ctor, "UIPauseOptions::UIPauseOptions", {0x6A, 0xFF, 0x68, 0x28, 0x6E, 0x77}},
     {0x4D9470, (const void *)&UPO_Dtor, "UIPauseOptions::~UIPauseOptions", {0xC7, 0x01, 0x04, 0x65, 0x79, 0x00}},
     {0x4EB6B0, (const void *)&UPO_ScalarDtor, "UIPauseOptions scalar dtor", {0x56, 0x8B, 0xF1, 0xE8, 0xB8, 0xDD}},

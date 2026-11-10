@@ -18,6 +18,9 @@
 #include "frontend/IconScroller.h"
 #include "frontend/OptionsMain.h"
 #include "frontend/PauseMenu.h"
+#include "frontend/MainMenu.h"
+#include "frontend/QRModeSelect.h"
+#include "frontend/StartCareer.h"
 #include "frontend/FELocalize.h"
 #include "frontend/MenuScreen.h"
 #include "frontend/UIWidgetMenu.h"
@@ -3128,6 +3131,39 @@ static void TestPauseMenu()
     teststub::gameModeFlags = 0; CHECK(dialog(PMKind::QuitToFrontEnd) == 0x30ED2368u);
 }
 
+// Main menu / quick race mode / start career icons.
+static void TestMenuIcons()
+{
+    CHECK(FEngMapJoyParamToJoyport(1) == 0 && FEngMapJoyParamToJoyport(6) == 1 && FEngMapJoyParamToJoyport(4) == 2 &&
+          FEngMapJoyParamToJoyport(8) == 3 && FEngMapJoyParamToJoyport(0x10) == -1 && FEngMapJoyParamToJoyport(0) == -1);
+    CHECK(MMVTable(MMKind::QuickRace) == 0x790C30u && MMVTable(MMKind::SplitScreen) == 0x790C60u && MSVTable(MSKind::URL) == 0x79100Cu);
+    MMReact(MMKind::Online, nullptr, 0x0C407210u, 4);
+    CHECK(teststub::menuJoyPort == 2);
+    teststub::delivered.clear();
+    MMReact(MMKind::QuickRace, nullptr, 0x0C407210u, 0);   // (Options / CarSelect switch packages: need a sorter entry)
+    CHECK(teststub::gameModeFlags == 2 && std::string(teststub::delivered.back().kind) == "quickrace");
+    teststub::gameModeFlags = 0;
+    // race mode: players / opponents (drift-style mode 4 takes 5 opponents)
+    teststub::delivered.clear();
+    MSReact(MSKind::URL, 0x0C407210u);
+    CHECK(*bridge::GameInt(0x83AAB4) == 4 && teststub::quickRacePlayers == 1 && teststub::delivered.back().msg == 5);
+    MSReact(MSKind::Sprint, 0x0C407210u);
+    CHECK(*bridge::GameInt(0x83AAB4) == 1 && teststub::delivered.back().msg == 3);
+    teststub::gameModeFlags = 8;
+    MSReact(MSKind::Drag, 0x0C407210u);
+    CHECK(*bridge::GameInt(0x850088) == 2 && *bridge::GameInt(0x83AAB4) == 1);
+    teststub::gameModeFlags = 4;
+    MSReact(MSKind::Circuit, 0x0C407210u);
+    CHECK(teststub::quickRacePlayers == 2 && teststub::delivered.back().msg == 2);
+    teststub::gameModeFlags = 0; teststub::quickRacePlayers = 1;
+    MSReact(MSKind::FreeRun, 0x0C407210u);
+    CHECK(*reinterpret_cast<uint16_t *>(bridge::QR_CurrentTrackSettings()) == 4000);
+    teststub::delivered.clear();
+    SCReact(SCKind::Start, nullptr, 0x0C407210u, 3);
+    SCReact(SCKind::Load, nullptr, 0x0C407210u, 0);
+    CHECK(teststub::delivered.size() == 2 && teststub::delivered[0].msg == 3 && teststub::delivered[1].msg == 0xC11);
+}
+
 // TuningSlidersMenu: tip table, port masks, rows added per category (unavailable types skipped), notifications.
 static void TestTuningSlidersMenu()
 {
@@ -4246,6 +4282,7 @@ int main()
     TestIconScroller();
     TestOptionsMain();
     TestPauseMenu();
+    TestMenuIcons();
     TestScrollBarMouse();
     TestSliderWidget();
     TestToggleWidget();

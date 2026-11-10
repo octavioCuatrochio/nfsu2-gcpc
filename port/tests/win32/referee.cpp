@@ -64,6 +64,7 @@
 #include "frontend/UIPauseOptions.h"
 #include "frontend/IconScroller.h"
 #include "frontend/OptionsMain.h"
+#include "frontend/MainMenu.h"
 #define THISCALL __attribute__((thiscall))
 
 static std::mt19937 rng(12345);
@@ -3460,6 +3461,24 @@ static void CheckOptionsMain(int iters)
     *page = saved;
 }
 
+// FEngMapJoyParamToJoyport 50D2A0 and the active-pad mask 50CEE0.
+static void CheckMenuHelpers(int iters)
+{
+    auto oMap = ORIG<int32_t(__cdecl *)(uint32_t)>(0x50D2A0);
+    auto oSet = ORIG<void(__cdecl *)(int32_t, uint32_t)>(0x50CEE0);
+    uint32_t *mask = reinterpret_cast<uint32_t *>(0x838524);
+    const uint32_t saved = *mask;
+    for (int it = 0; it < iters; ++it) {
+        const uint32_t p = rng() % 3 ? rng() % 32 : rng();
+        EXPECT(oMap(p) == FEngMapJoyParamToJoyport(p), "FEngMapJoyParamToJoyport %x", p);
+        const uint32_t start = rng(), port = rng() % 40, on = rng() & 0x101;
+        *mask = start; oSet(static_cast<int32_t>(port), on); const uint32_t a = *mask;
+        *mask = start; FEngSetJoyPortActive(static_cast<int32_t>(port), (on & 0xFF) != 0);
+        EXPECT(a == *mask, "FEngSetJoyPortActive %u %x", port, on);
+    }
+    *mask = saved;
+}
+
 static void CheckDisplayOptions(int iters)
 {
     uint8_t sTab[24], sIdx[4], sDirty, sDetail[4];
@@ -4407,6 +4426,7 @@ static int RunAll()
     REFEREE_RUN(CheckPauseOptions(iters));
     REFEREE_RUN(CheckIconScroller(iters));
     REFEREE_RUN(CheckOptionsMain(iters));
+    REFEREE_RUN(CheckMenuHelpers(iters));
     REFEREE_RUN(CheckScrollBar(iters));
     REFEREE_RUN(CheckSliderWidget(iters));
     REFEREE_RUN(CheckToggleWidget(iters));

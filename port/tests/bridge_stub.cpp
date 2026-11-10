@@ -91,6 +91,7 @@ bool optionsDirty = false;
 int32_t raceType = 0;
 bool rcAltQuit = false, replayAvailable = false;
 uint32_t playerField50 = 0;
+int32_t menuJoyPort = 0;
 std::string firstScreen;
 int32_t quickRacePlayers = 1;
 bool autoSaveAllowed = false;
@@ -1054,6 +1055,35 @@ const char *FirstScreenAfterQuitRace() { return "AfterRace.fng"; }
 bool OnlineSessionActive() { return false; }
 bool PlayerExists(int32_t) { return true; }
 uint32_t PlayerField50(int32_t) { return teststub::playerField50; }
+// ---- UIMain ----
+void *UIMainVTable() { return &teststub::iconScrollerMenuVTable; }
+void SetGameModeFlags(int32_t f) { teststub::gameModeFlags = f; }
+void **PendingOnlineScreen() { static void *p; return &p; }
+void CreateOnlineLoginScreen(const char *) { teststub::delivered.push_back({"onlinelogin", nullptr, nullptr, 0, 0}); }
+void GarageShowPlayerCar() { teststub::delivered.push_back({"garagecar", nullptr, nullptr, 0, 0}); }
+void QuickRaceSettings_SetNumPlayers(int32_t n) { teststub::quickRacePlayers = n; }
+void QuickRace_Begin(const char *) { teststub::delivered.push_back({"quickrace", nullptr, nullptr, 0, 0}); }
+const char *CareerReturnScreen() { return "Career.fng"; }
+void SetOptionsReturnScreen(const char *) {}
+void OptionsDB_AllocBackup() { teststub::delivered.push_back({"allocbackup", nullptr, nullptr, 0, 0}); }
+void SetMenuJoyPort(int32_t p) { teststub::menuJoyPort = p; }
+// ---- UIQRModeSelect ----
+void *UIQRModeSelectVTable() { return &teststub::iconScrollerMenuVTable; }
+#ifdef NFSU2_REFEREE
+int32_t *GameInt(uint32_t a) { return reinterpret_cast<int32_t *>(static_cast<uintptr_t>(a)); }
+#else
+int32_t *GameInt(uint32_t a) { static int32_t ints[0x100]; return &ints[(a >> 2) & 0xFF]; }
+#endif
+uint8_t *QR_CurrentTrackSettings() { static uint8_t t[0x20]; return t; }
+void QR_SetNumOpponents(int32_t n) { teststub::delivered.push_back({"opponents", nullptr, nullptr, static_cast<uint32_t>(n), 0}); }
+void QR_5028D0() {}
+void QRManager_ChangeToNextScreen() { teststub::delivered.push_back({"qrnext", nullptr, nullptr, 0, 0}); }
+void QRManager_RestorePreviousStable() { teststub::delivered.push_back({"qrprev", nullptr, nullptr, 0, 0}); }
+// ---- UIStartCareer ----
+void *UIStartCareerVTable() { return &teststub::iconScrollerMenuVTable; }
+void StartCareerHelper(int32_t a) { teststub::delivered.push_back({"startcareer", nullptr, nullptr, static_cast<uint32_t>(a), 0}); }
+int32_t CareerSlot() { return 7; }
+void FEngPrintfString(const char *, uint32_t, const char *) {}
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return &teststub::fakeFont; }
 bool IsCareerFreeRoam() { return teststub::careerFreeRoam; }

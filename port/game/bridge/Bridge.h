@@ -473,6 +473,32 @@ const char *FirstScreenAfterQuitRace();          // PC 502FF0(0) (__thiscall on 
 bool OnlineSessionActive();
 bool PlayerExists(int32_t number);               // PC Player::pPlayersByNumber[n] (0x8900AC) != null
 uint32_t PlayerField50(int32_t number);          // PC Player::pPlayersByNumber[n] +0x50 (non-null player)                      // PC 5F0120 (__thiscall on 0x89CF48, AL)
+// ---- UIMain (main menu) ----
+void *UIMainVTable();                            // PC 0x797510
+void SetGameModeFlags(int32_t f);                // PC *(int*)0x850078 = f
+void **PendingOnlineScreen();                    // PC 0x836370: object built by 4EFFD0 (deleted by UIMain's ctor)
+void CreateOnlineLoginScreen(const char *pkg);   // PC 4EFFD0 (__cdecl): new 0x154 (ctor 4E3960) -> *0x836370
+void GarageShowPlayerCar();                      // PC UIMain ctor 4DF1B5..4DF28A: RideInfo (current ride or the
+                                                 //   "DDAY_PLAYER_CAR" preset) -> 0x8371B0 -> garage screen (stack 0x8FC)
+void QuickRaceSettings_SetNumPlayers(int32_t n); // PC 502930 (__thiscall on 0x83AAB4)
+void QuickRace_Begin(const char *pkg);           // PC MMQuickRace React 4FC050 body after the mode write (4EF1B0, IsBackdoor)
+const char *CareerReturnScreen();                // PC *(const char **)0x7F42C0
+void SetOptionsReturnScreen(const char *pkg);    // PC *(const char **)0x83635C = pkg
+void OptionsDB_AllocBackup();                    // PC 52A460(0) (__thiscall on 0x83A9D0)
+void SetMenuJoyPort(int32_t port);               // PC *(int*)0x83A9D8 = port
+// ---- UIQRModeSelect ----
+void *UIQRModeSelectVTable();                    // PC 0x797734
+int32_t *GameInt(uint32_t pcAddress);            // a PC global int by address (tests remap)
+uint8_t *QR_CurrentTrackSettings();              // PC 502910 (__thiscall on 0x83AAB4) GetCurrentTrackSettings
+void QR_SetNumOpponents(int32_t n);              // PC 502960 (__thiscall on 0x83AAB4)
+void QR_5028D0();                                // PC 5028D0 (__thiscall on 0x83AAB4) (PC LAN mode icon)
+void QRManager_ChangeToNextScreen();             // PC 4B29A0 (__thiscall on *0x836340)
+void QRManager_RestorePreviousStable();          // PC 4B2A00 (__thiscall on *0x836340)
+// ---- UIStartCareer ----
+void *UIStartCareerVTable();                     // PC 0x79752C
+void StartCareerHelper(int32_t arg);             // PC 495A30 (__cdecl)
+int32_t CareerSlot();                            // PC *(int*)0x836538 (StartCareerHelper argument after a load)
+void FEngPrintfString(const char *pkg, uint32_t objHash, const char *fmt);   // PC 537B80 (__cdecl varargs, no args)
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable();                    // PC 0x796504
 bool IsCareerFreeRoam();                         // PC 500B60 (__thiscall on 0x85AD40, AL) PlayerCareerState

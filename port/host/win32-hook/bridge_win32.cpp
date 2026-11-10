@@ -573,6 +573,56 @@ const char *FirstScreenAfterQuitRace() { return reinterpret_cast<const char *(TH
 bool PlayerExists(int32_t n) { return reinterpret_cast<void *const *>(0x8900AC)[n] != nullptr; }
 uint32_t PlayerField50(int32_t n) { return *reinterpret_cast<const uint32_t *>(reinterpret_cast<const uint8_t *const *>(0x8900AC)[n] + 0x50); }
 bool OnlineSessionActive() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x5F0120)(reinterpret_cast<void *>(0x89CF48)) != 0; }
+// ---- UIMain (main menu) ----
+void *UIMainVTable() { return reinterpret_cast<void *>(0x797510); }
+void SetGameModeFlags(int32_t f) { *reinterpret_cast<int32_t *>(0x850078) = f; }
+void **PendingOnlineScreen() { return reinterpret_cast<void **>(0x836370); }
+void CreateOnlineLoginScreen(const char *p) { reinterpret_cast<void(__cdecl *)(const char *)>(0x4EFFD0)(p); }
+void GarageShowPlayerCar()
+{
+    alignas(16) uint8_t ride[0x900];   // PC: RideInfo on the ctor's 16-aligned stack frame
+    reinterpret_cast<void(THISCALL *)(void *)>(0x5AC6E0)(ride + 0x10);
+    reinterpret_cast<void(THISCALL *)(void *, int32_t, int32_t, int32_t, int32_t)>(0x610270)(ride, -1, 0, 0, 0);
+    if (*reinterpret_cast<const uint8_t *>(0x86347D))
+        reinterpret_cast<void(THISCALL *)(void *, int32_t, void *, int32_t)>(0x515D00)(reinterpret_cast<void *>(0x83A9D0), 0, ride, 0);
+    else
+        reinterpret_cast<void(THISCALL *)(void *, uint32_t)>(0x637270)(ride, reinterpret_cast<uint32_t(__cdecl *)(const char *)>(0x43DB50)("DDAY_PLAYER_CAR"));
+    auto findScreen = [](const char *n) { return reinterpret_cast<uint8_t *(__cdecl *)(const char *)>(0x51BD10)(n); };
+    auto pushed = [](const char *n) { return reinterpret_cast<uint8_t(__cdecl *)(const char *)>(0x52CF60)(n) != 0; };
+    void *garage = nullptr;
+    if (pushed("GarageMain.fng")) garage = findScreen("GarageMain.fng");   // PC: the screen itself here...
+    else if (pushed("GarageMain_2P.fng")) { uint8_t *g = findScreen("GarageMain_2P.fng"); garage = g ? *reinterpret_cast<void **>(g + 0x4C) : nullptr; }   // ...its +0x4C here
+    reinterpret_cast<void(THISCALL *)(void *, void *)>(0x413440)(reinterpret_cast<void *>(0x8371B0), ride);
+    *reinterpret_cast<int32_t *>(0x83623C) = 2;
+    if (garage) reinterpret_cast<void(THISCALL *)(void *, void *, int32_t)>(0x4D8C70)(garage, reinterpret_cast<void *>(0x8371B0), 2);
+}
+void QuickRaceSettings_SetNumPlayers(int32_t n) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x502930)(reinterpret_cast<void *>(0x83AAB4), n); }
+void QuickRace_Begin(const char *pkg)
+{
+    if (*reinterpret_cast<void **>(0x836340)) return;
+    reinterpret_cast<void(__cdecl *)()>(0x4EF1B0)();
+    const char *next = *reinterpret_cast<const char *const *>(0x7F445C);
+    uint8_t *mgr = *reinterpret_cast<uint8_t **>(0x836340);
+    *reinterpret_cast<int32_t *>(mgr + 0xC) = reinterpret_cast<int32_t(THISCALL *)(void *, const char *)>(0x4B2960)(mgr, next);   // ScreenIndex, ret 4
+    reinterpret_cast<void(__cdecl *)(const char *, const char *, int32_t)>(0x537980)(pkg, next, 0);
+}
+const char *CareerReturnScreen() { return *reinterpret_cast<const char *const *>(0x7F42C0); }
+void SetOptionsReturnScreen(const char *p) { *reinterpret_cast<const char **>(0x83635C) = p; }
+void OptionsDB_AllocBackup() { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x52A460)(reinterpret_cast<void *>(0x83A9D0), 0); }
+void SetMenuJoyPort(int32_t p) { *reinterpret_cast<int32_t *>(0x83A9D8) = p; }
+// ---- UIQRModeSelect ----
+void *UIQRModeSelectVTable() { return reinterpret_cast<void *>(0x797734); }
+int32_t *GameInt(uint32_t a) { return reinterpret_cast<int32_t *>(static_cast<uintptr_t>(a)); }
+uint8_t *QR_CurrentTrackSettings() { return reinterpret_cast<uint8_t *(THISCALL *)(void *)>(0x502910)(reinterpret_cast<void *>(0x83AAB4)); }
+void QR_SetNumOpponents(int32_t n) { reinterpret_cast<void(THISCALL *)(void *, int32_t)>(0x502960)(reinterpret_cast<void *>(0x83AAB4), n); }
+void QR_5028D0() { reinterpret_cast<void(THISCALL *)(void *)>(0x5028D0)(reinterpret_cast<void *>(0x83AAB4)); }
+void QRManager_ChangeToNextScreen() { reinterpret_cast<void(THISCALL *)(void *)>(0x4B29A0)(*reinterpret_cast<void **>(0x836340)); }
+void QRManager_RestorePreviousStable() { reinterpret_cast<void(THISCALL *)(void *)>(0x4B2A00)(*reinterpret_cast<void **>(0x836340)); }
+// ---- UIStartCareer ----
+void *UIStartCareerVTable() { return reinterpret_cast<void *>(0x79752C); }
+void StartCareerHelper(int32_t a) { reinterpret_cast<void(__cdecl *)(int32_t)>(0x495A30)(a); }
+int32_t CareerSlot() { return *reinterpret_cast<const int32_t *>(0x836538); }
+void FEngPrintfString(const char *p, uint32_t h, const char *f) { reinterpret_cast<void(__cdecl *)(const char *, uint32_t, const char *, ...)>(0x537B80)(p, h, f); }
 // ---- UIPauseOptions ----
 void *UIPauseOptionsVTable() { return reinterpret_cast<void *>(0x796504); }
 bool IsCareerFreeRoam() { return reinterpret_cast<uint8_t(THISCALL *)(void *)>(0x500B60)(reinterpret_cast<void *>(0x85AD40)) != 0; }

@@ -76,6 +76,7 @@ extern bool optionsDirty;
 extern int32_t raceType;
 extern bool rcAltQuit, replayAvailable;
 extern uint32_t playerField50;
+extern int32_t menuJoyPort;
 extern std::string firstScreen;
 extern int32_t quickRacePlayers;
 extern bool autoSaveAllowed;

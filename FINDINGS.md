@@ -142,7 +142,14 @@ Addresses: GC = Speed.elf, PC = SPEED2.EXE v1.2. Per-function details also live 
   0x96DDA9E6 to pkg; texts pick by RaceCoordinator (*0x8900D8 [0] == 6 && [+0x24] == 4). NeedToSeeOptions 4A7BF0,
   QuitGame 4A7CF0, GetPauseMenuReplayIndex 4A7C40, QuitToCrib 4A7C70, QuitToWorldMap 4A7CC0 (both set first screen
   UI_CareerCrib.fng + unpause 6), PC OkToHandleInput 4A7BC0. Unpause codes: 1 resume race, 2 resume free roam, 3 restart,
-  4 (0x30F32A49), 6 quit. Next: other IconScrollerMenu screens (UIMain, UIQRModeSelect, PostRaceMenu, CarTunePauseScreen...).
+  4 (0x30F32A49), 6 quit.
+- MainMenu.cpp (UIMain 0x150, vtable 797510; MM* icons 790C30 + 8i), QRModeSelect.cpp (UIQRModeSelect 797734; MS* icons
+  790FD4 + 8i, _SetGameMode 4B2C00), StartCareer.cpp (UIStartCareer 0x154, vtable 79752C, ctor inlined into factory
+  4ED710; icons 790CB8/C0/C8) done, in-game A/B identical. UIMain ctor shows the player car (RideInfo on a 16-aligned
+  stack frame, bridged as GarageShowPlayerCar). QR manager *0x836340 methods are __thiscall (ScreenIndex 4B2960 ret 4,
+  ChangeToNextScreen 4B29A0, RestorePreviousStable 4B2A00). Mode icons: Circuit 0, Sprint 1, Drag 2, Drift 3, URL 4,
+  LAN 8, FreeRun 9, ShortTrack 0xA (online / LAN modes write *0x850088 instead of *0x83AAB4).
+  Next: UIProfileManager, UIDeleteProfile, UIMagazineSelect, uiCareerCrib, PostRaceMenu, QRCarSelectScreen.
 - cFEng game interface (vtable 79BCD8) slots done: 1 LoadResources, 2 UnloadResources, 7 NotifySoundMessage, 9 End-
   PackageRendering, 10 GenerateRenderContext, 12 RenderObjectList, 13 RenderObject, 15 GetViewTransformation, 18 Does-
   PointTouchObject, 20 OutputWarning (+ GetBaseName 50C250). cFEng +0x06 = rendering flag. cFEngRender: 64 contexts x 0xD0 from +0x20 (matrix +0x10, used byte +0xC0).
