@@ -82,7 +82,36 @@ of Electronic Arts Inc. The repository contains no game executables, assets or d
 must own a legitimate copy of the game; the project does not and will not include disc-check bypasses or piracy
 aids. The online features are not reimplemented.
 
+## Quick start (just run the rewritten code)
+You need your own copy of NFSU2 for PC, patched to **v1.2**.
+1. Install llvm-mingw (i686) and CMake ≥ 3.20 + Ninja (see *Prerequisites*).
+2. Build the DLL:
+   ```sh
+   cd port
+   cmake -B build-win32 -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/i686-w64-mingw32.cmake \
+         -DLLVM_MINGW=/path/to/llvm-mingw          # default /opt/llvm-mingw
+   cmake --build build-win32
+   ```
+3. Copy `port/build-win32/dinput8.dll` next to `SPEED2.EXE`.
+   - On Windows, run the game normally.
+   - Under Wine, launch it with `WINEDLLOVERRIDES="dinput8=n,b"` (see *Running the game*).
+4. `nfsu2port.log` appears next to the exe and lists the replaced functions. Set `NFSU2PORT_DISABLE=all` to run
+   the original code.
+
+The DLL checks the exe version and the original bytes before patching anything. With any other exe it does nothing.
+
+## Prerequisites
+| For | Tools |
+|---|---|
+| Hook DLL (`port/build-win32`) | [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) (i686 target), CMake ≥ 3.20, Ninja |
+| Native build + unit tests (`port/build-native`) | Clang or GCC with C++17, CMake, Ninja |
+| Referee / in-game tests on Linux | Wine (the scripts assume the default prefix `~/.wine`) |
+| Knowledge base / work packets | Python 3 (standard library only), `sqlite3` CLI (optional) |
+| Regenerating the decompilations | Ghidra 12.2 + Java 25+, the two patched extensions (`tooling/README.md`); set `GHIDRA=/path/to/ghidra_12.2_PUBLIC` |
+| GCC 2.95.3 PowerPC (optional, codegen experiments) | Docker; build it with `tooling/compiler/Dockerfile` (sources go in `tooling/compiler/src/`) |
+
 ## Setup (local inputs, not in the repo)
+Only needed to regenerate the decompilations. Supply them from your own copies:
 | Path | What |
 |---|---|
 | `Speed.elf` | GameCube build with symbols. Byte-identical to retail US `GUGE69` rev 0 `main.dol` (verified). GCC 2.95.3 (SN Systems), PowerPC. |
@@ -90,7 +119,7 @@ aids. The online features are not reimplemented.
 | `pc/SPEED2.EXE` | PC v1.2 exe (MSVC, x86), copied from the Wine install. No symbols. |
 | `ext/nfsu2-re/` | yugecin/nfsu2-re docs (PC reverse engineering notes; reference only, no license file). |
 
-## Ghidra projects (Ghidra 12.2, `~/Desktop/ghidra_12.2_PUBLIC`)
+## Ghidra projects (Ghidra 12.2, location from `$GHIDRA`)
 | Project | What |
 |---|---|
 | `NFSU2.gpr` | GameCube: GameCube CPU spec, DWARF1 debug info (EA libraries), GCC 2.x demangling, inferred class layouts, ABI fixes. |
@@ -127,8 +156,8 @@ VALUES ('field', 'PlayerCareerState+0x7148', 'name', 'eventPile', 'user');
 | `tooling/knowledge/decomp_metrics.py` | Readability metrics for a decompilation export. |
 | `tooling/knowledge/packet.py` | Work packet for rewriting a function/class: both decompilations, match, facts, callee status. |
 | `tooling/scripts/` | Ghidra scripts (exports, pipeline steps, GameCube project fixes). |
-| `tooling/extensions/` | Patched Ghidra extensions (DWARF1 analyzer, GameCube loader) with prebuilt zips. |
-| `tooling/compiler/` | GCC 2.95.3 powerpc-eabi cross compiler (same compiler family as the game). |
+| `tooling/extensions/` | Patches for the Ghidra extensions (DWARF1 analyzer, GameCube loader): clone upstream at the pinned commit, apply, build (`tooling/README.md`). |
+| `tooling/compiler/` | Dockerfile + wrappers for a GCC 2.95.3 powerpc-eabi cross compiler (same compiler family as the game; binaries not included). |
 | `tooling/rebuild.sh` | Rebuilds the GameCube project from `Speed.elf`. |
 
 Refresh after new knowledge: `build_db.py` → `match.py` → clean `pc_pipeline.sh` rebuild → re-export `pc_decomp/`.

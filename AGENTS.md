@@ -24,10 +24,9 @@ the current "next" targets live in `FINDINGS.md`.
   (`grep -E 'error|warning'`, `head`). Long jobs in background, don't poll. Don't re-read what you just wrote.
 
 ## Environment
-Ghidra 12.2 `~/Desktop/ghidra_12.2_PUBLIC` (patched DWARF1 + GameCube loader extensions installed; patches in
-`tooling/extensions/patches/`). Cross compiler `/opt/llvm-mingw` (i686). GCC 2.95.3 PPC `tooling/compiler/`.
-Game under Wine: `~/.wine/drive_c/Program Files (x86)/Need for Speed Underground 2/`. Dolphin + US disc image in
-`~/Downloads/`. nfsu2-re docs `ext/nfsu2-re/`.
+Ghidra 12.2 at `$GHIDRA` (default `~/Desktop/ghidra_12.2_PUBLIC`) (patched DWARF1 + GameCube loader extensions installed; patches in
+`tooling/extensions/patches/`). Cross compiler llvm-mingw (i686, `-DLLVM_MINGW=`, default `/opt/llvm-mingw`). GCC 2.95.3 PPC `tooling/compiler/`.
+Game under Wine: `~/.wine/drive_c/Program Files (x86)/Need for Speed Underground 2/`. Dolphin + your own US disc image (any path). nfsu2-re docs `ext/nfsu2-re/`.
 
 ## Rebuilding the decompilation (rarely needed)
 GC: `tooling/rebuild.sh`, export `gc_decomp/` with `tooling/scripts/ExportDecomp.java`. PC: clean rebuild
